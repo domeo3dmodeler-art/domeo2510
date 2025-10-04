@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест API загрузки фото</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button { padding: 10px 15px; margin: 5px; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; max-height: 300px; }
+        input { margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Тест API загрузки фото</h1>
+    
+    <div class="section">
+        <h3>1. Получить категории</h3>
+        <button onclick="loadCategories()">Загрузить категории</button>
+        <select id="categorySelect" onchange="loadProducts()">
+            <option value="">Выберите категорию</option>
+        </select>
+        <div id="categories-result"></div>
+    </div>
+    
+    <div class="section">
+        <h3>2. Получить товары</h3>
+        <div id="products-result"></div>
+    </div>
+    
+    <div class="section">
+        <h3>3. Тест загрузки фото</h3>
+        <input type="file" id="photoFile" accept="image/*" multiple>
+        <button onclick="testPhotoUpload()">Загрузить фото</button>
+        <div id="upload-result"></div>
+    </div>
+
+    <script>
+        let selectedCategoryId = null;
+        
+        async function loadCategories() {
+            const resultDiv = document.getElementById('categories-result');
+            const select = document.getElementById('categorySelect');
+            
+            resultDiv.innerHTML = '<div class="info">Загрузка категорий...</div>';
+            
+            try {
+                const response = await fetch('/api/catalog/categories');
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<div class="success">✅ Категории загружены: ${data.categories.length}</div>`;
+                    
+                    // Очищаем и заполняем select
+                    select.innerHTML = '<option value="">Выберите категорию</option>';
+                    data.categories.forEach(category => {
+                        const option = document.createElement('option');
+                        option.value = category.id;
+                        option.textContent = category.name;
+                        select.appendChild(option);
+                    });
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Ошибка: ${data.message}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Ошибка: ${error.message}</div>`;
+            }
+        }
+        
+        async function loadProducts() {
+            selectedCategoryId = document.getElementById('categorySelect').value;
+            
+            if (!selectedCategoryId) {
+                document.getElementById('products-result').innerHTML = '';
+                return;
+            }
+            
+            const resultDiv = document.getElementById('products-result');
+            resultDiv.innerHTML = '<div class="info">Загрузка товаров...</div>';
+            
+            try {
+                const response = await fetch(`/api/catalog/products?category=${selectedCategoryId}&limit=5`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    let html = `<div class="success">✅ Товары загружены: ${data.products.length}</div>`;
+                    
+                    data.products.forEach((product, index) => {
+                        const props = product.properties_data || {};
+                        const keys = Object.keys(props);
+                        const hasPhotos = props.photos ? `ДА (${props.photos.length})` : 'НЕТ';
+                        
+                        html += `
+                            <div style="margin: 10px 0; padding: 10px; border: 1px solid #ddd;">
+                                <strong>Товар ${index + 1}:</strong> ${product.name}<br>
+                                <strong>SKU:</strong> ${product.sku}<br>
+                                <strong>Фото:</strong> ${hasPhotos}<br>
+                                <strong>Свойства:</strong> ${keys.length} ключей
+                                ${keys.length > 0 ? `<br><strong>Примеры:</strong> ${keys.slice(0, 3).join(', ')}` : ''}
+                            </div>
+                        `;
+                    });
+                    
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Ошибка: ${data.message}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Ошибка: ${error.message}</div>`;
+            }
+        }
+        
+        async function testPhotoUpload() {
+            const fileInput = document.getElementById('photoFile');
+            const files = fileInput.files;
+            
+            if (files.length === 0) {
+                document.getElementById('upload-result').innerHTML = 
+                    '<div class="error">❌ Выберите файлы для загрузки</div>';
+                return;
+            }
+            
+            if (!selectedCategoryId) {
+                document.getElementById('upload-result').innerHTML = 
+                    '<div class="error">❌ Сначала выберите категорию</div>';
+                return;
+            }
+            
+            const resultDiv = document.getElementById('upload-result');
+            resultDiv.innerHTML = '<div class="info">Загрузка фото...</div>';
+            
+            try {
+                const formData = new FormData();
+                for (let i = 0; i < files.length; i++) {
+                    formData.append('photos', files[i]);
+                }
+                formData.append('category', selectedCategoryId);
+                formData.append('mapping_property', 'Артикул поставщика');
+                
+                console.log('Отправка данных:', {
+                    photos: files.length,
+                    category: selectedCategoryId,
+                    mapping_property: 'Артикул поставщика'
+                });
+                
+                const response = await fetch('/api/admin/import/photos', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response ok:', response.ok);
+                
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                if (data.success) {
+                    let html = `<div class="success">✅ ЗАГРУЗКА УСПЕШНА!</div>`;
+                    html += `<div><strong>Загружено:</strong> ${data.uploaded} файлов</div>`;
+                    html += `<div><strong>Привязано:</strong> ${data.linked} товаров</div>`;
+                    html += `<div><strong>Ошибок:</strong> ${data.errors}</div>`;
+                    
+                    if (data.details && data.details.length > 0) {
+                        html += `<div><strong>Детали:</strong></div>`;
+                        data.details.forEach((detail, index) => {
+                            html += `<div style="margin-left: 20px;">${index + 1}. ${detail.fileName}: ${detail.message}</div>`;
+                        });
+                    }
+                    
+                    html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    
+                    resultDiv.innerHTML = html;
+                    
+                    // Перезагружаем товары чтобы увидеть изменения
+                    setTimeout(() => loadProducts(), 2000);
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Ошибка: ${data.message}</div>`;
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                resultDiv.innerHTML = `<div class="error">❌ Ошибка: ${error.message}</div>`;
+            }
+        }
+        
+        // Автоматически загружаем категории при загрузке страницы
+        window.onload = function() {
+            loadCategories();
+        };
+    </script>
+</body>
+</html>
+
+
+
