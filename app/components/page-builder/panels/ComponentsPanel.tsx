@@ -19,7 +19,7 @@ interface ComponentItem {
   description: string;
 }
 
-// Упрощенный набор компонентов для конфигураторов товаров
+// Только рабочие компоненты с полной реализацией
 const componentCategories: ComponentCategory[] = [
   {
     id: 'essential',
@@ -60,9 +60,7 @@ const componentCategories: ComponentCategory[] = [
     components: [
       { id: 'contact', name: getBlockName('contact'), type: 'contact', icon: '📞', description: getBlockDescription('contact') },
       { id: 'accordion', name: getBlockName('accordion'), type: 'accordion', icon: '📋', description: getBlockDescription('accordion') },
-      { id: 'gallery', name: getBlockName('gallery'), type: 'gallery', icon: '🖼️', description: getBlockDescription('gallery') },
-      { id: 'testimonial', name: getBlockName('testimonial'), type: 'testimonial', icon: '💬', description: getBlockDescription('testimonial') },
-      { id: 'faq', name: getBlockName('faq'), type: 'faq', icon: '❓', description: getBlockDescription('faq') }
+      { id: 'gallery', name: getBlockName('gallery'), type: 'gallery', icon: '🖼️', description: getBlockDescription('gallery') }
     ]
   },
   {
@@ -71,8 +69,6 @@ const componentCategories: ComponentCategory[] = [
     icon: '🏗️',
     components: [
       { id: 'section', name: getBlockName('section'), type: 'section', icon: '📋', description: getBlockDescription('section') },
-      { id: 'row', name: getBlockName('row'), type: 'row', icon: '↔️', description: getBlockDescription('row') },
-      { id: 'column', name: getBlockName('column'), type: 'column', icon: '↕️', description: getBlockDescription('column') },
       { id: 'spacer', name: getBlockName('spacer'), type: 'spacer', icon: '↔️', description: getBlockDescription('spacer') }
     ]
   }

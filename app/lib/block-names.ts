@@ -86,31 +86,11 @@ export const BLOCK_NAMES: Record<string, BlockNameMapping> = {
     description: 'Галерея изображений с lightbox',
     category: 'Контентные блоки'
   },
-  testimonial: {
-    name: 'Отзыв',
-    description: 'Отзыв клиента',
-    category: 'Контентные блоки'
-  },
-  faq: {
-    name: 'FAQ',
-    description: 'Часто задаваемые вопросы',
-    category: 'Контентные блоки'
-  },
 
   // Структура страницы
   section: {
     name: 'Секция',
     description: 'Основная секция страницы',
-    category: 'Структура страницы'
-  },
-  row: {
-    name: 'Строка',
-    description: 'Горизонтальная строка элементов',
-    category: 'Структура страницы'
-  },
-  column: {
-    name: 'Колонка',
-    description: 'Вертикальная колонка элементов',
     category: 'Структура страницы'
   },
   spacer: {
@@ -119,22 +99,6 @@ export const BLOCK_NAMES: Record<string, BlockNameMapping> = {
     category: 'Структура страницы'
   },
 
-  // Дополнительные блоки
-  badge: {
-    name: 'Значок',
-    description: 'Декоративный значок или метка',
-    category: 'Дополнительные блоки'
-  },
-  divider: {
-    name: 'Разделитель',
-    description: 'Визуальный разделитель контента',
-    category: 'Дополнительные блоки'
-  },
-  card: {
-    name: 'Карточка',
-    description: 'Карточка с контентом',
-    category: 'Дополнительные блоки'
-  }
 };
 
 /**
