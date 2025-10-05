@@ -433,7 +433,19 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
   console.log('PropertyFilter: Рендер компонента с selectedValue:', selectedValue);
 
   return (
-    <div className="w-full h-full bg-white border border-gray-200 rounded-lg overflow-auto">
+    <div 
+      className="w-full h-full bg-white border border-gray-200 rounded-lg overflow-auto"
+      onClick={(e) => {
+        // Пропускаем событие клика вверх для обработки в ElementRenderer
+        console.log('🖱️ PropertyFilter: Клик по основному div, пропускаем событие вверх', {
+          target: e.target,
+          currentTarget: e.currentTarget,
+          ctrlKey: e.ctrlKey,
+          elementId: element.id
+        });
+        // НЕ вызываем stopPropagation, чтобы событие всплыло вверх к ElementRenderer
+      }}
+    >
       <div className="p-4">
         {/* Заголовок */}
         <div className="flex items-center justify-between mb-4">

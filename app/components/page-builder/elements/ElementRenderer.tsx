@@ -55,14 +55,22 @@ export function ElementRenderer({
 
   // Обработчик клика для выделения
   const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    
-    console.log('🖱️ ElementRenderer: handleClick вызван', {
+    console.log('🖱️ ElementRenderer: handleClick НАЧАЛО - событие получено!', {
       elementId: element.id,
       elementType: element.type,
       ctrlKey: e.ctrlKey,
+      target: e.target,
+      currentTarget: e.currentTarget,
       hasOnMultiSelect: !!onMultiSelect,
       hasOnSelect: !!onSelect
+    });
+    
+    e.stopPropagation();
+    
+    console.log('🖱️ ElementRenderer: handleClick ПРОДОЛЖЕНИЕ - после stopPropagation', {
+      elementId: element.id,
+      elementType: element.type,
+      ctrlKey: e.ctrlKey
     });
     
     if (e.ctrlKey) {
@@ -72,6 +80,8 @@ export function ElementRenderer({
       console.log('🖱️ ElementRenderer: Обычный клик - одиночное выделение');
       onSelect();
     }
+    
+    console.log('🖱️ ElementRenderer: handleClick КОНЕЦ');
   };
 
   // Обработчик двойного клика для редактирования
