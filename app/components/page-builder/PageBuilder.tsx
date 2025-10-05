@@ -277,9 +277,14 @@ export function PageBuilder() {
   }, [selectedElementId]);
 
   const handleSelectElements = useCallback((elementIds: string[]) => {
+    console.log('🚨 PageBuilder: handleSelectElements вызван!', {
+      elementIds,
+      previousSelectedElementIds: selectedElementIds,
+      elementsCount: elementIds.length
+    });
     setSelectedElementIds(elementIds);
     setSelectedElementId(null); // Сбрасываем одиночное выделение
-  }, []);
+  }, [selectedElementIds]);
 
   // Функции для работы с деревом элементов
   function updateElementInTree(elements: BaseElement[], elementId: string, updates: Partial<BaseElement>): BaseElement[] {

@@ -57,9 +57,19 @@ export function ElementRenderer({
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     
+    console.log('🖱️ ElementRenderer: handleClick вызван', {
+      elementId: element.id,
+      elementType: element.type,
+      ctrlKey: e.ctrlKey,
+      hasOnMultiSelect: !!onMultiSelect,
+      hasOnSelect: !!onSelect
+    });
+    
     if (e.ctrlKey) {
+      console.log('🖱️ ElementRenderer: Ctrl+click - множественное выделение');
       onMultiSelect(e);
     } else {
+      console.log('🖱️ ElementRenderer: Обычный клик - одиночное выделение');
       onSelect();
     }
   };

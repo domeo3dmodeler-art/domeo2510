@@ -16,7 +16,17 @@ export function ConnectionContextMenu({
   onClose, 
   position 
 }: ConnectionContextMenuProps) {
-  if (selectedElementIds.length < 2) return null;
+  console.log('🔗 ConnectionContextMenu: Рендер', {
+    selectedElementIds,
+    selectedElementIdsLength: selectedElementIds.length,
+    position,
+    hasOnCreateConnection: !!onCreateConnection
+  });
+  
+  if (selectedElementIds.length < 2) {
+    console.log('🔗 ConnectionContextMenu: Недостаточно элементов для создания связи');
+    return null;
+  }
 
   const connectionTypes = [
     {
@@ -49,6 +59,14 @@ export function ConnectionContextMenu({
     // Определяем источник и назначение в зависимости от направления
     const sourceElementId = direction === 'forward' ? selectedElementIds[0] : selectedElementIds[1];
     const targetElementId = direction === 'forward' ? selectedElementIds[1] : selectedElementIds[0];
+    
+    console.log('🔗 ConnectionContextMenu: handleCreateConnection вызван', {
+      connectionType,
+      direction,
+      sourceElementId,
+      targetElementId,
+      selectedElementIds
+    });
     
     onCreateConnection(sourceElementId, targetElementId, connectionType);
     onClose();

@@ -306,19 +306,34 @@ export function Canvas({
                     ? selectedElementIds.filter(id => id !== element.id)
                     : [...selectedElementIds, element.id];
                   
+                  console.log('🖱️ Canvas: onMultiSelect вызван', {
+                    elementId: element.id,
+                    currentSelection: selectedElementIds,
+                    newSelection,
+                    newSelectionLength: newSelection.length,
+                    clientX: e.clientX,
+                    clientY: e.clientY
+                  });
+                  
                   onSelectElements(newSelection);
                   
                   // Показываем контекстное меню, если выбрано 2 или более элементов
                   if (newSelection.length >= 2) {
+                    console.log('🖱️ Canvas: Показываем ConnectionContextMenu');
                     const rect = canvasRef.current?.getBoundingClientRect();
                     if (rect) {
-                      setConnectionMenuPosition({
+                      const position = {
                         x: e.clientX - rect.left, // Позиция относительно canvas
                         y: e.clientY - rect.top
-                      });
+                      };
+                      console.log('🖱️ Canvas: Позиция меню:', position);
+                      setConnectionMenuPosition(position);
                       setShowConnectionMenu(true);
+                    } else {
+                      console.log('🖱️ Canvas: Ошибка - не найден rect для canvas');
                     }
                   } else {
+                    console.log('🖱️ Canvas: Скрываем ConnectionContextMenu');
                     setShowConnectionMenu(false);
                   }
                 }}
