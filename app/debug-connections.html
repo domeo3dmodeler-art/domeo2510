@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отладка связей</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .status.warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Отладка связей между компонентами</h1>
+        
+        <div class="section">
+            <h3>📋 Инструкции</h3>
+            <ol>
+                <li>Откройте <a href="http://localhost:3000/professional-builder" target="_blank">конструктор страниц</a></li>
+                <li>Добавьте два блока "Фильтр свойств"</li>
+                <li>Настройте их (категория + свойство)</li>
+                <li>Создайте связь через Ctrl+клик</li>
+                <li>Выберите значение в первом блоке</li>
+                <li>Проверьте логи в консоли браузера</li>
+            </ol>
+        </div>
+
+        <div class="section">
+            <h3>🔧 Тестирование API</h3>
+            <button class="button" onclick="testUniqueValuesAPI()">Тест API уникальных значений</button>
+            <button class="button" onclick="testFilteredAPI()">Тест API фильтрации</button>
+            <button class="button" onclick="clearCache()">Очистить кэш</button>
+            <div id="api-results" class="log"></div>
+        </div>
+
+        <div class="section">
+            <h3>📊 Статус системы</h3>
+            <div id="system-status" class="status warning">
+                ⏳ Проверка системы...
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>📝 Логи отладки</h3>
+            <div id="debug-logs" class="log">Ожидание логов...</div>
+            <button class="button" onclick="clearLogs()">Очистить логи</button>
+        </div>
+    </div>
+
+    <script>
+        let logs = [];
+
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}`;
+            logs.push(logEntry);
+            
+            const logElement = document.getElementById('debug-logs');
+            logElement.textContent = logs.join('\n');
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function clearLogs() {
+            logs = [];
+            document.getElementById('debug-logs').textContent = 'Логи очищены';
+        }
+
+        async function testUniqueValuesAPI() {
+            addLog('Тестирование API уникальных значений...');
+            
+            try {
+                const response = await fetch('/api/catalog/properties/unique-values', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        categoryIds: ['cmg50xcgs001cv7mn0tdyk1wo'],
+                        propertyNames: ['Domeo_Стиль Web', 'Domeo_Название модели для Web']
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    addLog(`✅ API успешно: ${JSON.stringify(data, null, 2)}`);
+                    document.getElementById('api-results').textContent = JSON.stringify(data, null, 2);
+                } else {
+                    addLog(`❌ API ошибка: ${data.error || 'Неизвестная ошибка'}`, 'error');
+                }
+            } catch (error) {
+                addLog(`❌ Ошибка сети: ${error.message}`, 'error');
+            }
+        }
+
+        async function testFilteredAPI() {
+            addLog('Тестирование API фильтрации...');
+            
+            try {
+                const params = new URLSearchParams({
+                    categoryIds: 'cmg50xcgs001cv7mn0tdyk1wo',
+                    propertyName: 'Domeo_Название модели для Web',
+                    filters: JSON.stringify({ 'Domeo_Стиль Web': 'Современная' })
+                });
+
+                const response = await fetch(`/api/catalog/products/filtered?${params}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    addLog(`✅ API фильтрации успешно: ${JSON.stringify(data, null, 2)}`);
+                    document.getElementById('api-results').textContent = JSON.stringify(data, null, 2);
+                } else {
+                    addLog(`❌ API фильтрации ошибка: ${data.error || 'Неизвестная ошибка'}`, 'error');
+                }
+            } catch (error) {
+                addLog(`❌ Ошибка сети: ${error.message}`, 'error');
+            }
+        }
+
+        async function clearCache() {
+            addLog('Очистка кэша...');
+            
+            try {
+                const response = await fetch('/api/cache/clear', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    addLog('✅ Кэш очищен успешно');
+                } else {
+                    addLog(`❌ Ошибка очистки кэша: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                addLog(`❌ Ошибка сети: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkSystemStatus() {
+            const statusElement = document.getElementById('system-status');
+            
+            try {
+                // Проверяем доступность API
+                const response = await fetch('/api/catalog/properties', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ categoryIds: ['cmg50xcgs001cv7mn0tdyk1wo'] })
+                });
+
+                if (response.ok) {
+                    statusElement.className = 'status success';
+                    statusElement.innerHTML = '✅ Система работает корректно';
+                } else {
+                    statusElement.className = 'status error';
+                    statusElement.innerHTML = '❌ Проблемы с API';
+                }
+            } catch (error) {
+                statusElement.className = 'status error';
+                statusElement.innerHTML = '❌ Система недоступна';
+            }
+        }
+
+        // Запускаем проверку системы при загрузке
+        window.addEventListener('load', () => {
+            checkSystemStatus();
+            addLog('Страница отладки загружена');
+        });
+
+        // Слушаем сообщения из консоли (если возможно)
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            
+            const message = args.join(' ');
+            if (message.includes('🔗') || message.includes('PropertyFilter') || message.includes('connection')) {
+                addLog(message);
+            }
+        };
+    </script>
+</body>
+</html>
+

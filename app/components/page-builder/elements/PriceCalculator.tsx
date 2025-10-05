@@ -1,335 +1,203 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { BaseElement } from '../types';
-
-interface PriceOption {
-  id: string;
-  name: string;
-  price: number;
-  type: 'base' | 'addon' | 'discount';
-  required?: boolean;
-  selected?: boolean;
-  description?: string;
-}
 
 interface PriceCalculatorProps {
-  element: BaseElement;
-  onUpdate: (updates: Partial<BaseElement>) => void;
+  categoryIds?: string[];
+  basePrice?: number;
+  title?: string;
+  showDimensions?: boolean;
+  showStyle?: boolean;
 }
 
-export function PriceCalculator({ element, onUpdate }: PriceCalculatorProps) {
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, PriceOption>>({});
-  const [basePrice, setBasePrice] = useState(15000);
-  const [totalPrice, setTotalPrice] = useState(15000);
-  const [discount, setDiscount] = useState(0);
-  const [finalPrice, setFinalPrice] = useState(15000);
+export function PriceCalculator({ 
+  categoryIds = [], 
+  basePrice = 15000,
+  title = "Калькулятор цен",
+  showDimensions = true,
+  showStyle = true
+}: PriceCalculatorProps) {
+  const [dimensions, setDimensions] = useState({
+    width: 800,
+    height: 2000
+  });
+  const [style, setStyle] = useState('modern');
+  const [material, setMaterial] = useState('wood');
+  const [finish, setFinish] = useState('matte');
+  const [calculatedPrice, setCalculatedPrice] = useState(basePrice);
 
-  // Опции для калькулятора
-  const priceOptions: PriceOption[] = [
-    {
-      id: 'base_door',
-      name: 'Базовая дверь',
-      price: 15000,
-      type: 'base',
-      required: true,
-      description: 'Стандартная межкомнатная дверь'
-    },
-    {
-      id: 'material_upgrade',
-      name: 'Массив дерева',
-      price: 8000,
-      type: 'addon',
-      description: 'Улучшенный материал'
-    },
-    {
-      id: 'glass_insert',
-      name: 'Стеклянная вставка',
-      price: 3000,
-      type: 'addon',
-      description: 'Декоративная стеклянная вставка'
-    },
-    {
-      id: 'hardware_set',
-      name: 'Комплект фурнитуры',
-      price: 4500,
-      type: 'addon',
-      description: 'Ручки, петли, замок'
-    },
-    {
-      id: 'sound_insulation',
-      name: 'Звукоизоляция',
-      price: 2500,
-      type: 'addon',
-      description: 'Улучшенная звукоизоляция'
-    },
-    {
-      id: 'custom_size',
-      name: 'Нестандартный размер',
-      price: 2000,
-      type: 'addon',
-      description: 'Изготовление под размер'
-    },
-    {
-      id: 'express_delivery',
-      name: 'Экспресс доставка',
-      price: 1500,
-      type: 'addon',
-      description: 'Доставка в течение 3 дней'
-    },
-    {
-      id: 'bulk_discount',
-      name: 'Оптовая скидка',
-      price: -2000,
-      type: 'discount',
-      description: 'При заказе от 3 штук'
-    }
+  const styles = [
+    { value: 'modern', label: 'Современный', multiplier: 1.0 },
+    { value: 'classic', label: 'Классический', multiplier: 1.2 },
+    { value: 'minimalist', label: 'Минимализм', multiplier: 0.9 },
+    { value: 'luxury', label: 'Люкс', multiplier: 1.5 }
   ];
 
-  // Инициализация базовой опции
+  const materials = [
+    { value: 'wood', label: 'Дерево', multiplier: 1.0 },
+    { value: 'mdf', label: 'МДФ', multiplier: 0.7 },
+    { value: 'glass', label: 'Стекло', multiplier: 1.3 },
+    { value: 'metal', label: 'Металл', multiplier: 1.4 }
+  ];
+
+  const finishes = [
+    { value: 'matte', label: 'Матовый', multiplier: 1.0 },
+    { value: 'glossy', label: 'Глянцевый', multiplier: 1.1 },
+    { value: 'textured', label: 'Текстурированный', multiplier: 1.05 }
+  ];
+
+  const calculatePrice = () => {
+    const area = (dimensions.width * dimensions.height) / 1000000; // в м²
+    
+    const styleMultiplier = styles.find(s => s.value === style)?.multiplier || 1.0;
+    const materialMultiplier = materials.find(m => m.value === material)?.multiplier || 1.0;
+    const finishMultiplier = finishes.find(f => f.value === finish)?.multiplier || 1.0;
+    
+    const totalMultiplier = styleMultiplier * materialMultiplier * finishMultiplier;
+    const calculated = Math.round(basePrice * area * totalMultiplier);
+    
+    setCalculatedPrice(calculated);
+  };
+
   useEffect(() => {
-    const baseOption = priceOptions.find(opt => opt.type === 'base');
-    if (baseOption) {
-      setSelectedOptions({ [baseOption.id]: baseOption });
-      setBasePrice(baseOption.price);
-    }
-  }, []);
-
-  // Пересчет цены при изменении опций
-  useEffect(() => {
-    let total = 0;
-    let discountAmount = 0;
-
-    Object.values(selectedOptions).forEach(option => {
-      if (option.type === 'discount') {
-        discountAmount += Math.abs(option.price);
-      } else {
-        total += option.price;
-      }
-    });
-
-    setTotalPrice(total);
-    setDiscount(discountAmount);
-    setFinalPrice(Math.max(0, total - discountAmount));
-  }, [selectedOptions]);
-
-  const toggleOption = (option: PriceOption) => {
-    setSelectedOptions(prev => {
-      const newOptions = { ...prev };
-      
-      if (option.type === 'base') {
-        // Базовая опция всегда должна быть выбрана
-        return newOptions;
-      }
-      
-      if (newOptions[option.id]) {
-        delete newOptions[option.id];
-      } else {
-        newOptions[option.id] = { ...option, selected: true };
-      }
-      
-      return newOptions;
-    });
-  };
-
-  const resetCalculator = () => {
-    const baseOption = priceOptions.find(opt => opt.type === 'base');
-    if (baseOption) {
-      setSelectedOptions({ [baseOption.id]: baseOption });
-    }
-  };
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ru-RU').format(price);
-  };
+    calculatePrice();
+  }, [dimensions, style, material, finish, basePrice]);
 
   return (
-    <div className="w-full h-full p-4">
-      <div className="max-w-6xl mx-auto h-full flex flex-col">
-        {/* Компактный заголовок */}
-        <div className="mb-4">
-          <h2 className="text-xl font-bold text-gray-900">
-            {element.props.title || 'Калькулятор цены'}
-          </h2>
+    <div className="bg-white p-6 rounded-lg shadow-sm border">
+      <h2 className="text-xl font-semibold mb-6">{title}</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Параметры */}
+        <div className="space-y-4">
+          {showDimensions && (
+            <div className="space-y-4">
+              <h3 className="font-medium text-gray-900">Размеры</h3>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Ширина (мм)
+                </label>
+                <input
+                  type="number"
+                  value={dimensions.width}
+                  onChange={(e) => setDimensions(prev => ({ ...prev, width: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  min="400"
+                  max="1200"
+                  step="50"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Высота (мм)
+                </label>
+                <input
+                  type="number"
+                  value={dimensions.height}
+                  onChange={(e) => setDimensions(prev => ({ ...prev, height: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  min="1800"
+                  max="2200"
+                  step="50"
+                />
+              </div>
+            </div>
+          )}
+
+          {showStyle && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Стиль
+              </label>
+              <select
+                value={style}
+                onChange={(e) => setStyle(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {styles.map(s => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Материал
+            </label>
+            <select
+              value={material}
+              onChange={(e) => setMaterial(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {materials.map(m => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Покрытие
+            </label>
+            <select
+              value={finish}
+              onChange={(e) => setFinish(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {finishes.map(f => (
+                <option key={f.value} value={f.value}>{f.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 overflow-hidden">
-          {/* Левая колонка - Опции */}
-          <div className="lg:col-span-2 overflow-y-auto">
-            <div className="space-y-4">
-              {/* Базовая цена */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <h3 className="text-sm font-semibold text-blue-900 mb-3">Базовая комплектация</h3>
-                <div className="space-y-3">
-                  {priceOptions.filter(opt => opt.type === 'base').map(option => (
-                    <label key={option.id} className="flex items-center justify-between p-2 bg-white rounded border border-blue-200">
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={true}
-                          disabled={true}
-                          className="mr-2 text-blue-600"
-                        />
-                        <div>
-                          <div className="font-medium text-sm text-blue-900">{option.name}</div>
-                          <div className="text-xs text-blue-700">{option.description}</div>
-                        </div>
-                      </div>
-                      <div className="text-sm font-bold text-blue-600">
-                        {formatPrice(option.price)} ₽
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Дополнительные опции */}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Дополнительные опции</h3>
-                <div className="grid grid-cols-1 gap-2">
-                  {priceOptions.filter(opt => opt.type === 'addon').map(option => (
-                    <label
-                      key={option.id}
-                      className={`flex items-center justify-between p-3 rounded border cursor-pointer transition-all ${
-                        selectedOptions[option.id]
-                          ? 'border-green-500 bg-green-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={!!selectedOptions[option.id]}
-                          onChange={() => toggleOption(option)}
-                          className="mr-2"
-                        />
-                        <div>
-                          <div className="font-medium text-sm">{option.name}</div>
-                          <div className="text-xs text-gray-600">{option.description}</div>
-                        </div>
-                      </div>
-                      <div className={`text-sm font-bold ${
-                        selectedOptions[option.id] ? 'text-green-600' : 'text-gray-600'
-                      }`}>
-                        +{formatPrice(option.price)} ₽
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Скидки */}
-              {priceOptions.filter(opt => opt.type === 'discount').length > 0 && (
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Скидки</h3>
-                  <div className="space-y-3">
-                    {priceOptions.filter(opt => opt.type === 'discount').map(option => (
-                      <label
-                        key={option.id}
-                        className={`flex items-center justify-between p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                          selectedOptions[option.id]
-                            ? 'border-red-500 bg-red-50'
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        <div className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={!!selectedOptions[option.id]}
-                            onChange={() => toggleOption(option)}
-                            className="mr-3"
-                          />
-                          <div>
-                            <div className="font-medium">{option.name}</div>
-                            <div className="text-sm text-gray-600">{option.description}</div>
-                          </div>
-                        </div>
-                        <div className={`text-lg font-bold ${
-                          selectedOptions[option.id] ? 'text-red-600' : 'text-gray-600'
-                        }`}>
-                          {formatPrice(option.price)} ₽
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
+        {/* Результат */}
+        <div className="bg-gray-50 p-6 rounded-lg">
+          <h3 className="font-medium text-gray-900 mb-4">Расчет стоимости</h3>
+          
+          <div className="space-y-3 mb-6">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Площадь:</span>
+              <span className="font-medium">
+                {((dimensions.width * dimensions.height) / 1000000).toFixed(2)} м²
+              </span>
+            </div>
+            
+            <div className="flex justify-between">
+              <span className="text-gray-600">Базовая цена за м²:</span>
+              <span className="font-medium">{basePrice.toLocaleString()} ₽</span>
+            </div>
+            
+            <div className="flex justify-between">
+              <span className="text-gray-600">Стиль:</span>
+              <span className="font-medium">
+                {styles.find(s => s.value === style)?.label}
+              </span>
+            </div>
+            
+            <div className="flex justify-between">
+              <span className="text-gray-600">Материал:</span>
+              <span className="font-medium">
+                {materials.find(m => m.value === material)?.label}
+              </span>
             </div>
           </div>
-
-          {/* Правая колонка - Итоговая цена */}
-          <div className="lg:col-span-1">
-            <div className="h-full">
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 h-full flex flex-col">
-                <h3 className="text-sm font-semibold text-gray-900 mb-4">Итоговая цена</h3>
-                
-                {/* Базовая цена */}
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-gray-600">Базовая цена:</span>
-                  <span className="font-medium text-sm">{formatPrice(basePrice)} ₽</span>
-                </div>
-
-                {/* Дополнительные опции */}
-                {Object.values(selectedOptions).filter(opt => opt.type === 'addon').length > 0 && (
-                  <div className="mb-3">
-                    <div className="text-sm text-gray-600 mb-2">Дополнительные опции:</div>
-                    {Object.values(selectedOptions).filter(opt => opt.type === 'addon').map(option => (
-                      <div key={option.id} className="flex justify-between items-center text-sm mb-1">
-                        <span className="text-gray-600">{option.name}:</span>
-                        <span className="font-medium text-green-600">+{formatPrice(option.price)} ₽</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Скидки */}
-                {Object.values(selectedOptions).filter(opt => opt.type === 'discount').length > 0 && (
-                  <div className="mb-3">
-                    <div className="text-sm text-gray-600 mb-2">Скидки:</div>
-                    {Object.values(selectedOptions).filter(opt => opt.type === 'discount').map(option => (
-                      <div key={option.id} className="flex justify-between items-center text-sm mb-1">
-                        <span className="text-gray-600">{option.name}:</span>
-                        <span className="font-medium text-red-600">{formatPrice(option.price)} ₽</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <hr className="my-4" />
-
-                {/* Итого */}
-                <div className="flex justify-between items-center mb-4 p-3 bg-white rounded border">
-                  <span className="text-sm font-semibold text-gray-900">Итого:</span>
-                  <span className="text-xl font-bold text-blue-600">{formatPrice(finalPrice)} ₽</span>
-                </div>
-
-                {/* Кнопки действий */}
-                <div className="space-y-2 mt-auto">
-                  <button className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium text-sm">
-                    Добавить в корзину
-                  </button>
-                  <button className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 text-sm">
-                    Сохранить
-                  </button>
-                  <button
-                    onClick={resetCalculator}
-                    className="w-full px-4 py-2 text-gray-600 hover:text-gray-800 text-xs"
-                  >
-                    Сбросить
-                  </button>
-                </div>
-
-                {/* Дополнительная информация */}
-                <div className="mt-6 pt-4 border-t border-gray-200">
-                  <div className="text-xs text-gray-500 space-y-1">
-                    <div>• Цена указана без учета доставки</div>
-                    <div>• Возможны индивидуальные скидки</div>
-                    <div>• Срок изготовления: 7-14 дней</div>
-                  </div>
-                </div>
-              </div>
+          
+          <div className="border-t pt-4">
+            <div className="flex justify-between items-center">
+              <span className="text-lg font-semibold text-gray-900">Итого:</span>
+              <span className="text-2xl font-bold text-blue-600">
+                {calculatedPrice.toLocaleString()} ₽
+              </span>
             </div>
           </div>
+          
+          <button className="w-full mt-4 bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+            Заказать
+          </button>
         </div>
       </div>
     </div>

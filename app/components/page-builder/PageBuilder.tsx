@@ -7,6 +7,7 @@ import { ComponentsPanel } from './panels/ComponentsPanel';
 import { PropertiesPanel } from './panels/PropertiesPanel';
 import { PagesPanel } from './panels/PagesPanel';
 import { CatalogTreePanel } from './panels/CatalogTreePanel';
+import { SavePublishPanel } from './panels/SavePublishPanel';
 import { TemplateSelector } from './templates/TemplateSelector';
 import { useHistory } from './hooks/useHistory';
 import { DocumentProvider } from './context/DocumentContext';
@@ -24,8 +25,8 @@ const initialDocument: DocumentData = {
       slug: 'main',
       elements: [],
       settings: {
-        width: 1200,
-        height: 800,
+        width: 1440,
+        height: 900,
         backgroundColor: '#ffffff',
         padding: { top: 0, right: 0, bottom: 0, left: 0 },
         margin: { top: 0, right: 0, bottom: 0, left: 0 }
@@ -122,13 +123,17 @@ export function PageBuilder() {
   const [currentDocument, setCurrentDocument] = useState<DocumentData>(initialDocument);
   const [selectedPageId, setSelectedPageId] = useState<string>('page-1');
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [selectedElementIds, setSelectedElementIds] = useState<string[]>([]); // Множественное выделение
   const [zoom, setZoom] = useState<number>(100);
   const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
   const [showComponentsPanel, setShowComponentsPanel] = useState<boolean>(true);
   const [showPropertiesPanel, setShowPropertiesPanel] = useState<boolean>(true);
-  const [showPagesPanel, setShowPagesPanel] = useState<boolean>(true);
+  const [showPagesPanel, setShowPagesPanel] = useState<boolean>(false); // По умолчанию скрыта
   const [showCatalogPanel, setShowCatalogPanel] = useState<boolean>(false);
+  const [showSavePanel, setShowSavePanel] = useState<boolean>(false);
   const [showTemplateSelector, setShowTemplateSelector] = useState<boolean>(false);
+  const [savedPages, setSavedPages] = useState<any[]>([]);
+  const [loadingPages, setLoadingPages] = useState(false);
 
   const {
     history,
@@ -144,6 +149,14 @@ export function PageBuilder() {
   const selectedElement = selectedElementId 
     ? findElementById((selectedPage?.elements as BaseElement[]) || [], selectedElementId)
     : null;
+
+  console.log('🚨 PageBuilder: Состояние выбора элементов', {
+    selectedElementId,
+    selectedElementIds,
+    selectedElement: selectedElement ? { id: selectedElement.id, type: selectedElement.type } : null,
+    selectedPageId,
+    selectedPageElements: selectedPage?.elements?.length || 0
+  });
 
   // Функция для поиска элемента по ID
   function findElementById(elements: BaseElement[], id: string): BaseElement | null {
@@ -205,6 +218,12 @@ export function PageBuilder() {
   const handleUpdateElement = useCallback((elementId: string, updates: Partial<BaseElement>) => {
     if (!selectedPage) return;
 
+    console.log('🚨 PageBuilder: handleUpdateElement вызван!', {
+      elementId,
+      updates,
+      selectedPageId
+    });
+
     const updatedDocument = {
       ...currentDocument,
       pages: currentDocument.pages.map(page =>
@@ -217,6 +236,11 @@ export function PageBuilder() {
       ),
       updatedAt: new Date().toISOString()
     };
+
+    console.log('🚨 PageBuilder: Документ обновлен!', {
+      elementId,
+      updatedElement: updatedDocument.pages.find(p => p.id === selectedPageId)?.elements.find(e => e.id === elementId)
+    });
 
     setCurrentDocument(updatedDocument);
     addToHistory(updatedDocument);
@@ -244,14 +268,53 @@ export function PageBuilder() {
   }, [currentDocument, selectedPageId, addToHistory]);
 
   const handleSelectElement = useCallback((elementId: string | null) => {
+    console.log('🚨 PageBuilder: handleSelectElement вызван!', {
+      elementId,
+      previousSelectedElementId: selectedElementId
+    });
     setSelectedElementId(elementId);
+    setSelectedElementIds([]); // Сбрасываем множественное выделение
+  }, [selectedElementId]);
+
+  const handleSelectElements = useCallback((elementIds: string[]) => {
+    setSelectedElementIds(elementIds);
+    setSelectedElementId(null); // Сбрасываем одиночное выделение
   }, []);
 
   // Функции для работы с деревом элементов
   function updateElementInTree(elements: BaseElement[], elementId: string, updates: Partial<BaseElement>): BaseElement[] {
+    console.log('🚨 updateElementInTree: Обновляем элемент', {
+      elementId,
+      updates,
+      updatesProps: updates.props,
+      elementsCount: elements.length
+    });
+    
     return elements.map(element => {
       if (element.id === elementId) {
-        return { ...element, ...updates };
+        console.log('🚨 updateElementInTree: НАЙДЕН ЭЛЕМЕНТ!', {
+          elementId,
+          currentProps: element.props,
+          updatesProps: updates.props,
+          updatesPropsPropertyName: updates.props?.propertyName
+        });
+        
+        // ИСПРАВЛЕНИЕ: Правильно мержим props
+        const updatedElement = { 
+          ...element, 
+          ...updates,
+          props: {
+            ...element.props,
+            ...(updates.props || {})
+          }
+        };
+        console.log('🚨 updateElementInTree: Элемент найден и обновлен', {
+          elementId,
+          oldProps: element.props,
+          newProps: updatedElement.props,
+          propertyName: updatedElement.props.propertyName
+        });
+        return updatedElement;
       }
         if (element.type === 'container' && 'children' in element) {
           return {
@@ -314,6 +377,30 @@ export function PageBuilder() {
   const handleViewModeChange = useCallback((mode: 'edit' | 'preview') => {
     setViewMode(mode);
   }, []);
+
+  const handlePageSizeChange = useCallback((width: number, height: number) => {
+    if (!selectedPage) return;
+
+    const updatedDocument = {
+      ...currentDocument,
+      pages: currentDocument.pages.map(page =>
+        page.id === selectedPageId
+          ? {
+              ...page,
+              settings: {
+                ...page.settings,
+                width: width,
+                height: height
+              }
+            }
+          : page
+      ),
+      updatedAt: new Date().toISOString()
+    };
+
+    setCurrentDocument(updatedDocument);
+    addToHistory(updatedDocument);
+  }, [currentDocument, selectedPageId, addToHistory]);
 
   const handleSave = useCallback(() => {
     // TODO: Реализовать сохранение проекта
@@ -525,6 +612,160 @@ export function PageBuilder() {
     addToHistory(updatedDocument);
   }, [currentDocument, addToHistory]);
 
+  // Функция для обработки данных связей
+  const handleConnectionData = useCallback((sourceElementId: string, data: any) => {
+    console.log('🔗 handleConnectionData вызвана:', { sourceElementId, data });
+    console.log('🔗 Все связи в документе:', currentDocument.connections);
+    
+    // Находим все активные связи, где данный элемент является ИСТОЧНИКОМ данных
+    const outgoingConnections = (currentDocument.connections || []).filter(conn => {
+      const matches = conn.sourceElementId === sourceElementId && conn.isActive;
+      console.log('🔗 Проверка ИСХОДЯЩЕЙ связи:', {
+        connectionId: conn.id,
+        sourceElementId: conn.sourceElementId,
+        targetElementId: conn.targetElementId,
+        isActive: conn.isActive,
+        lookingFor: sourceElementId,
+        matches,
+        sourceElementIdType: typeof conn.sourceElementId,
+        lookingForType: typeof sourceElementId,
+        strictEquals: conn.sourceElementId === sourceElementId,
+        looseEquals: conn.sourceElementId == sourceElementId
+      });
+      return matches;
+    });
+
+    console.log('🔗 Найдены исходящие связи:', outgoingConnections);
+
+    // Обновляем целевые элементы
+    outgoingConnections.forEach(connection => {
+      const targetElement = findElementById((selectedPage?.elements as BaseElement[]) || [], connection.targetElementId);
+      
+      console.log('🔗 Обрабатываем связь:', { 
+        connection, 
+        targetElement: targetElement ? { id: targetElement.id, type: targetElement.type } : null 
+      });
+      
+      if (targetElement) {
+        // Обновляем элемент в зависимости от типа связи
+        switch (connection.connectionType) {
+          case 'filter':
+            // Синхронизация фильтров
+            console.log('🔍 Синхронизация фильтров:', { 
+              sourceElementId, 
+              targetElementId: connection.targetElementId, 
+              data,
+              targetElementType: targetElement.type 
+            });
+            
+            // Если целевой элемент - PropertyFilter, обновляем его фильтры
+            if (targetElement.type === 'propertyFilter') {
+              // Передаем фильтр по свойству товара
+              const propertyName = data.propertyName;
+              const propertyValue = data.value || data;
+              
+              console.log('🔍 Обновляем PropertyFilter фильтр:', { 
+                propertyName, 
+                propertyValue,
+                targetElementId: connection.targetElementId,
+                data 
+              });
+              
+              // Обновляем целевой элемент с новыми фильтрами
+              const updates: Partial<BaseElement> = {
+                props: {
+                  ...targetElement.props,
+                  filters: {
+                    propertyName: propertyName,
+                    propertyValue: propertyValue,
+                    categoryIds: data.categoryIds
+                  }
+                }
+              };
+              
+              console.log('🔍 Применяем обновления к PropertyFilter:', updates);
+              handleUpdateElement(connection.targetElementId, updates);
+            }
+            // Для других типов элементов передаем через filters
+            else if (connection.targetProperty === 'filters') {
+              const updates: Partial<BaseElement> = {
+                props: {
+                  ...targetElement.props,
+                  filters: { ...targetElement.props.filters, [connection.sourceProperty]: data }
+                }
+              };
+              handleUpdateElement(connection.targetElementId, updates);
+            }
+            break;
+          case 'cart':
+            // Добавление в корзину
+            console.log('🛒 Добавление в корзину:', data);
+            break;
+          case 'navigate':
+            // Навигация
+            console.log('🧭 Навигация:', data);
+            break;
+        }
+      } else {
+        console.error('❌ Целевой элемент не найден:', connection.targetElementId);
+      }
+    });
+  }, [currentDocument.connections, selectedPage?.elements, handleUpdateElement]);
+
+  // Функция для создания новой связи
+  const handleCreateConnection = useCallback((sourceElementId: string, targetElementId: string, connectionType: BlockConnection['connectionType']) => {
+    console.log('🔗 Создание связи:', { sourceElementId, targetElementId, connectionType });
+    
+    const newConnection: BlockConnection = {
+      id: `connection-${Date.now()}`,
+      sourceElementId,
+      targetElementId,
+      connectionType,
+      isActive: true,
+      description: `Связь ${connectionType} между элементами`
+    };
+
+    console.log('🔗 Новая связь:', newConnection);
+    console.log('🔗 Проверка ID элементов:', {
+      sourceElementExists: selectedPage?.elements?.find(el => el.id === sourceElementId) ? 'ДА' : 'НЕТ',
+      targetElementExists: selectedPage?.elements?.find(el => el.id === targetElementId) ? 'ДА' : 'НЕТ',
+      allElementIds: selectedPage?.elements?.map(el => el.id),
+      sourceElementId,
+      targetElementId
+    });
+
+    const updatedDocument = {
+      ...currentDocument,
+      connections: [...(currentDocument.connections || []), newConnection],
+      updatedAt: new Date().toISOString()
+    };
+
+    console.log('🔗 Обновленный документ:', {
+      connectionsCount: updatedDocument.connections.length,
+      connections: updatedDocument.connections
+    });
+
+    setCurrentDocument(updatedDocument);
+    addToHistory(updatedDocument);
+    
+    // Сбрасываем множественное выделение
+    setSelectedElementIds([]);
+  }, [currentDocument, addToHistory]);
+
+  // Функция для поиска элемента по ID
+  function findElementById(elements: BaseElement[], id: string): BaseElement | null {
+    for (const element of elements) {
+      if (element.id === id) {
+        return element;
+      }
+      if (element.type === 'container' && 'children' in element) {
+        const found = findElementById(element.children as BaseElement[], id);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
   const handleDuplicatePage = useCallback((pageId: string) => {
     const pageToDuplicate = currentDocument.pages.find(page => page.id === pageId);
     if (!pageToDuplicate) return;
@@ -565,6 +806,130 @@ export function PageBuilder() {
     addToHistory(updatedDocument);
   }, [currentDocument, addToHistory]);
 
+  // Загрузка сохраненных страниц
+  const loadSavedPages = useCallback(async () => {
+    setLoadingPages(true);
+    try {
+      const response = await fetch('/api/pages/simple-create');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setSavedPages(data.pages);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading saved pages:', error);
+    } finally {
+      setLoadingPages(false);
+    }
+  }, []);
+
+  // Сохранение страницы
+  const handleSavePage = useCallback(async (title: string, description: string) => {
+    const currentPage = currentDocument.pages.find(p => p.id === selectedPageId);
+    if (!currentPage) throw new Error('Страница не найдена');
+
+    const response = await fetch('/api/pages/simple-create', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title,
+        description,
+        elements: currentPage.elements.map(element => ({
+          type: element.type,
+          props: element.props,
+          position: element.position,
+          size: element.size,
+          zIndex: element.zIndex,
+          parentId: element.parentId
+        })),
+        isPublished: false
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Ошибка сохранения');
+    }
+
+    const data = await response.json();
+    if (data.success) {
+      await loadSavedPages(); // Обновляем список страниц
+    }
+  }, [currentDocument, selectedPageId, loadSavedPages]);
+
+  // Публикация страницы
+  const handlePublishPage = useCallback(async (pageId: string) => {
+    const response = await fetch(`/api/pages/${pageId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        isPublished: true
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Ошибка публикации');
+    }
+
+    await loadSavedPages(); // Обновляем список страниц
+  }, [loadSavedPages]);
+
+  // Загрузка страницы
+  const handleLoadPage = useCallback(async (pageId: string) => {
+    const response = await fetch(`/api/pages/${pageId}`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Ошибка загрузки');
+    }
+
+    const data = await response.json();
+    if (data.success) {
+      const page = data.page;
+      
+      // Создаем новую страницу в документе
+      const newPage: Page = {
+        id: `page-${Date.now()}`,
+        name: page.title,
+        slug: page.url,
+        elements: page.elements.map((element: any) => ({
+          id: `element-${Date.now()}-${Math.random()}`,
+          type: element.type,
+          props: element.props,
+          position: element.position,
+          size: element.size,
+          zIndex: element.zIndex,
+          parentId: element.parentId
+        })),
+        settings: {
+          width: 1200,
+          height: 800,
+          backgroundColor: '#ffffff',
+          padding: { top: 0, right: 0, bottom: 0, left: 0 },
+          margin: { top: 0, right: 0, bottom: 0, left: 0 }
+        },
+        theme: currentDocument.pages[0].theme
+      };
+
+      setCurrentDocument(prev => ({
+        ...prev,
+        pages: [...prev.pages, newPage]
+      }));
+
+      setSelectedPageId(newPage.id);
+    }
+  }, [currentDocument.pages]);
+
+  // Загрузка сохраненных страниц при загрузке компонента
+  React.useEffect(() => {
+    loadSavedPages();
+  }, [loadSavedPages]);
+
   return (
     <DocumentProvider value={currentDocument}>
       <div className="h-screen flex flex-col bg-gray-100">
@@ -572,8 +937,11 @@ export function PageBuilder() {
                <Toolbar
                  zoom={zoom}
                  viewMode={viewMode}
+                 pageWidth={selectedPage?.settings?.width || 1440}
+                 pageHeight={selectedPage?.settings?.height || 900}
                  onZoomChange={handleZoomChange}
                  onViewModeChange={handleViewModeChange}
+                 onPageSizeChange={handlePageSizeChange}
                  onSave={handleSave}
                  onUndo={handleUndo}
                  onRedo={handleRedo}
@@ -586,6 +954,8 @@ export function PageBuilder() {
                  onTogglePagesPanel={() => setShowPagesPanel(!showPagesPanel)}
                  showCatalogPanel={showCatalogPanel}
                  onToggleCatalogPanel={() => setShowCatalogPanel(!showCatalogPanel)}
+                 showSavePanel={showSavePanel}
+                 onToggleSavePanel={() => setShowSavePanel(!showSavePanel)}
                  showPagesPanel={showPagesPanel}
                  onShowTemplates={() => setShowTemplateSelector(true)}
                />
@@ -615,6 +985,19 @@ export function PageBuilder() {
             />
           )}
 
+          {/* Save/Publish Panel */}
+          {showSavePanel && (
+            <SavePublishPanel
+              document={currentDocument}
+              onSave={handleSavePage}
+              onPublish={handlePublishPage}
+              onLoad={handleLoadPage}
+              savedPages={savedPages}
+              isLoading={loadingPages}
+            />
+          )}
+
+
           {/* Components Panel */}
           {showComponentsPanel && (
             <ComponentsPanel
@@ -626,14 +1009,20 @@ export function PageBuilder() {
           {/* Canvas */}
           <div className="flex-1 flex flex-col">
             <Canvas
-              page={selectedPage}
+              page={selectedPage ? { ...selectedPage, connections: currentDocument.connections } : undefined}
               selectedElementId={selectedElementId}
+              selectedElementIds={selectedElementIds}
               zoom={zoom}
               viewMode={viewMode}
               onSelectElement={handleSelectElement}
+              onSelectElements={handleSelectElements}
               onUpdateElement={handleUpdateElement}
               onDeleteElement={handleDeleteElement}
               onAddElement={handleAddElement}
+              onConnectionData={handleConnectionData}
+              onUpdateConnection={handleUpdateConnection}
+              onDeleteConnection={handleDeleteConnection}
+              onCreateConnection={handleCreateConnection}
             />
           </div>
 

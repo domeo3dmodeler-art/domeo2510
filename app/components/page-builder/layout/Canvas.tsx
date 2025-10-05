@@ -5,27 +5,39 @@ import { CanvasProps, BaseElement, Position } from '../types';
 import { ElementRenderer } from '../elements/ElementRenderer';
 import { GridOverlay } from './GridOverlay';
 import { Rulers } from './Rulers';
+// import { ConnectionLine } from '../elements/ConnectionLine'; // Временно отключен
+import { ConnectionEditor } from '../elements/ConnectionEditor';
+import { ConnectionContextMenu } from '../elements/ConnectionContextMenu';
 
 export function Canvas({
   page,
   selectedElementId,
+  selectedElementIds,
   zoom,
   viewMode,
   onSelectElement,
+  onSelectElements,
   onUpdateElement,
   onDeleteElement,
-  onAddElement
+  onAddElement,
+  onConnectionData,
+  onUpdateConnection,
+  onDeleteConnection,
+  onCreateConnection
 }: CanvasProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [draggedElementId, setDraggedElementId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 });
   const [isResizing, setIsResizing] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [editingConnection, setEditingConnection] = useState<any>(null);
+  const [showConnectionMenu, setShowConnectionMenu] = useState(false);
+  const [connectionMenuPosition, setConnectionMenuPosition] = useState({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
 
   // Размеры canvas
-  const canvasWidth = 1200;
-  const canvasHeight = 800;
+  const canvasWidth = page?.settings?.width || 1440;
+  const canvasHeight = page?.settings?.height || 900;
 
   // Обработчик начала перетаскивания
   const handleMouseDown = useCallback((e: React.MouseEvent, elementId: string) => {
@@ -54,7 +66,11 @@ export function Canvas({
     setIsDragging(true);
     setDraggedElementId(elementId);
     setDragOffset({ x: offsetX, y: offsetY });
-    onSelectElement(elementId);
+    
+    // Выбираем элемент только если не зажат Ctrl (для множественного выделения)
+    if (!e.ctrlKey) {
+      onSelectElement(elementId);
+    }
   }, [page, onSelectElement]);
 
   // Глобальные обработчики мыши
@@ -107,10 +123,11 @@ export function Canvas({
   // Обработчик клика по canvas
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
     // Если кликнули не по элементу, снимаем выделение
-    if (e.target === e.currentTarget) {
+    if (e.target === e.currentTarget && !e.ctrlKey) {
       onSelectElement(null);
+      onSelectElements([]); // Сбрасываем множественное выделение
     }
-  }, [onSelectElement]);
+  }, [onSelectElement, onSelectElements]);
 
   // Обработчики drag & drop
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -171,6 +188,27 @@ export function Canvas({
       }
     }
     return null;
+  };
+
+  // Обработчик клика по связи
+  const handleConnectionClick = (connection: any) => {
+    setEditingConnection(connection);
+  };
+
+  // Обработчик обновления связи
+  const handleConnectionUpdate = (connectionId: string, updates: any) => {
+    if (onUpdateConnection) {
+      onUpdateConnection(connectionId, updates);
+    }
+    setEditingConnection(null);
+  };
+
+  // Обработчик удаления связи
+  const handleConnectionDelete = (connectionId: string) => {
+    if (onDeleteConnection) {
+      onDeleteConnection(connectionId);
+    }
+    setEditingConnection(null);
   };
 
   if (!page) {
@@ -256,14 +294,73 @@ export function Canvas({
                 key={element.id}
                 element={element}
                 isSelected={selectedElementId === element.id}
+                isMultiSelected={selectedElementIds.includes(element.id)}
                 zoom={zoom / 100}
-                onSelect={() => onSelectElement(element.id)}
+                onSelect={() => {
+                  onSelectElement(element.id);
+                  setShowConnectionMenu(false);
+                }}
+                onMultiSelect={(e) => {
+                  // Множественное выделение с Ctrl
+                  const newSelection = selectedElementIds.includes(element.id)
+                    ? selectedElementIds.filter(id => id !== element.id)
+                    : [...selectedElementIds, element.id];
+                  
+                  onSelectElements(newSelection);
+                  
+                  // Показываем контекстное меню, если выбрано 2 или более элементов
+                  if (newSelection.length >= 2) {
+                    const rect = canvasRef.current?.getBoundingClientRect();
+                    if (rect) {
+                      setConnectionMenuPosition({
+                        x: e.clientX - rect.left, // Позиция относительно canvas
+                        y: e.clientY - rect.top
+                      });
+                      setShowConnectionMenu(true);
+                    }
+                  } else {
+                    setShowConnectionMenu(false);
+                  }
+                }}
                 onUpdate={(updates) => onUpdateElement(element.id, updates)}
                 onDelete={() => onDeleteElement(element.id)}
                 onMouseDown={(e) => handleMouseDown(e, element.id)}
                 onResize={(newSize) => handleResize(element.id, newSize)}
+                onConnectionData={onConnectionData}
+                allElements={page?.elements || []}
               />
             ))}
+
+            {/* Connection Lines - Временно отключены */}
+            {/* {viewMode === 'edit' && page.connections && (
+              <svg
+                className="absolute inset-0 pointer-events-none"
+                style={{ zIndex: 10 }}
+              >
+                {page.connections.map((connection) => {
+                  const sourceElement = findElementById(page.elements, connection.sourceElementId);
+                  const targetElement = findElementById(page.elements, connection.targetElementId);
+                  
+                  if (!sourceElement || !targetElement) return null;
+                  
+                  return (
+                    <ConnectionLine
+                      key={connection.id}
+                      sourceId={connection.sourceElementId}
+                      targetId={connection.targetElementId}
+                      sourcePosition={sourceElement.position}
+                      targetPosition={targetElement.position}
+                      sourceSize={sourceElement.size}
+                      targetSize={targetElement.size}
+                      connectionType={connection.connectionType}
+                      isActive={connection.isActive}
+                      onClick={() => handleConnectionClick(connection)}
+                      zoom={zoom / 100}
+                    />
+                  );
+                })}
+              </svg>
+            )} */}
 
             {/* Drop Zone Indicators */}
             {isDragging && (
@@ -285,6 +382,27 @@ export function Canvas({
           </div>
         </div>
       </div>
+
+      {/* Connection Editor Modal */}
+      {editingConnection && (
+        <ConnectionEditor
+          connection={editingConnection}
+          elements={page.elements.map(el => ({ id: el.id, type: el.type }))}
+          onUpdate={handleConnectionUpdate}
+          onDelete={handleConnectionDelete}
+          onClose={() => setEditingConnection(null)}
+        />
+      )}
+
+      {/* Connection Context Menu */}
+      {showConnectionMenu && onCreateConnection && (
+        <ConnectionContextMenu
+          selectedElementIds={selectedElementIds}
+          onCreateConnection={onCreateConnection}
+          onClose={() => setShowConnectionMenu(false)}
+          position={connectionMenuPosition}
+        />
+      )}
     </div>
   );
 }

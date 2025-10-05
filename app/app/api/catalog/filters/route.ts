@@ -15,11 +15,12 @@ export async function POST(request: NextRequest) {
     // Получаем все свойства товаров из указанных категорий
     const products = await prisma.product.findMany({
       where: {
-        categoryId: { in: categoryIds },
-        isActive: true
+        catalog_category_id: { in: categoryIds },
+        is_active: true
       },
-      include: {
-        properties: true
+      select: {
+        id: true,
+        properties_data: true
       }
     });
 
@@ -27,21 +28,30 @@ export async function POST(request: NextRequest) {
     const propertiesMap = new Map();
 
     products.forEach(product => {
-      product.properties.forEach(property => {
-        if (!propertiesMap.has(property.name)) {
-          propertiesMap.set(property.name, {
-            name: property.name,
-            type: property.type || 'select',
-            values: new Map()
-          });
-        }
+      if (product.properties_data) {
+        try {
+          const props = typeof product.properties_data === 'string' 
+            ? JSON.parse(product.properties_data) 
+            : product.properties_data;
+          
+          Object.entries(props).forEach(([propertyName, propertyValue]) => {
+            if (!propertiesMap.has(propertyName)) {
+              propertiesMap.set(propertyName, {
+                name: propertyName,
+                type: 'select',
+                values: new Map()
+              });
+            }
 
-        const value = property.value || property.stringValue || property.numberValue;
-        if (value !== null && value !== undefined) {
-          const currentCount = propertiesMap.get(property.name).values.get(value) || 0;
-          propertiesMap.get(property.name).values.set(value, currentCount + 1);
+            if (propertyValue !== null && propertyValue !== undefined && propertyValue !== '') {
+              const currentCount = propertiesMap.get(propertyName).values.get(propertyValue) || 0;
+              propertiesMap.get(propertyName).values.set(propertyValue, currentCount + 1);
+            }
+          });
+        } catch (error) {
+          console.warn(`Error parsing properties for product ${product.id}:`, error);
         }
-      });
+      }
     });
 
     // Преобразуем в формат фильтров

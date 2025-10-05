@@ -411,3 +411,37 @@ model SystemSetting {
 
   @@map("system_settings")
 }
+
+model Page {
+  id          String    @id @default(cuid())
+  title       String
+  description String    @default("")
+  url         String    @unique
+  isPublished Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Связи
+  elements    PageElement[]
+
+  @@map("pages")
+}
+
+model PageElement {
+  id        String   @id @default(cuid())
+  type      String
+  props     String   @default("{}") // JSON с настройками компонента
+  position  String   @default("{}") // JSON с позицией {x, y}
+  size      String   @default("{}") // JSON с размером {width, height}
+  zIndex    Int      @default(0)
+  parentId  String?  // ID родительского элемента
+  
+  // Связи
+  pageId    String
+  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("page_elements")
+}

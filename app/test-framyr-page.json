@@ -1,0 +1,214 @@
+{
+  "title": "Конфигуратор межкомнатных дверей Domeo",
+  "description": "Полнофункциональный калькулятор межкомнатных дверей с реальными товарами из каталога",
+  "elements": [
+    {
+      "type": "heading",
+      "props": {
+        "text": "Конфигуратор межкомнатных дверей",
+        "level": "h1",
+        "align": "center"
+      },
+      "position": { "x": 50, "y": 50 },
+      "size": { "width": 900, "height": 60 },
+      "zIndex": 1
+    },
+    {
+      "type": "text",
+      "props": {
+        "text": "Выберите параметры вашей двери и получите точную стоимость",
+        "align": "center",
+        "size": "lg"
+      },
+      "position": { "x": 50, "y": 120 },
+      "size": { "width": 900, "height": 40 },
+      "zIndex": 2
+    },
+    {
+      "type": "section",
+      "props": {
+        "title": "Тип двери",
+        "background": "#f8f9fa",
+        "padding": "20px"
+      },
+      "position": { "x": 50, "y": 180 },
+      "size": { "width": 900, "height": 150 },
+      "zIndex": 3
+    },
+    {
+      "type": "select",
+      "props": {
+        "label": "Выберите тип двери:",
+        "options": [
+          "Межкомнатные двери",
+          "Алюминиевые решения", 
+          "Системы открывания"
+        ],
+        "placeholder": "Выберите тип..."
+      },
+      "position": { "x": 70, "y": 220 },
+      "size": { "width": 400, "height": 60 },
+      "zIndex": 4
+    },
+    {
+      "type": "section",
+      "props": {
+        "title": "Коллекции",
+        "background": "#ffffff",
+        "padding": "20px"
+      },
+      "position": { "x": 50, "y": 350 },
+      "size": { "width": 900, "height": 200 },
+      "zIndex": 5
+    },
+    {
+      "type": "productGrid",
+      "props": {
+        "categories": ["cmg50xcfm0002v7mnph9q90a8"],
+        "limit": 6,
+        "showFilters": true,
+        "showPrices": true,
+        "layout": "grid"
+      },
+      "position": { "x": 70, "y": 390 },
+      "size": { "width": 860, "height": 140 },
+      "zIndex": 6
+    },
+    {
+      "type": "section",
+      "props": {
+        "title": "Параметры двери",
+        "background": "#f8f9fa",
+        "padding": "20px"
+      },
+      "position": { "x": 50, "y": 570 },
+      "size": { "width": 900, "height": 250 },
+      "zIndex": 7
+    },
+    {
+      "type": "input",
+      "props": {
+        "label": "Ширина (мм):",
+        "type": "number",
+        "placeholder": "800",
+        "min": "400",
+        "max": "1200"
+      },
+      "position": { "x": 70, "y": 610 },
+      "size": { "width": 200, "height": 60 },
+      "zIndex": 8
+    },
+    {
+      "type": "input",
+      "props": {
+        "label": "Высота (мм):",
+        "type": "number", 
+        "placeholder": "2000",
+        "min": "1800",
+        "max": "2500"
+      },
+      "position": { "x": 290, "y": 610 },
+      "size": { "width": 200, "height": 60 },
+      "zIndex": 9
+    },
+    {
+      "type": "select",
+      "props": {
+        "label": "Покрытие:",
+        "options": [
+          "Шпон",
+          "Эмаль",
+          "Эмаль по шпону",
+          "Нанотекс"
+        ]
+      },
+      "position": { "x": 510, "y": 610 },
+      "size": { "width": 200, "height": 60 },
+      "zIndex": 10
+    },
+    {
+      "type": "select",
+      "props": {
+        "label": "Система открывания:",
+        "options": [
+          "Раздвижные двери",
+          "Пенал",
+          "Складные двери",
+          "Поворотные двери"
+        ]
+      },
+      "position": { "x": 70, "y": 690 },
+      "size": { "width": 200, "height": 60 },
+      "zIndex": 11
+    },
+    {
+      "type": "priceDisplay",
+      "props": {
+        "label": "Примерная стоимость:",
+        "currency": "₽",
+        "size": "2xl",
+        "color": "green"
+      },
+      "position": { "x": 290, "y": 690 },
+      "size": { "width": 300, "height": 60 },
+      "zIndex": 12
+    },
+    {
+      "type": "section",
+      "props": {
+        "title": "Заказать консультацию",
+        "background": "#e3f2fd",
+        "padding": "20px"
+      },
+      "position": { "x": 50, "y": 840 },
+      "size": { "width": 900, "height": 200 },
+      "zIndex": 13
+    },
+    {
+      "type": "input",
+      "props": {
+        "label": "Ваше имя:",
+        "type": "text",
+        "placeholder": "Введите ваше имя"
+      },
+      "position": { "x": 70, "y": 880 },
+      "size": { "width": 250, "height": 60 },
+      "zIndex": 14
+    },
+    {
+      "type": "input",
+      "props": {
+        "label": "Телефон:",
+        "type": "tel",
+        "placeholder": "+7 (___) ___-__-__"
+      },
+      "position": { "x": 340, "y": 880 },
+      "size": { "width": 250, "height": 60 },
+      "zIndex": 15
+    },
+    {
+      "type": "input",
+      "props": {
+        "label": "Email:",
+        "type": "email",
+        "placeholder": "your@email.com"
+      },
+      "position": { "x": 610, "y": 880 },
+      "size": { "width": 250, "height": 60 },
+      "zIndex": 16
+    },
+    {
+      "type": "button",
+      "props": {
+        "text": "Заказать звонок",
+        "variant": "primary",
+        "size": "lg"
+      },
+      "position": { "x": 70, "y": 960 },
+      "size": { "width": 200, "height": 50 },
+      "zIndex": 17
+    }
+  ],
+  "isPublished": false
+}
+

@@ -75,6 +75,8 @@ export type ElementType =
   | 'cart' | 'wishlist' | 'comparison' | 'search'
   // Формы
   | 'form' | 'input' | 'textarea' | 'select' | 'checkbox' | 'radio'
+  // Фильтры
+  | 'productFilter' | 'propertyFilter' | 'filteredProducts'
   // Специальные
   | 'contact' | 'accordion';
 
@@ -127,6 +129,7 @@ export interface Page {
   slug: string;
   description?: string;
   elements: BaseElement[];
+  connections?: BlockConnection[]; // Связи между блоками на странице
   settings: PageSettings;
   theme: Theme;
   seo?: {
@@ -444,8 +447,11 @@ export interface DocumentContextType {
 export interface ToolbarProps {
   zoom: number;
   viewMode: 'edit' | 'preview';
+  pageWidth: number;
+  pageHeight: number;
   onZoomChange: (zoom: number) => void;
   onViewModeChange: (mode: 'edit' | 'preview') => void;
+  onPageSizeChange: (width: number, height: number) => void;
   onSave: () => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -455,22 +461,30 @@ export interface ToolbarProps {
   showPropertiesPanel: boolean;
   showPagesPanel: boolean;
   showCatalogPanel: boolean;
+  showSavePanel: boolean;
   onToggleComponentsPanel: () => void;
   onTogglePropertiesPanel: () => void;
   onTogglePagesPanel: () => void;
   onToggleCatalogPanel: () => void;
+  onToggleSavePanel: () => void;
   onShowTemplates: () => void;
 }
 
 export interface CanvasProps {
   page: Page | undefined;
   selectedElementId: string | null;
+  selectedElementIds: string[]; // Множественное выделение
   zoom: number;
   viewMode: 'edit' | 'preview';
   onSelectElement: (elementId: string | null) => void;
+  onSelectElements: (elementIds: string[]) => void; // Новый обработчик для множественного выделения
   onUpdateElement: (elementId: string, updates: Partial<BaseElement>) => void;
   onDeleteElement: (elementId: string) => void;
   onAddElement: (elementType: string, position: Position) => void;
+  onConnectionData?: (sourceElementId: string, data: any) => void;
+  onUpdateConnection?: (connectionId: string, updates: Partial<BlockConnection>) => void;
+  onDeleteConnection?: (connectionId: string) => void;
+  onCreateConnection?: (sourceElementId: string, targetElementId: string, connectionType: BlockConnection['connectionType']) => void; // Новый обработчик для создания связи
 }
 
 export interface ComponentsPanelProps {
@@ -488,8 +502,10 @@ export interface PropertiesPanelProps {
 export interface ElementRendererProps {
   element: BaseElement;
   isSelected: boolean;
+  isMultiSelected: boolean; // Новое свойство для множественного выделения
   zoom: number;
   onSelect: () => void;
+  onMultiSelect: (e: React.MouseEvent) => void; // Новый обработчик для множественного выделения
   onUpdate: (updates: Partial<BaseElement>) => void;
   onDelete: () => void;
 }

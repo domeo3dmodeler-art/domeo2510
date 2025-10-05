@@ -19,48 +19,51 @@ interface ComponentItem {
   description: string;
 }
 
-// Только рабочие компоненты с полной реализацией
+// Компоненты для товарных страниц
 const componentCategories: ComponentCategory[] = [
   {
     id: 'essential',
-    name: 'Основные компоненты',
+    name: 'Основные элементы',
     icon: '⭐',
     components: [
       { id: 'heading', name: getBlockName('heading'), type: 'heading', icon: '📰', description: getBlockDescription('heading') },
       { id: 'text', name: getBlockName('text'), type: 'text', icon: '📝', description: getBlockDescription('text') },
-      { id: 'image', name: getBlockName('image'), type: 'image', icon: '🖼️', description: getBlockDescription('image') },
-      { id: 'button', name: getBlockName('button'), type: 'button', icon: '🔘', description: getBlockDescription('button') }
+      { id: 'button', name: getBlockName('button'), type: 'button', icon: '🔘', description: getBlockDescription('button') },
+      { id: 'image', name: getBlockName('image'), type: 'image', icon: '🖼️', description: getBlockDescription('image') }
     ]
   },
   {
-    id: 'product',
-    name: 'Товарные блоки',
+    id: 'products',
+    name: 'Товарные компоненты',
     icon: '📦',
     components: [
-      { id: 'productConfigurator', name: getBlockName('productConfigurator'), type: 'productConfigurator', icon: '⚙️', description: getBlockDescription('productConfigurator') },
+      { id: 'productCard', name: 'Карточка товара', type: 'productCard', icon: '🛍️', description: 'Карточка товара с изображением и ценой' },
+      { id: 'productGallery', name: 'Галерея товара', type: 'productGallery', icon: '🖼️', description: 'Галерея изображений товара' },
+      { id: 'productDetails', name: 'Детали товара', type: 'productDetails', icon: '📋', description: 'Подробное описание и характеристики' },
       { id: 'productGrid', name: getBlockName('productGrid'), type: 'productGrid', icon: '📊', description: getBlockDescription('productGrid') },
-      { id: 'catalogTree', name: getBlockName('catalogTree'), type: 'catalogTree', icon: '🌳', description: getBlockDescription('catalogTree') },
-      { id: 'cart', name: getBlockName('cart'), type: 'cart', icon: '🛒', description: getBlockDescription('cart') }
+      { id: 'filteredProducts', name: 'Фильтрованные товары', type: 'filteredProducts', icon: '🔍', description: 'Товары с возможностью фильтрации через связи' }
     ]
   },
   {
     id: 'configurators',
-    name: 'Продвинутые конфигураторы',
-    icon: '🎯',
+    name: 'Конфигураторы',
+    icon: '⚙️',
     components: [
       { id: 'stepWizard', name: getBlockName('stepWizard'), type: 'stepWizard', icon: '🧙', description: getBlockDescription('stepWizard') },
-      { id: 'comparisonTable', name: getBlockName('comparisonTable'), type: 'comparisonTable', icon: '📊', description: getBlockDescription('comparisonTable') },
-      { id: 'priceCalculator', name: getBlockName('priceCalculator'), type: 'priceCalculator', icon: '💰', description: getBlockDescription('priceCalculator') }
+      { id: 'comparisonTable', name: getBlockName('comparisonTable'), type: 'comparisonTable', icon: '📊', description: getBlockDescription('comparisonTable') }
     ]
   },
   {
-    id: 'content',
-    name: 'Контентные блоки',
-    icon: '📄',
+    id: 'forms',
+    name: 'Формы и поля',
+    icon: '📝',
     components: [
-      { id: 'contact', name: getBlockName('contact'), type: 'contact', icon: '📞', description: getBlockDescription('contact') },
-      { id: 'accordion', name: getBlockName('accordion'), type: 'accordion', icon: '📋', description: getBlockDescription('accordion') },
-      { id: 'gallery', name: getBlockName('gallery'), type: 'gallery', icon: '🖼️', description: getBlockDescription('gallery') }
+      { id: 'input', name: 'Поле ввода', type: 'input', icon: '📝', description: 'Поле для ввода текста или чисел' },
+      { id: 'select', name: 'Выпадающий список', type: 'select', icon: '📋', description: 'Выбор из списка опций' },
+      { id: 'checkbox', name: 'Чекбокс', type: 'checkbox', icon: '☑️', description: 'Множественный выбор опций' },
+      { id: 'radio', name: 'Радиокнопка', type: 'radio', icon: '🔘', description: 'Одиночный выбор из группы' },
+      { id: 'productFilter', name: 'Фильтр товаров', type: 'productFilter', icon: '🔍', description: 'Интерактивный фильтр для товаров' },
+      { id: 'propertyFilter', name: 'Фильтр по свойству', type: 'propertyFilter', icon: '🏷️', description: 'Универсальный фильтр по любому свойству товара' }
     ]
   },
   {
@@ -69,13 +72,15 @@ const componentCategories: ComponentCategory[] = [
     icon: '🏗️',
     components: [
       { id: 'section', name: getBlockName('section'), type: 'section', icon: '📋', description: getBlockDescription('section') },
-      { id: 'spacer', name: getBlockName('spacer'), type: 'spacer', icon: '↔️', description: getBlockDescription('spacer') }
+      { id: 'spacer', name: getBlockName('spacer'), type: 'spacer', icon: '↔️', description: getBlockDescription('spacer') },
+      { id: 'cart', name: getBlockName('cart'), type: 'cart', icon: '🛒', description: getBlockDescription('cart') },
+      { id: 'featureStatus', name: 'Статус функций', type: 'featureStatus', icon: '🧪', description: 'Показывает статус работы функций конструктора' }
     ]
   }
 ];
 
 export function ComponentsPanel({ onAddElement, selectedCategory }: ComponentsPanelProps) {
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(['essential', 'product', 'configurators', 'content']);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(['essential', 'products', 'configurators', 'forms']);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Фильтрация компонентов по поиску

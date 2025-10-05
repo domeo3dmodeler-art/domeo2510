@@ -2,4 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Подключаем современную систему дизайна */
+@import './styles/modern-design.css';
+
 :root { --radius: 12px; }

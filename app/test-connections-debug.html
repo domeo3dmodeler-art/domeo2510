@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отладка связей между компонентами</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .step { margin: 20px 0; padding: 15px; border-left: 4px solid #007bff; background: #f8f9fa; }
+        .step h3 { margin-top: 0; color: #007bff; }
+        .warning { background: #fff3cd; border-color: #ffc107; color: #856404; }
+        .success { background: #d4edda; border-color: #28a745; color: #155724; }
+        .error { background: #f8d7da; border-color: #dc3545; color: #721c24; }
+        .code { background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace; margin: 10px 0; }
+        .button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .button:hover { background: #0056b3; }
+        .console-log { background: #000; color: #0f0; padding: 10px; border-radius: 4px; font-family: monospace; max-height: 200px; overflow-y: auto; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Отладка связей между компонентами</h1>
+        
+        <div class="step">
+            <h3>📋 Пошаговая инструкция</h3>
+            <ol>
+                <li><strong>Откройте конструктор:</strong> <a href="/professional-builder" target="_blank">http://localhost:3000/professional-builder</a></li>
+                <li><strong>Откройте консоль браузера:</strong> F12 → Console</li>
+                <li><strong>Добавьте два блока "Фильтр свойств"</strong> на страницу</li>
+                <li><strong>Настройте первый блок:</strong> категория "Межкомнатные двери", свойство "Domeo_Стиль Web"</li>
+                <li><strong>Настройте второй блок:</strong> категория "Межкомнатные двери", свойство "Domeo_Название модели для Web"</li>
+                <li><strong>Создайте связь:</strong> Ctrl+клик на первый блок, Ctrl+клик на второй блок</li>
+                <li><strong>Выберите тип связи:</strong> "🔍 Фильтры → (от первого ко второму)"</li>
+                <li><strong>Проверьте консоль:</strong> должны появиться логи создания связи</li>
+                <li><strong>Выберите стиль</strong> в первом блоке и проверьте второй блок</li>
+            </ol>
+        </div>
+
+        <div class="step warning">
+            <h3>⚠️ Возможные проблемы</h3>
+            <ul>
+                <li><strong>"Array(0)" в консоли:</strong> Связь не создается или не сохраняется</li>
+                <li><strong>Меню связи не появляется:</strong> Не выделены оба блока с Ctrl</li>
+                <li><strong>Второй блок не обновляется:</strong> Проблема с передачей данных</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>🔍 Ожидаемые логи в консоли</h3>
+            <div class="code">
+🔗 Создание связи: {sourceElementId: "...", targetElementId: "...", connectionType: "filter"}
+🔗 Новая связь: {id: "connection-...", sourceElementId: "...", targetElementId: "...", ...}
+🔗 handleConnectionData вызвана: {sourceElementId: "...", data: {...}}
+🔗 Все связи в документе: [{id: "connection-...", ...}]
+🔗 Найдены исходящие связи: [{id: "connection-...", ...}]
+🔍 Синхронизация фильтров: {...}
+PropertyFilter: Запрос к API с фильтрами: /api/catalog/products/filtered?...
+PropertyFilter: Ответ API с фильтрами: {...}
+            </div>
+        </div>
+
+        <div class="step">
+            <h3>🛠️ Тестирование API</h3>
+            <button class="button" onclick="testFilteredAPI()">Тест API фильтрованных товаров</button>
+            <button class="button" onclick="clearCache()">Очистить кэш</button>
+            <div id="api-results"></div>
+        </div>
+
+        <div class="step">
+            <h3>📊 Статус отладки</h3>
+            <div id="debug-status">
+                <p>❌ Связи не работают - требуется отладка</p>
+                <p><strong>Основные проблемы:</strong></p>
+                <ul>
+                    <li>Связи не создаются или не сохраняются</li>
+                    <li>handleConnectionData вызывается, но не находит связи</li>
+                    <li>API может работать, но данные не передаются между компонентами</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="step">
+            <h3>💡 Следующие шаги</h3>
+            <ol>
+                <li>Проверить создание связей в консоли</li>
+                <li>Убедиться, что связи сохраняются в currentDocument.connections</li>
+                <li>Проверить передачу данных между компонентами</li>
+                <li>Протестировать API фильтрованных товаров</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        async function testFilteredAPI() {
+            const resultsDiv = document.getElementById('api-results');
+            resultsDiv.innerHTML = '<p>Тестирование API...</p>';
+            
+            try {
+                const categoryId = 'cmg50xcgs001cv7mn0tdyk1wo';
+                const modelProperty = 'Domeo_Название модели для Web';
+                
+                // Тест без фильтров
+                const response1 = await fetch(`/api/catalog/products/filtered?categoryIds=${categoryId}&propertyName=${encodeURIComponent(modelProperty)}`);
+                const data1 = await response1.json();
+                
+                // Тест с фильтром
+                const filters = { 'Domeo_Стиль Web': 'Классика' };
+                const response2 = await fetch(`/api/catalog/products/filtered?categoryIds=${categoryId}&propertyName=${encodeURIComponent(modelProperty)}&filters=${encodeURIComponent(JSON.stringify(filters))}`);
+                const data2 = await response2.json();
+                
+                resultsDiv.innerHTML = `
+                    <div class="success">
+                        <h4>✅ API работает!</h4>
+                        <p><strong>Без фильтров:</strong> ${data1.uniqueValues[modelProperty]?.length || 0} моделей</p>
+                        <p><strong>С фильтром "Классика":</strong> ${data2.uniqueValues[modelProperty]?.length || 0} моделей</p>
+                        <details>
+                            <summary>Детали ответов</summary>
+                            <pre>Без фильтров: ${JSON.stringify(data1, null, 2)}</pre>
+                            <pre>С фильтром: ${JSON.stringify(data2, null, 2)}</pre>
+                        </details>
+                    </div>
+                `;
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Ошибка API</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function clearCache() {
+            try {
+                const response = await fetch('/api/cache/clear', { method: 'POST' });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert('✅ Кэш очищен успешно!');
+                } else {
+                    alert('❌ Ошибка очистки кэша: ' + data.error);
+                }
+            } catch (error) {
+                alert('❌ Ошибка сети: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
+

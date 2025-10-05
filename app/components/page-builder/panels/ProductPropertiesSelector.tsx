@@ -35,8 +35,16 @@ export function ProductPropertiesSelector({
 
   // Загрузка свойств товаров
   useEffect(() => {
+    console.log('🚨 ProductPropertiesSelector: useEffect triggered', {
+      categoryIds,
+      categoryIdsLength: categoryIds?.length,
+      selectedPropertyIds,
+      selectedPropertyIdsLength: selectedPropertyIds?.length
+    });
+    
     const loadProperties = async () => {
       if (!categoryIds?.length) {
+        console.log('🚨 ProductPropertiesSelector: Нет categoryIds, очищаем свойства');
         setProperties([]);
         return;
       }
@@ -51,7 +59,28 @@ export function ProductPropertiesSelector({
         
         if (response.ok) {
           const data = await response.json();
-          setProperties(data.properties || []);
+          const newProperties = data.properties || [];
+          
+          console.log('🚨 ProductPropertiesSelector: Загружены свойства', {
+            newPropertiesCount: newProperties.length,
+            selectedPropertyIdsCount: selectedPropertyIds.length,
+            selectedPropertyIds,
+            firstProperty: newProperties[0]?.name
+          });
+          
+          setProperties(newProperties);
+          
+          // Автоматически выбираем первое свойство, если ничего не выбрано
+          if (newProperties.length > 0 && selectedPropertyIds.length === 0) {
+            const firstProperty = newProperties[0];
+            console.log('🚨 ProductPropertiesSelector: Автоматически выбираем первое свойство:', firstProperty.name);
+            onPropertiesChange([firstProperty.id]);
+          } else {
+            console.log('🚨 ProductPropertiesSelector: Автоматический выбор НЕ выполнен', {
+              hasProperties: newProperties.length > 0,
+              hasSelected: selectedPropertyIds.length > 0
+            });
+          }
         }
       } catch (error) {
         console.error('Error loading properties:', error);
@@ -73,6 +102,12 @@ export function ProductPropertiesSelector({
     const newSelected = selectedPropertyIds.includes(propertyId)
       ? selectedPropertyIds.filter(id => id !== propertyId)
       : [...selectedPropertyIds, propertyId];
+    
+    console.log('🚨 ProductPropertiesSelector: toggleProperty вызван!', {
+      propertyId,
+      newSelected,
+      categoryIds
+    });
     
     onPropertiesChange(newSelected);
   };

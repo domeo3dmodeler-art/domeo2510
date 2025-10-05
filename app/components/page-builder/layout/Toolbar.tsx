@@ -2,12 +2,16 @@
 
 import React from 'react';
 import { ToolbarProps } from '../types';
+import { PageSizeSelector } from '../elements/PageSizeSelector';
 
 export function Toolbar({
   zoom,
   viewMode,
+  pageWidth,
+  pageHeight,
   onZoomChange,
   onViewModeChange,
+  onPageSizeChange,
   onSave,
   onUndo,
   onRedo,
@@ -17,10 +21,12 @@ export function Toolbar({
   showPropertiesPanel,
   showPagesPanel,
   showCatalogPanel,
+  showSavePanel,
   onToggleComponentsPanel,
   onTogglePropertiesPanel,
   onTogglePagesPanel,
   onToggleCatalogPanel,
+  onToggleSavePanel,
   onShowTemplates
 }: ToolbarProps) {
   return (
@@ -47,9 +53,33 @@ export function Toolbar({
           <span>Шаблоны</span>
         </button>
 
+        {/* Page Size Selector */}
+        <PageSizeSelector
+          currentWidth={pageWidth}
+          currentHeight={pageHeight}
+          onSizeChange={onPageSizeChange}
+        />
+
         {/* Preview Button */}
         <button
           onClick={() => {
+            // Сохраняем текущую страницу в localStorage для предпросмотра
+            const currentPageData = {
+              id: 'preview-page',
+              name: 'Предпросмотр',
+              slug: 'preview',
+              elements: [], // Будет заполнено из текущего документа
+              settings: {
+                width: pageWidth,
+                height: pageHeight,
+                backgroundColor: '#ffffff'
+              },
+              connections: []
+            };
+            
+            // Сохраняем данные для предпросмотра
+            localStorage.setItem('current-page-preview', JSON.stringify(currentPageData));
+            
             // Открываем предварительный просмотр в новом окне
             const previewUrl = window.location.origin + '/preview';
             window.open(previewUrl, '_blank');
@@ -189,6 +219,19 @@ export function Toolbar({
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+          </button>
+          <button
+            onClick={onToggleSavePanel}
+            className={`p-1.5 rounded ${
+              showSavePanel
+                ? 'bg-blue-100 text-blue-700'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+            title="Сохранение и публикация"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
             </svg>
           </button>
           <button

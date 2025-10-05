@@ -2,16 +2,19 @@
 
 import React, { useState, useCallback } from 'react';
 import { BaseElement, Size } from '../types';
-import { getBlockName, getBlockDescription } from '../../../lib/block-names';
+import { getBlockName, getBlockDescription, getDisplayName } from '../../../lib/block-names';
 import { TechnicalTooltip, BlockTechnicalInfo } from './TechnicalTooltip';
 
 interface SelectionOverlayProps {
   element: BaseElement;
+  isSelected: boolean;
+  isMultiSelected: boolean;
+  allElements: BaseElement[]; // Все элементы страницы для подсчета номеров
   onDelete: () => void;
   onResize: (direction: string, deltaX: number, deltaY: number) => void;
 }
 
-export function SelectionOverlay({ element, onDelete, onResize }: SelectionOverlayProps) {
+export function SelectionOverlay({ element, isSelected, isMultiSelected, allElements, onDelete, onResize }: SelectionOverlayProps) {
   const [isResizing, setIsResizing] = useState(false);
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0 });
   const [resizeDirection, setResizeDirection] = useState('');
@@ -80,7 +83,11 @@ export function SelectionOverlay({ element, onDelete, onResize }: SelectionOverl
   return (
     <>
       {/* Border */}
-      <div className="absolute inset-0 border-2 border-blue-500 pointer-events-none" />
+      <div className={`absolute inset-0 border-2 pointer-events-none ${
+        isMultiSelected 
+          ? 'border-orange-500 bg-orange-50 bg-opacity-30' 
+          : 'border-blue-500'
+      }`} />
 
       {/* Resize Handles */}
       {resizeHandles.map((handle) => (
@@ -111,7 +118,7 @@ export function SelectionOverlay({ element, onDelete, onResize }: SelectionOverl
         position="top"
         content={
           <BlockTechnicalInfo
-            blockType={getBlockName(element.type)}
+            blockType={getDisplayName(element.type, allElements, element.id)}
             dimensions={element.size}
             additionalInfo={{
               'Описание': getBlockDescription(element.type),
@@ -121,7 +128,7 @@ export function SelectionOverlay({ element, onDelete, onResize }: SelectionOverl
         }
       >
         <div className="absolute -top-8 left-0 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-          {getBlockName(element.type)}
+          {getDisplayName(element.type, allElements, element.id)}
         </div>
       </TechnicalTooltip>
     </>

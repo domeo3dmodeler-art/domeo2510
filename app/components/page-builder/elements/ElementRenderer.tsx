@@ -10,29 +10,59 @@ import { Cart } from './Cart';
 import { CatalogTree } from './CatalogTree';
 import { StepWizard } from './StepWizard';
 import { ComparisonTable } from './ComparisonTable';
-import { PriceCalculator } from './PriceCalculator';
 import { Contact } from './Contact';
 import { Accordion } from './Accordion';
 import { Gallery } from './Gallery';
+import { Input } from './Input';
+import { Select } from './Select';
+import { Checkbox } from './Checkbox';
+import { Radio } from './Radio';
+import { ProductFilter } from './ProductFilter';
+import { PropertyFilter } from './PropertyFilter';
+import { FilteredProducts } from './FilteredProducts';
+import { FeatureStatus } from './FeatureStatus';
+import { ProductCard } from './ProductCard';
+import { ProductGallery } from './ProductGallery';
+import { ProductDetails } from './ProductDetails';
+import { PriceDisplay } from './PriceDisplay';
+import { SummaryTable } from './SummaryTable';
+import { ProductGrid } from './ProductGrid';
 
 interface ExtendedElementRendererProps extends ElementRendererProps {
   onMouseDown: (e: React.MouseEvent) => void;
   onResize: (newSize: Size) => void;
+  onConnectionData?: (sourceElementId: string, data: any) => void;
+  allElements?: BaseElement[]; // Все элементы страницы для подсчета номеров
 }
 
 export function ElementRenderer({
   element,
   isSelected,
+  isMultiSelected,
   zoom,
   onSelect,
+  onMultiSelect,
   onUpdate,
   onDelete,
   onMouseDown,
-  onResize
+  onResize,
+  onConnectionData,
+  allElements = []
 }: ExtendedElementRendererProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const elementRef = useRef<HTMLDivElement>(null);
+
+  // Обработчик клика для выделения
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (e.ctrlKey) {
+      onMultiSelect(e);
+    } else {
+      onSelect();
+    }
+  };
 
   // Обработчик двойного клика для редактирования
   const handleDoubleClick = (e: React.MouseEvent) => {
@@ -505,25 +535,13 @@ export function ElementRenderer({
       case 'productGrid':
         return (
           <div className="w-full h-full bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <ProductDisplay
+            <ProductGrid
               element={element}
               onUpdate={onUpdate}
             />
           </div>
         );
 
-      case 'priceCalculator':
-        return (
-          <div className="w-full h-full bg-white border border-gray-200 rounded-lg p-4 overflow-auto">
-            <div className="text-center text-gray-500">
-              <div className="text-2xl mb-2">💰</div>
-              <div className="text-sm">Калькулятор цены</div>
-              <div className="text-xs text-gray-400 mt-1">
-                {element.props.showBreakdown ? 'С детализацией' : 'Простой расчет'}
-              </div>
-            </div>
-          </div>
-        );
 
       case 'cart':
         return (
@@ -565,10 +583,146 @@ export function ElementRenderer({
           </div>
         );
 
-      case 'priceCalculator':
+
+      // Новые компоненты форм
+      case 'input':
+        return (
+          <div className="w-full h-full bg-white border border-gray-200 rounded-lg p-4">
+            <Input
+              element={element}
+              onUpdate={onUpdate}
+            />
+          </div>
+        );
+
+      case 'select':
+        return (
+          <div className="w-full h-full bg-white border border-gray-200 rounded-lg p-4">
+            <Select
+              element={element}
+              onUpdate={onUpdate}
+            />
+          </div>
+        );
+
+      case 'checkbox':
+        return (
+          <div className="w-full h-full bg-white border border-gray-200 rounded-lg p-4">
+            <Checkbox
+              element={element}
+              onUpdate={onUpdate}
+            />
+          </div>
+        );
+
+      case 'radio':
+        return (
+          <div className="w-full h-full bg-white border border-gray-200 rounded-lg p-4">
+            <Radio
+              element={element}
+              onUpdate={onUpdate}
+            />
+          </div>
+        );
+
+      case 'productFilter':
+        return (
+          <div className="w-full h-full">
+            <ProductFilter
+              element={element}
+              onUpdate={onUpdate}
+            />
+          </div>
+        );
+
+      case 'propertyFilter':
+        console.log('🚨 ElementRenderer: Рендерим PropertyFilter', {
+          elementId: element.id,
+          elementProps: element.props,
+          propertyName: element.props.propertyName
+        });
+        
+        return (
+          <div className="w-full h-full">
+            <PropertyFilter
+              element={element}
+              onUpdate={onUpdate}
+              onFilterChange={(propertyName, value) => {
+                if (onConnectionData) {
+                  onConnectionData(element.id, { [propertyName]: value });
+                }
+              }}
+              onConnectionData={onConnectionData}
+            />
+          </div>
+        );
+
+      case 'filteredProducts':
+        return (
+          <div className="w-full h-full">
+            <FilteredProducts
+              element={element}
+              onUpdate={onUpdate}
+              filters={element.props.filters || {}}
+            />
+          </div>
+        );
+
+      case 'featureStatus':
+        return (
+          <div className="w-full h-full">
+            <FeatureStatus
+              features={element.props.features || []}
+            />
+          </div>
+        );
+
+      // Товарные компоненты
+      case 'productCard':
         return (
           <div className="w-full h-full bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <PriceCalculator
+            <ProductCard
+              element={element}
+              onUpdate={onUpdate}
+            />
+          </div>
+        );
+
+      case 'productGallery':
+        return (
+          <div className="w-full h-full bg-white border border-gray-200 rounded-lg overflow-hidden p-4">
+            <ProductGallery
+              element={element}
+              onUpdate={onUpdate}
+            />
+          </div>
+        );
+
+      case 'productDetails':
+        return (
+          <div className="w-full h-full bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <ProductDetails
+              element={element}
+              onUpdate={onUpdate}
+            />
+          </div>
+        );
+
+      // Компоненты отображения результатов
+      case 'priceDisplay':
+        return (
+          <div className="w-full h-full bg-white border border-gray-200 rounded-lg overflow-hidden p-4">
+            <PriceDisplay
+              element={element}
+              onUpdate={onUpdate}
+            />
+          </div>
+        );
+
+      case 'summaryTable':
+        return (
+          <div className="w-full h-full bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <SummaryTable
               element={element}
               onUpdate={onUpdate}
             />
@@ -607,15 +761,19 @@ export function ElementRenderer({
         zIndex: element.style.zIndex || 1,
         cursor: isSelected ? 'move' : 'pointer'
       }}
+      onClick={handleClick}
       onMouseDown={onMouseDown}
       onDoubleClick={handleDoubleClick}
     >
       {renderContent()}
 
       {/* Selection Overlay */}
-      {isSelected && (
+      {(isSelected || isMultiSelected) && (
         <SelectionOverlay
           element={element}
+          isSelected={isSelected}
+          isMultiSelected={isMultiSelected}
+          allElements={allElements}
           onDelete={onDelete}
           onResize={handleResize}
         />

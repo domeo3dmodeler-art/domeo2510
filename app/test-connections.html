@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест связей между компонентами</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .result { margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 3px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Тест связей между компонентами</h1>
+    
+    <div class="test-section">
+        <h2>1. Тест API свойств</h2>
+        <button onclick="testPropertiesAPI()">Тест загрузки свойств</button>
+        <div id="properties-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Тест API уникальных значений</h2>
+        <button onclick="testUniqueValuesAPI()">Тест уникальных значений</button>
+        <div id="unique-values-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Тест API фильтрованных товаров</h2>
+        <button onclick="testFilteredProductsAPI()">Тест фильтрованных товаров</button>
+        <div id="filtered-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. Очистка кэша</h2>
+        <button onclick="clearCache()">Очистить кэш</button>
+        <div id="cache-result" class="result"></div>
+    </div>
+
+    <script>
+        const categoryId = 'cmg50xcgs001cv7mn0tdyk1wo'; // Межкомнатные двери
+        const styleProperty = 'Domeo_Стиль Web';
+        const modelProperty = 'Domeo_Название модели для Web';
+
+        async function testPropertiesAPI() {
+            const resultDiv = document.getElementById('properties-result');
+            resultDiv.innerHTML = 'Загрузка...';
+            
+            try {
+                const response = await fetch('/api/catalog/properties', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ categoryIds: [categoryId] })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="success">✅ Успех!</div><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Ошибка: ${data.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Ошибка сети: ${error.message}</div>`;
+            }
+        }
+
+        async function testUniqueValuesAPI() {
+            const resultDiv = document.getElementById('unique-values-result');
+            resultDiv.innerHTML = 'Загрузка...';
+            
+            try {
+                const response = await fetch('/api/catalog/properties/unique-values', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        categoryIds: [categoryId], 
+                        propertyNames: [styleProperty, modelProperty] 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="success">✅ Успех!</div><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Ошибка: ${data.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Ошибка сети: ${error.message}</div>`;
+            }
+        }
+
+        async function testFilteredProductsAPI() {
+            const resultDiv = document.getElementById('filtered-result');
+            resultDiv.innerHTML = 'Загрузка...';
+            
+            try {
+                // Тест без фильтров
+                const response1 = await fetch(`/api/catalog/products/filtered?categoryIds=${categoryId}&propertyName=${modelProperty}`);
+                const data1 = await response1.json();
+                
+                // Тест с фильтром
+                const filters = { [styleProperty]: 'Скрытая' };
+                const response2 = await fetch(`/api/catalog/products/filtered?categoryIds=${categoryId}&propertyName=${modelProperty}&filters=${encodeURIComponent(JSON.stringify(filters))}`);
+                const data2 = await response2.json();
+                
+                if (response1.ok && response2.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ Успех!</div>
+                        <h3>Без фильтров (все модели):</h3>
+                        <pre>${JSON.stringify(data1, null, 2)}</pre>
+                        <h3>С фильтром "Стиль = Скрытая":</h3>
+                        <pre>${JSON.stringify(data2, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Ошибка: ${data1.error || data2.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Ошибка сети: ${error.message}</div>`;
+            }
+        }
+
+        async function clearCache() {
+            const resultDiv = document.getElementById('cache-result');
+            resultDiv.innerHTML = 'Очистка...';
+            
+            try {
+                const response = await fetch('/api/cache/clear', { method: 'POST' });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="success">✅ Кэш очищен!</div><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Ошибка: ${data.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Ошибка сети: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>
+
