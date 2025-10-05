@@ -336,18 +336,29 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
     
     // Отправляем данные через систему связей для синхронизации с другими фильтрами
     if (onConnectionData) {
-      console.log('🔗 PropertyFilter отправляет данные:', {
-        elementId: element.id,
-        propertyName: element.props.propertyName,
-        value: value,
-        categoryIds: element.props.categoryIds
-      });
-      
-      onConnectionData(element.id, {
+      const connectionData = {
         type: 'filter',
         propertyName: element.props.propertyName,
         value: value,
         categoryIds: element.props.categoryIds
+      };
+      
+      console.log('🔗 PropertyFilter отправляет данные:', {
+        elementId: element.id,
+        connectionData,
+        hasOnConnectionData: !!onConnectionData
+      });
+      
+      try {
+        onConnectionData(element.id, connectionData);
+        console.log('🔗 PropertyFilter: onConnectionData вызван успешно');
+      } catch (error) {
+        console.error('🔗 PropertyFilter: Ошибка при вызове onConnectionData:', error);
+      }
+    } else {
+      console.log('🔗 PropertyFilter: onConnectionData НЕ ПЕРЕДАН!', {
+        elementId: element.id,
+        hasOnConnectionData: !!onConnectionData
       });
     }
     
