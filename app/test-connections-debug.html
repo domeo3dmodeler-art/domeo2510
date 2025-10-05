@@ -3,149 +3,193 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Отладка связей между компонентами</title>
+    <title>Тест связей между компонентами</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .step { margin: 20px 0; padding: 15px; border-left: 4px solid #007bff; background: #f8f9fa; }
-        .step h3 { margin-top: 0; color: #007bff; }
-        .warning { background: #fff3cd; border-color: #ffc107; color: #856404; }
-        .success { background: #d4edda; border-color: #28a745; color: #155724; }
-        .error { background: #f8d7da; border-color: #dc3545; color: #721c24; }
-        .code { background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace; margin: 10px 0; }
-        .button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
-        .button:hover { background: #0056b3; }
-        .console-log { background: #000; color: #0f0; padding: 10px; border-radius: 4px; font-family: monospace; max-height: 200px; overflow-y: auto; margin: 10px 0; }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-step {
+            margin: 15px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+        }
+        .expected-result {
+            background: #d4edda;
+            border-left-color: #28a745;
+            color: #155724;
+        }
+        .problem {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+            color: #721c24;
+        }
+        code {
+            background: #e9ecef;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .console-log {
+            background: #212529;
+            color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🔍 Отладка связей между компонентами</h1>
+    <h1>🔍 Диагностика связей между компонентами</h1>
+    
+    <div class="test-section">
+        <h2>📋 План тестирования</h2>
         
-        <div class="step">
-            <h3>📋 Пошаговая инструкция</h3>
-            <ol>
-                <li><strong>Откройте конструктор:</strong> <a href="/professional-builder" target="_blank">http://localhost:3000/professional-builder</a></li>
-                <li><strong>Откройте консоль браузера:</strong> F12 → Console</li>
-                <li><strong>Добавьте два блока "Фильтр свойств"</strong> на страницу</li>
-                <li><strong>Настройте первый блок:</strong> категория "Межкомнатные двери", свойство "Domeo_Стиль Web"</li>
-                <li><strong>Настройте второй блок:</strong> категория "Межкомнатные двери", свойство "Domeo_Название модели для Web"</li>
-                <li><strong>Создайте связь:</strong> Ctrl+клик на первый блок, Ctrl+клик на второй блок</li>
-                <li><strong>Выберите тип связи:</strong> "🔍 Фильтры → (от первого ко второму)"</li>
-                <li><strong>Проверьте консоль:</strong> должны появиться логи создания связи</li>
-                <li><strong>Выберите стиль</strong> в первом блоке и проверьте второй блок</li>
-            </ol>
-        </div>
-
-        <div class="step warning">
-            <h3>⚠️ Возможные проблемы</h3>
+        <div class="test-step">
+            <h3>1. Создание компонентов</h3>
+            <p>Создать два PropertyFilter компонента на странице</p>
             <ul>
-                <li><strong>"Array(0)" в консоли:</strong> Связь не создается или не сохраняется</li>
-                <li><strong>Меню связи не появляется:</strong> Не выделены оба блока с Ctrl</li>
-                <li><strong>Второй блок не обновляется:</strong> Проблема с передачей данных</li>
+                <li>Первый: "Фильтр стилей" (Domeo_Стиль Web)</li>
+                <li>Второй: "Фильтр моделей" (Domeo_Название модели для Web)</li>
             </ul>
         </div>
 
-        <div class="step">
-            <h3>🔍 Ожидаемые логи в консоли</h3>
-            <div class="code">
-🔗 Создание связи: {sourceElementId: "...", targetElementId: "...", connectionType: "filter"}
-🔗 Новая связь: {id: "connection-...", sourceElementId: "...", targetElementId: "...", ...}
-🔗 handleConnectionData вызвана: {sourceElementId: "...", data: {...}}
-🔗 Все связи в документе: [{id: "connection-...", ...}]
-🔗 Найдены исходящие связи: [{id: "connection-...", ...}]
-🔍 Синхронизация фильтров: {...}
-PropertyFilter: Запрос к API с фильтрами: /api/catalog/products/filtered?...
-PropertyFilter: Ответ API с фильтрами: {...}
-            </div>
+        <div class="test-step">
+            <h3>2. Создание связи</h3>
+            <p>Выбрать оба компонента (Ctrl+click) и создать связь типа "Фильтры"</p>
+            <ul>
+                <li>Направление: от первого ко второму (стили → модели)</li>
+                <li>Тип связи: <code>filter</code></li>
+            </ul>
         </div>
 
-        <div class="step">
-            <h3>🛠️ Тестирование API</h3>
-            <button class="button" onclick="testFilteredAPI()">Тест API фильтрованных товаров</button>
-            <button class="button" onclick="clearCache()">Очистить кэш</button>
-            <div id="api-results"></div>
+        <div class="test-step expected-result">
+            <h3>3. Ожидаемый результат</h3>
+            <p>При выборе стиля в первом фильтре, второй фильтр должен показывать только модели этого стиля</p>
+            <ul>
+                <li>Выбираем "Современная" → показываются только современные модели</li>
+                <li>Выбираем "Классика" → показываются только классические модели</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🐛 Найденные проблемы</h2>
+        
+        <div class="test-step problem">
+            <h3>Проблема 1: Дублирование вызовов onConnectionData</h3>
+            <p>В ElementRenderer.tsx есть дублирование:</p>
+            <div class="console-log">// Строка 652: onConnectionData(element.id, { [propertyName]: value });
+// Строка 655: onConnectionData={onConnectionData}
+
+// PropertyFilter сам вызывает onConnectionData с правильным форматом,
+// но ElementRenderer перехватывает onFilterChange и отправляет 
+// данные в неправильном формате</div>
+            <p><strong>Статус:</strong> ✅ ИСПРАВЛЕНО - убрано дублирование</p>
         </div>
 
-        <div class="step">
-            <h3>📊 Статус отладки</h3>
-            <div id="debug-status">
-                <p>❌ Связи не работают - требуется отладка</p>
-                <p><strong>Основные проблемы:</strong></p>
-                <ul>
-                    <li>Связи не создаются или не сохраняются</li>
-                    <li>handleConnectionData вызывается, но не находит связи</li>
-                    <li>API может работать, но данные не передаются между компонентами</li>
-                </ul>
-            </div>
+        <div class="test-step problem">
+            <h3>Проблема 2: Неправильный формат данных связи</h3>
+            <p>ElementRenderer отправлял данные в формате:</p>
+            <div class="console-log">{ [propertyName]: value } // Неправильно</div>
+            <p>А PropertyFilter отправляет в правильном формате:</p>
+            <div class="console-log">{
+  type: 'filter',
+  propertyName: element.props.propertyName,
+  value: value,
+  categoryIds: element.props.categoryIds
+}</div>
+            <p><strong>Статус:</strong> ✅ ИСПРАВЛЕНО - убран неправильный вызов</p>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔧 Что нужно проверить</h2>
+        
+        <div class="test-step">
+            <h3>1. Создание связи</h3>
+            <p>Проверить, что связь создается правильно:</p>
+            <ul>
+                <li>В консоли должно появиться: <code>🔗 Новая связь: {...}</code></li>
+                <li>В документе должна появиться связь с <code>connectionType: 'filter'</code></li>
+            </ul>
         </div>
 
-        <div class="step">
-            <h3>💡 Следующие шаги</h3>
-            <ol>
-                <li>Проверить создание связей в консоли</li>
-                <li>Убедиться, что связи сохраняются в currentDocument.connections</li>
-                <li>Проверить передачу данных между компонентами</li>
-                <li>Протестировать API фильтрованных товаров</li>
-            </ol>
+        <div class="test-step">
+            <h3>2. Отправка данных</h3>
+            <p>При изменении значения в первом фильтре:</p>
+            <ul>
+                <li>PropertyFilter должен вызвать <code>onConnectionData</code></li>
+                <li>В консоли: <code>🔗 PropertyFilter отправляет данные: {...}</code></li>
+                <li>В консоли: <code>🔗 handleConnectionData вызвана: {...}</code></li>
+            </ul>
+        </div>
+
+        <div class="test-step">
+            <h3>3. Обработка связи</h3>
+            <p>handleConnectionData должна:</p>
+            <ul>
+                <li>Найти исходящие связи: <code>🔗 Найдены исходящие связи: [...]</code></li>
+                <li>Обновить целевой элемент: <code>🔍 Применяем обновления к PropertyFilter: {...}</code></li>
+            </ul>
+        </div>
+
+        <div class="test-step">
+            <h3>4. Обновление фильтра</h3>
+            <p>Второй фильтр должен:</p>
+            <ul>
+                <li>Получить новые <code>element.props.filters</code></li>
+                <li>Перезагрузить данные с учетом фильтра</li>
+                <li>Показать только релевантные модели</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 Инструкции для тестирования</h2>
+        
+        <div class="test-step">
+            <h3>Шаг 1: Открыть Page Builder</h3>
+            <p>Перейти на <code>http://localhost:3000/page-builder</code></p>
+        </div>
+
+        <div class="test-step">
+            <h3>Шаг 2: Создать первый фильтр</h3>
+            <p>Добавить PropertyFilter, в свойствах выбрать "Domeo_Стиль Web"</p>
+        </div>
+
+        <div class="test-step">
+            <h3>Шаг 3: Создать второй фильтр</h3>
+            <p>Добавить второй PropertyFilter, в свойствах выбрать "Domeo_Название модели для Web"</p>
+        </div>
+
+        <div class="test-step">
+            <h3>Шаг 4: Создать связь</h3>
+            <p>Выбрать оба фильтра (Ctrl+click), правый клик → создать связь "Фильтры →"</p>
+        </div>
+
+        <div class="test-step">
+            <h3>Шаг 5: Тестировать</h3>
+            <p>Выбрать стиль в первом фильтре, проверить что второй фильтр обновился</p>
         </div>
     </div>
 
     <script>
-        async function testFilteredAPI() {
-            const resultsDiv = document.getElementById('api-results');
-            resultsDiv.innerHTML = '<p>Тестирование API...</p>';
-            
-            try {
-                const categoryId = 'cmg50xcgs001cv7mn0tdyk1wo';
-                const modelProperty = 'Domeo_Название модели для Web';
-                
-                // Тест без фильтров
-                const response1 = await fetch(`/api/catalog/products/filtered?categoryIds=${categoryId}&propertyName=${encodeURIComponent(modelProperty)}`);
-                const data1 = await response1.json();
-                
-                // Тест с фильтром
-                const filters = { 'Domeo_Стиль Web': 'Классика' };
-                const response2 = await fetch(`/api/catalog/products/filtered?categoryIds=${categoryId}&propertyName=${encodeURIComponent(modelProperty)}&filters=${encodeURIComponent(JSON.stringify(filters))}`);
-                const data2 = await response2.json();
-                
-                resultsDiv.innerHTML = `
-                    <div class="success">
-                        <h4>✅ API работает!</h4>
-                        <p><strong>Без фильтров:</strong> ${data1.uniqueValues[modelProperty]?.length || 0} моделей</p>
-                        <p><strong>С фильтром "Классика":</strong> ${data2.uniqueValues[modelProperty]?.length || 0} моделей</p>
-                        <details>
-                            <summary>Детали ответов</summary>
-                            <pre>Без фильтров: ${JSON.stringify(data1, null, 2)}</pre>
-                            <pre>С фильтром: ${JSON.stringify(data2, null, 2)}</pre>
-                        </details>
-                    </div>
-                `;
-            } catch (error) {
-                resultsDiv.innerHTML = `
-                    <div class="error">
-                        <h4>❌ Ошибка API</h4>
-                        <p>${error.message}</p>
-                    </div>
-                `;
-            }
-        }
-
-        async function clearCache() {
-            try {
-                const response = await fetch('/api/cache/clear', { method: 'POST' });
-                const data = await response.json();
-                
-                if (response.ok) {
-                    alert('✅ Кэш очищен успешно!');
-                } else {
-                    alert('❌ Ошибка очистки кэша: ' + data.error);
-                }
-            } catch (error) {
-                alert('❌ Ошибка сети: ' + error.message);
-            }
-        }
+        console.log('🔍 Тест связей между компонентами загружен');
+        console.log('📋 Откройте консоль разработчика для отслеживания логов');
     </script>
 </body>
 </html>
-

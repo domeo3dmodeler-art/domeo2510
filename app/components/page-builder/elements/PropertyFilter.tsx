@@ -298,6 +298,31 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
     }
   }, [element.props.selectedValue, selectedValue]);
 
+  // Обработка внешних фильтров через связи
+  useEffect(() => {
+    if (element.props.filters && Object.keys(element.props.filters).length > 0) {
+      console.log('🔍 PropertyFilter: Получены внешние фильтры:', element.props.filters);
+      
+      // Если есть фильтр по свойству, перезагружаем данные
+      if (element.props.filters.propertyName && element.props.filters.propertyValue) {
+        console.log('🔍 PropertyFilter: Перезагружаем данные с учетом фильтра:', {
+          propertyName: element.props.filters.propertyName,
+          propertyValue: element.props.filters.propertyValue,
+          categoryIds: element.props.filters.categoryIds
+        });
+        
+        // Сбрасываем состояние и перезагружаем данные
+        setLoading(true);
+        setError(null);
+        setOptions([]);
+        setSelectedValue('');
+        
+        // Загружаем отфильтрованные данные
+        loadPropertyValues();
+      }
+    }
+  }, [element.props.filters]);
+
   const handleValueChange = (value: string) => {
     setSelectedValue(value);
     

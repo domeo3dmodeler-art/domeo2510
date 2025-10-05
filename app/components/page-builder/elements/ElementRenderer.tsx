@@ -647,11 +647,6 @@ export function ElementRenderer({
             <PropertyFilter
               element={element}
               onUpdate={onUpdate}
-              onFilterChange={(propertyName, value) => {
-                if (onConnectionData) {
-                  onConnectionData(element.id, { [propertyName]: value });
-                }
-              }}
               onConnectionData={onConnectionData}
             />
           </div>
