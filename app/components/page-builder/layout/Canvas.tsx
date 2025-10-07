@@ -97,8 +97,11 @@ export function Canvas({
       const element = findElementById(page?.elements || [], draggedElementId);
       if (!element) return;
 
-      const constrainedX = Math.max(0, Math.min(snappedX, canvasWidth - element.size.width));
-      const constrainedY = Math.max(0, Math.min(snappedY, canvasHeight - element.size.height));
+      const elementWidth = typeof element.size.width === 'number' ? element.size.width : parseInt(element.size.width) || 200;
+      const elementHeight = typeof element.size.height === 'number' ? element.size.height : parseInt(element.size.height) || 100;
+
+      const constrainedX = Math.max(0, Math.min(snappedX, canvasWidth - elementWidth));
+      const constrainedY = Math.max(0, Math.min(snappedY, canvasHeight - elementHeight));
 
       onUpdateElement(draggedElementId, {
         position: { x: constrainedX, y: constrainedY }
@@ -147,6 +150,7 @@ export function Canvas({
     
     try {
       const data = JSON.parse(e.dataTransfer.getData('application/json'));
+      console.log('🎯 Canvas: Drop data received:', data);
       
       if (data.type === 'component') {
         const rect = canvasRef.current?.getBoundingClientRect();
@@ -161,9 +165,10 @@ export function Canvas({
         
         // Применяем привязку к сетке
         const gridSize = 20;
-        const snappedX = Math.round(scaledX / gridSize) * gridSize;
-        const snappedY = Math.round(scaledY / gridSize) * gridSize;
+        const snappedX = Math.max(0, Math.round(scaledX / gridSize) * gridSize);
+        const snappedY = Math.max(0, Math.round(scaledY / gridSize) * gridSize);
         
+        console.log('🎯 Canvas: Adding element at position:', { x: snappedX, y: snappedY });
         onAddElement(data.elementType, { x: snappedX, y: snappedY });
       }
     } catch (error) {

@@ -17,17 +17,26 @@ export default function CanvasArea() {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     try {
-      const { type } = JSON.parse(e.dataTransfer.getData('application/json'));
+      const data = JSON.parse(e.dataTransfer.getData('application/json'));
+      const { type } = data;
       const elementDef = BLOCK_DEFINITIONS[type];
       
       if (elementDef && canvasRef.current) {
         const rect = canvasRef.current.getBoundingClientRect();
-        const x = (e.clientX - rect.left) / zoom;
-        const y = (e.clientY - rect.top) / zoom;
+        const x = Math.max(0, (e.clientX - rect.left) / zoom - 20);
+        const y = Math.max(0, (e.clientY - rect.top) / zoom - 20);
         
         addElement({
-          ...elementDef,
-          position: { x, y }
+          type: elementDef.type || 'block',
+          component: elementDef.component || type,
+          props: { ...elementDef.defaultProps },
+          position: { x, y },
+          size: { 
+            width: elementDef.defaultSize?.width || '200px', 
+            height: elementDef.defaultSize?.height || '100px' 
+          },
+          responsive: {},
+          styles: {}
         });
       }
     } catch (error) {

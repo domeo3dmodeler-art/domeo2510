@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     categoriesWithCounts.forEach(category => {
       categoryMap.set(category.id, {
         ...category,
-        subcategories: []
+        children: []
       });
     });
 
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
       if (category.parent_id) {
         const parent = categoryMap.get(category.parent_id);
         if (parent) {
-          parent.subcategories.push(categoryNode);
+          parent.children.push(categoryNode);
         }
       } else {
         rootCategories.push(categoryNode);

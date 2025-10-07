@@ -27,7 +27,9 @@ export function Toolbar({
   onTogglePagesPanel,
   onToggleCatalogPanel,
   onToggleSavePanel,
-  onShowTemplates
+  onShowTemplates,
+  onCreateTestConnection,
+  onTestDataTransfer
 }: ToolbarProps) {
   return (
     <div className="h-12 bg-white border-b border-gray-200 flex items-center justify-between px-4">

@@ -11,6 +11,7 @@ import { SavePublishPanel } from './panels/SavePublishPanel';
 import { TemplateSelector } from './templates/TemplateSelector';
 import { useHistory } from './hooks/useHistory';
 import { DocumentProvider } from './context/DocumentContext';
+import { ConnectionsProvider } from './context/ConnectionsContext';
 import { DocumentData, Page, BaseElement, BlockConnection } from './types';
 
 // Начальный документ
@@ -621,6 +622,7 @@ export function PageBuilder() {
   const handleConnectionData = useCallback((sourceElementId: string, data: any) => {
     console.log('🔗 handleConnectionData вызвана:', { sourceElementId, data });
     console.log('🔗 Все связи в документе:', currentDocument.connections);
+    console.log('🔗 Количество связей:', currentDocument.connections?.length || 0);
     
     // Находим все активные связи, где данный элемент является ИСТОЧНИКОМ данных
     const outgoingConnections = (currentDocument.connections || []).filter(conn => {
@@ -641,6 +643,13 @@ export function PageBuilder() {
     });
 
     console.log('🔗 Найдены исходящие связи:', outgoingConnections);
+    console.log('🔗 Количество найденных связей:', outgoingConnections.length);
+
+    if (outgoingConnections.length === 0) {
+      console.log('⚠️ НЕТ АКТИВНЫХ СВЯЗЕЙ для элемента:', sourceElementId);
+      console.log('⚠️ Все связи в документе:', currentDocument.connections);
+      return;
+    }
 
     // Обновляем целевые элементы
     outgoingConnections.forEach(connection => {
@@ -716,6 +725,102 @@ export function PageBuilder() {
       }
     });
   }, [currentDocument.connections, selectedPage?.elements, handleUpdateElement]);
+
+  // Функция для тестирования связей
+  const handleCreateTestConnection = useCallback(() => {
+    console.log('🧪 Тест связей: Создаем тестовую связь');
+    
+    // Находим PropertyFilter элементы на странице
+    const elements = selectedPage?.elements || [];
+    const propertyFilters = elements.filter(el => el.type === 'propertyFilter');
+    
+    if (propertyFilters.length < 2) {
+      alert('Нужно минимум 2 PropertyFilter элемента для создания связи. Добавьте PropertyFilter компоненты на страницу.');
+      return;
+    }
+    
+    const firstFilter = propertyFilters[0];
+    const secondFilter = propertyFilters[1];
+    
+    console.log('🧪 Тест связей: Создаем связь между PropertyFilter:', {
+      source: { id: firstFilter.id, type: firstFilter.type, propertyName: firstFilter.props.propertyName },
+      target: { id: secondFilter.id, type: secondFilter.type, propertyName: secondFilter.props.propertyName }
+    });
+    
+    // Создаем тестовую связь между PropertyFilter
+    const testConnection: BlockConnection = {
+      id: `test-connection-${Date.now()}`,
+      sourceElementId: firstFilter.id,
+      targetElementId: secondFilter.id,
+      connectionType: 'filter',
+      sourceProperty: 'selectedValue',
+      targetProperty: 'filters',
+      description: `Связь фильтра: ${firstFilter.props.propertyName} → ${secondFilter.props.propertyName}`,
+      isActive: true
+    };
+    
+    const updatedDocument = {
+      ...currentDocument,
+      connections: [...(currentDocument.connections || []), testConnection],
+      updatedAt: new Date().toISOString()
+    };
+    
+    setCurrentDocument(updatedDocument);
+    addToHistory(updatedDocument);
+    
+    console.log('🧪 Тест связей: Связь создана:', testConnection);
+    console.log('🧪 Тест связей: Все связи в документе:', updatedDocument.connections);
+    
+    // Тестируем передачу данных через связь
+    setTimeout(() => {
+      console.log('🧪 Тест связей: Тестируем передачу данных...');
+      const testData = {
+        type: 'filter',
+        propertyName: firstFilter.props.propertyName || 'Domeo_Стиль Web',
+        value: 'Современная',
+        categoryIds: firstFilter.props.categoryIds || []
+      };
+      
+      console.log('🧪 Тест связей: Отправляем тестовые данные:', testData);
+      handleConnectionData(firstFilter.id, testData);
+    }, 1000);
+    
+    alert(`Связь создана между PropertyFilter "${firstFilter.props.propertyName}" и "${secondFilter.props.propertyName}". Проверьте консоль для логов.`);
+  }, [currentDocument, selectedPage, addToHistory, handleConnectionData]);
+
+  // Функция для ручного тестирования передачи данных
+  const handleTestDataTransfer = useCallback(() => {
+    console.log('🧪 Тест передачи данных: Начинаем тест');
+    
+    const elements = selectedPage?.elements || [];
+    const propertyFilters = elements.filter(el => el.type === 'propertyFilter');
+    
+    if (propertyFilters.length < 1) {
+      alert('Нужно минимум 1 PropertyFilter для тестирования передачи данных.');
+      return;
+    }
+    
+    const firstFilter = propertyFilters[0];
+    
+    console.log('🧪 Тест передачи данных: Используем фильтр:', {
+      id: firstFilter.id,
+      propertyName: firstFilter.props.propertyName,
+      categoryIds: firstFilter.props.categoryIds
+    });
+    
+    // Создаем тестовые данные
+    const testData = {
+      type: 'filter',
+      propertyName: firstFilter.props.propertyName || 'Domeo_Стиль Web',
+      value: 'Тестовое значение',
+      categoryIds: firstFilter.props.categoryIds || []
+    };
+    
+    console.log('🧪 Тест передачи данных: Отправляем данные:', testData);
+    handleConnectionData(firstFilter.id, testData);
+    
+    alert('Тестовые данные отправлены. Проверьте консоль для логов.');
+  }, [selectedPage, handleConnectionData]);
 
   // Функция для создания новой связи
   const handleCreateConnection = useCallback((sourceElementId: string, targetElementId: string, connectionType: BlockConnection['connectionType']) => {
@@ -936,7 +1041,8 @@ export function PageBuilder() {
   }, [loadSavedPages]);
 
   return (
-    <DocumentProvider value={currentDocument}>
+    <ConnectionsProvider>
+      <DocumentProvider value={currentDocument}>
       <div className="h-screen flex flex-col bg-gray-100">
         {/* Toolbar */}
                <Toolbar
@@ -969,50 +1075,57 @@ export function PageBuilder() {
         <div className="flex-1 flex overflow-hidden">
           {/* Pages Panel */}
           {showPagesPanel && (
-            <PagesPanel
-              document={currentDocument}
-              selectedPageId={selectedPageId}
-              onSelectPage={setSelectedPageId}
-              onAddPage={handleAddPage}
-              onDeletePage={handleDeletePage}
-              onDuplicatePage={handleDuplicatePage}
-              onUpdatePage={handleUpdatePage}
-            />
+            <div className="w-64 lg:w-72 xl:w-80 bg-white border-r border-gray-200 flex-shrink-0 overflow-hidden">
+              <PagesPanel
+                document={currentDocument}
+                selectedPageId={selectedPageId}
+                onSelectPage={setSelectedPageId}
+                onAddPage={handleAddPage}
+                onDeletePage={handleDeletePage}
+                onDuplicatePage={handleDuplicatePage}
+                onUpdatePage={handleUpdatePage}
+              />
+            </div>
           )}
 
           {/* Catalog Panel */}
           {showCatalogPanel && (
-            <CatalogTreePanel
-              onCategorySelect={(categoryId) => {
-                console.log('Selected category:', categoryId);
-                // TODO: Handle category selection
-              }}
-            />
+            <div className="w-64 lg:w-72 xl:w-80 bg-white border-r border-gray-200 flex-shrink-0 overflow-hidden">
+              <CatalogTreePanel
+                onCategorySelect={(categoryId) => {
+                  console.log('Selected category:', categoryId);
+                  // TODO: Handle category selection
+                }}
+              />
+            </div>
           )}
 
           {/* Save/Publish Panel */}
           {showSavePanel && (
-            <SavePublishPanel
-              document={currentDocument}
-              onSave={handleSavePage}
-              onPublish={handlePublishPage}
-              onLoad={handleLoadPage}
-              savedPages={savedPages}
-              isLoading={loadingPages}
-            />
+            <div className="w-80 lg:w-96 xl:w-[28rem] bg-white border-r border-gray-200 flex-shrink-0 overflow-hidden">
+              <SavePublishPanel
+                document={currentDocument}
+                onSave={handleSavePage}
+                onPublish={handlePublishPage}
+                onLoad={handleLoadPage}
+                savedPages={savedPages}
+                isLoading={loadingPages}
+              />
+            </div>
           )}
-
 
           {/* Components Panel */}
           {showComponentsPanel && (
-            <ComponentsPanel
-              onAddElement={handleAddElement}
-              selectedCategory={null}
-            />
+            <div className="w-64 lg:w-72 xl:w-80 bg-white border-r border-gray-200 flex-shrink-0 overflow-hidden">
+              <ComponentsPanel
+                onAddElement={handleAddElement}
+                selectedCategory={null}
+              />
+            </div>
           )}
 
           {/* Canvas */}
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col min-w-0">
             <Canvas
               page={selectedPage ? { ...selectedPage, connections: currentDocument.connections } : undefined}
               selectedElementId={selectedElementId}
@@ -1033,13 +1146,15 @@ export function PageBuilder() {
 
           {/* Properties Panel */}
           {showPropertiesPanel && (
-          <PropertiesPanel
-              element={selectedElement}
-              page={selectedPage}
-              onUpdateElement={handleUpdateElement}
-              onUpdatePage={(updates) => handleUpdatePage(selectedPageId, updates)}
-                      />
-                    )}
+            <div className="w-80 lg:w-96 xl:w-[28rem] bg-white border-l border-gray-200 flex-shrink-0 overflow-hidden">
+              <PropertiesPanel
+                element={selectedElement}
+                page={selectedPage}
+                onUpdateElement={handleUpdateElement}
+                onUpdatePage={(updates) => handleUpdatePage(selectedPageId, updates)}
+              />
+            </div>
+          )}
         </div>
 
         {/* Export Manager */}
@@ -1052,6 +1167,7 @@ export function PageBuilder() {
           />
       )}
       </div>
-    </DocumentProvider>
+      </DocumentProvider>
+    </ConnectionsProvider>
   );
 }

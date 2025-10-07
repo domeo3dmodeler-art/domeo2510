@@ -12,9 +12,12 @@ interface ElementRendererProps {
 }
 
 const ElementRenderer: React.FC<ElementRendererProps> = ({ element, isSelected = false }) => {
-  const { selectElement, updateElement, moveElement } = useConstructor();
+  const { selectElement, updateElement, moveElement, resizeElement } = useConstructor();
   const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const elementRef = useRef<HTMLDivElement>(null);
 
   const handleClick = (e: React.MouseEvent) => {
@@ -36,14 +39,62 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({ element, isSelected =
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging) return;
     
-    const newX = e.clientX - dragStart.x;
-    const newY = e.clientY - dragStart.y;
+    const newX = Math.max(0, e.clientX - dragStart.x);
+    const newY = Math.max(0, e.clientY - dragStart.y);
     
     moveElement(element.id, { x: newX, y: newY });
   };
 
   const handleMouseUp = () => {
     setIsDragging(false);
+    setIsResizing(false);
+    setResizeHandle(null);
+  };
+
+  const handleResizeStart = (e: React.MouseEvent, handle: string) => {
+    e.stopPropagation();
+    setIsResizing(true);
+    setResizeHandle(handle);
+    setResizeStart({
+      x: e.clientX,
+      y: e.clientY,
+      width: parseInt(element.size.width) || 200,
+      height: parseInt(element.size.height) || 100
+    });
+  };
+
+  const handleResizeMove = (e: React.MouseEvent) => {
+    if (!isResizing || !resizeHandle) return;
+    
+    const deltaX = e.clientX - resizeStart.x;
+    const deltaY = e.clientY - resizeStart.y;
+    
+    let newWidth = resizeStart.width;
+    let newHeight = resizeStart.height;
+    
+    switch (resizeHandle) {
+      case 'se': // Southeast
+        newWidth = Math.max(50, resizeStart.width + deltaX);
+        newHeight = Math.max(30, resizeStart.height + deltaY);
+        break;
+      case 'sw': // Southwest
+        newWidth = Math.max(50, resizeStart.width - deltaX);
+        newHeight = Math.max(30, resizeStart.height + deltaY);
+        break;
+      case 'ne': // Northeast
+        newWidth = Math.max(50, resizeStart.width + deltaX);
+        newHeight = Math.max(30, resizeStart.height - deltaY);
+        break;
+      case 'nw': // Northwest
+        newWidth = Math.max(50, resizeStart.width - deltaX);
+        newHeight = Math.max(30, resizeStart.height - deltaY);
+        break;
+    }
+    
+    resizeElement(element.id, { 
+      width: `${newWidth}px`, 
+      height: `${newHeight}px` 
+    });
   };
 
   // Рендер компонента в зависимости от типа
@@ -322,7 +373,7 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({ element, isSelected =
       className={`group ${isDragging ? 'z-50 opacity-50' : ''} hover:border-blue-300 hover:shadow-md`}
       onClick={handleClick}
       onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
+      onMouseMove={isDragging ? handleMouseMove : isResizing ? handleResizeMove : undefined}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >

@@ -119,7 +119,13 @@ function constructorReducer(state: ConstructorState, action: ConstructorAction):
 
     case 'SAVE_TO_HISTORY': {
       const newHistory = state.history.slice(0, state.historyPointer + 1);
-      newHistory.push({ ...state, elements: [...state.elements] });
+      const currentState = {
+        elements: [...state.elements],
+        selectedElementId: state.selectedElementId,
+        history: [],
+        historyPointer: -1
+      };
+      newHistory.push(currentState);
       
       return {
         ...state,

@@ -45,7 +45,7 @@ export interface ConstructorElement {
 export interface ConstructorState {
   elements: ConstructorElement[];
   selectedElementId: string | null;
-  history: ConstructorElement[][];
+  history: ConstructorState[];
   historyPointer: number;
 }
 

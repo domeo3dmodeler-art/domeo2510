@@ -70,14 +70,14 @@ export function SelectionOverlay({ element, isSelected, isMultiSelected, allElem
   }, [onDelete]);
 
   const resizeHandles = [
-    { direction: 'nw', position: { top: -4, left: -4 } },
-    { direction: 'n', position: { top: -4, left: '50%', transform: 'translateX(-50%)' } },
-    { direction: 'ne', position: { top: -4, right: -4 } },
-    { direction: 'w', position: { top: '50%', left: -4, transform: 'translateY(-50%)' } },
-    { direction: 'e', position: { top: '50%', right: -4, transform: 'translateY(-50%)' } },
-    { direction: 'sw', position: { bottom: -4, left: -4 } },
-    { direction: 's', position: { bottom: -4, left: '50%', transform: 'translateX(-50%)' } },
-    { direction: 'se', position: { bottom: -4, right: -4 } }
+    { direction: 'nw', position: { top: -6, left: -6 } },
+    { direction: 'n', position: { top: -6, left: '50%', transform: 'translateX(-50%)' } },
+    { direction: 'ne', position: { top: -6, right: -6 } },
+    { direction: 'w', position: { top: '50%', left: -6, transform: 'translateY(-50%)' } },
+    { direction: 'e', position: { top: '50%', right: -6, transform: 'translateY(-50%)' } },
+    { direction: 'sw', position: { bottom: -6, left: -6 } },
+    { direction: 's', position: { bottom: -6, left: '50%', transform: 'translateX(-50%)' } },
+    { direction: 'se', position: { bottom: -6, right: -6 } }
   ];
 
   return (
@@ -93,7 +93,7 @@ export function SelectionOverlay({ element, isSelected, isMultiSelected, allElem
       {resizeHandles.map((handle) => (
         <div
           key={handle.direction}
-          className="absolute w-2 h-2 bg-blue-500 border border-white cursor-pointer hover:bg-blue-600"
+          className="absolute w-3 h-3 bg-blue-500 border border-white cursor-pointer hover:bg-blue-600 rounded-sm"
           style={{
             ...handle.position,
             transform: handle.position.transform
