@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест связи фильтров</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .step {
+            background: #f5f5f5;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Тест связи между фильтрами</h1>
+    
+    <div class="step">
+        <h2>Шаг 1: Создание связи</h2>
+        <p>1. Выберите верхний фильтр (стили)</p>
+        <p>2. Зажмите <strong>Ctrl</strong> и кликните на нижний фильтр (модели)</p>
+        <p>3. В меню выберите: <strong>🔍 Фильтры → (от первого ко второму)</strong></p>
+        <p>4. Нажмите <strong>"Создать связь"</strong></p>
+        <button onclick="checkConnection()">Проверить связь</button>
+    </div>
+
+    <div class="step">
+        <h2>Шаг 2: Тест фильтрации</h2>
+        <p>1. Выберите значение в верхнем фильтре (например, "Современная")</p>
+        <p>2. Проверьте, что в консоли появились логи</p>
+        <button onclick="showExpectedLogs()">Показать ожидаемые логи</button>
+    </div>
+
+    <div class="step">
+        <h2>Шаг 3: Диагностика</h2>
+        <p>Если фильтрация не работает, проверьте:</p>
+        <ul>
+            <li>Есть ли связь между фильтрами в панели справа</li>
+            <li>Правильно ли настроены свойства у каждого фильтра</li>
+            <li>Есть ли ошибки в консоли браузера</li>
+        </ul>
+        <button onclick="runDiagnostics()">Запустить диагностику</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        function checkConnection() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<div class="log">Проверьте в конструкторе страниц:\n1. Откройте правую панель "Связи между блоками"\n2. Должна быть активная связь типа "Синхронизация фильтров"\n3. Если связи нет - создайте её через Ctrl+клик</div>';
+        }
+
+        function showExpectedLogs() {
+            const results = document.getElementById('results');
+            results.innerHTML = `<div class="log">Ожидаемые логи в консоли браузера (F12):
+
+🔗 PropertyFilter отправляет данные: {
+  elementId: 'element-xxx',
+  propertyName: 'Domeo_Стиль Web',
+  value: 'Современная',
+  categoryIds: ['cmg50xcgs001cv7mn0tdyk1wo']
+}
+
+🔗 handleConnectionData вызвана: {
+  sourceElementId: 'element-xxx',
+  data: {type: 'filter', propertyName: 'Domeo_Стиль Web', value: 'Современная'}
+}
+
+🔗 Найдены исходящие связи: Array(1)
+🔍 Синхронизация фильтров: {...}
+🔍 Обновляем PropertyFilter фильтр: {...}
+
+GET /api/catalog/products/filtered?categoryIds=...&propertyName=Domeo_Название модели для Web&filters={"Domeo_Стиль Web":"Современная"}</div>`;
+        }
+
+        function runDiagnostics() {
+            const results = document.getElementById('results');
+            results.innerHTML = `<div class="step">
+                <h3>🔧 Диагностика проблем</h3>
+                <div class="warning">
+                    <strong>Если НЕТ логов "🔗 PropertyFilter отправляет данные":</strong><br>
+                    - Связь не создана или неактивна<br>
+                    - Проверьте панель "Связи между блоками"
+                </div>
+                <div class="warning">
+                    <strong>Если есть логи отправки, но НЕТ "🔗 handleConnectionData":</strong><br>
+                    - Проблема в системе связей<br>
+                    - Перезагрузите страницу
+                </div>
+                <div class="warning">
+                    <strong>Если есть "🔗 Найдены исходящие связи: Array(0)":</strong><br>
+                    - Неправильное направление связи<br>
+                    - Пересоздайте связь с правильным направлением
+                </div>
+                <div class="warning">
+                    <strong>Если есть ошибка API:</strong><br>
+                    - Проверьте логи сервера в терминале<br>
+                    - Очистите кэш: POST /api/cache/clear
+                </div>
+            </div>`;
+        }
+    </script>
+</body>
+</html>
+

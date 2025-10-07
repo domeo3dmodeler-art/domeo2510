@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест конструктора</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button { padding: 10px 15px; margin: 5px; }
+        iframe { width: 100%; height: 800px; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Тест конструктора</h1>
+    
+    <div class="section">
+        <h3>Инструкция:</h3>
+        <ol>
+            <li>Заполните форму "Информация о категории" (любые данные)</li>
+            <li>Нажмите "Далее"</li>
+            <li>Вы должны увидеть полноэкранный конструктор</li>
+            <li>Проверьте, что есть кнопки "Показать сетку" и "Привязка к сетке"</li>
+            <li>Проверьте, что есть блок "Основная категория"</li>
+        </ol>
+    </div>
+    
+    <div class="section">
+        <h3>Конструктор:</h3>
+        <iframe id="constructorFrame" src="/admin/categories/builder"></iframe>
+    </div>
+    
+    <div class="section">
+        <h3>Проверка:</h3>
+        <button onclick="checkConstructor()">Проверить конструктор</button>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function checkConstructor() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<div class="info">Проверка...</div>';
+            
+            try {
+                const iframe = document.getElementById('constructorFrame');
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                
+                // Проверяем наличие элементов конструктора
+                const checks = [
+                    { name: 'Форма информации', selector: 'input[name="name"]' },
+                    { name: 'Кнопка Далее', selector: 'button:contains("Далее")' },
+                    { name: 'Заголовок конструктора', selector: 'h1:contains("Конструктор страниц")' },
+                    { name: 'Кнопка сетки', selector: 'button:contains("Показать сетку")' },
+                    { name: 'Блок категории', selector: 'text:contains("Основная категория")' }
+                ];
+                
+                let results = [];
+                
+                checks.forEach(check => {
+                    try {
+                        const element = iframeDoc.querySelector(check.selector);
+                        if (element) {
+                            results.push(`✅ ${check.name}: Найден`);
+                        } else {
+                            results.push(`❌ ${check.name}: Не найден`);
+                        }
+                    } catch (e) {
+                        results.push(`❌ ${check.name}: Ошибка проверки`);
+                    }
+                });
+                
+                resultDiv.innerHTML = results.join('<br>');
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Ошибка: ${error.message}</div>`;
+            }
+        }
+        
+        // Автоматически проверяем через 3 секунды
+        setTimeout(() => {
+            checkConstructor();
+        }, 3000);
+    </script>
+</body>
+</html>
+
+
+

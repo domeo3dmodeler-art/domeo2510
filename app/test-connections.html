@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест связей между компонентами</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        .step {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+        }
+        .console-output {
+            background: #212529;
+            color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            margin: 10px 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .button-group {
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Тест связей между компонентами</h1>
+        
+        <div class="test-section info">
+            <h3>📋 Инструкции</h3>
+            <p>Этот тест поможет проверить работу связей между PropertyFilter компонентами.</p>
+            <ol>
+                <li>Откройте <a href="http://localhost:3000/page-builder" target="_blank">Page Builder</a></li>
+                <li>Создайте два PropertyFilter компонента</li>
+                <li>Настройте их свойства (стили и модели)</li>
+                <li>Создайте связь между ними</li>
+                <li>Протестируйте синхронизацию</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Исправления</h3>
+            <div class="step success">
+                <strong>✅ Исправлено:</strong> Дублирование вызовов onConnectionData в ElementRenderer
+            </div>
+            <div class="step success">
+                <strong>✅ Исправлено:</strong> Добавлена обработка внешних фильтров в PropertyFilter
+            </div>
+            <div class="step success">
+                <strong>✅ Исправлено:</strong> Правильный формат данных в handleConnectionData
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Тест создания связи</h3>
+            <div class="button-group">
+                <button onclick="testCreateConnection()">Создать тестовую связь</button>
+                <button onclick="testConnectionData()">Тест передачи данных</button>
+                <button onclick="clearConsole()">Очистить консоль</button>
+            </div>
+            <div id="console-output" class="console-output"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Ожидаемые результаты</h3>
+            <div class="step">
+                <strong>1. Создание связи:</strong>
+                <ul>
+                    <li>В консоли: "🔗 Новая связь: {...}"</li>
+                    <li>Связь добавляется в document.connections</li>
+                </ul>
+            </div>
+            <div class="step">
+                <strong>2. Передача данных:</strong>
+                <ul>
+                    <li>В консоли: "🔗 PropertyFilter отправляет данные: {...}"</li>
+                    <li>В консоли: "🔗 handleConnectionData вызвана: {...}"</li>
+                    <li>В консоли: "🔗 Найдены исходящие связи: [...]"</li>
+                </ul>
+            </div>
+            <div class="step">
+                <strong>3. Обновление фильтра:</strong>
+                <ul>
+                    <li>В консоли: "🔍 Применяем обновления к PropertyFilter: {...}"</li>
+                    <li>В консоли: "🔍 PropertyFilter: Получены внешние фильтры: {...}"</li>
+                    <li>Второй фильтр перезагружает данные</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🐛 Возможные проблемы</h3>
+            <div class="step error">
+                <strong>❌ Связь не создается:</strong>
+                <ul>
+                    <li>Проверьте, что выбраны 2 элемента (Ctrl+click)</li>
+                    <li>Проверьте правый клик для показа меню связей</li>
+                </ul>
+            </div>
+            <div class="step error">
+                <strong>❌ Данные не передаются:</strong>
+                <ul>
+                    <li>Проверьте консоль на ошибки</li>
+                    <li>Убедитесь, что PropertyFilter имеет propertyName</li>
+                </ul>
+            </div>
+            <div class="step error">
+                <strong>❌ Фильтр не обновляется:</strong>
+                <ul>
+                    <li>Проверьте, что элемент получает element.props.filters</li>
+                    <li>Убедитесь, что useEffect срабатывает</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const consoleOutput = document.getElementById('console-output');
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            consoleOutput.textContent += `[${timestamp}] ${message}\n`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+
+        function clearConsole() {
+            consoleOutput.textContent = '';
+        }
+
+        function testCreateConnection() {
+            log('🧪 Тест создания связи...');
+            
+            // Симулируем создание связи
+            const mockConnection = {
+                id: 'test-conn-' + Date.now(),
+                sourceElementId: 'filter-1',
+                targetElementId: 'filter-2',
+                connectionType: 'filter',
+                sourceProperty: 'selectedValue',
+                targetProperty: 'filters',
+                description: 'Тестовая связь',
+                isActive: true
+            };
+            
+            log(`🔗 Создана тестовая связь: ${JSON.stringify(mockConnection, null, 2)}`);
+            log('✅ Связь должна появиться в document.connections');
+        }
+
+        function testConnectionData() {
+            log('🧪 Тест передачи данных...');
+            
+            // Симулируем передачу данных
+            const mockData = {
+                type: 'filter',
+                propertyName: 'Domeo_Стиль Web',
+                value: 'Современная',
+                categoryIds: ['cmg50xcgs001cv7mn0tdyk1wo']
+            };
+            
+            log(`🔗 PropertyFilter отправляет данные: ${JSON.stringify(mockData, null, 2)}`);
+            log('🔗 handleConnectionData вызвана...');
+            log('🔗 Найдены исходящие связи: [связь найдена]');
+            log('🔍 Применяем обновления к PropertyFilter...');
+            log('🔍 PropertyFilter: Получены внешние фильтры...');
+            log('✅ Данные должны передаться во второй фильтр');
+        }
+
+        // Инициализация
+        log('🔍 Тест связей между компонентами загружен');
+        log('📋 Откройте Page Builder для тестирования');
+        log('📋 Откройте консоль разработчика для отслеживания логов');
+    </script>
+</body>
+</html>
