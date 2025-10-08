@@ -650,6 +650,9 @@ export default function DoorsPage() {
 
   // Клиентское кэширование для моделей с фото
   const [modelsCache, setModelsCache] = useState<Map<string, { model: string; style: string; photo?: string | null }[]>>(new Map());
+  
+  // Состояние сворачивания блока стилей
+  const [isStyleCollapsed, setIsStyleCollapsed] = useState(false);
 
   const selectedModelCard = useMemo(
     () => Array.isArray(models) ? models.find((m) => m.model === sel.model) || null : null,
@@ -749,6 +752,13 @@ export default function DoorsPage() {
       c = true;
     };
   }, [sel]);
+
+  // Автоматическое сворачивание блока стилей при выборе стиля
+  useEffect(() => {
+    if (sel.style) {
+      setIsStyleCollapsed(true);
+    }
+  }, [sel.style]);
 
   // Префилл по ?sku=...
   useEffect(() => {
@@ -1073,87 +1083,113 @@ export default function DoorsPage() {
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8 p-6">
           <main className="lg:col-span-1 space-y-8">
             <section>
-              <h2 className="text-xl font-semibold text-black mb-3">Стиль</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                {styleTiles.map((s) => (
-                  <button
-                    key={s.key}
-                    onClick={() => setSel((v) => ({ ...v, style: s.key }))}
-                    className={`group overflow-hidden transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ring-offset-2 ${
-                      sel.style === s.key 
-                        ? "bg-gray-50" 
-                        : "hover:bg-gray-50"
-                    }`}
-                    aria-label={`Выбрать стиль ${s.key}`}
-                  >
-                    <div className="aspect-[1/2] flex items-center justify-center bg-white p-2">
-                      {s.key === 'Скрытая' && (
-                        <svg className="w-[54px] h-[108px] text-gray-400" viewBox="0 0 18 36" fill="none" stroke="currentColor" strokeWidth="0.3">
-                          {/* Скрытая дверь - только контур */}
-                          <rect x="2" y="2" width="14" height="32" rx="0.5"/>
-                          {/* Минимальная ручка - горизонтальная линия */}
-                          <line x1="13" y1="18" x2="15" y2="18"/>
-                        </svg>
-                      )}
-                      {s.key === 'Современная' && (
-                        <svg className="w-[54px] h-[108px] text-gray-400" viewBox="0 0 18 36" fill="none" stroke="currentColor" strokeWidth="0.3">
-                          {/* Современная дверь - контур + вертикальная панель */}
-                          <rect x="2" y="2" width="14" height="32" rx="0.5"/>
-                          <rect x="5" y="4" width="8" height="28" rx="0.3"/>
-                          {/* Простая ручка - горизонтальная линия */}
-                          <line x1="13" y1="18" x2="15" y2="18"/>
-                        </svg>
-                      )}
-                      {s.key === 'Неоклассика' && (
-                        <svg className="w-[54px] h-[108px] text-gray-400" viewBox="0 0 18 36" fill="none" stroke="currentColor" strokeWidth="0.3">
-                          {/* Неоклассика - контур + две панели */}
-                          <rect x="2" y="2" width="14" height="32" rx="0.5"/>
-                          <rect x="4" y="4" width="10" height="14" rx="0.3"/> {/* Верхняя панель */}
-                          <rect x="4" y="20" width="10" height="8" rx="0.3"/> {/* Нижняя панель */}
-                          {/* Круглая ручка */}
-                          <circle cx="13" cy="18" r="0.8"/>
-                        </svg>
-                      )}
-                      {s.key === 'Классика' && (
-                        <svg className="w-[54px] h-[108px] text-gray-400" viewBox="0 0 18 36" fill="none" stroke="currentColor" strokeWidth="0.3">
-                          {/* Классика - контур + две панели с молдингами */}
-                          <rect x="2" y="2" width="14" height="32" rx="0.5"/>
-                          {/* Верхняя панель с молдингом */}
-                          <rect x="4" y="4" width="10" height="14" rx="0.3"/>
-                          <rect x="5" y="5" width="8" height="12" rx="0.2"/>
-                          {/* Нижняя панель с молдингом */}
-                          <rect x="4" y="20" width="10" height="8" rx="0.3"/>
-                          <rect x="5" y="21" width="8" height="6" rx="0.2"/>
-                          {/* Классическая ручка - рычаг */}
-                          <line x1="13" y1="17" x2="13" y2="19"/>
-                          <line x1="13" y1="17" x2="12" y2="17"/>
-                        </svg>
-                      )}
-                    </div>
-                    <div className="text-center h-4 flex items-center justify-center">
-                      <div className="font-medium text-black text-xs leading-tight">{s.key}</div>
-                    </div>
-                  </button>
-                ))}
+              <div className="mb-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-black flex items-center">
+                    Стиль
+                    {isStyleCollapsed && sel.style && (
+                      <>
+                        <span className="text-black text-lg font-bold mx-3">•</span>
+                        <span className="text-lg font-medium text-gray-900">{sel.style}</span>
+                      </>
+                    )}
+                  </h2>
+                  
+                  {sel.style && (
+                    <button
+                      onClick={() => setIsStyleCollapsed(!isStyleCollapsed)}
+                      className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                      aria-label={isStyleCollapsed ? "Развернуть стили" : "Свернуть стили"}
+                    >
+                      <svg 
+                        className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${
+                          isStyleCollapsed ? '' : 'rotate-180'
+                        }`} 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                isStyleCollapsed ? 'max-h-0 opacity-0' : 'max-h-96 opacity-100'
+              }`}>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                  {styleTiles.map((s) => (
+                    <button
+                      key={s.key}
+                      onClick={() => setSel((v) => ({ ...v, style: s.key }))}
+                      className={`group overflow-hidden transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ring-offset-2 ${
+                        sel.style === s.key 
+                          ? "bg-gray-50" 
+                          : "hover:bg-gray-50"
+                      }`}
+                      aria-label={`Выбрать стиль ${s.key}`}
+                    >
+                      <div className="aspect-[1/2] flex items-center justify-center bg-white p-2">
+                        {s.key === 'Скрытая' && (
+                          <svg className="w-[54px] h-[108px] text-gray-400" viewBox="0 0 18 36" fill="none" stroke="currentColor" strokeWidth="0.3">
+                            {/* Скрытая дверь - только контур */}
+                            <rect x="2" y="2" width="14" height="32" rx="0.5"/>
+                            {/* Минимальная ручка - горизонтальная линия */}
+                            <line x1="13" y1="18" x2="15" y2="18"/>
+                          </svg>
+                        )}
+                        {s.key === 'Современная' && (
+                          <svg className="w-[54px] h-[108px] text-gray-400" viewBox="0 0 18 36" fill="none" stroke="currentColor" strokeWidth="0.3">
+                            {/* Современная дверь - контур + вертикальная панель */}
+                            <rect x="2" y="2" width="14" height="32" rx="0.5"/>
+                            <rect x="5" y="4" width="8" height="28" rx="0.3"/>
+                            {/* Простая ручка - горизонтальная линия */}
+                            <line x1="13" y1="18" x2="15" y2="18"/>
+                          </svg>
+                        )}
+                        {s.key === 'Неоклассика' && (
+                          <svg className="w-[54px] h-[108px] text-gray-400" viewBox="0 0 18 36" fill="none" stroke="currentColor" strokeWidth="0.3">
+                            {/* Неоклассика - контур + две панели */}
+                            <rect x="2" y="2" width="14" height="32" rx="0.5"/>
+                            <rect x="4" y="4" width="10" height="14" rx="0.3"/> {/* Верхняя панель */}
+                            <rect x="4" y="20" width="10" height="8" rx="0.3"/> {/* Нижняя панель */}
+                            {/* Круглая ручка */}
+                            <circle cx="13" cy="18" r="0.8"/>
+                          </svg>
+                        )}
+                        {s.key === 'Классика' && (
+                          <svg className="w-[54px] h-[108px] text-gray-400" viewBox="0 0 18 36" fill="none" stroke="currentColor" strokeWidth="0.3">
+                            {/* Классика - контур + две панели с молдингами */}
+                            <rect x="2" y="2" width="14" height="32" rx="0.5"/>
+                            {/* Верхняя панель с молдингом */}
+                            <rect x="4" y="4" width="10" height="14" rx="0.3"/>
+                            <rect x="5" y="5" width="8" height="12" rx="0.2"/>
+                            {/* Нижняя панель с молдингом */}
+                            <rect x="4" y="20" width="10" height="8" rx="0.3"/>
+                            <rect x="5" y="21" width="8" height="6" rx="0.2"/>
+                            {/* Классическая ручка - рычаг */}
+                            <line x1="13" y1="17" x2="13" y2="19"/>
+                            <line x1="13" y1="17" x2="12" y2="17"/>
+                          </svg>
+                        )}
+                      </div>
+                      <div className="text-center h-4 flex items-center justify-center">
+                        <div className="font-medium text-black text-xs leading-tight">{s.key}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </section>
 
             {sel.style && (
               <section>
-                <div className="flex items-center justify-between mb-3">
+                <div className="mb-3">
                   <h2 className="text-xl font-semibold text-black">
-                    Модели {isLoadingModels ? (
-                      <span className="text-sm text-gray-500 ml-2">(загрузка...)</span>
-                    ) : (
-                      <span className="text-sm text-gray-500 ml-2">({models.length})</span>
-                    )}
+                    Модели
                   </h2>
-                  <button
-                    className="text-sm text-black hover:text-yellow-400 transition-colors duration-200"
-                    onClick={() => setSel((v) => ({ ...v, style: "" }))}
-                  >
-                    Сбросить стиль
-                  </button>
                 </div>
                 {Array.isArray(models) && models.length ? (
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8">
