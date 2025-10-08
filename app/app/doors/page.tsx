@@ -683,6 +683,25 @@ export default function DoorsPage() {
     let c = false;
     (async () => {
       try {
+        // Используем данные из кэша вместо API запроса
+        const cached = modelsCache.get('all');
+        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+          const allModels = cached.data;
+          const domain: any = {
+            style: Array.from(new Set(allModels.map((m: any) => m.style))).sort(),
+            finish: Array.from(new Set(allModels.flatMap((m: any) => m.options?.finishes || []))).sort(),
+            color: Array.from(new Set(allModels.flatMap((m: any) => m.options?.colors || []))).sort(),
+            type: Array.from(new Set(allModels.flatMap((m: any) => m.options?.types || []))).sort(),
+            width: Array.from(new Set(allModels.flatMap((m: any) => m.options?.widths || []))).sort(),
+            height: Array.from(new Set(allModels.flatMap((m: any) => m.options?.heights || []))).sort(),
+            kits: [],
+            handles: []
+          };
+          const response = { domain };
+          if (!c) setDomain(response.domain);
+          return;
+        }
+        
         const response = await api.getOptions(query);
         // Извлекаем domain из ответа API
         const domain = response?.domain || response;
@@ -703,76 +722,51 @@ export default function DoorsPage() {
       try {
         const styleKey = sel.style || 'all';
         
-               // Проверяем клиентский кэш для моделей с проверкой времени
-               const cached = modelsCache.get(styleKey);
-               if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-                 console.log('✅ Используем клиентский кэш для моделей');
-                 setModels(cached.data);
-                 setIsLoadingModels(false);
-                 return;
-               }
+        // Проверяем клиентский кэш для моделей с проверкой времени
+        const cached = modelsCache.get('all');
+        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+          console.log('✅ Используем предзагруженные данные');
+          
+          // Фильтруем модели по стилю в памяти
+          const filteredModels = sel.style ? 
+            cached.data.filter((model: any) => model.style === sel.style) : 
+            cached.data;
+          
+          setModels(filteredModels);
+          setIsLoadingModels(false);
+          return;
+        }
         
+        // Если нет кэша, загружаем данные
+        console.log('🔄 Загружаем данные для стиля:', sel.style || 'все');
         setIsLoadingModels(true);
         
         // Оптимистичное обновление: показываем пустой список сразу
         if (!c) setModels([]);
         
-        // Параллельная загрузка моделей и опций для ускорения
-        const [modelsResponse, optionsResponse] = await Promise.all([
-          fetch(`/api/catalog/doors/models-with-photos?style=${encodeURIComponent(sel.style || "")}`),
-          fetch(`/api/catalog/doors/options?style=${encodeURIComponent(sel.style || "")}`)
-        ]);
+        // Один оптимизированный запрос для всех данных
+        const response = await fetch(`/api/catalog/doors/complete-data?style=${encodeURIComponent(sel.style || "")}`);
         
-        if (!c) {
-          // Обрабатываем модели
-          if (modelsResponse.ok) {
-            const modelsData = await modelsResponse.json();
-            const rows = modelsData?.models || [];
-            
-            // Предзагружаем фото для всех моделей параллельно
-            if (rows.length > 0) {
-              console.log('🔄 Предзагружаем фото для всех моделей...');
-              const photoPromises = rows.map(async (model: any) => {
-                if (model.photo) return; // Уже есть фото
-                
-                try {
-                  const response = await fetch(`/api/catalog/doors/photos?model=${encodeURIComponent(model.model)}`);
-                  if (response.ok) {
-                    const data = await response.json();
-                    if (data.photos && data.photos.length > 0) {
-                      model.photo = data.photos[0];
-                    }
-                  }
-                } catch (error) {
-                  console.log('❌ Ошибка предзагрузки фото для:', model.model);
-                }
-              });
-              
-              // Ждем завершения всех загрузок фото
-              await Promise.allSettled(photoPromises);
-              console.log('✅ Предзагрузка фото завершена');
-            }
-            
-            setModels(rows);
-            
-                   // Сохраняем в клиентский кэш с временной меткой
-                   setModelsCache(prev => {
-                     const newCache = new Map(prev);
-                     newCache.set(styleKey, {
-                       data: rows,
-                       timestamp: Date.now()
-                     });
-                     return newCache;
-                   });
-          }
+        if (!c && response.ok) {
+          const data = await response.json();
+          console.log('✅ Все данные загружены одним запросом:', data);
           
-          // Обрабатываем опции (если нужно)
-          if (optionsResponse.ok) {
-            const optionsData = await optionsResponse.json();
-            // Здесь можно обновить опции если нужно
-            console.log('✅ Опции загружены параллельно:', optionsData);
-          }
+          const rows = data?.models || [];
+          setModels(rows);
           
+          // Сохраняем в клиентский кэш с временной меткой
+          setModelsCache(prev => {
+            const newCache = new Map(prev);
+            newCache.set(styleKey, {
+              data: rows,
+              timestamp: Date.now()
+            });
+            return newCache;
+          });
+          
+          setIsLoadingModels(false);
+        } else if (!c) {
+          console.error('❌ Ошибка загрузки данных:', response.status);
           setIsLoadingModels(false);
         }
       } catch (error) {
@@ -804,12 +798,49 @@ export default function DoorsPage() {
     };
   }, [sel]);
 
-  // Автоматическое сворачивание блока стилей при выборе стиля
+  // Предзагрузка всех данных при загрузке страницы
+  useEffect(() => {
+    const preloadAllData = async () => {
+      try {
+        console.log('🚀 Предзагрузка всех данных...');
+        const response = await fetch('/api/catalog/doors/complete-data');
+        if (response.ok) {
+          const data = await response.json();
+          console.log('✅ Все данные предзагружены:', data);
+          
+          // Сохраняем в кэш для всех стилей
+          setModelsCache(prev => {
+            const newCache = new Map(prev);
+            newCache.set('all', {
+              data: data.models || [],
+              timestamp: Date.now()
+            });
+            return newCache;
+          });
+        }
+      } catch (error) {
+        console.log('❌ Ошибка предзагрузки:', error);
+      }
+    };
+    
+    preloadAllData();
+  }, []);
+
+  // Автоматическое сворачивание блока стилей при выборе стиля + мгновенная фильтрация
   useEffect(() => {
     if (sel.style) {
       setIsStyleCollapsed(true);
+      
+      // Мгновенная фильтрация из кэша
+      const cached = modelsCache.get('all');
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        console.log('⚡ Мгновенная фильтрация для стиля:', sel.style);
+        const filteredModels = cached.data.filter((model: any) => model.style === sel.style);
+        setModels(filteredModels);
+        setIsLoadingModels(false);
+      }
     }
-  }, [sel.style]);
+  }, [sel.style, modelsCache]);
 
   // Префилл по ?sku=...
   useEffect(() => {
@@ -864,6 +895,26 @@ export default function DoorsPage() {
 
   const ensureItemDomain = async (item: { model: string; style?: string }) => {
     if (itemDomains[item.model]) return itemDomains[item.model];
+    
+    // Используем данные из кэша
+    const cached = modelsCache.get('all');
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      const allModels = cached.data;
+      const modelData = allModels.find((m: any) => m.model === item.model);
+      if (modelData) {
+        const domain = {
+          finish: modelData.options?.finishes || [],
+          color: modelData.options?.colors || [],
+          type: modelData.options?.types || [],
+          width: modelData.options?.widths || [],
+          height: modelData.options?.heights || []
+        };
+        setItemDomains((m) => ({ ...m, [item.model]: domain }));
+        return domain;
+      }
+    }
+    
+    // Fallback к старому API
     const q = new URLSearchParams();
     q.set("model", item.model);
     if (item.style) q.set("style", item.style);
@@ -1166,7 +1217,13 @@ export default function DoorsPage() {
               <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
                 isStyleCollapsed ? 'max-h-0 opacity-0' : 'max-h-96 opacity-100'
               }`}>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {isLoadingModels ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                  <span className="ml-3 text-gray-600">Загрузка стилей...</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 {styleTiles.map((s) => (
                   <button
                     key={s.key}
@@ -1237,6 +1294,7 @@ export default function DoorsPage() {
                   </button>
                 ))}
                 </div>
+              )}
               </div>
             </section>
 
@@ -1247,7 +1305,12 @@ export default function DoorsPage() {
                     Модели
                   </h2>
                 </div>
-                {Array.isArray(models) && models.length ? (
+                {isLoadingModels ? (
+                  <div className="flex justify-center items-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                    <span className="ml-3 text-gray-600">Загрузка моделей...</span>
+                  </div>
+                ) : Array.isArray(models) && models.length ? (
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8">
                     {models.map((m) => (
                       <DoorCard
@@ -1863,52 +1926,16 @@ function DoorCard({
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Если фото уже предзагружено в item.photo, используем его
+    // Используем фото напрямую из данных модели
     if (item.photo) {
       const imageUrl = item.photo.startsWith('/uploads') ? item.photo : `/uploads${item.photo}`;
       setImageSrc(imageUrl);
       setIsLoading(false);
-      return;
+    } else {
+      // Если фото нет, показываем placeholder
+      setImageSrc(null);
+      setIsLoading(false);
     }
-
-    // Fallback: загружаем фото через старый API (для совместимости)
-    const loadRealPhoto = async () => {
-      try {
-        setIsLoading(true);
-        console.log('🔄 Загружаем реальное фото для:', item.model);
-
-        const response = await fetch(`/api/catalog/doors/photos?model=${encodeURIComponent(item.model)}`);
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log('📸 Ответ API:', data);
-
-          if (data.photos && data.photos.length > 0) {
-            const photoPath = data.photos[0];
-            console.log('🔍 Путь к изображению от API:', photoPath);
-
-            // Преобразуем путь /uploads/products/... в /uploads/products/... (убираем /api)
-            const imageUrl = photoPath.startsWith('/uploads') ? photoPath : `/uploads${photoPath}`;
-            console.log('✅ Финальный URL:', imageUrl);
-
-            setImageSrc(imageUrl);
-          } else {
-            console.log('❌ Фото не найдено для:', item.model);
-            setImageSrc(null);
-          }
-        } else {
-          console.log('❌ Ошибка API:', response.status);
-          setImageSrc(null);
-        }
-      } catch (error) {
-        console.error('❌ Ошибка загрузки фото:', error);
-        setImageSrc(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadRealPhoto();
   }, [item.model, item.photo]);
 
   return (
