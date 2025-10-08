@@ -59,7 +59,9 @@ export async function GET(req: NextRequest) {
           sku: true,
           name: true,
           properties_data: true
-        }
+        },
+        // Ограничиваем количество товаров для ускорения
+        take: 1000
       });
 
       // Сохраняем в кэш

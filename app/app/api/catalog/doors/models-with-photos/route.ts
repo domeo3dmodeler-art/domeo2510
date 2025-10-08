@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 // Кэш для моделей с фото
 const modelsWithPhotosCache = new Map<string, { data: any, timestamp: number }>();
-const CACHE_TTL = 15 * 60 * 1000; // 15 минут
+const CACHE_TTL = 30 * 60 * 1000; // 30 минут - увеличиваем время кэширования
 
 export async function GET(req: NextRequest) {
   try {
@@ -26,15 +26,19 @@ export async function GET(req: NextRequest) {
 
     console.log('🔍 API models-with-photos - загрузка моделей с фото для стиля:', style || 'все');
 
-    // Один запрос к БД для получения всех данных
+    // Оптимизированный запрос к БД с фильтрацией на уровне БД
     const products = await prisma.product.findMany({
       where: {
         catalog_category: {
           name: "Межкомнатные двери"
-        }
+        },
+        is_active: true // Добавляем фильтр активных товаров
       },
       select: {
         properties_data: true
+      },
+      orderBy: {
+        created_at: 'desc' // Сортируем по дате создания для консистентности
       }
     });
 

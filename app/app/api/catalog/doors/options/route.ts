@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
 
     console.log('🔍 API options - загрузка данных (не из кэша)');
 
-    // Получаем все продукты категории "Межкомнатные двери"
+    // Получаем только нужные поля для оптимизации
     const products = await prisma.product.findMany({
       where: {
         catalog_category: {

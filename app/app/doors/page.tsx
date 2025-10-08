@@ -649,13 +649,24 @@ export default function DoorsPage() {
   const [isLoadingModels, setIsLoadingModels] = useState(false);
 
   // Клиентское кэширование для моделей с фото
-  const [modelsCache, setModelsCache] = useState<Map<string, { model: string; style: string; photo?: string | null }[]>>(new Map());
+  // Улучшенное кэширование моделей
+  const [modelsCache, setModelsCache] = useState<Map<string, { data: any, timestamp: number }>>(new Map());
+  const CACHE_TTL = 10 * 60 * 1000; // 10 минут кэш на клиенте
   
   // Состояние сворачивания блока стилей
   const [isStyleCollapsed, setIsStyleCollapsed] = useState(false);
 
   const selectedModelCard = useMemo(
-    () => Array.isArray(models) ? models.find((m) => m.model === sel.model) || null : null,
+    () => {
+      const found = Array.isArray(models) ? models.find((m) => m.model === sel.model) || null : null;
+      console.log('🔍 selectedModelCard:', { 
+        selModel: sel.model, 
+        modelsCount: models?.length, 
+        found: !!found,
+        foundModel: found?.model 
+      });
+      return found;
+    },
     [models, sel.model]
   );
 
@@ -685,47 +696,87 @@ export default function DoorsPage() {
     };
   }, [query]);
 
+  // Оптимизированная загрузка моделей и опций при изменении стиля
   useEffect(() => {
     let c = false;
     (async () => {
       try {
         const styleKey = sel.style || 'all';
         
-        // Проверяем клиентский кэш
-        if (modelsCache.has(styleKey)) {
-          const cachedModels = modelsCache.get(styleKey)!;
-          setModels(cachedModels);
-          setIsLoadingModels(false);
-          return;
-        }
+               // Проверяем клиентский кэш для моделей с проверкой времени
+               const cached = modelsCache.get(styleKey);
+               if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+                 console.log('✅ Используем клиентский кэш для моделей');
+                 setModels(cached.data);
+                 setIsLoadingModels(false);
+                 return;
+               }
         
         setIsLoadingModels(true);
         
         // Оптимистичное обновление: показываем пустой список сразу
         if (!c) setModels([]);
         
-        // Используем новый оптимизированный API для загрузки моделей с фото
-        const response = await fetch(
-          `/api/catalog/doors/models-with-photos?style=${encodeURIComponent(sel.style || "")}`
-        );
+        // Параллельная загрузка моделей и опций для ускорения
+        const [modelsResponse, optionsResponse] = await Promise.all([
+          fetch(`/api/catalog/doors/models-with-photos?style=${encodeURIComponent(sel.style || "")}`),
+          fetch(`/api/catalog/doors/options?style=${encodeURIComponent(sel.style || "")}`)
+        ]);
         
-        if (response.ok) {
-          const data = await response.json();
-          const rows = data?.models || [];
-          if (!c) {
-            setModels(rows);
-            setIsLoadingModels(false);
+        if (!c) {
+          // Обрабатываем модели
+          if (modelsResponse.ok) {
+            const modelsData = await modelsResponse.json();
+            const rows = modelsData?.models || [];
             
-            // Сохраняем в клиентский кэш
-            setModelsCache(prev => {
-              const newCache = new Map(prev);
-              newCache.set(styleKey, rows);
-              return newCache;
-            });
+            // Предзагружаем фото для всех моделей параллельно
+            if (rows.length > 0) {
+              console.log('🔄 Предзагружаем фото для всех моделей...');
+              const photoPromises = rows.map(async (model: any) => {
+                if (model.photo) return; // Уже есть фото
+                
+                try {
+                  const response = await fetch(`/api/catalog/doors/photos?model=${encodeURIComponent(model.model)}`);
+                  if (response.ok) {
+                    const data = await response.json();
+                    if (data.photos && data.photos.length > 0) {
+                      model.photo = data.photos[0];
+                    }
+                  }
+                } catch (error) {
+                  console.log('❌ Ошибка предзагрузки фото для:', model.model);
+                }
+              });
+              
+              // Ждем завершения всех загрузок фото
+              await Promise.allSettled(photoPromises);
+              console.log('✅ Предзагрузка фото завершена');
+            }
+            
+            setModels(rows);
+            
+                   // Сохраняем в клиентский кэш с временной меткой
+                   setModelsCache(prev => {
+                     const newCache = new Map(prev);
+                     newCache.set(styleKey, {
+                       data: rows,
+                       timestamp: Date.now()
+                     });
+                     return newCache;
+                   });
           }
+          
+          // Обрабатываем опции (если нужно)
+          if (optionsResponse.ok) {
+            const optionsData = await optionsResponse.json();
+            // Здесь можно обновить опции если нужно
+            console.log('✅ Опции загружены параллельно:', optionsData);
+          }
+          
+          setIsLoadingModels(false);
         }
       } catch (error) {
-        console.error('Error loading models with photos:', error);
+        console.error('Error loading models and options:', error);
         if (!c) setIsLoadingModels(false);
       }
     })();
@@ -1084,102 +1135,107 @@ export default function DoorsPage() {
           <main className="lg:col-span-1 space-y-8">
             <section>
               <div className="mb-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-black flex items-center">
-                    Стиль
-                    {isStyleCollapsed && sel.style && (
-                      <>
-                        <span className="text-black text-lg font-bold mx-3">•</span>
-                        <span className="text-lg font-medium text-gray-900">{sel.style}</span>
-                      </>
-                    )}
-                  </h2>
-                  
-                  {sel.style && (
-                    <button
-                      onClick={() => setIsStyleCollapsed(!isStyleCollapsed)}
-                      className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
-                      aria-label={isStyleCollapsed ? "Развернуть стили" : "Свернуть стили"}
+                {sel.style ? (
+                  <button
+                    onClick={() => setIsStyleCollapsed(!isStyleCollapsed)}
+                    className="w-full flex items-center justify-between hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200"
+                    aria-label={isStyleCollapsed ? "Развернуть стили" : "Свернуть стили"}
+                  >
+                    <h2 className="text-xl font-semibold text-black flex items-center">
+                      Стиль
+                      <span className="text-black text-lg font-bold mx-3">•</span>
+                      <span className="text-lg font-medium text-gray-900">{sel.style}</span>
+                    </h2>
+                    
+                    <svg 
+                      className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${
+                        isStyleCollapsed ? '' : 'rotate-180'
+                      }`} 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
                     >
-                      <svg 
-                        className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${
-                          isStyleCollapsed ? '' : 'rotate-180'
-                        }`} 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                ) : (
+                  <h2 className="text-xl font-semibold text-black">Стиль</h2>
+                )}
               </div>
               
               <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
                 isStyleCollapsed ? 'max-h-0 opacity-0' : 'max-h-96 opacity-100'
               }`}>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                  {styleTiles.map((s) => (
-                    <button
-                      key={s.key}
-                      onClick={() => setSel((v) => ({ ...v, style: s.key }))}
-                      className={`group overflow-hidden transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ring-offset-2 ${
-                        sel.style === s.key 
-                          ? "bg-gray-50" 
-                          : "hover:bg-gray-50"
-                      }`}
-                      aria-label={`Выбрать стиль ${s.key}`}
-                    >
-                      <div className="aspect-[1/2] flex items-center justify-center bg-white p-2">
-                        {s.key === 'Скрытая' && (
-                          <svg className="w-[54px] h-[108px] text-gray-400" viewBox="0 0 18 36" fill="none" stroke="currentColor" strokeWidth="0.3">
-                            {/* Скрытая дверь - только контур */}
-                            <rect x="2" y="2" width="14" height="32" rx="0.5"/>
-                            {/* Минимальная ручка - горизонтальная линия */}
-                            <line x1="13" y1="18" x2="15" y2="18"/>
-                          </svg>
-                        )}
-                        {s.key === 'Современная' && (
-                          <svg className="w-[54px] h-[108px] text-gray-400" viewBox="0 0 18 36" fill="none" stroke="currentColor" strokeWidth="0.3">
-                            {/* Современная дверь - контур + вертикальная панель */}
-                            <rect x="2" y="2" width="14" height="32" rx="0.5"/>
-                            <rect x="5" y="4" width="8" height="28" rx="0.3"/>
-                            {/* Простая ручка - горизонтальная линия */}
-                            <line x1="13" y1="18" x2="15" y2="18"/>
-                          </svg>
-                        )}
-                        {s.key === 'Неоклассика' && (
-                          <svg className="w-[54px] h-[108px] text-gray-400" viewBox="0 0 18 36" fill="none" stroke="currentColor" strokeWidth="0.3">
-                            {/* Неоклассика - контур + две панели */}
-                            <rect x="2" y="2" width="14" height="32" rx="0.5"/>
-                            <rect x="4" y="4" width="10" height="14" rx="0.3"/> {/* Верхняя панель */}
-                            <rect x="4" y="20" width="10" height="8" rx="0.3"/> {/* Нижняя панель */}
-                            {/* Круглая ручка */}
-                            <circle cx="13" cy="18" r="0.8"/>
-                          </svg>
-                        )}
-                        {s.key === 'Классика' && (
-                          <svg className="w-[54px] h-[108px] text-gray-400" viewBox="0 0 18 36" fill="none" stroke="currentColor" strokeWidth="0.3">
-                            {/* Классика - контур + две панели с молдингами */}
-                            <rect x="2" y="2" width="14" height="32" rx="0.5"/>
-                            {/* Верхняя панель с молдингом */}
-                            <rect x="4" y="4" width="10" height="14" rx="0.3"/>
-                            <rect x="5" y="5" width="8" height="12" rx="0.2"/>
-                            {/* Нижняя панель с молдингом */}
-                            <rect x="4" y="20" width="10" height="8" rx="0.3"/>
-                            <rect x="5" y="21" width="8" height="6" rx="0.2"/>
-                            {/* Классическая ручка - рычаг */}
-                            <line x1="13" y1="17" x2="13" y2="19"/>
-                            <line x1="13" y1="17" x2="12" y2="17"/>
-                          </svg>
-                        )}
-                      </div>
-                      <div className="text-center h-4 flex items-center justify-center">
-                        <div className="font-medium text-black text-xs leading-tight">{s.key}</div>
-                      </div>
-                    </button>
-                  ))}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {styleTiles.map((s) => (
+                  <button
+                    key={s.key}
+                    onClick={() => setSel((v) => ({ 
+                      ...v, 
+                      style: s.key, 
+                      model: undefined,
+                      finish: undefined,
+                      color: undefined,
+                      type: undefined,
+                      width: undefined,
+                      height: undefined
+                    }))}
+                    className={`group overflow-hidden transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ring-offset-2 ${
+                      sel.style === s.key 
+                        ? "bg-gray-50" 
+                        : "hover:bg-gray-50"
+                    }`}
+                    aria-label={`Выбрать стиль ${s.key}`}
+                  >
+                    <div className="aspect-[16/33] flex items-center justify-center bg-white p-2">
+                      {s.key === 'Скрытая' && (
+                        <svg className="w-[80px] h-[160px] text-gray-400" viewBox="0 0 18 36" fill="none" stroke="currentColor" strokeWidth="0.3">
+                          {/* Скрытая дверь - только контур */}
+                          <rect x="2" y="2" width="14" height="32" rx="0.5"/>
+                          {/* Минимальная ручка - горизонтальная линия */}
+                          <line x1="13" y1="18" x2="15" y2="18"/>
+                        </svg>
+                      )}
+                      {s.key === 'Современная' && (
+                        <svg className="w-[80px] h-[160px] text-gray-400" viewBox="0 0 18 36" fill="none" stroke="currentColor" strokeWidth="0.3">
+                          {/* Современная дверь - контур + вертикальная панель */}
+                          <rect x="2" y="2" width="14" height="32" rx="0.5"/>
+                          <rect x="5" y="4" width="8" height="28" rx="0.3"/>
+                          {/* Простая ручка - горизонтальная линия */}
+                          <line x1="13" y1="18" x2="15" y2="18"/>
+                        </svg>
+                      )}
+                      {s.key === 'Неоклассика' && (
+                        <svg className="w-[80px] h-[160px] text-gray-400" viewBox="0 0 18 36" fill="none" stroke="currentColor" strokeWidth="0.3">
+                          {/* Неоклассика - контур + две панели */}
+                          <rect x="2" y="2" width="14" height="32" rx="0.5"/>
+                          <rect x="4" y="4" width="10" height="14" rx="0.3"/> {/* Верхняя панель */}
+                          <rect x="4" y="20" width="10" height="8" rx="0.3"/> {/* Нижняя панель */}
+                          {/* Круглая ручка */}
+                          <circle cx="13" cy="18" r="0.8"/>
+                        </svg>
+                      )}
+                      {s.key === 'Классика' && (
+                        <svg className="w-[80px] h-[160px] text-gray-400" viewBox="0 0 18 36" fill="none" stroke="currentColor" strokeWidth="0.3">
+                          {/* Классика - контур + две панели с молдингами */}
+                          <rect x="2" y="2" width="14" height="32" rx="0.5"/>
+                          {/* Верхняя панель с молдингом */}
+                          <rect x="4" y="4" width="10" height="14" rx="0.3"/>
+                          <rect x="5" y="5" width="8" height="12" rx="0.2"/>
+                          {/* Нижняя панель с молдингом */}
+                          <rect x="4" y="20" width="10" height="8" rx="0.3"/>
+                          <rect x="5" y="21" width="8" height="6" rx="0.2"/>
+                          {/* Классическая ручка - рычаг */}
+                          <line x1="13" y1="17" x2="13" y2="19"/>
+                          <line x1="13" y1="17" x2="12" y2="17"/>
+                        </svg>
+                      )}
+                    </div>
+                    <div className="text-center h-6 flex items-center justify-center px-1">
+                      <div className="font-medium text-black text-xs leading-tight">{s.key}</div>
+                    </div>
+                  </button>
+                ))}
                 </div>
               </div>
             </section>
@@ -1857,16 +1913,16 @@ function DoorCard({
 
   return (
     <div className="flex flex-col">
-      <button
-        onClick={onSelect}
-        aria-label={`Выбрать модель ${item.model}`}
-        className={[
+    <button
+      onClick={onSelect}
+      aria-label={`Выбрать модель ${item.model}`}
+      className={[
           "group w-full text-left bg-white overflow-hidden",
-          "hover:shadow-md transition",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ring-offset-2",
+        "hover:shadow-md transition",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ring-offset-2",
           selected ? "shadow-md" : "",
-        ].join(" ")}
-      >
+      ].join(" ")}
+    >
         {/* Фото полностью заполняет карточку с правильным соотношением сторон для дверей */}
         <div className="aspect-[16/33] w-full bg-gray-50">
           {isLoading ? (
@@ -1888,12 +1944,12 @@ function DoorCard({
                 <div className="text-sm">Нет фото</div>
                 <div className="text-[14px] whitespace-nowrap" title={formatModelNameForCard(item.model)}>
                   {formatModelNameForCard(item.model)}
-                </div>
-              </div>
+        </div>
+        </div>
             </div>
           )}
-        </div>
-      </button>
+      </div>
+    </button>
       {/* Название модели под карточкой */}
       <div className="mt-2 flex justify-center">
         <div className="text-[14px] font-medium text-gray-900 whitespace-nowrap" title={formatModelNameForCard(item.model)}>
