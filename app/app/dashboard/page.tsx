@@ -108,8 +108,6 @@ function DashboardContent() {
 
   // Мемоизируем контент по роли
   const roleContent = useMemo(() => {
-    if (!user) return null;
-    
     switch (user.role) {
       case 'admin':
         return {
