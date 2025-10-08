@@ -135,6 +135,7 @@ export function PageBuilder() {
   const [showTemplateSelector, setShowTemplateSelector] = useState<boolean>(false);
   const [savedPages, setSavedPages] = useState<any[]>([]);
   const [loadingPages, setLoadingPages] = useState(false);
+  const [globalFilters, setGlobalFilters] = useState<Record<string, any>>({});
 
   const {
     history,
@@ -621,6 +622,36 @@ export function PageBuilder() {
   // Функция для обработки данных связей
   const handleConnectionData = useCallback((sourceElementId: string, data: any) => {
     console.log('🔗 handleConnectionData вызвана:', { sourceElementId, data });
+    
+    // Обновляем глобальные фильтры
+    if (data.type === 'filter' && data.propertyName && data.value) {
+      setGlobalFilters(prev => ({
+        ...prev,
+        [data.propertyName]: data.value
+      }));
+      console.log('🔗 Обновлены глобальные фильтры:', { propertyName: data.propertyName, value: data.value });
+    }
+    
+    // Обрабатываем данные от FilteredProducts
+    if (data.type === 'productsLoaded') {
+      console.log('🔗 FilteredProducts загрузил товары:', {
+        count: data.products?.length || 0,
+        total: data.total || 0,
+        filters: data.filters
+      });
+    }
+    
+    // Обрабатываем данные от Cart
+    if (data.type === 'cartReady') {
+      console.log('🔗 Cart готов принимать данные:', sourceElementId);
+    }
+    
+    // Обрабатываем добавление в корзину
+    if (data.type === 'addToCart' && data.product) {
+      console.log('🔗 Добавление в корзину:', data.product);
+      // Здесь можно добавить логику для обновления Cart компонента
+    }
+    
     console.log('🔗 Все связи в документе:', currentDocument.connections);
     console.log('🔗 Количество связей:', currentDocument.connections?.length || 0);
     
@@ -1141,6 +1172,7 @@ export function PageBuilder() {
               onUpdateConnection={handleUpdateConnection}
               onDeleteConnection={handleDeleteConnection}
               onCreateConnection={handleCreateConnection}
+              globalFilters={globalFilters}
             />
           </div>
 

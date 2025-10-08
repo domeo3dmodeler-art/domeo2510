@@ -16,9 +16,10 @@ interface CartItem {
 interface CartProps {
   element: any;
   onUpdate: (updates: any) => void;
+  onConnectionData?: (sourceElementId: string, data: any) => void;
 }
 
-export function Cart({ element, onUpdate }: CartProps) {
+export function Cart({ element, onUpdate, onConnectionData }: CartProps) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -39,6 +40,33 @@ export function Cart({ element, onUpdate }: CartProps) {
   useEffect(() => {
     localStorage.setItem('page-builder-cart', JSON.stringify(cartItems));
   }, [cartItems]);
+
+  // Обработка данных от других компонентов через систему связей
+  useEffect(() => {
+    if (onConnectionData) {
+      // Регистрируем обработчик для получения данных от других компонентов
+      const handleConnectionData = (data: any) => {
+        console.log('🛒 Cart: Получены данные через систему связей:', data);
+        
+        if (data.type === 'addToCart' && data.product) {
+          console.log('🛒 Cart: Добавляем товар в корзину:', data.product);
+          addToCart({
+            productId: data.product.id,
+            productName: data.product.name,
+            productImage: data.product.image,
+            price: data.product.price,
+            quantity: data.product.quantity || 1
+          });
+        }
+      };
+      
+      // Отправляем информацию о том, что Cart готов принимать данные
+      onConnectionData(element.id, {
+        type: 'cartReady',
+        handler: handleConnectionData
+      });
+    }
+  }, [onConnectionData, element.id]);
 
   const addToCart = (item: Omit<CartItem, 'id' | 'totalPrice'>) => {
     const existingItem = cartItems.find(
