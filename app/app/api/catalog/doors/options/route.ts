@@ -3,6 +3,10 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// Кэш для опций дверей
+const optionsCache = new Map<string, { data: any, timestamp: number }>();
+const CACHE_TTL = 10 * 60 * 1000; // 10 минут
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -14,55 +18,26 @@ export async function GET(req: NextRequest) {
     const width = searchParams.get('width');
     const height = searchParams.get('height');
 
-    // Строим WHERE условие для фильтрации
-    let whereConditions: string[] = [];
-    let params: any[] = [];
-    let paramIndex = 1;
-
-    if (style) {
-      whereConditions.push(`style = $${paramIndex}`);
-      params.push(style);
-      paramIndex++;
-    }
-    if (model) {
-      whereConditions.push(`model = $${paramIndex}`);
-      params.push(model);
-      paramIndex++;
-    }
-    if (finish) {
-      whereConditions.push(`finish = $${paramIndex}`);
-      params.push(finish);
-      paramIndex++;
-    }
-    if (color) {
-      whereConditions.push(`color = $${paramIndex}`);
-      params.push(color);
-      paramIndex++;
-    }
-    if (type) {
-      whereConditions.push(`type = $${paramIndex}`);
-      params.push(type);
-      paramIndex++;
-    }
-    if (width) {
-      whereConditions.push(`width = $${paramIndex}`);
-      params.push(parseInt(width));
-      paramIndex++;
-    }
-    if (height) {
-      whereConditions.push(`height = $${paramIndex}`);
-      params.push(parseInt(height));
-      paramIndex++;
+    // Проверяем кэш
+    const cacheKey = `options_${style || 'all'}_${model || 'all'}_${finish || 'all'}_${color || 'all'}_${type || 'all'}_${width || 'all'}_${height || 'all'}`;
+    const cached = optionsCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return NextResponse.json({
+        ...cached.data,
+        cached: true
+      });
     }
 
-    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+    console.log('🔍 API options - загрузка данных (не из кэша)');
 
-    // Получаем все продукты и извлекаем уникальные значения из properties_data
+    // Получаем все продукты категории "Межкомнатные двери"
     const products = await prisma.product.findMany({
+      where: {
+        catalog_category: {
+          name: "Межкомнатные двери"
+        }
+      },
       select: {
-        model: true,
-        series: true,
-        brand: true,
         properties_data: true
       }
     });
@@ -77,16 +52,17 @@ export async function GET(req: NextRequest) {
     const distinctHeights = new Set<number>();
 
     products.forEach(product => {
-      const properties = product.properties_data ? 
+      const properties = product.properties_data ?
         (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
 
-      if (product.series) distinctStyles.add(product.series);
-      if (product.model) distinctModels.add(product.model);
-      if (properties.finish) distinctFinishes.add(properties.finish);
-      if (properties.color) distinctColors.add(properties.color);
-      if (properties.type) distinctTypes.add(properties.type);
-      if (properties.width) distinctWidths.add(Number(properties.width));
-      if (properties.height) distinctHeights.add(Number(properties.height));
+      // Извлекаем данные из properties_data согласно реальной структуре
+      if (properties['Domeo_Стиль Web']) distinctStyles.add(properties['Domeo_Стиль Web']);
+      if (properties['Domeo_Название модели для Web']) distinctModels.add(properties['Domeo_Название модели для Web']);
+      if (properties['Общее_Тип покрытия']) distinctFinishes.add(properties['Общее_Тип покрытия']);
+      if (properties['Domeo_Цвет']) distinctColors.add(properties['Domeo_Цвет']);
+      if (properties['Тип конструкции']) distinctTypes.add(properties['Тип конструкции']);
+      if (properties['Ширина/мм']) distinctWidths.add(Number(properties['Ширина/мм']));
+      if (properties['Высота/мм']) distinctHeights.add(Number(properties['Высота/мм']));
     });
 
     // Статические данные для комплектов и ручек
@@ -116,7 +92,7 @@ export async function GET(req: NextRequest) {
       },
     ];
 
-    return NextResponse.json({
+    const responseData = {
       ok: true,
       domain: {
         style: Array.from(distinctStyles).sort(),
@@ -128,8 +104,19 @@ export async function GET(req: NextRequest) {
         height: Array.from(distinctHeights).sort((a, b) => a - b),
         kits,
         handles
-      }
+      },
+      cached: false
+    };
+
+    // Сохраняем в кэш
+    optionsCache.set(cacheKey, {
+      data: responseData,
+      timestamp: Date.now()
     });
+
+    console.log('✅ API options - данные загружены и сохранены в кэш');
+
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error('Error fetching door options:', error);
     return NextResponse.json(

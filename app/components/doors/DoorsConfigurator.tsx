@@ -359,7 +359,7 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
                   </div>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Стиль */}
                 <div className="space-y-2">

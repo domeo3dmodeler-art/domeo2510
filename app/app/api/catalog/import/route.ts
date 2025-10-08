@@ -57,7 +57,6 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 
-
     if (action === 'history') {
       const history = await catalogImportService.getImportHistory();
       return NextResponse.json(history);

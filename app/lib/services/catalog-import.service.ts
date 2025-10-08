@@ -573,10 +573,27 @@ export class CatalogImportService {
     status: string;
     created_at: Date;
   }>> {
-    return prisma.importHistory.findMany({
-      orderBy: { created_at: 'desc' },
-      take: 50
-    });
+    try {
+      // Получаем историю импортов товаров из таблицы import_history
+      const importHistory = await prisma.importHistory.findMany({
+        orderBy: { created_at: 'desc' },
+        take: 50
+      });
+
+      // Получаем историю импортов фотографий из логов (если есть)
+      // Пока что возвращаем только историю импортов товаров
+      return importHistory.map(item => ({
+        id: item.id,
+        filename: item.filename || 'Неизвестный файл',
+        imported_count: item.imported_count || 0,
+        error_count: item.error_count || 0,
+        status: item.status || 'completed',
+        created_at: item.created_at
+      }));
+    } catch (error) {
+      console.error('Error getting import history:', error);
+      return [];
+    }
   }
 }
 

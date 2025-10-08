@@ -96,6 +96,18 @@ const slugify = (s: string): string =>
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
 
+// Функция для форматирования названия модели под карточкой (убираем префикс DomeoDoors_)
+const formatModelNameForCard = (modelName: string): string => {
+  return modelName
+    .replace(/^DomeoDoors_/, '') // Убираем префикс DomeoDoors_
+    .replace(/_/g, ' '); // Заменяем подчеркивания на пробелы
+};
+
+// Функция для форматирования названия модели над большим фото (заменяем только подчеркивания)
+const formatModelNameForPreview = (modelName: string): string => {
+  return modelName.replace(/_/g, ' '); // Заменяем подчеркивания на пробелы
+};
+
 const imageCandidates = (obj: ProductLike): string[] => {
   const sku = obj?.sku_1c != null ? String(obj.sku_1c).trim() : "";
   const enc = obj?.model ? encodeURIComponent(obj.model) : "";
@@ -651,8 +663,10 @@ export default function DoorsPage() {
     let c = false;
     (async () => {
       try {
-        const r = await api.getOptions(query);
-        if (!c) setDomain(r.domain);
+        const response = await api.getOptions(query);
+        // Извлекаем domain из ответа API
+        const domain = response?.domain || response;
+        if (!c) setDomain(domain);
       } catch (e: any) {
         if (!c) setErr(e?.message ?? "Ошибка доменов");
       }
@@ -666,9 +680,12 @@ export default function DoorsPage() {
     let c = false;
     (async () => {
       try {
-        const rows = api.listModelsByStyle
+        const response = api.listModelsByStyle
           ? await api.listModelsByStyle(sel.style)
           : await mockApi.listModelsByStyle(sel.style);
+        
+        // Извлекаем models из ответа API
+        const rows = response?.models || response || [];
         if (!c) setModels(rows);
       } catch {
         /* noop */
@@ -1707,104 +1724,160 @@ function DoorCard({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const [src, setSrc] = useState<string | null>(null);
-  const [cands, setCands] = useState<string[]>([]);
-  const [idx, setIdx] = useState<number>(0);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const list = imageCandidates({ model: item.model });
-    setCands(list);
-    setIdx(0);
-    setSrc(list[0] || null);
-  }, [item?.model]);
+    const loadRealPhoto = async () => {
+      try {
+        setIsLoading(true);
+        console.log('🔄 Загружаем реальное фото для:', item.model);
 
-  const handleError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const next = idx + 1;
-    if (next < cands.length) {
-      setIdx(next);
-      setSrc(cands[next]);
-      return;
-    }
-    (e.currentTarget as HTMLImageElement).src = "/assets/doors/_placeholder.png";
-  };
+        const response = await fetch(`/api/catalog/doors/photos?model=${encodeURIComponent(item.model)}`);
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('📸 Ответ API:', data);
+
+          if (data.photos && data.photos.length > 0) {
+            const photoPath = data.photos[0];
+            console.log('🔍 Путь к изображению от API:', photoPath);
+
+            // Преобразуем путь /uploads/products/... в /uploads/products/... (убираем /api)
+            const imageUrl = photoPath.startsWith('/uploads') ? photoPath : `/uploads${photoPath}`;
+            console.log('✅ Финальный URL:', imageUrl);
+
+            setImageSrc(imageUrl);
+          } else {
+            console.log('❌ Фото не найдено для:', item.model);
+            setImageSrc(null);
+          }
+        } else {
+          console.log('❌ Ошибка API:', response.status);
+          setImageSrc(null);
+        }
+      } catch (error) {
+        console.error('❌ Ошибка загрузки фото:', error);
+        setImageSrc(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadRealPhoto();
+  }, [item.model]);
 
   return (
-    <button
-      onClick={onSelect}
-      aria-label={`Выбрать модель ${item.model}`}
-      className={[
-        "group w-full text-left rounded-2xl border bg-white shadow-sm",
-        "hover:shadow-md transition",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ring-offset-2",
-        selected ? "border-indigo-500 shadow-md" : "border-gray-200",
-      ].join(" ")}
-    >
-      <div className="p-4 flex flex-col gap-3">
-        <div className="aspect-[3/4] w-full overflow-hidden rounded-xl bg-gray-50">
-          {src ? (
+    <div className="flex flex-col">
+      <button
+        onClick={onSelect}
+        aria-label={`Выбрать модель ${item.model}`}
+        className={[
+          "group w-full text-left border bg-white shadow-sm overflow-hidden",
+          "hover:shadow-md transition",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ring-offset-2",
+          selected ? "border-indigo-500 shadow-md" : "border-gray-200",
+        ].join(" ")}
+      >
+        {/* Фото полностью заполняет карточку с правильным соотношением сторон для дверей */}
+        <div className="aspect-[1/2] w-full bg-gray-50">
+          {isLoading ? (
+            <div className="h-full w-full animate-pulse bg-gray-200" />
+          ) : imageSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={src}
+              src={imageSrc}
               alt={item.model}
               className="h-full w-full object-cover"
-              onError={handleError}
+              onError={() => {
+                console.log('❌ Ошибка загрузки изображения:', imageSrc);
+                setImageSrc(null);
+              }}
             />
           ) : (
-            <div className="h-full w-full animate-pulse bg-gray-200" />
+            <div className="h-full w-full flex items-center justify-center text-gray-400">
+              <div className="text-center">
+                <div className="text-sm">Нет фото</div>
+                <div className="text-xs">{formatModelNameForCard(item.model)}</div>
+              </div>
+            </div>
           )}
         </div>
-        <div className="flex flex-col">
-          <div className="text-lg font-semibold text-gray-900">{item.model}</div>
-          <div className="text-sm text-gray-500">{item.style || "—"}</div>
-        </div>
+      </button>
+      {/* Название модели под карточкой */}
+      <div className="mt-2 text-center">
+        <div className="text-sm font-medium text-gray-900">{formatModelNameForCard(item.model)}</div>
       </div>
-    </button>
+    </div>
   );
 }
 
 function StickyPreview({ item }: { item: { model: string; sku_1c?: any } | null }) {
-  const [src, setSrc] = useState<string | null>(null);
-  const [cands, setCands] = useState<string[]>([]);
-  const [idx, setIdx] = useState<number>(0);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!item) {
-      setSrc(null);
-      setCands([]);
-      setIdx(0);
-      return;
-    }
-    const list = imageCandidates(item);
-    setCands(list);
-    setIdx(0);
-    setSrc(list[0] || null);
-  }, [item?.sku_1c, item?.model]);
+    const loadPhoto = async () => {
+      if (!item?.model) {
+        setImageSrc(null);
+        setIsLoading(false);
+        return;
+      }
 
-  const handleError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const next = idx + 1;
-    if (next < cands.length) {
-      setIdx(next);
-      setSrc(cands[next]);
-      return;
-    }
-    (e.currentTarget as HTMLImageElement).src = "/assets/doors/_placeholder.png";
-  };
+      try {
+        setIsLoading(true);
+        console.log('🔄 Загружаем фото для превью:', item.model);
+
+        const response = await fetch(`/api/catalog/doors/photos?model=${encodeURIComponent(item.model)}`);
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.photos && data.photos.length > 0) {
+            const photoPath = data.photos[0];
+            const imageUrl = photoPath.startsWith('/uploads') ? photoPath : `/uploads${photoPath}`;
+            setImageSrc(imageUrl);
+          } else {
+            setImageSrc(null);
+          }
+        } else {
+          setImageSrc(null);
+        }
+      } catch (error) {
+        console.error('❌ Ошибка загрузки фото для превью:', error);
+        setImageSrc(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadPhoto();
+  }, [item?.model]);
 
   if (!item) return null;
   return (
     <aside className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-      <div className="mb-4 text-xl font-semibold">{item.model}</div>
+      <div className="mb-4 text-xl font-semibold">{formatModelNameForPreview(item.model)}</div>
       <div className="aspect-[3/4] w-full overflow-hidden rounded-xl bg-gray-50">
-        {src ? (
+        {isLoading ? (
+          <div className="h-full w-full animate-pulse bg-gray-200" />
+        ) : imageSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={src}
+            src={imageSrc}
             alt={item.model}
             className="h-full w-full object-cover"
-            onError={handleError}
+            onError={() => {
+              console.log('❌ Ошибка загрузки изображения для превью:', imageSrc);
+              setImageSrc(null);
+            }}
           />
         ) : (
-          <div className="h-full w-full animate-pulse bg-gray-200" />
+          <div className="h-full w-full flex items-center justify-center text-gray-400">
+            <div className="text-center">
+              <div className="text-sm">Нет фото</div>
+              <div className="text-xs">{item.model}</div>
+            </div>
+          </div>
         )}
       </div>
     </aside>

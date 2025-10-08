@@ -170,67 +170,22 @@ export default function CatalogImportPage() {
 
   const loadCatalogCategories = async () => {
     try {
-      const response = await fetch('/api/catalog/categories');
+      console.log('🔄 Загружаем категории для импорта...');
+      const response = await fetch('/api/catalog/categories-flat');
       const data = await response.json();
       
-      console.log('Catalog categories response:', data);
+      console.log('📦 Ответ API категорий:', data);
       
-      // Обрабатываем разные форматы ответа
-      let categories = [];
-      if (data.categories) {
-        categories = data.categories;
-      } else if (Array.isArray(data)) {
-        categories = data;
-      } else {
-        categories = [];
-      }
+      // Используем данные напрямую из нового API
+      const categories = data.categories || [];
       
-      console.log('First category structure:', categories.length > 0 ? categories[0] : 'No categories');
-      console.log('Categories with levels:', categories.filter((c: any) => c.level > 0).length);
+      console.log(`✅ Загружено ${categories.length} категорий`);
+      console.log('Пример категории:', categories[0]);
       
-      // Если данные приходят в виде дерева с children, разворачиваем их
-      const flattenCategories = (categories: any[], level = 0): CatalogCategory[] => {
-        let result: CatalogCategory[] = [];
-        
-        categories.forEach((category: any) => {
-          result.push({
-            ...category,
-            level: level,
-            displayName: category.name
-          });
-          
-          // Рекурсивно добавляем дочерние категории
-          if (category.subcategories && category.subcategories.length > 0) {
-            result = result.concat(flattenCategories(category.subcategories, level + 1));
-          }
-        });
-        
-        return result;
-      };
-
-      // Если данные приходят как плоский массив, строим иерархию по parent_id и level
-      const buildHierarchy = (flatCategories: any[]): CatalogCategory[] => {
-        // Сортируем по level, затем по sort_order
-        const sorted = flatCategories.sort((a, b) => {
-          if (a.level !== b.level) return a.level - b.level;
-          return (a.sort_order || 0) - (b.sort_order || 0);
-        });
-        
-        return sorted.map(category => ({
-          ...category,
-          level: category.level || 0,
-          displayName: category.name
-        }));
-      };
-
-      // Проверяем, есть ли subcategories в первой категории
-      if (categories.length > 0 && categories[0].subcategories) {
-        // Данные в виде дерева с subcategories
-        setCatalogCategories(flattenCategories(categories));
-      } else {
-        // Данные в виде плоского массива - строим иерархию
-        setCatalogCategories(buildHierarchy(categories));
-      }
+      // Просто устанавливаем категории без дополнительной обработки
+      setCatalogCategories(categories);
+      
+      console.log('📊 Категории с товарами:', categories.filter(c => c.product_count > 0).length);
       
     } catch (error) {
       console.error('Error loading catalog categories:', error);
@@ -638,7 +593,7 @@ export default function CatalogImportPage() {
 
       console.log('Отправка фотографий...', photoFiles.length, 'файлов');
       
-      const response = await fetch('/api/admin/import/photos', {
+      const response = await fetch('/api/admin/import/photos-improved', {
         method: 'POST',
         body: formData
       });
@@ -743,34 +698,26 @@ export default function CatalogImportPage() {
             </div>
 
             {/* Отдельная кнопка загрузки товаров */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6">
               <div className="text-center">
-                <div className="text-2xl mb-2">📸</div>
-                <h4 className="text-md font-semibold text-blue-900 mb-2">Загрузка фото товаров</h4>
-                <p className="text-blue-700 mb-3 text-sm">Загрузить фотографии товаров для привязки к товарам</p>
+                <div className="text-3xl mb-3">📸</div>
+                <h3 className="text-lg font-semibold text-black mb-2">Загрузка фото товаров</h3>
+                <p className="text-gray-600 mb-4 text-sm">Загрузите фотографии для привязки к товарам</p>
                 
                 <button
                   onClick={() => {
                     // Переходим к шагу загрузки фото
                     setCurrentStep('photos');
                   }}
-                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-all duration-200 text-sm"
+                  className="inline-flex items-center px-4 py-2 bg-black text-white rounded hover:bg-yellow-400 hover:text-black transition-all duration-200 cursor-pointer text-sm"
                 >
-                  📸 Загрузить фото
+                  Выбрать файлы
                 </button>
+                
+                <p className="text-xs text-gray-500 mt-2">Форматы: .jpg, .png, .gif</p>
               </div>
             </div>
 
-            {/* История импортов */}
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-md font-semibold text-gray-900">История импортов</h4>
-                <button className="text-sm text-gray-500 hover:text-gray-700">Обновить</button>
-              </div>
-              <div className="text-sm text-gray-500 text-center py-4">
-                История импортов будет отображаться здесь
-              </div>
-            </div>
           </div>
         );
 
@@ -1113,12 +1060,15 @@ export default function CatalogImportPage() {
       case 'photos':
         return (
           <div className="space-y-6">
-            {/* Современный минималистичный интерфейс */}
-            <div className="max-w-2xl mx-auto">
-              
-              {/* Компактная настройка */}
-              <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {/* Компактная область загрузки фотографий */}
+            <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6">
+              <div className="text-center">
+                <div className="text-3xl mb-3">📸</div>
+                <h3 className="text-lg font-semibold text-black mb-2">Загрузка фотографий товаров</h3>
+                <p className="text-gray-600 mb-4 text-sm">Загрузите фотографии для привязки к товарам</p>
+                
+                {/* Настройки */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 max-w-2xl mx-auto">
                   
                   {/* Выбор категории */}
                   <div>
@@ -1128,7 +1078,7 @@ export default function CatalogImportPage() {
                     <select
                       value={selectedCatalogCategoryId}
                       onChange={(e) => setSelectedCatalogCategoryId(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-black focus:border-transparent text-sm"
                     >
                       <option value="">Выберите категорию...</option>
                       {catalogCategories
@@ -1150,7 +1100,7 @@ export default function CatalogImportPage() {
                       value={photoMappingProperty}
                       onChange={(e) => setPhotoMappingProperty(e.target.value)}
                       disabled={!selectedCatalogCategoryId}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm disabled:bg-gray-100"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-black focus:border-transparent text-sm disabled:bg-gray-100"
                     >
                       <option value="">Выберите свойство...</option>
                       {(priceListData?.headers || existingProductProperties).map((property, index) => (
@@ -1164,87 +1114,84 @@ export default function CatalogImportPage() {
 
                 {/* Краткая инструкция */}
                 {selectedCatalogCategoryId && photoMappingProperty && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-sm">
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-sm mb-4 max-w-2xl mx-auto">
                     <p className="text-blue-800">
                       <strong>Привязка:</strong> Название файла (без расширения) = значение свойства "{photoMappingProperty}"
                     </p>
                   </div>
                 )}
-              </div>
 
-              {/* Drag & Drop зона */}
-              <div 
-                className={`border-2 border-dashed rounded-lg p-12 text-center transition-all ${
-                  !selectedCatalogCategoryId || !photoMappingProperty
-                    ? 'border-gray-300 bg-gray-50'
-                    : uploadingPhotos
-                      ? 'border-blue-400 bg-blue-50'
-                      : 'border-gray-400 bg-white hover:border-blue-400 hover:bg-blue-50'
-                }`}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  if (selectedCatalogCategoryId && photoMappingProperty && !uploadingPhotos) {
-                    const files = Array.from(e.dataTransfer.files).filter(file => 
-                      file.type.startsWith('image/')
-                    );
-                    if (files.length > 0) {
-                      handlePhotosComplete(files);
+                {/* Drag & Drop зона */}
+                <div 
+                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-all max-w-2xl mx-auto ${
+                    !selectedCatalogCategoryId || !photoMappingProperty
+                      ? 'border-gray-300 bg-gray-50'
+                      : uploadingPhotos
+                        ? 'border-blue-400 bg-blue-50'
+                        : 'border-gray-400 bg-white hover:border-blue-400 hover:bg-blue-50'
+                  }`}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (selectedCatalogCategoryId && photoMappingProperty && !uploadingPhotos) {
+                      const files = Array.from(e.dataTransfer.files).filter(file => 
+                        file.type.startsWith('image/')
+                      );
+                      if (files.length > 0) {
+                        handlePhotosComplete(files);
+                      }
                     }
-                  }
-                }}
-                onDragOver={(e) => e.preventDefault()}
-                onDragEnter={(e) => e.preventDefault()}
-              >
-                {uploadingPhotos ? (
-                  <div className="space-y-4">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-blue-900">Загрузка фотографий...</h3>
-                      <p className="text-blue-700 text-sm">Пожалуйста, подождите</p>
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDragEnter={(e) => e.preventDefault()}
+                >
+                  {uploadingPhotos ? (
+                    <div className="space-y-4">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-blue-900">Загрузка фотографий...</h3>
+                        <p className="text-blue-700 text-sm">Пожалуйста, подождите</p>
+                      </div>
                     </div>
-                  </div>
-                ) : !selectedCatalogCategoryId || !photoMappingProperty ? (
-                  <div className="space-y-4">
-                    <div className="text-6xl text-gray-400">📸</div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-500">Настройте параметры</h3>
-                      <p className="text-gray-400 text-sm">Выберите категорию и свойство для привязки</p>
+                  ) : !selectedCatalogCategoryId || !photoMappingProperty ? (
+                    <div className="space-y-4">
+                      <div className="text-4xl text-gray-400">📸</div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-500">Настройте параметры</h3>
+                        <p className="text-gray-400 text-sm">Выберите категорию и свойство для привязки</p>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="text-6xl text-blue-500">📸</div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">Перетащите фото сюда</h3>
-                      <p className="text-gray-600 text-sm mb-4">или нажмите для выбора файлов</p>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="text-4xl text-blue-500">📸</div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Перетащите фото сюда</h3>
+                        <p className="text-gray-600 text-sm mb-4">или нажмите для выбора файлов</p>
+                        
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={(e) => {
+                            const files = Array.from(e.target.files || []);
+                            if (files.length > 0) {
+                              handlePhotosComplete(files);
+                            }
+                          }}
+                          className="hidden"
+                          id="photos-upload"
+                        />
+                        <label
+                          htmlFor="photos-upload"
+                          className="inline-flex items-center px-4 py-2 bg-black text-white rounded hover:bg-yellow-400 hover:text-black transition-all duration-200 cursor-pointer text-sm"
+                        >
+                          {uploadingPhotos ? 'Обработка...' : 'Выбрать файл'}
+                        </label>
+                      </div>
                       
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={(e) => {
-                          const files = Array.from(e.target.files || []);
-                          if (files.length > 0) {
-                            handlePhotosComplete(files);
-                          }
-                        }}
-                        className="hidden"
-                        id="photos-upload-modern"
-                      />
-                      <label
-                        htmlFor="photos-upload-modern"
-                        className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
-                      >
-                        Выбрать файлы
-                      </label>
+                      <p className="text-xs text-gray-500 mt-2">Форматы: .jpg, .png, .gif</p>
                     </div>
-                    
-                    <div className="text-xs text-gray-500 space-y-1">
-                      <p>• JPG, PNG, GIF до 5MB</p>
-                      <p>• Множественный выбор</p>
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
             

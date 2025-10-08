@@ -1411,8 +1411,9 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({ 
           category: category,
           filename: file.name,
-          products_count: products.length,
-          status: 'completed'
+          imported: savedProducts.length,
+          status: failedProducts.length > 0 ? 'partial' : 'completed',
+          error_message: failedProducts.length > 0 ? JSON.stringify(failedProducts.slice(0, 5)) : null
         })
       });
     } catch (historyError) {
