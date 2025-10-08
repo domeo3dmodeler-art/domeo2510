@@ -1915,7 +1915,7 @@ function StickyPreview({ item }: { item: { model: string; sku_1c?: any; photo?: 
   if (!item) return null;
   return (
     <aside>
-      <div className="mb-4 text-xl font-semibold">{formatModelNameForPreview(item.model)}</div>
+      <div className="mb-4 text-xl font-semibold text-center">{formatModelNameForPreview(item.model)}</div>
       <div className="aspect-[1/2] w-full overflow-hidden rounded-xl bg-gray-50">
         {isLoading ? (
           <div className="h-full w-full animate-pulse bg-gray-200" />
