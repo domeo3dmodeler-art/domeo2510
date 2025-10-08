@@ -1776,11 +1776,11 @@ function DoorCard({
           "group w-full text-left border bg-white shadow-sm overflow-hidden",
           "hover:shadow-md transition",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ring-offset-2",
-          selected ? "border-indigo-500 shadow-md" : "border-gray-200",
+          selected ? "border-gray-200 shadow-md" : "border-gray-200",
         ].join(" ")}
       >
         {/* Фото полностью заполняет карточку с правильным соотношением сторон для дверей */}
-        <div className="aspect-[1/2] w-full bg-gray-50">
+        <div className="aspect-[16/33] w-full bg-gray-50">
           {isLoading ? (
             <div className="h-full w-full animate-pulse bg-gray-200" />
           ) : imageSrc ? (
@@ -1788,7 +1788,7 @@ function DoorCard({
             <img
               src={imageSrc}
               alt={item.model}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain"
               onError={() => {
                 console.log('❌ Ошибка загрузки изображения:', imageSrc);
                 setImageSrc(null);
@@ -1855,9 +1855,9 @@ function StickyPreview({ item }: { item: { model: string; sku_1c?: any } | null 
 
   if (!item) return null;
   return (
-    <aside className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+    <aside>
       <div className="mb-4 text-xl font-semibold">{formatModelNameForPreview(item.model)}</div>
-      <div className="aspect-[3/4] w-full overflow-hidden rounded-xl bg-gray-50">
+      <div className="aspect-[1/2] w-full overflow-hidden rounded-xl bg-gray-50">
         {isLoading ? (
           <div className="h-full w-full animate-pulse bg-gray-200" />
         ) : imageSrc ? (
@@ -1865,7 +1865,7 @@ function StickyPreview({ item }: { item: { model: string; sku_1c?: any } | null 
           <img
             src={imageSrc}
             alt={item.model}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-contain"
             onError={() => {
               console.log('❌ Ошибка загрузки изображения для превью:', imageSrc);
               setImageSrc(null);
