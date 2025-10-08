@@ -634,7 +634,7 @@ export default function DoorsPage() {
   const [itemDomains, setItemDomains] = useState<Record<string, Domain>>({});
 
   const selectedModelCard = useMemo(
-    () => models.find((m) => m.model === sel.model) || null,
+    () => Array.isArray(models) ? models.find((m) => m.model === sel.model) || null : null,
     [models, sel.model]
   );
 
@@ -1099,7 +1099,7 @@ export default function DoorsPage() {
                     Сбросить стиль
                   </button>
                 </div>
-                {models.length ? (
+                {Array.isArray(models) && models.length ? (
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5">
                     {models.map((m) => (
                       <DoorCard
