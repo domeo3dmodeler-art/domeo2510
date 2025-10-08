@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { Card, Button } from '../../components/ui';
@@ -58,7 +58,7 @@ function DashboardContent() {
     setIsLoading(false);
   }, [router]);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const [statsResponse, usersResponse] = await Promise.all([
         fetch('/api/admin/stats'),
@@ -77,7 +77,7 @@ function DashboardContent() {
     } catch (error) {
       console.error('Error loading stats:', error);
     }
-  };
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
@@ -106,8 +106,10 @@ function DashboardContent() {
     return null;
   }
 
-  // Определяем виджеты и действия по роли
-  const getRoleContent = () => {
+  // Мемоизируем контент по роли
+  const roleContent = useMemo(() => {
+    if (!user) return null;
+    
     switch (user.role) {
       case 'admin':
         return {
@@ -168,9 +170,7 @@ function DashboardContent() {
           quickActions: []
         };
     }
-  };
-
-  const roleContent = getRoleContent();
+  }, [user, stats, userCount]);
 
   // Для админов используем AdminLayout, для остальных - обычный лейаут
   if (user.role === 'admin') {

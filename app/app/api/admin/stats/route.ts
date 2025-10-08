@@ -59,13 +59,15 @@ export async function GET(req: NextRequest) {
       totalImports: activeCategories.reduce((sum, cat) => sum + cat.totalImports, 0)
     };
     
+    const result = {
+      categories: activeCategories,
+      total: totalStats
+    };
+    
     console.log('Active categories:', activeCategories);
     console.log('Total stats:', totalStats);
     
-    return NextResponse.json({
-      categories: activeCategories,
-      total: totalStats
-    });
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error fetching stats:', error);
     return NextResponse.json(
