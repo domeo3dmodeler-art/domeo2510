@@ -635,7 +635,7 @@ export default function DoorsPage() {
   // Состояние конфигуратора
   const [sel, setSel] = useState<Partial<BasicState>>({});
   const [domain, setDomain] = useState<Domain>(null);
-  const [models, setModels] = useState<{ model: string; style: string }[]>([]);
+  const [models, setModels] = useState<{ model: string; style: string; photo?: string | null }[]>([]);
   const [price, setPrice] = useState<any>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [kpHtml, setKpHtml] = useState<string>("");
@@ -644,6 +644,10 @@ export default function DoorsPage() {
   const [err, setErr] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [itemDomains, setItemDomains] = useState<Record<string, Domain>>({});
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+
+  // Клиентское кэширование для моделей с фото
+  const [modelsCache, setModelsCache] = useState<Map<string, { model: string; style: string; photo?: string | null }[]>>(new Map());
 
   const selectedModelCard = useMemo(
     () => Array.isArray(models) ? models.find((m) => m.model === sel.model) || null : null,
@@ -680,21 +684,50 @@ export default function DoorsPage() {
     let c = false;
     (async () => {
       try {
-        const response = api.listModelsByStyle
-          ? await api.listModelsByStyle(sel.style)
-          : await mockApi.listModelsByStyle(sel.style);
+        const styleKey = sel.style || 'all';
         
-        // Извлекаем models из ответа API
-        const rows = response?.models || response || [];
-        if (!c) setModels(rows);
-      } catch {
-        /* noop */
+        // Проверяем клиентский кэш
+        if (modelsCache.has(styleKey)) {
+          const cachedModels = modelsCache.get(styleKey)!;
+          setModels(cachedModels);
+          setIsLoadingModels(false);
+          return;
+        }
+        
+        setIsLoadingModels(true);
+        
+        // Оптимистичное обновление: показываем пустой список сразу
+        if (!c) setModels([]);
+        
+        // Используем новый оптимизированный API для загрузки моделей с фото
+        const response = await fetch(
+          `/api/catalog/doors/models-with-photos?style=${encodeURIComponent(sel.style || "")}`
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          const rows = data?.models || [];
+          if (!c) {
+            setModels(rows);
+            setIsLoadingModels(false);
+            
+            // Сохраняем в клиентский кэш
+            setModelsCache(prev => {
+              const newCache = new Map(prev);
+              newCache.set(styleKey, rows);
+              return newCache;
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error loading models with photos:', error);
+        if (!c) setIsLoadingModels(false);
       }
     })();
     return () => {
       c = true;
     };
-  }, [sel.style]);
+  }, [sel.style, modelsCache]);
 
   useEffect(() => {
     let c = false;
@@ -1107,7 +1140,11 @@ export default function DoorsPage() {
               <section>
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-xl font-semibold text-black">
-                    Модели ({models.length})
+                    Модели {isLoadingModels ? (
+                      <span className="text-sm text-gray-500 ml-2">(загрузка...)</span>
+                    ) : (
+                      <span className="text-sm text-gray-500 ml-2">({models.length})</span>
+                    )}
                   </h2>
                   <button
                     className="text-sm text-black hover:text-yellow-400 transition-colors duration-200"
@@ -1251,7 +1288,11 @@ export default function DoorsPage() {
             <div className="sticky top-6">
               <StickyPreview
                 item={
-                  sel.model ? { model: sel.model, sku_1c: price?.sku_1c } : null
+                  sel.model ? { 
+                    model: sel.model, 
+                    sku_1c: price?.sku_1c,
+                    photo: selectedModelCard?.photo || null
+                  } : null
                 }
               />
             </div>
@@ -1720,7 +1761,7 @@ function DoorCard({
   selected,
   onSelect,
 }: {
-  item: { model: string; style?: string };
+  item: { model: string; style?: string; photo?: string | null };
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -1728,6 +1769,15 @@ function DoorCard({
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Если фото уже предзагружено в item.photo, используем его
+    if (item.photo) {
+      const imageUrl = item.photo.startsWith('/uploads') ? item.photo : `/uploads${item.photo}`;
+      setImageSrc(imageUrl);
+      setIsLoading(false);
+      return;
+    }
+
+    // Fallback: загружаем фото через старый API (для совместимости)
     const loadRealPhoto = async () => {
       try {
         setIsLoading(true);
@@ -1765,7 +1815,7 @@ function DoorCard({
     };
 
     loadRealPhoto();
-  }, [item.model]);
+  }, [item.model, item.photo]);
 
   return (
     <div className="flex flex-col">
@@ -1773,10 +1823,10 @@ function DoorCard({
         onClick={onSelect}
         aria-label={`Выбрать модель ${item.model}`}
         className={[
-          "group w-full text-left border bg-white shadow-sm overflow-hidden",
+          "group w-full text-left bg-white overflow-hidden",
           "hover:shadow-md transition",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ring-offset-2",
-          selected ? "border-gray-200 shadow-md" : "border-gray-200",
+          selected ? "shadow-md" : "",
         ].join(" ")}
       >
         {/* Фото полностью заполняет карточку с правильным соотношением сторон для дверей */}
@@ -1812,18 +1862,27 @@ function DoorCard({
   );
 }
 
-function StickyPreview({ item }: { item: { model: string; sku_1c?: any } | null }) {
+function StickyPreview({ item }: { item: { model: string; sku_1c?: any; photo?: string | null } | null }) {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadPhoto = async () => {
-      if (!item?.model) {
-        setImageSrc(null);
-        setIsLoading(false);
-        return;
-      }
+    if (!item?.model) {
+      setImageSrc(null);
+      setIsLoading(false);
+      return;
+    }
 
+    // Если фото уже предзагружено в item.photo, используем его мгновенно
+    if (item.photo) {
+      const imageUrl = item.photo.startsWith('/uploads') ? item.photo : `/uploads${item.photo}`;
+      setImageSrc(imageUrl);
+      setIsLoading(false);
+      return;
+    }
+
+    // Fallback: загружаем фото через старый API (для совместимости)
+    const loadPhoto = async () => {
       try {
         setIsLoading(true);
         console.log('🔄 Загружаем фото для превью:', item.model);
@@ -1851,7 +1910,7 @@ function StickyPreview({ item }: { item: { model: string; sku_1c?: any } | null 
     };
 
     loadPhoto();
-  }, [item?.model]);
+  }, [item?.model, item?.photo]);
 
   if (!item) return null;
   return (
