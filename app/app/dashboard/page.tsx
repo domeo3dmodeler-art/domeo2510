@@ -31,6 +31,79 @@ function DashboardContent() {
   const [userCount, setUserCount] = useState<number>(0);
   const router = useRouter();
 
+  // Мемоизируем контент по роли (всегда вызывается)
+  const roleContent = useMemo(() => {
+    if (!user) {
+      return {
+        title: 'Загрузка...',
+        description: 'Пожалуйста, подождите',
+        widgets: [],
+        quickActions: []
+      };
+    }
+    
+    switch (user.role) {
+      case 'admin':
+        return {
+          title: 'Панель администратора',
+          description: 'Управление системой и пользователями',
+          widgets: [
+            { title: 'Категории товаров', count: stats?.total?.totalCategories || 0, link: '/admin/categories', icon: '📁' },
+            { title: 'Пользователи', count: userCount, link: '/admin/users', icon: '👥' },
+            { title: 'Импорт прайсов', count: stats?.total?.totalImports || 0, link: '/admin/import', icon: '📊' },
+            { title: 'Товары', count: stats?.total?.totalProducts || 0, link: '/admin/catalog/products', icon: '📦' }
+          ],
+          quickActions: [
+            { title: 'Создать категорию', link: '/admin/categories/builder', icon: '➕' },
+            { title: 'Импорт прайса', link: '/admin/import', icon: '📥' },
+            { title: 'Управление пользователями', link: '/admin/users', icon: '👤' },
+            { title: 'Настройки системы', link: '/admin/settings', icon: '⚙️' }
+          ]
+        };
+      case 'complectator':
+        return {
+          title: 'Личный кабинет комплектатора',
+          description: 'Работа с клиентами и коммерческими предложениями',
+          widgets: [
+            { title: 'Клиенты', count: '23', link: '/clients', icon: '👥' },
+            { title: 'КП в работе', count: '7', link: '/quotes', icon: '📄' },
+            { title: 'Счета', count: '12', link: '/invoices', icon: '💰' },
+            { title: 'Каталог товаров', count: stats?.total?.totalProducts || 0, link: '/doors', icon: '📦' }
+          ],
+          quickActions: [
+            { title: 'Добавить клиента', link: '/clients', icon: '👤' },
+            { title: 'Создать КП', link: '/quotes', icon: '📝' },
+            { title: 'Конфигуратор дверей', link: '/doors', icon: '🚪' },
+            { title: 'Каталог товаров', link: '/', icon: '📦' }
+          ]
+        };
+      case 'executor':
+        return {
+          title: 'Личный кабинет исполнителя',
+          description: 'Исполнение заказов и работа с фабрикой',
+          widgets: [
+            { title: 'Заказы в работе', count: '8', link: '/orders', icon: '⚡' },
+            { title: 'Заказы у поставщика', count: '5', link: '/factory', icon: '🏭' },
+            { title: 'Выполненные', count: '32', link: '/orders?status=completed', icon: '✅' },
+            { title: 'Уведомления', count: '3', link: '/notifications', icon: '🔔' }
+          ],
+          quickActions: [
+            { title: 'Новые заказы', link: '/orders?status=new', icon: '🆕' },
+            { title: 'Заказ у поставщика', link: '/factory', icon: '🏭' },
+            { title: 'Отслеживание', link: '/tracking', icon: '📍' },
+            { title: 'Уведомления', link: '/notifications', icon: '🔔' }
+          ]
+        };
+      default:
+        return {
+          title: 'Личный кабинет',
+          description: 'Добро пожаловать в систему',
+          widgets: [],
+          quickActions: []
+        };
+    }
+  }, [user, stats, userCount]);
+
   useEffect(() => {
     // Проверяем аутентификацию
     const token = localStorage.getItem('authToken');
@@ -105,70 +178,6 @@ function DashboardContent() {
   if (!user) {
     return null;
   }
-
-  // Мемоизируем контент по роли
-  const roleContent = useMemo(() => {
-    switch (user.role) {
-      case 'admin':
-        return {
-          title: 'Панель администратора',
-          description: 'Управление системой и пользователями',
-          widgets: [
-            { title: 'Категории товаров', count: stats?.total?.totalCategories || 0, link: '/admin/categories', icon: '📁' },
-            { title: 'Пользователи', count: userCount, link: '/admin/users', icon: '👥' },
-            { title: 'Импорт прайсов', count: stats?.total?.totalImports || 0, link: '/admin/import', icon: '📊' },
-            { title: 'Товары', count: stats?.total?.totalProducts || 0, link: '/admin/catalog/products', icon: '📦' }
-          ],
-          quickActions: [
-            { title: 'Создать категорию', link: '/admin/categories/builder', icon: '➕' },
-            { title: 'Импорт прайса', link: '/admin/import', icon: '📥' },
-            { title: 'Управление пользователями', link: '/admin/users', icon: '👤' },
-            { title: 'Настройки системы', link: '/admin/settings', icon: '⚙️' }
-          ]
-        };
-      case 'complectator':
-        return {
-          title: 'Личный кабинет комплектатора',
-          description: 'Работа с клиентами и коммерческими предложениями',
-          widgets: [
-            { title: 'Клиенты', count: '23', link: '/clients', icon: '👥' },
-            { title: 'КП в работе', count: '7', link: '/quotes', icon: '📄' },
-            { title: 'Счета', count: '12', link: '/invoices', icon: '💰' },
-            { title: 'Каталог товаров', count: stats?.total?.totalProducts || 0, link: '/doors', icon: '📦' }
-          ],
-          quickActions: [
-            { title: 'Добавить клиента', link: '/clients', icon: '👤' },
-            { title: 'Создать КП', link: '/quotes', icon: '📝' },
-            { title: 'Конфигуратор дверей', link: '/doors', icon: '🚪' },
-            { title: 'Каталог товаров', link: '/', icon: '📦' }
-          ]
-        };
-      case 'executor':
-        return {
-          title: 'Личный кабинет исполнителя',
-          description: 'Исполнение заказов и работа с фабрикой',
-          widgets: [
-            { title: 'Заказы в работе', count: '8', link: '/orders', icon: '⚡' },
-            { title: 'Заказы у поставщика', count: '5', link: '/factory', icon: '🏭' },
-            { title: 'Выполненные', count: '32', link: '/orders?status=completed', icon: '✅' },
-            { title: 'Уведомления', count: '3', link: '/notifications', icon: '🔔' }
-          ],
-          quickActions: [
-            { title: 'Новые заказы', link: '/orders?status=new', icon: '🆕' },
-            { title: 'Заказ у поставщика', link: '/factory', icon: '🏭' },
-            { title: 'Отслеживание', link: '/tracking', icon: '📍' },
-            { title: 'Уведомления', link: '/notifications', icon: '🔔' }
-          ]
-        };
-      default:
-        return {
-          title: 'Личный кабинет',
-          description: 'Добро пожаловать в систему',
-          widgets: [],
-          quickActions: []
-        };
-    }
-  }, [user, stats, userCount]);
 
   // Для админов используем AdminLayout, для остальных - обычный лейаут
   if (user.role === 'admin') {
