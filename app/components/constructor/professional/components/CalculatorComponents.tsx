@@ -35,8 +35,9 @@ export const calculatorComponentGroups: CalculatorComponentGroup[] = [
         type: 'door-configurator', 
         name: 'Конфигуратор дверей', 
         icon: Package, 
-        description: 'Полный конфигуратор межкомнатных дверей с выбором стиля, модели, покрытия, цвета',
-        category: 'doors' 
+        description: 'Полный конфигуратор межкомнатных дверей с выбором стиля, модели, покрытия, цвета и размера',
+        category: 'doors',
+        component: 'door-configurator'
       },
       { 
         type: 'door-gallery', 

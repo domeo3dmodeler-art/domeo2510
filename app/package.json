@@ -26,16 +26,12 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.490.0",
     "@aws-sdk/s3-request-presigner": "^3.896.0",
-    "@headlessui/react": "^2.2.9",
-    "@heroicons/react": "^2.2.0",
-    "@hookform/resolvers": "^5.2.2",
     "@prisma/client": "^5.22.0",
     "@sparticuz/chromium": "^138.0.2",
     "bcryptjs": "^2.4.3",
     "csv-parse": "^6.1.0",
     "dotenv": "^17.2.3",
     "exceljs": "^4.4.0",
-    "framer-motion": "^12.23.22",
     "handlebars": "^4.7.8",
     "ioredis": "^5.3.2",
     "jsonwebtoken": "^9.0.2",
@@ -47,14 +43,10 @@
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^18.2.0",
-    "react-dropzone": "^14.3.8",
-    "react-hook-form": "^7.64.0",
-    "react-hot-toast": "^2.6.0",
-    "react-select": "^5.10.2",
     "sharp": "^0.33.2",
     "winston": "^3.11.0",
     "xlsx": "^0.18.5",
-    "zod": "^3.25.76"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.2",

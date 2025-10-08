@@ -42,13 +42,6 @@ export default function Home() {
       pattern: 'tiles',
       title: 'Плитка и керамика',
       description: 'Керамическая плитка, мозаика'
-    },
-    {
-      category: 'smart',
-      gradient: 'from-blue-50 to-indigo-100',
-      pattern: 'smart',
-      title: 'Смарт',
-      description: 'Товары из каталога domeosmart.ru'
     }
   ];
 
@@ -391,43 +384,6 @@ export default function Home() {
                 </Card>
               </div>
 
-              {/* Смарт - АКТИВНАЯ */}
-              <Link href="/smart" className="group relative">
-                <Card variant="interactive" padding="md" className="h-full">
-                  {/* Статус бейдж */}
-                  <div className="absolute top-4 right-4 z-20">
-                    <Badge variant="success" size="sm">
-                      Доступно
-                    </Badge>
-                  </div>
-                
-                <div className="p-8">
-                  {/* Иконка */}
-                  <div className="mb-6">
-                    <svg className="w-12 h-12 text-blue-600 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 22V12h6v10"/>
-                      <circle cx="12" cy="8" r="1" fill="currentColor"/>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 15h8M8 18h8" opacity="0.6"/>
-                    </svg>
-                  </div>
-                  
-                  <h3 className="text-xl font-bold text-black mb-3 group-hover:text-blue-600 transition-colors">
-                    Смарт
-                  </h3>
-                  <p className="text-gray-600 text-sm leading-relaxed mb-6 font-light">
-                    Товары из каталога domeosmart.ru
-                  </p>
-                  
-                  <div className="flex items-center text-black text-sm group-hover:text-blue-600 transition-colors">
-                    <span>Начать работу</span>
-                    <svg className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </div>
-                </Card>
-              </Link>
             </div>
           </div>
         </section>

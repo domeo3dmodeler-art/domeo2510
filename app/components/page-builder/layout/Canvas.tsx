@@ -23,8 +23,7 @@ export function Canvas({
   onConnectionData,
   onUpdateConnection,
   onDeleteConnection,
-  onCreateConnection,
-  globalFilters = {}
+  onCreateConnection
 }: CanvasProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [draggedElementId, setDraggedElementId] = useState<string | null>(null);
@@ -349,7 +348,6 @@ export function Canvas({
                 onResize={(newSize) => handleResize(element.id, newSize)}
                 onConnectionData={onConnectionData}
                 allElements={page?.elements || []}
-                globalFilters={globalFilters}
               />
             ))}
 

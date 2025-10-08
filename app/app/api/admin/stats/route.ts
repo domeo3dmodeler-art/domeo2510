@@ -1,62 +1,51 @@
 import { NextRequest, NextResponse } from "next/server";
+import { PrismaClient } from '@prisma/client';
 
-// Простое хранилище в памяти для демонстрации
-// В реальном приложении это будет база данных
-let categoryStats: { [categoryId: string]: {
-  name: string;
-  totalProducts: number;
-  lastImport: string | null;
-  totalImports: number;
-  isActive: boolean;
-} } = {
-  'doors': {
-    name: 'Двери',
-    totalProducts: 156,
-    lastImport: '2024-01-30T10:30:00Z',
-    totalImports: 3,
-    isActive: true
-  },
-  'smart': {
-    name: 'Смарт',
-    totalProducts: 89,
-    lastImport: '2024-01-28T14:20:00Z',
-    totalImports: 2,
-    isActive: true
-  },
-  'flooring': {
-    name: 'Напольные покрытия',
-    totalProducts: 0,
-    lastImport: null,
-    totalImports: 0,
-    isActive: false
-  },
-  'kitchens': {
-    name: 'Кухни',
-    totalProducts: 0,
-    lastImport: null,
-    totalImports: 0,
-    isActive: false
-  },
-  'tiles': {
-    name: 'Плитка',
-    totalProducts: 0,
-    lastImport: null,
-    totalImports: 0,
-    isActive: false
-  }
-};
+const prisma = new PrismaClient();
 
 export async function GET(req: NextRequest) {
   try {
     console.log('=== STATS API CALL ===');
     
-    // Получаем только активные категории
-    const activeCategories = Object.entries(categoryStats)
-      .filter(([_, stats]) => stats.isActive)
-      .map(([id, stats]) => ({
-        id,
-        ...stats
-      }));
+    // Получаем реальные данные из БД
+    const categories = await prisma.catalogCategory.findMany({
+      where: { is_active: true },
+      include: {
+        products: {
+          select: { id: true }
+        }
+      }
+    });
+
+    // Получаем статистику импортов
+    const importHistory = await prisma.importHistory.findMany({
+      orderBy: { created_at: 'desc' },
+      take: 100
+    });
+
+    // Группируем импорты по категориям
+    const categoryImportStats: { [key: string]: { count: number, lastImport: string | null } } = {};
+    
+    importHistory.forEach(importItem => {
+      const categoryId = importItem.catalog_category_id;
+      if (!categoryImportStats[categoryId]) {
+        categoryImportStats[categoryId] = { count: 0, lastImport: null };
+      }
+      categoryImportStats[categoryId].count++;
+      if (!categoryImportStats[categoryId].lastImport) {
+        categoryImportStats[categoryId].lastImport = importItem.created_at.toISOString();
+      }
+    });
+
+    // Формируем активные категории
+    const activeCategories = categories.map(category => ({
+      id: category.id,
+      name: category.name,
+      totalProducts: category.products.length,
+      lastImport: categoryImportStats[category.id]?.lastImport || null,
+      totalImports: categoryImportStats[category.id]?.count || 0,
+      isActive: category.is_active
+    }));
     
     // Общая статистика
     const totalStats = {
@@ -90,13 +79,19 @@ export async function POST(req: NextRequest) {
   try {
     const { imported, filename, category } = await req.json();
     
-    // Обновляем статистику для конкретной категории
-    if (category && categoryStats[category]) {
-      categoryStats[category].totalProducts += imported;
-      categoryStats[category].lastImport = new Date().toISOString();
-      categoryStats[category].totalImports += 1;
+    // Создаем запись в истории импортов
+    if (category) {
+      await prisma.importHistory.create({
+        data: {
+          catalog_category_id: category,
+          filename: filename || 'unknown',
+          imported_count: imported || 0,
+          status: 'completed',
+          created_at: new Date()
+        }
+      });
       
-      console.log(`Updated stats for category ${category}:`, categoryStats[category]);
+      console.log(`Created import history record for category ${category}`);
     }
     
     return NextResponse.json({ success: true });

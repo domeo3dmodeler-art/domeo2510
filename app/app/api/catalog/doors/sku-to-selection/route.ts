@@ -1,5 +1,84 @@
 import { NextRequest, NextResponse } from "next/server";
-import { mockDoorsData } from "@/lib/mock-data";
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+// GET /api/catalog/doors/sku-to-selection - Получить информацию о продукте по SKU
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const sku = searchParams.get('sku');
+    
+    if (!sku) {
+      return NextResponse.json({
+        ok: true,
+        message: "API для получения информации о продукте по SKU",
+        usage: "Используйте GET запрос с параметром sku или POST запрос с телом { sku: 'SKU_CODE' }",
+        example: {
+          method: "GET",
+          url: "/api/catalog/doors/sku-to-selection?sku=SKU_CODE"
+        }
+      });
+    }
+
+    // Ищем продукт по SKU в базе данных
+    const product = await prisma.product.findUnique({
+      where: { sku },
+      select: {
+        id: true,
+        sku: true,
+        name: true,
+        model: true,
+        series: true,
+        brand: true,
+        base_price: true,
+        properties_data: true
+      }
+    });
+
+    if (!product) {
+      return NextResponse.json({
+        ok: false,
+        error: "Продукт не найден"
+      });
+    }
+
+    // Парсим свойства продукта
+    const properties = product.properties_data ? 
+      (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
+
+    // Возвращаем данные для предзаполнения формы
+    const selection = {
+      style: properties.style || product.series || "Классика",
+      model: product.model || product.series || "Стандарт",
+      finish: properties.finish || "Эмаль",
+      color: properties.color || "Белый",
+      type: properties.type || "Глухая",
+      width: properties.width || 800,
+      height: properties.height || 2000
+    };
+
+    return NextResponse.json({
+      ok: true,
+      product: {
+        id: product.id,
+        sku: product.sku,
+        name: product.name,
+        model: product.model,
+        series: product.series,
+        brand: product.brand,
+        base_price: product.base_price
+      },
+      selection
+    });
+  } catch (error) {
+    console.error('Error in GET /api/catalog/doors/sku-to-selection:', error);
+    return NextResponse.json(
+      { error: "Ошибка поиска продукта" },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,8 +92,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Ищем продукт по SKU в mock данных
-    const product = mockDoorsData.catalog.find(p => p.sku === sku);
+    // Ищем продукт по SKU в базе данных
+    const product = await prisma.product.findUnique({
+      where: { sku },
+      select: {
+        id: true,
+        sku: true,
+        name: true,
+        model: true,
+        series: true,
+        brand: true,
+        base_price: true,
+        properties_data: true
+      }
+    });
 
     if (!product) {
       return NextResponse.json({
@@ -23,15 +114,19 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Парсим свойства продукта
+    const properties = product.properties_data ? 
+      (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
+
     // Возвращаем данные для предзаполнения формы
     const selection = {
-      style: product.series,
-      model: product.series,
-      finish: product.material,
-      color: product.color,
-      type: "Распашная", // Демо значение
-      width: product.width_mm,
-      height: product.height_mm
+      style: properties.style || product.series || "Классика",
+      model: product.model || product.series || "Стандарт",
+      finish: properties.finish || "Эмаль",
+      color: properties.color || "Белый",
+      type: properties.type || "Глухая",
+      width: properties.width || 800,
+      height: properties.height || 2000
     };
 
     return NextResponse.json({
@@ -39,6 +134,7 @@ export async function POST(req: NextRequest) {
       selection
     });
   } catch (error) {
+    console.error('Error finding product by SKU:', error);
     return NextResponse.json(
       { error: "Ошибка поиска продукта" },
       { status: 500 }

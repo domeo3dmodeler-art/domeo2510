@@ -1,75 +1,111 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { PrismaClient } from '@prisma/client';
 
+const prisma = new PrismaClient();
+
+// GET /api/clients - Получить всех клиентов
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const search = searchParams.get('search') || '';
-    const offset = (page - 1) * limit;
+    const search = searchParams.get('search');
+    const limit = parseInt(searchParams.get('limit') || '100');
+    const offset = parseInt(searchParams.get('offset') || '0');
 
-    const where = search ? {
-      OR: [
+    const where: any = {
+      isActive: true
+    };
+    
+    if (search) {
+      where.OR = [
         { firstName: { contains: search, mode: 'insensitive' } },
         { lastName: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search, mode: 'insensitive' } },
         { address: { contains: search, mode: 'insensitive' } }
-      ]
-    } : {};
+      ];
+    }
 
     const [clients, total] = await Promise.all([
       prisma.client.findMany({
         where,
-        skip: offset,
-        take: limit,
-        orderBy: { created_at: 'desc' },
-        include: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          middleName: true,
+          phone: true,
+          address: true,
+          objectId: true,
+          customFields: true,
+          createdAt: true,
+          updatedAt: true,
           _count: {
             select: {
-              quotes: true,
-              invoices: true,
               orders: true,
-              documents: true
+              quotes: true,
+              invoices: true
             }
           }
-        }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: limit,
+        skip: offset
       }),
       prisma.client.count({ where })
     ]);
 
+    // Парсим customFields для каждого клиента
+    const processedClients = clients.map(client => ({
+      id: client.id,
+      name: `${client.lastName} ${client.firstName} ${client.middleName || ''}`.trim(),
+      firstName: client.firstName,
+      lastName: client.lastName,
+      middleName: client.middleName,
+      phone: client.phone,
+      address: client.address,
+      objectId: client.objectId,
+      customFields: client.customFields ? JSON.parse(client.customFields) : {},
+      createdAt: client.createdAt,
+      updatedAt: client.updatedAt,
+      ordersCount: client._count.orders,
+      quotesCount: client._count.quotes,
+      invoicesCount: client._count.invoices
+    }));
+
     return NextResponse.json({
       success: true,
-      clients: clients.map(client => ({
-        ...client,
-        customFields: JSON.parse(client.customFields || '{}')
-      })),
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
+      clients: processedClients,
+      total,
+      limit,
+      offset
     });
-
   } catch (error) {
     console.error('Error fetching clients:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch clients' },
+      { success: false, message: 'Ошибка при получении клиентов' },
       { status: 500 }
     );
   }
 }
 
+// POST /api/clients - Создать нового клиента
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json();
-    
-    const { firstName, lastName, middleName, phone, address, objectId, customFields } = data;
+    const body = await request.json();
+    const { 
+      firstName, 
+      lastName, 
+      middleName, 
+      phone, 
+      address, 
+      objectId, 
+      customFields 
+    } = body;
 
     if (!firstName || !lastName || !phone || !address || !objectId) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { success: false, message: 'Не указаны обязательные поля' },
         { status: 400 }
       );
     }
@@ -82,25 +118,30 @@ export async function POST(request: NextRequest) {
         phone,
         address,
         objectId,
-        customFields: JSON.stringify(customFields || {}),
-        isActive: true
+        customFields: customFields ? JSON.stringify(customFields) : '{}'
       }
     });
 
     return NextResponse.json({
       success: true,
       client: {
-        ...client,
-        customFields: JSON.parse(client.customFields || '{}')
+        id: client.id,
+        name: `${client.lastName} ${client.firstName} ${client.middleName || ''}`.trim(),
+        firstName: client.firstName,
+        lastName: client.lastName,
+        middleName: client.middleName,
+        phone: client.phone,
+        address: client.address,
+        objectId: client.objectId,
+        customFields: client.customFields ? JSON.parse(client.customFields) : {},
+        createdAt: client.createdAt
       }
     });
-
   } catch (error) {
     console.error('Error creating client:', error);
     return NextResponse.json(
-      { error: 'Failed to create client' },
+      { success: false, message: 'Ошибка при создании клиента' },
       { status: 500 }
     );
   }
 }
-

@@ -4,6 +4,7 @@
 import React, { useState } from 'react';
 import { Button, Card, Input, Select } from '../ui';
 import UnifiedExportButtons from '../UnifiedExportButtons';
+import DoorConfiguratorNoCode from './DoorConfiguratorNoCode';
 
 // ===================== Базовые типы =====================
 
@@ -549,6 +550,9 @@ export const componentRegistry: ComponentRegistry = {
   'parameters-form': ParametersForm,
   'preview-panel': PreviewPanel,
   'cart-panel': CartPanel,
+  
+  // Конфигураторы
+  'door-configurator': DoorConfiguratorNoCode,
 };
 
 // ===================== Универсальный рендерер =====================

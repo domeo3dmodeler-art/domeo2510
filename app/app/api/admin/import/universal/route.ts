@@ -57,6 +57,37 @@ async function createDynamicSchema(categoryId: string, headers: string[]) {
   return schema;
 }
 
+// GET /api/admin/import/universal - Получить информацию об импорте
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const category = searchParams.get('category');
+    
+    return NextResponse.json({
+      ok: true,
+      message: "API для универсального импорта прайсов",
+      usage: "Используйте POST запрос с FormData для загрузки файлов",
+      supported_formats: ["xlsx", "xls", "csv"],
+      required_fields: {
+        file: "Файл для импорта",
+        category: "ID категории каталога",
+        mode: "Режим обработки (headers или full)"
+      },
+      example: {
+        method: "POST",
+        body: "FormData с полями: file, category, mode, mapping"
+      },
+      current_category: category || "не указана"
+    });
+  } catch (error) {
+    console.error('Error in GET /api/admin/import/universal:', error);
+    return NextResponse.json(
+      { error: "Ошибка получения информации об импорте" },
+      { status: 500 }
+    );
+  }
+}
+
 // Универсальный импорт прайсов для любой категории товаров
 export async function POST(req: NextRequest) {
   console.log('=== API CALL START ===');

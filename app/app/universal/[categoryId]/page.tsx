@@ -90,63 +90,6 @@ const categoryTemplates: Record<string, any> = {
       }
     ]
   },
-  smart: {
-    id: 'smart-template',
-    name: 'Каталог умных устройств',
-    layout: { type: 'grid', columns: 2, gap: 6, responsive: true },
-    components: [
-      {
-        id: 'category-selector',
-        type: 'style-selector',
-        position: { row: 1, col: 1, span: 1 },
-        config: {
-          title: 'Категория',
-          options: ['Умное освещение', 'Умные выключатели', 'Датчики', 'Умные розетки']
-        },
-        title: 'Выбор категории',
-        visible: true
-      },
-      {
-        id: 'product-selector',
-        type: 'model-selector',
-        position: { row: 2, col: 1, span: 1 },
-        config: {
-          title: 'Товары',
-          models: [
-            { id: 'smart-bulb-1', name: 'Умная лампа RGB', description: 'Управление через приложение' },
-            { id: 'smart-switch-1', name: 'Умный выключатель', description: 'Wi-Fi управление' },
-            { id: 'smart-sensor-1', name: 'Датчик движения', description: 'PIR сенсор' }
-          ]
-        },
-        title: 'Выбор товара',
-        visible: true
-      },
-      {
-        id: 'preview-panel',
-        type: 'preview-panel',
-        position: { row: 1, col: 2, span: 1 },
-        config: {
-          showImage: true,
-          showPrice: true,
-          showSpecs: true
-        },
-        title: 'Предпросмотр',
-        visible: true
-      },
-      {
-        id: 'cart-panel',
-        type: 'cart-panel',
-        position: { row: 2, col: 2, span: 1 },
-        config: {
-          showTotal: true,
-          allowEdit: true,
-          exportOptions: ['kp', 'invoice']
-        },
-        title: 'Корзина',
-        visible: true
-      }
-    ]
-  }
 };
 
 // Главный компонент универсальной страницы

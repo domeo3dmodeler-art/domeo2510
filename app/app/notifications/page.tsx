@@ -19,65 +19,28 @@ export default function NotificationsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
 
-  // Демо-данные уведомлений
-  const demoNotifications: Notification[] = [
-    {
-      id: '1',
-      type: 'success',
-      title: 'Заказ выполнен',
-      message: 'Заказ #ORD-003 успешно выполнен и готов к отгрузке',
-      createdAt: '2024-01-30T10:30:00',
-      isRead: false,
-      actionUrl: '/orders',
-      actionText: 'Посмотреть заказ'
-    },
-    {
-      id: '2',
-      type: 'warning',
-      title: 'Срок действия КП истекает',
-      message: 'КП #KP-001 истекает через 2 дня. Необходимо связаться с клиентом',
-      createdAt: '2024-01-29T14:20:00',
-      isRead: false,
-      actionUrl: '/quotes',
-      actionText: 'Открыть КП'
-    },
-    {
-      id: '3',
-      type: 'info',
-      title: 'Новый заказ',
-      message: 'Поступил новый заказ #ORD-004 от клиента Иванов И.И.',
-      createdAt: '2024-01-28T09:15:00',
-      isRead: true,
-      actionUrl: '/orders',
-      actionText: 'Обработать заказ'
-    },
-    {
-      id: '4',
-      type: 'error',
-      title: 'Ошибка импорта',
-      message: 'Не удалось импортировать прайс-лист для категории "Двери". Проверьте формат файла',
-      createdAt: '2024-01-27T16:45:00',
-      isRead: true,
-      actionUrl: '/admin/import',
-      actionText: 'Повторить импорт'
-    },
-    {
-      id: '5',
-      type: 'info',
-      title: 'Обновление системы',
-      message: 'Система была обновлена до версии 2.1.0. Добавлены новые функции',
-      createdAt: '2024-01-26T11:00:00',
-      isRead: true
-    }
-  ];
-
   useEffect(() => {
-    // Имитируем загрузку данных
-    setTimeout(() => {
-      setNotifications(demoNotifications);
-      setIsLoading(false);
-    }, 1000);
+    loadNotifications();
   }, []);
+
+  const loadNotifications = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/notifications');
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data.notifications || []);
+      } else {
+        console.error('Failed to load notifications');
+        setNotifications([]);
+      }
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+      setNotifications([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredNotifications = filter === 'all' 
     ? notifications 

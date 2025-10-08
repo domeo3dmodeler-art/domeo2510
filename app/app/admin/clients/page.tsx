@@ -55,7 +55,9 @@ export default function ClientsPage() {
   });
 
   useEffect(() => {
-    fetchClients();
+    if (pagination.page > 0) {
+      fetchClients();
+    }
   }, [pagination.page, search]);
 
   const fetchClients = async () => {

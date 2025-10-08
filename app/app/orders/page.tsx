@@ -27,65 +27,28 @@ export default function OrdersPage() {
   const [filter, setFilter] = useState<'all' | 'new' | 'in_progress' | 'completed' | 'cancelled'>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
-  // Демо-данные заказов
-  const demoOrders: Order[] = [
-    {
-      id: '1',
-      number: 'ORD-001',
-      clientId: '1',
-      clientName: 'Иванов Иван Иванович',
-      status: 'new',
-      priority: 'high',
-      createdAt: '2024-01-30',
-      responsible: 'Комплектатор',
-      total: 150000,
-      currency: 'RUB',
-      items: [
-        { name: 'Дверь входная', quantity: 1, price: 150000 }
-      ],
-      notes: 'Срочный заказ'
-    },
-    {
-      id: '2',
-      number: 'ORD-002',
-      clientId: '2',
-      clientName: 'Петрова Анна Сергеевна',
-      status: 'in_progress',
-      priority: 'medium',
-      createdAt: '2024-01-29',
-      responsible: 'Комплектатор',
-      executor: 'Исполнитель',
-      total: 85000,
-      currency: 'RUB',
-      items: [
-        { name: 'Дверь межкомнатная', quantity: 2, price: 42500 }
-      ]
-    },
-    {
-      id: '3',
-      number: 'ORD-003',
-      clientId: '3',
-      clientName: 'Сидоров Петр Александрович',
-      status: 'completed',
-      priority: 'low',
-      createdAt: '2024-01-25',
-      responsible: 'Комплектатор',
-      executor: 'Исполнитель',
-      total: 120000,
-      currency: 'RUB',
-      items: [
-        { name: 'Дверь входная', quantity: 1, price: 120000 }
-      ]
-    }
-  ];
-
   useEffect(() => {
-    // Имитируем загрузку данных
-    setTimeout(() => {
-      setOrders(demoOrders);
-      setIsLoading(false);
-    }, 1000);
+    loadOrders();
   }, []);
+
+  const loadOrders = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/orders');
+      if (response.ok) {
+        const data = await response.json();
+        setOrders(data.orders || []);
+      } else {
+        console.error('Failed to load orders');
+        setOrders([]);
+      }
+    } catch (error) {
+      console.error('Error loading orders:', error);
+      setOrders([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredOrders = filter === 'all' 
     ? orders 

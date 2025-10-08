@@ -15,10 +15,9 @@ interface FilteredProductsProps {
   element: BaseElement;
   onUpdate: (updates: Partial<BaseElement>) => void;
   filters?: Record<string, any>;
-  onConnectionData?: (sourceElementId: string, data: any) => void;
 }
 
-export function FilteredProducts({ element, onUpdate, filters = {}, onConnectionData }: FilteredProductsProps) {
+export function FilteredProducts({ element, onUpdate, filters = {} }: FilteredProductsProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,56 +35,45 @@ export function FilteredProducts({ element, onUpdate, filters = {}, onConnection
       setError(null);
       
       try {
-        console.log('🔍 FilteredProducts: Загрузка товаров с фильтрами:', {
-          categoryIds: element.props.categoryIds,
-          filters,
-          limit: element.props.limit || 12
-        });
-
-        // Используем новый API endpoint для фильтрованных товаров
-        const response = await fetch('/api/catalog/products/filtered', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            categoryIds: element.props.categoryIds,
-            filters: filters, // ✅ Используем переданные фильтры
-            limit: element.props.limit || 12
-          })
+        const query = new URLSearchParams();
+        element.props.categoryIds.forEach((id: string) => {
+          query.append('categoryIds', id);
         });
         
-        if (response.ok) {
-          const data = await response.json();
-          console.log('🔍 FilteredProducts: Товары загружены:', {
-            count: data.products?.length || 0,
-            total: data.total || 0,
-            filters
-          });
-          
+        // Добавляем лимит
+        query.append('limit', (element.props.limit || 12).toString());
+        
+        // Добавляем фильтры как параметры запроса
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value && value !== '') {
+            query.append(`filter_${key}`, value.toString());
+          }
+        });
+
+        const response = await fetch(`/api/catalog/products?${query.toString()}`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
           setProducts(data.products || []);
           setTotalCount(data.total || data.products?.length || 0);
-          
-          // Отправляем данные о загруженных товарах через систему связей
-          if (onConnectionData) {
-            onConnectionData(element.id, {
-              type: 'productsLoaded',
-              products: data.products || [],
-              total: data.total || 0,
-              filters: filters
-            });
-          }
         } else {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          setError(data.error || 'Ошибка загрузки товаров');
         }
       } catch (e: any) {
         setError(e.message || 'Ошибка загрузки товаров');
-        console.error('🔍 FilteredProducts: Ошибка загрузки товаров:', e);
+        console.error('Ошибка загрузки товаров:', e);
       } finally {
         setLoading(false);
       }
     };
 
     loadProducts();
-  }, [element.props.categoryIds, element.props.limit, filters, onConnectionData]); // ✅ Добавить filters и onConnectionData в зависимости
+  }, [element.props.categoryIds, element.props.limit, filters]);
 
   const getDisplayLayout = () => {
     switch (element.props.layout) {
@@ -97,24 +85,6 @@ export function FilteredProducts({ element, onUpdate, filters = {}, onConnection
         return 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6';
       default:
         return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
-    }
-  };
-
-  // Функция для добавления товара в корзину через систему связей
-  const handleAddToCart = (product: Product) => {
-    console.log('🛒 FilteredProducts: Добавление в корзину:', product);
-    
-    if (onConnectionData) {
-      onConnectionData(element.id, {
-        type: 'addToCart',
-        product: {
-          id: product.id,
-          name: product.name,
-          price: product.base_price,
-          image: product.images?.[0]?.url,
-          quantity: 1
-        }
-      });
     }
   };
 
@@ -240,10 +210,7 @@ export function FilteredProducts({ element, onUpdate, filters = {}, onConnection
                   </div>
                   
                   {element.props.showAddToCart !== false && (
-                    <button 
-                      onClick={() => handleAddToCart(product)}
-                      className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
-                    >
+                    <button className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors">
                       В корзину
                     </button>
                   )}

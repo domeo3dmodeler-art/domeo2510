@@ -77,53 +77,79 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
   // Корзина
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showDiscountManager, setShowDiscountManager] = useState(false);
+  const [currentPrice, setCurrentPrice] = useState<number>(0);
 
   useEffect(() => {
     loadData();
   }, [categoryId]);
+
+  // Обновляем цену при изменении параметров
+  useEffect(() => {
+    if (selectedProduct) {
+      calculateTotalPrice().then(price => {
+        setCurrentPrice(price);
+      });
+    } else {
+      setCurrentPrice(0);
+    }
+  }, [selectedProduct, selectedKit, selectedHandle]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Загружаем продукты из реальной БД
-      const productsResponse = await fetch(`/api/catalog/products?categoryId=${categoryId}`);
-      const productsData = await productsResponse.json();
+      // Загружаем опции дверей из API
+      const optionsResponse = await fetch('/api/catalog/doors/options');
+      const optionsData = await optionsResponse.json();
       
-      if (productsData.success) {
-        setProducts(productsData.products || []);
+      if (optionsData.ok && optionsData.domain) {
+        // Преобразуем данные в формат, ожидаемый компонентом
+        const doorProducts: DoorProduct[] = [];
+        
+        // Создаем комбинации всех возможных параметров
+        const { style, model, finish, color, type, width, height } = optionsData.domain;
+        
+        // Для демонстрации создаем несколько комбинаций
+        if (style.length > 0 && model.length > 0 && finish.length > 0 && color.length > 0 && type.length > 0 && width.length > 0 && height.length > 0) {
+          // Берем первые несколько комбинаций для демонстрации
+          for (let i = 0; i < Math.min(10, style.length * model.length); i++) {
+            const s = style[i % style.length];
+            const m = model[i % model.length];
+            const f = finish[i % finish.length];
+            const c = color[i % color.length];
+            const t = type[i % type.length];
+            const w = width[i % width.length];
+            const h = height[i % height.length];
+            
+            doorProducts.push({
+              id: `${m}-${f}-${c}-${w}x${h}`,
+              model: m,
+              style: s,
+              finish: f,
+              color: c,
+              type: t,
+              width: w,
+              height: h,
+              rrc_price: 15000 + Math.random() * 10000, // Примерная цена
+              sku_1c: `SKU-${m}-${w}x${h}-${c}`,
+              supplier: "Supplier1",
+              collection: "Collection A",
+              supplier_item_name: m,
+              supplier_color_finish: `${c}/${f}`,
+              price_opt: 10000 + Math.random() * 5000,
+            });
+          }
+        }
+        
+        setProducts(doorProducts);
+        
+        // Устанавливаем комплекты и ручки из API
+        setHardwareKits(optionsData.domain.kits || []);
+        setHandles(optionsData.domain.handles || []);
       } else {
-        throw new Error('Ошибка загрузки товаров');
+        throw new Error('Ошибка загрузки опций дверей');
       }
-
-      // Загружаем комплекты фурнитуры (пока используем статические данные)
-      setHardwareKits([
-        { id: "KIT_STD", name: "Базовый комплект", group: 1, price_rrc: 5000 },
-        { id: "KIT_SOFT", name: "SoftClose", group: 2, price_rrc: 2400 },
-      ]);
-
-      // Загружаем ручки (пока используем статические данные)
-      setHandles([
-        {
-          id: "HNDL_PRO",
-          name: "Pro",
-          supplier_name: "HandleCo",
-          supplier_sku: "H-PRO",
-          price_opt: 900,
-          price_rrc: 1200,
-          price_group_multiplier: 1.15,
-        },
-        {
-          id: "HNDL_SIL",
-          name: "Silver",
-          supplier_name: "HandleCo",
-          supplier_sku: "H-SIL",
-          price_opt: 1100,
-          price_rrc: 1400,
-          price_group_multiplier: 1.15,
-        },
-      ]);
 
     } catch (err) {
       console.error('Error loading data:', err);
@@ -175,9 +201,38 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
   );
 
   // Вычисляем итоговую цену
-  const calculateTotalPrice = () => {
+  const calculateTotalPrice = async () => {
     if (!selectedProduct) return 0;
     
+    try {
+      const response = await fetch('/api/price/doors', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          selection: {
+            model: selectedProduct.model,
+            finish: selectedProduct.finish,
+            color: selectedProduct.color,
+            type: selectedProduct.type,
+            width: selectedProduct.width,
+            height: selectedProduct.height,
+            hardware_kit: selectedKit ? { id: selectedKit } : undefined,
+            handle: selectedHandle ? { id: selectedHandle } : undefined,
+          }
+        })
+      });
+
+      if (response.ok) {
+        const priceData = await response.json();
+        return priceData.total || 0;
+      }
+    } catch (error) {
+      console.error('Error calculating price:', error);
+    }
+    
+    // Fallback к локальному расчету
     let total = selectedProduct.rrc_price;
     
     if (selectedKit) {
@@ -202,7 +257,7 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
       quantity: 1,
       selectedKit: selectedKit ? hardwareKits.find(k => k.id === selectedKit) : undefined,
       selectedHandle: selectedHandle ? handles.find(h => h.id === selectedHandle) : undefined,
-      calculated_price: calculateTotalPrice()
+      calculated_price: currentPrice
     };
 
     setCart(prev => [...prev, cartItem]);
@@ -280,21 +335,35 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Заголовок */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Конфигуратор дверей</h1>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Создайте идеальную дверь для вашего интерьера. Выберите стиль, модель, материалы и размеры.
+          </p>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Основная панель конфигуратора */}
           <div className="lg:col-span-2 space-y-6">
-            <Card className="p-6">
-              <div className="flex items-center space-x-2 mb-6">
-                <Package className="h-6 w-6 text-blue-600" />
-                <h1 className="text-2xl font-bold text-gray-900">Конфигуратор дверей</h1>
+            {/* Прогресс-бар */}
+            <Card className="p-6 bg-white shadow-lg">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">Настройка параметров</h2>
+                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                  <span>Шаг 1 из 3</span>
+                  <div className="w-24 bg-gray-200 rounded-full h-2">
+                    <div className="bg-blue-600 h-2 rounded-full w-1/3"></div>
+                  </div>
+                </div>
               </div>
-
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Стиль */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Стиль</label>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Стиль двери</label>
                   <Select
                     value={selectedStyle}
                     onValueChange={setSelectedStyle}
@@ -307,8 +376,8 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
                 </div>
 
                 {/* Модель */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Модель</label>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Модель</label>
                   <Select
                     value={selectedModel}
                     onValueChange={setSelectedModel}
@@ -322,8 +391,8 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
                 </div>
 
                 {/* Отделка */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Отделка</label>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Отделка</label>
                   <Select
                     value={selectedFinish}
                     onValueChange={setSelectedFinish}
@@ -337,8 +406,8 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
                 </div>
 
                 {/* Цвет */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Цвет</label>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Цвет</label>
                   <Select
                     value={selectedColor}
                     onValueChange={setSelectedColor}
@@ -352,8 +421,8 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
                 </div>
 
                 {/* Тип */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Тип</label>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Тип открывания</label>
                   <Select
                     value={selectedType}
                     onValueChange={setSelectedType}
@@ -366,26 +435,23 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
                 </div>
 
                 {/* Размеры */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Ширина (мм)</label>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Размеры</label>
+                  <div className="grid grid-cols-2 gap-3">
                     <Select
                       value={selectedWidth.toString()}
                       onValueChange={(value) => setSelectedWidth(parseInt(value))}
                     >
                       {widths.map(width => (
-                        <option key={width} value={width.toString()}>{width}</option>
+                        <option key={width} value={width.toString()}>{width} мм</option>
                       ))}
                     </Select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Высота (мм)</label>
                     <Select
                       value={selectedHeight.toString()}
                       onValueChange={(value) => setSelectedHeight(parseInt(value))}
                     >
                       {heights.map(height => (
-                        <option key={height} value={height.toString()}>{height}</option>
+                        <option key={height} value={height.toString()}>{height} мм</option>
                       ))}
                     </Select>
                   </div>
@@ -394,13 +460,16 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
             </Card>
 
             {/* Дополнительные опции */}
-            <Card className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Дополнительные опции</h2>
+            <Card className="p-6 bg-white shadow-lg">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <Settings className="h-5 w-5 mr-2 text-blue-600" />
+                Дополнительные опции
+              </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Комплект фурнитуры */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Комплект фурнитуры</label>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Комплект фурнитуры</label>
                   <Select
                     value={selectedKit}
                     onValueChange={setSelectedKit}
@@ -415,8 +484,8 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
                 </div>
 
                 {/* Ручка */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Ручка</label>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Ручка</label>
                   <Select
                     value={selectedHandle}
                     onValueChange={setSelectedHandle}
@@ -434,19 +503,29 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
 
             {/* Кнопка добавления в корзину */}
             {selectedProduct && (
-              <Card className="p-6">
+              <Card className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 shadow-lg">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Итого: {calculateTotalPrice().toLocaleString()} ₽</h3>
-                    <p className="text-sm text-gray-600">
-                      {selectedProduct.model} • {selectedWidth}×{selectedHeight}мм
+                    <h3 className="text-2xl font-bold text-gray-900">Итого: {currentPrice.toLocaleString()} ₽</h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {selectedProduct.model} • {selectedWidth}×{selectedHeight}мм • {selectedColor}
                     </p>
+                    {selectedKit && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        + {hardwareKits.find(k => k.id === selectedKit)?.name}
+                      </p>
+                    )}
+                    {selectedHandle && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        + {handles.find(h => h.id === selectedHandle)?.name}
+                      </p>
+                    )}
                   </div>
                   <Button
                     onClick={addToCart}
-                    className="flex items-center space-x-2"
+                    className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
                   >
-                    <ShoppingCart className="h-4 w-4" />
+                    <ShoppingCart className="h-5 w-5" />
                     <span>Добавить в корзину</span>
                   </Button>
                 </div>
@@ -456,7 +535,7 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
 
           {/* Панель корзины */}
           <div className="space-y-6">
-            <Card className="p-6">
+            <Card className="p-6 bg-white shadow-lg sticky top-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-2">
                   <ShoppingCart className="h-5 w-5 text-blue-600" />
@@ -482,16 +561,17 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
                 <div className="text-center py-8 text-gray-500">
                   <ShoppingCart className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                   <p className="text-sm">Корзина пуста</p>
+                  <p className="text-xs text-gray-400 mt-1">Выберите параметры двери и добавьте в корзину</p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {cart.map(item => (
-                    <div key={item.id} className="border border-gray-200 rounded-lg p-3">
+                    <div key={item.id} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="font-medium text-sm text-gray-900">{item.product.model}</h4>
                         <button
                           onClick={() => removeFromCart(item.id)}
-                          className="text-red-600 hover:text-red-700 text-xs"
+                          className="text-red-600 hover:text-red-700 text-xs font-bold"
                         >
                           ✕
                         </button>
@@ -526,14 +606,14 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
                         <div className="flex items-center space-x-2">
                           <button
                             onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
-                            className="w-6 h-6 bg-gray-200 rounded flex items-center justify-center text-xs"
+                            className="w-6 h-6 bg-gray-200 rounded flex items-center justify-center text-xs hover:bg-gray-300 transition-colors"
                           >
                             -
                           </button>
-                          <span className="text-sm">{item.quantity}</span>
+                          <span className="text-sm font-medium">{item.quantity}</span>
                           <button
                             onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
-                            className="w-6 h-6 bg-gray-200 rounded flex items-center justify-center text-xs"
+                            className="w-6 h-6 bg-gray-200 rounded flex items-center justify-center text-xs hover:bg-gray-300 transition-colors"
                           >
                             +
                           </button>
@@ -559,9 +639,9 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
                         <span>{getCartTotalWithoutDiscounts().toLocaleString()} ₽</span>
                       </div>
                     )}
-                    <div className="flex items-center justify-between font-semibold">
+                    <div className="flex items-center justify-between font-semibold text-lg">
                       <span>Итого:</span>
-                      <span>{getCartTotal().toLocaleString()} ₽</span>
+                      <span className="text-blue-600">{getCartTotal().toLocaleString()} ₽</span>
                     </div>
                   </div>
                 </div>

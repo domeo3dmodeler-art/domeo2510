@@ -32,63 +32,28 @@ export default function InvoicesPage() {
     invoices: [] as Invoice[]
   });
 
-  // Демо-данные счетов
-  const demoInvoices: Invoice[] = [
-    {
-      id: '1',
-      number: 'INV-001',
-      clientId: '1',
-      clientName: 'Иванов Иван Иванович',
-      status: 'sent',
-      createdAt: '2024-01-15',
-      dueDate: '2024-01-29',
-      total: 125000,
-      currency: 'RUB',
-      paymentMethod: 'Банковский перевод',
-      items: [
-        { name: 'Дверь межкомнатная', qty: 2, price: 50000 },
-        { name: 'Фурнитура', qty: 1, price: 25000 }
-      ],
-      notes: 'Оплата в течение 14 дней'
-    },
-    {
-      id: '2',
-      number: 'INV-002',
-      clientId: '2',
-      clientName: 'Петрова Анна Сергеевна',
-      status: 'draft',
-      createdAt: '2024-01-20',
-      dueDate: '2024-02-03',
-      total: 85000,
-      currency: 'RUB',
-      items: [
-        { name: 'Дверь входная', qty: 1, price: 85000 }
-      ]
-    },
-    {
-      id: '3',
-      number: 'INV-003',
-      clientId: '1',
-      clientName: 'Иванов Иван Иванович',
-      status: 'paid',
-      createdAt: '2024-01-25',
-      dueDate: '2024-02-08',
-      total: 45000,
-      currency: 'RUB',
-      paymentMethod: 'Наличные',
-      items: [
-        { name: 'Дверь межкомнатная', qty: 1, price: 45000 }
-      ]
-    }
-  ];
-
   useEffect(() => {
-    // Имитируем загрузку данных
-    setTimeout(() => {
-      setInvoices(demoInvoices);
-      setIsLoading(false);
-    }, 1000);
+    loadInvoices();
   }, []);
+
+  const loadInvoices = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/invoices');
+      if (response.ok) {
+        const data = await response.json();
+        setInvoices(data.invoices || []);
+      } else {
+        console.error('Failed to load invoices');
+        setInvoices([]);
+      }
+    } catch (error) {
+      console.error('Error loading invoices:', error);
+      setInvoices([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredInvoices = filter === 'all' 
     ? invoices 

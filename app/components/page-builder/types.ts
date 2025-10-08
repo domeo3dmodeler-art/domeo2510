@@ -57,16 +57,28 @@ export interface Style {
 // ===================== ЭЛЕМЕНТЫ =====================
 
 export type ElementType = 
-  // Основные элементы
-  | 'text' | 'heading' | 'section' | 'spacer'
+  // Макеты и секции
+  | 'section' | 'row' | 'column' | 'grid' | 'container' | 'spacer' | 'divider'
+  // Базовые элементы
+  | 'text' | 'heading' | 'image' | 'button' | 'icon' | 'badge'
+  // Навигация
+  | 'header' | 'footer' | 'menu' | 'breadcrumb' | 'tabs'
+  // Контентные блоки
+  | 'hero' | 'card' | 'gallery' | 'video' | 'testimonial' | 'faq'
   // Товарные компоненты
-  | 'productCard' | 'productGrid' | 'filteredProducts'
-  // Фильтры
-  | 'productFilter' | 'propertyFilter'
+  | 'productConfigurator' | 'productGrid' | 'productFilters' | 'productCarousel' | 'catalogTree'
+  // Новые конфигураторы
+  | 'stepWizard' | 'comparisonTable' | 'priceCalculator'
+  // Калькуляторы
+  | 'deliveryCalculator' | 'discountCalculator'
+  // Интерактивные элементы
+  | 'cart' | 'wishlist' | 'comparison' | 'search'
   // Формы
-  | 'input' | 'select' | 'checkbox' | 'radio'
-  // Функциональные
-  | 'cart';
+  | 'form' | 'input' | 'textarea' | 'select' | 'checkbox' | 'radio'
+  // Фильтры
+  | 'productFilter' | 'propertyFilter' | 'filteredProducts'
+  // Специальные
+  | 'contact' | 'accordion';
 
 export interface BaseElement {
   id: string;
@@ -473,7 +485,6 @@ export interface CanvasProps {
   onUpdateConnection?: (connectionId: string, updates: Partial<BlockConnection>) => void;
   onDeleteConnection?: (connectionId: string) => void;
   onCreateConnection?: (sourceElementId: string, targetElementId: string, connectionType: BlockConnection['connectionType']) => void; // Новый обработчик для создания связи
-  globalFilters?: Record<string, any>; // Глобальные фильтры для передачи в компоненты
 }
 
 export interface ComponentsPanelProps {

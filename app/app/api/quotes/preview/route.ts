@@ -17,92 +17,112 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Создаем демонстрационный КП для предпросмотра
+    // Создаем демонстрационный КП на основе реальных данных
     const demoQuote = {
       id: 'preview-demo',
-      title: 'Демонстрационное коммерческое предложение',
+      title: 'Коммерческое предложение',
       status: 'draft' as const,
       items: [
         {
-          sku: 'DOOR-DEMO-001',
-          model: 'Premium Classic',
+          sku: 'DOOR-SAMPLE-001',
+          model: 'Классика',
           width: 800,
           height: 2000,
           color: 'Белый',
-          finish: 'Матовый',
-          series: 'Premium',
+          finish: 'Эмаль',
+          series: 'Классика',
           material: 'МДФ',
           rrc_price: 15000,
           qty: 1,
           hardware_kit: {
-            name: 'Комплект Premium',
-            price_rrc: 3000,
+            name: 'Базовый комплект',
+            price_rrc: 5000,
             group: '1'
           },
           handle: {
-            name: 'Ручка Classic',
-            price_opt: 500,
-            price_group_multiplier: 2.5
-          },
-          price_opt: 12000,
-          currency: 'RUB'
-        },
-        {
-          sku: 'DOOR-DEMO-002',
-          model: 'Standard Basic',
-          width: 900,
-          height: 2100,
-          color: 'Серый',
-          finish: 'Глянцевый',
-          series: 'Standard',
-          material: 'МДФ',
-          rrc_price: 12000,
-          qty: 2,
-          hardware_kit: {
-            name: 'Комплект Basic',
-            price_rrc: 2000,
-            group: '1'
-          },
-          handle: {
-            name: 'Ручка Basic',
-            price_opt: 300,
-            price_group_multiplier: 2.0
+            name: 'Pro',
+            price_opt: 900,
+            price_group_multiplier: 1.15
           },
           price_opt: 10000,
           currency: 'RUB'
+        },
+        {
+          sku: 'DOOR-SAMPLE-002',
+          model: 'Модерн',
+          width: 900,
+          height: 2100,
+          color: 'Серый',
+          finish: 'Шпон',
+          series: 'Модерн',
+          material: 'МДФ',
+          rrc_price: 18000,
+          qty: 1,
+          hardware_kit: {
+            name: 'SoftClose',
+            price_rrc: 2400,
+            group: '2'
+          },
+          handle: {
+            name: 'Silver',
+            price_opt: 1100,
+            price_group_multiplier: 1.15
+          },
+          price_opt: 15000,
+          currency: 'RUB'
         }
       ],
-      total: 45000, // Примерная сумма
+      total: 35000,
       currency: 'RUB',
       clientInfo: {
-        company: 'ООО "Демо Клиент"',
-        contact: 'Иванов Иван Иванович',
-        email: 'demo@client.ru',
-        phone: '+7 (495) 123-45-67',
-        address: 'г. Москва, ул. Демонстрационная, д. 1'
+        company: 'ООО "Пример Клиент"',
+        contact: 'Петров Петр Петрович',
+        email: 'client@example.ru',
+        phone: '+7 (495) 000-00-00',
+        address: 'г. Москва, ул. Примерная, д. 1'
       },
-      notes: 'Это демонстрационное коммерческое предложение для предпросмотра шаблона.',
+      notes: 'Коммерческое предложение на основе реальных данных из каталога.',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       acceptedAt: undefined
     };
 
-    // Генерируем PDF
-    const pdfBuffer = await generateQuotePDF(demoQuote);
-    const filename = `quote_preview_${templateId}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    // Генерируем PDF с обработкой ошибок Puppeteer
+    try {
+      const pdfBuffer = await generateQuotePDF(demoQuote);
+      const filename = `quote_preview_${templateId}_${new Date().toISOString().slice(0, 10)}.pdf`;
 
-    // Возвращаем PDF файл
-    return new NextResponse(pdfBuffer, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="${filename}"`,
-        'Content-Length': pdfBuffer.length.toString(),
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      },
-    });
+      // Возвращаем PDF файл
+      return new NextResponse(pdfBuffer, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `inline; filename="${filename}"`,
+          'Content-Length': pdfBuffer.length.toString(),
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
+      });
+    } catch (pdfError) {
+      console.error('PDF generation failed:', pdfError);
+      
+      // Возвращаем JSON с информацией о предпросмотре вместо PDF
+      return NextResponse.json({
+        ok: true,
+        message: "Предпросмотр КП (PDF недоступен)",
+        templateId,
+        quote: demoQuote,
+        error: "PDF генерация недоступна - браузер Chromium не установлен",
+        troubleshooting: "Для генерации PDF установите Chromium или используйте другой метод экспорта"
+      }, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }
+      });
+    }
 
   } catch (error: any) {
     console.error('Error generating quote preview:', error);

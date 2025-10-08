@@ -1,28 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { PrismaClient } from '@prisma/client';
 
-// Простое хранилище в памяти для демонстрации
-// В реальном приложении это будет база данных
-let importHistory: { [categoryId: string]: any[] } = {
-  'doors': [
-    {
-      id: '1',
-      filename: 'doors_price_2025_01.xlsx',
-      imported_at: '2025-01-15T10:30:00Z',
-      products_count: 150,
-      status: 'completed'
-    },
-    {
-      id: '2',
-      filename: 'doors_price_2025_02.xlsx',
-      imported_at: '2025-01-20T14:15:00Z',
-      products_count: 200,
-      status: 'completed'
-    }
-  ],
-  'flooring': [],
-  'kitchens': [],
-  'tiles': []
-};
+const prisma = new PrismaClient();
 
 export async function GET(req: NextRequest) {
   try {
@@ -39,12 +18,39 @@ export async function GET(req: NextRequest) {
       );
     }
     
-    const history = importHistory[category] || [];
-    console.log('History for category:', history);
+    // Получаем историю импортов из базы данных
+    const history = await prisma.importHistory.findMany({
+      where: {
+        catalog_category_id: category
+      },
+      select: {
+        id: true,
+        filename: true,
+        imported_count: true,
+        status: true,
+        created_at: true,
+        errors: true
+      },
+      orderBy: {
+        created_at: 'desc'
+      }
+    });
+    
+    // Форматируем данные для совместимости с фронтендом
+    const formattedHistory = history.map(item => ({
+      id: item.id,
+      filename: item.filename,
+      imported_at: item.created_at.toISOString(),
+      products_count: item.imported_count,
+      status: item.status === 'completed' ? 'completed' : 'failed',
+      error_message: item.errors
+    }));
+    
+    console.log('History for category:', formattedHistory);
     
     return NextResponse.json({
       ok: true,
-      history: history,
+      history: formattedHistory,
       category: category
     });
   } catch (error) {
@@ -58,40 +64,41 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { category, filename, products_count, status } = await req.json();
+    const { category, filename, imported, status, error_message } = await req.json();
+    
+    console.log('=== IMPORT HISTORY POST ===');
+    console.log('Category:', category, 'Filename:', filename, 'Imported:', imported);
     
     if (!category || !filename) {
       return NextResponse.json(
-        { error: "Не указаны обязательные параметры" },
+        { error: "Категория и имя файла обязательны" },
         { status: 400 }
       );
     }
     
-    // Добавляем новый импорт в историю
-    if (!importHistory[category]) {
-      importHistory[category] = [];
-    }
+    // Создаем запись в истории импортов
+    const importRecord = await prisma.importHistory.create({
+      data: {
+        catalog_category_id: category,
+        filename: filename,
+        imported_count: imported || 0,
+        status: status || 'completed',
+        errors: error_message || '[]',
+        created_at: new Date()
+      }
+    });
     
-    const newImport = {
-      id: `import_${Date.now()}`,
-      filename: filename,
-      imported_at: new Date().toISOString(),
-      products_count: products_count || 0,
-      status: status || 'completed'
-    };
+    console.log('Created import history record:', importRecord.id);
     
-    importHistory[category].unshift(newImport); // Добавляем в начало списка
-    
-    console.log(`Added import to history for category ${category}:`, newImport);
-    
-    return NextResponse.json({ 
-      success: true, 
-      import: newImport 
+    return NextResponse.json({
+      ok: true,
+      id: importRecord.id,
+      message: "Запись истории импорта создана"
     });
   } catch (error) {
-    console.error('Error adding import to history:', error);
+    console.error('Error creating import history:', error);
     return NextResponse.json(
-      { error: "Ошибка добавления импорта в историю" },
+      { error: "Ошибка создания записи истории импорта" },
       { status: 500 }
     );
   }

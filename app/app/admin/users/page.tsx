@@ -42,58 +42,6 @@ function AdminUsersPageContent() {
     isActive: true
   });
 
-  // Демо-данные пользователей
-  const demoUsers: User[] = [
-    {
-      id: '1',
-      email: 'admin@domeo.ru',
-      firstName: 'Петр',
-      lastName: 'Иванов',
-      middleName: 'Владимирович',
-      role: 'admin',
-      permissions: ['products.import', 'products.manage', 'categories.create', 'users.manage'],
-      createdAt: '2024-01-01',
-      lastLogin: '2024-01-30',
-      isActive: true
-    },
-    {
-      id: '2',
-      email: 'sales@domeo.ru',
-      firstName: 'Иван',
-      lastName: 'Петров',
-      middleName: 'Сергеевич',
-      role: 'complectator',
-      permissions: ['catalog.view', 'pricing.calculate', 'quotes.create', 'quotes.export'],
-      createdAt: '2024-01-05',
-      lastLogin: '2024-01-29',
-      isActive: true
-    },
-    {
-      id: '3',
-      email: 'executor@domeo.ru',
-      firstName: 'Алексей',
-      lastName: 'Сидоров',
-      middleName: 'Михайлович',
-      role: 'executor',
-      permissions: ['catalog.view', 'pricing.calculate', 'quotes.create', 'factory.order'],
-      createdAt: '2024-01-10',
-      lastLogin: '2024-01-28',
-      isActive: true
-    },
-    {
-      id: '4',
-      email: 'sales2@domeo.ru',
-      firstName: 'Анна',
-      lastName: 'Смирнова',
-      middleName: 'Александровна',
-      role: 'complectator',
-      permissions: ['catalog.view', 'pricing.calculate', 'quotes.create', 'quotes.export'],
-      createdAt: '2024-01-15',
-      lastLogin: '2024-01-25',
-      isActive: false
-    }
-  ];
-
   useEffect(() => {
     loadUsers();
   }, []);

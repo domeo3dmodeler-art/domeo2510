@@ -28,6 +28,7 @@ function DashboardContent() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
+  const [userCount, setUserCount] = useState<number>(0);
   const router = useRouter();
 
   useEffect(() => {
@@ -52,19 +53,26 @@ function DashboardContent() {
       permissions: JSON.parse(localStorage.getItem('userPermissions') || '[]')
     });
 
-    // Загружаем статистику только для админов
-    if (userRole === 'admin') {
-      fetchStats();
-    }
+    // Загружаем статистику для всех ролей
+    fetchStats();
     setIsLoading(false);
   }, [router]);
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/admin/stats');
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
+      const [statsResponse, usersResponse] = await Promise.all([
+        fetch('/api/admin/stats'),
+        fetch('/api/users')
+      ]);
+      
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        setStats(statsData);
+      }
+      
+      if (usersResponse.ok) {
+        const usersData = await usersResponse.json();
+        setUserCount(usersData.users?.length || 0);
       }
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -106,10 +114,10 @@ function DashboardContent() {
           title: 'Панель администратора',
           description: 'Управление системой и пользователями',
           widgets: [
-            { title: 'Категории товаров', count: stats?.total?.totalCategories || '2', link: '/admin/categories', icon: '📁' },
-            { title: 'Пользователи', count: '8', link: '/admin/users', icon: '👥' },
-            { title: 'Импорт прайсов', count: stats?.total?.totalImports || '5', link: '/admin/import', icon: '📊' },
-            { title: 'Уведомления', count: '3', link: '/notifications', icon: '🔔' }
+            { title: 'Категории товаров', count: stats?.total?.totalCategories || 0, link: '/admin/categories', icon: '📁' },
+            { title: 'Пользователи', count: userCount, link: '/admin/users', icon: '👥' },
+            { title: 'Импорт прайсов', count: stats?.total?.totalImports || 0, link: '/admin/import', icon: '📊' },
+            { title: 'Товары', count: stats?.total?.totalProducts || 0, link: '/admin/catalog/products', icon: '📦' }
           ],
           quickActions: [
             { title: 'Создать категорию', link: '/admin/categories/builder', icon: '➕' },
@@ -126,7 +134,7 @@ function DashboardContent() {
             { title: 'Клиенты', count: '23', link: '/clients', icon: '👥' },
             { title: 'КП в работе', count: '7', link: '/quotes', icon: '📄' },
             { title: 'Счета', count: '12', link: '/invoices', icon: '💰' },
-            { title: 'Каталог товаров', count: '156', link: '/doors', icon: '📦' }
+            { title: 'Каталог товаров', count: stats?.total?.totalProducts || 0, link: '/doors', icon: '📦' }
           ],
           quickActions: [
             { title: 'Добавить клиента', link: '/clients', icon: '👤' },

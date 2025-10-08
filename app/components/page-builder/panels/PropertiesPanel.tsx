@@ -13,9 +13,7 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
   console.log('🚨 PropertiesPanel: Рендер!', {
     elementType: element?.type,
     elementId: element?.id,
-    elementProps: element?.props,
-    elementIsNull: element === null,
-    elementIsUndefined: element === undefined
+    elementProps: element?.props
   });
   
   const [activeTab, setActiveTab] = useState<'content' | 'style' | 'layout' | 'page'>('content');
@@ -423,48 +421,48 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
 
     return (
       <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             Позиция X
-            </label>
-            <input
-              type="number"
+          </label>
+          <input
+            type="number"
             value={element.position.x || 0}
-              onChange={(e) => handleElementPositionChange('x', parseInt(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            onChange={(e) => handleElementPositionChange('x', parseInt(e.target.value))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             Позиция Y
-            </label>
-            <input
-              type="number"
+          </label>
+          <input
+            type="number"
             value={element.position.y || 0}
-              onChange={(e) => handleElementPositionChange('y', parseInt(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Ширина
-            </label>
-            <input
-              type="number"
+            onChange={(e) => handleElementPositionChange('y', parseInt(e.target.value))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Ширина
+          </label>
+          <input
+            type="number"
             value={element.size.width || 200}
-              onChange={(e) => handleElementSizeChange('width', parseInt(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Высота
-            </label>
-            <input
-              type="number"
+            onChange={(e) => handleElementSizeChange('width', parseInt(e.target.value))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Высота
+          </label>
+          <input
+            type="number"
             value={element.size.height || 100}
-              onChange={(e) => handleElementSizeChange('height', parseInt(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={(e) => handleElementSizeChange('height', parseInt(e.target.value))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
       </div>
@@ -495,7 +493,7 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
           <textarea
             value={page.description || ''}
             onChange={(e) => handlePageSettingChange('description', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             rows={3}
           />
         </div>
@@ -504,7 +502,7 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
   };
 
   if (!element && !page) {
-  return (
+    return (
       <div className="text-center text-gray-500 py-8">
         <div className="text-4xl mb-4">📝</div>
         <p>Выберите элемент для редактирования</p>
@@ -516,46 +514,46 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
     <div className="h-full flex flex-col">
       {/* Вкладки */}
       <div className="flex border-b border-gray-200">
-              <button
-                onClick={() => setActiveTab('content')}
+        <button
+          onClick={() => setActiveTab('content')}
           className={`px-4 py-2 text-sm font-medium ${
-                  activeTab === 'content'
-                    ? 'text-blue-600 border-b-2 border-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Контент
-              </button>
-              <button
-                onClick={() => setActiveTab('style')}
+            activeTab === 'content'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Контент
+        </button>
+        <button
+          onClick={() => setActiveTab('style')}
           className={`px-4 py-2 text-sm font-medium ${
-                  activeTab === 'style'
-                    ? 'text-blue-600 border-b-2 border-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Стили
-              </button>
-              <button
-                onClick={() => setActiveTab('layout')}
+            activeTab === 'style'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Стили
+        </button>
+        <button
+          onClick={() => setActiveTab('layout')}
           className={`px-4 py-2 text-sm font-medium ${
-                  activeTab === 'layout'
-                    ? 'text-blue-600 border-b-2 border-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Макет
-              </button>
-          <button
-            onClick={() => setActiveTab('page')}
+            activeTab === 'layout'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Макет
+        </button>
+        <button
+          onClick={() => setActiveTab('page')}
           className={`px-4 py-2 text-sm font-medium ${
-              activeTab === 'page'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Страница
-          </button>
+            activeTab === 'page'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Страница
+        </button>
       </div>
 
       {/* Содержимое вкладок */}

@@ -34,63 +34,28 @@ export default function QuotesPage() {
     quotes: [] as Quote[]
   });
 
-  // Демо-данные КП
-  const demoQuotes: Quote[] = [
-    {
-      id: '1',
-      number: 'KP-001',
-      clientId: '1',
-      clientName: 'Иванов Иван Иванович',
-      status: 'sent',
-      createdAt: '2024-01-30',
-      validUntil: '2024-02-29',
-      total: 150000,
-      currency: 'RUB',
-      discount: 5,
-      items: [
-        { name: 'Дверь входная', quantity: 1, price: 150000 }
-      ],
-      notes: 'Срочное предложение'
-    },
-    {
-      id: '2',
-      number: 'KP-002',
-      clientId: '2',
-      clientName: 'Петрова Анна Сергеевна',
-      status: 'accepted',
-      createdAt: '2024-01-29',
-      validUntil: '2024-02-28',
-      total: 85000,
-      currency: 'RUB',
-      discount: 10,
-      items: [
-        { name: 'Дверь межкомнатная', quantity: 2, price: 42500 }
-      ]
-    },
-    {
-      id: '3',
-      number: 'KP-003',
-      clientId: '3',
-      clientName: 'Сидоров Петр Александрович',
-      status: 'draft',
-      createdAt: '2024-01-25',
-      validUntil: '2024-02-24',
-      total: 120000,
-      currency: 'RUB',
-      discount: 0,
-      items: [
-        { name: 'Дверь входная', quantity: 1, price: 120000 }
-      ]
-    }
-  ];
-
   useEffect(() => {
-    // Имитируем загрузку данных
-    setTimeout(() => {
-      setQuotes(demoQuotes);
-      setIsLoading(false);
-    }, 1000);
+    loadQuotes();
   }, []);
+
+  const loadQuotes = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/quotes');
+      if (response.ok) {
+        const data = await response.json();
+        setQuotes(data.quotes || []);
+      } else {
+        console.error('Failed to load quotes');
+        setQuotes([]);
+      }
+    } catch (error) {
+      console.error('Error loading quotes:', error);
+      setQuotes([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredQuotes = filter === 'all' 
     ? quotes 

@@ -1,130 +1,157 @@
-// api/quotes/route.ts
-// API роут для CRUD операций с КП (Quote)
-
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { PrismaClient } from '@prisma/client';
 
-// GET /api/quotes - Получить список КП
-export async function GET(req: NextRequest) {
+const prisma = new PrismaClient();
+
+// GET /api/quotes - Получить все КП (упрощенная версия)
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const page = Number(searchParams.get('page') ?? '1');
-    const pageSize = Number(searchParams.get('pageSize') ?? '20');
+    const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
-    const search = searchParams.get('search');
+    const limit = parseInt(searchParams.get('limit') || '100');
+    const offset = parseInt(searchParams.get('offset') || '0');
 
-    // Построение условий фильтрации
     const where: any = {};
     
-    if (status) {
+    if (status && status !== 'all') {
       where.status = status;
-    }
-    
-    if (search) {
-      where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { id: { contains: search, mode: 'insensitive' } }
-      ];
     }
 
     const [quotes, total] = await Promise.all([
       prisma.quote.findMany({
         where,
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        orderBy: { created_at: 'desc' },
         select: {
           id: true,
-          title: true,
+          number: true,
+          client_id: true,
           status: true,
-          total: true,
+          total_amount: true,
           currency: true,
-          createdAt: true,
-          updatedAt: true,
-          acceptedAt: true,
-          clientInfo: true,
-          notes: true
-        }
+          valid_until: true,
+          notes: true,
+          created_at: true,
+          updated_at: true,
+          client: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              middleName: true,
+              phone: true
+            }
+          }
+        },
+        orderBy: {
+          created_at: 'desc'
+        },
+        take: limit,
+        skip: offset
       }),
       prisma.quote.count({ where })
     ]);
 
-    return NextResponse.json({
-      page,
-      pageSize,
-      total,
-      quotes: quotes.map(quote => ({
-        ...quote,
-        total: Number(quote.total),
-        clientInfo: quote.clientInfo ? JSON.parse(JSON.stringify(quote.clientInfo)) : null
-      }))
-    });
+    // Форматируем данные КП (без items пока)
+    const processedQuotes = quotes.map(quote => ({
+      id: quote.id,
+      number: quote.number,
+      clientId: quote.client_id,
+      clientName: `${quote.client.lastName} ${quote.client.firstName} ${quote.client.middleName || ''}`.trim(),
+      status: quote.status,
+      total: quote.total_amount,
+      currency: quote.currency,
+      discount: 0, // Поле discount_percent отсутствует в схеме
+      validUntil: quote.valid_until,
+      notes: quote.notes,
+      createdAt: quote.created_at,
+      updatedAt: quote.updated_at,
+      acceptedAt: null, // Поле accepted_at отсутствует в схеме
+      items: [] // Пока пустой массив
+    }));
 
-  } catch (error: any) {
+    return NextResponse.json({
+      success: true,
+      quotes: processedQuotes,
+      total,
+      limit,
+      offset
+    });
+  } catch (error) {
     console.error('Error fetching quotes:', error);
     return NextResponse.json(
-      { error: 'Ошибка при получении списка КП' },
+      { success: false, message: 'Ошибка при получении КП' },
       { status: 500 }
     );
   }
 }
 
-// POST /api/quotes - Создать новый КП
-export async function POST(req: NextRequest) {
+// POST /api/quotes - Создать новое КП (упрощенная версия)
+export async function POST(request: NextRequest) {
   try {
-    const body = await req.json();
-    
-    // Валидация обязательных полей
-    if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
+    const body = await request.json();
+    const { 
+      client_id, 
+      status, 
+      total_amount, 
+      currency, 
+      valid_until, 
+      notes 
+    } = body;
+
+    if (!client_id || !status || !total_amount) {
       return NextResponse.json(
-        { error: 'КП должен содержать хотя бы одну позицию' },
+        { success: false, message: 'Не указаны обязательные поля' },
         { status: 400 }
       );
     }
 
-    if (!body.total || typeof body.total !== 'number') {
-      return NextResponse.json(
-        { error: 'Общая сумма КП обязательна' },
-        { status: 400 }
-      );
-    }
+    // Генерируем номер КП
+    const quoteCount = await prisma.quote.count();
+    const quoteNumber = `KP-${String(quoteCount + 1).padStart(3, '0')}`;
 
-    // Создание КП
     const quote = await prisma.quote.create({
       data: {
-        title: body.title || `КП от ${new Date().toLocaleDateString()}`,
-        status: body.status || 'draft',
-        items: body.items,
-        total: body.total,
-        currency: body.currency || 'RUB',
-        clientInfo: body.clientInfo || null,
-        notes: body.notes || null
+        number: quoteNumber,
+        client_id,
+        created_by: 'system', // Обязательное поле
+        status: status || 'DRAFT',
+        total_amount: parseFloat(total_amount),
+        currency: currency || 'RUB',
+        valid_until: valid_until ? new Date(valid_until) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 дней по умолчанию
+        notes
       },
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        total: true,
-        currency: true,
-        createdAt: true,
-        clientInfo: true,
-        notes: true
+      include: {
+        client: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            middleName: true
+          }
+        }
       }
     });
 
     return NextResponse.json({
       success: true,
       quote: {
-        ...quote,
-        total: Number(quote.total),
-        clientInfo: quote.clientInfo ? JSON.parse(JSON.stringify(quote.clientInfo)) : null
+        id: quote.id,
+        number: quote.number,
+        clientId: quote.client_id,
+        clientName: `${quote.client.lastName} ${quote.client.firstName} ${quote.client.middleName || ''}`.trim(),
+        status: quote.status,
+        total: quote.total_amount,
+        currency: quote.currency,
+        discount: 0, // Поле discount_percent отсутствует в схеме
+        validUntil: quote.valid_until,
+        notes: quote.notes,
+        createdAt: quote.created_at,
+        items: [] // Пока пустой массив
       }
-    }, { status: 201 });
-
-  } catch (error: any) {
+    });
+  } catch (error) {
     console.error('Error creating quote:', error);
     return NextResponse.json(
-      { error: 'Ошибка при создании КП' },
+      { success: false, message: 'Ошибка при создании КП' },
       { status: 500 }
     );
   }

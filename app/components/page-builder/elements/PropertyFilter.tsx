@@ -697,7 +697,7 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
       <div className="mb-3 flex-shrink-0">
         <h3 className="text-sm font-medium text-gray-700 mb-1">
           {displaySettings.componentTitle}
-          </h3>
+        </h3>
           {selectedValue && (
           <div className="text-xs text-gray-500">
             Выбрано: {selectedValue}
@@ -718,7 +718,7 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
             {/* Карточка */}
             <div
               className={`relative p-3 rounded-lg border cursor-pointer transition-all duration-200 w-full flex flex-col ${
-                      selectedValue === option.value
+                selectedValue === option.value
                   ? 'bg-blue-50 border-blue-300 shadow-md'
                   : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm'
               }`}
@@ -775,28 +775,28 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
                           <svg className={`${displaySettings.cardLayout === 'vertical' ? 'w-8 h-8' : 'w-6 h-6'} text-gray-400`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
-                      </div>
+                        </div>
                       );
                     }
                   })()}
-                    </div>
-                    
+                </div>
+                
                 {/* Информация о свойстве - только если подпись внутри карточки */}
                 {displaySettings.labelPosition === 'inside' && (
                   <div className={`${displaySettings.cardLayout === 'vertical' ? 'flex-1 flex flex-col justify-center text-center' : 'flex-1 min-w-0'}`}>
                     <h4 className={`text-sm font-medium text-gray-900 ${displaySettings.cardLayout === 'vertical' ? 'mb-1' : 'truncate'}`}>
-                        {option.label}
+                      {option.label}
                     </h4>
                     {option.count !== undefined && displaySettings.showCounts && (
                       <p className="text-xs text-gray-500">
-                          {option.count} товаров
+                        {option.count} товаров
                       </p>
                     )}
-                        </div>
-                      )}
-                    
-                    {/* Индикатор выбора */}
-                    {selectedValue === option.value && (
+                  </div>
+                )}
+                
+                {/* Индикатор выбора */}
+                {selectedValue === option.value && (
                   <div className={`${displaySettings.cardLayout === 'vertical' ? 'absolute top-2 right-2' : 'flex-shrink-0'}`}>
                     <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
                       <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -819,9 +819,9 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
                     {option.count} товаров
                   </p>
                 )}
-                      </div>
-                    )}
-                  </div>
+              </div>
+            )}
+          </div>
         ))}
         </div>
             </div>
@@ -882,9 +882,9 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
                           </svg>
                         </div>
                       )}
-            </div>
-          )}
-
+                    </div>
+                  )}
+                  
                   {/* Информация о товаре */}
                   <div className={`p-3 ${displaySettings.cardLayout === 'vertical' ? 'flex-1' : 'flex-1'}`}>
                     <h5 className="text-sm font-medium text-gray-900 truncate mb-1">
@@ -899,8 +899,8 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
                       <div className="text-sm font-semibold text-blue-600">
                         {product.price} ₽
             </div>
-          )}
-        </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -909,9 +909,9 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
               <div className="text-4xl mb-2">⏳</div>
               <div className="text-sm">Загрузка товаров...</div>
               <div className="text-xs">Пожалуйста, подождите</div>
+            </div>
+          )}
           </div>
-        )}
-      </div>
         )}
     </div>
   );

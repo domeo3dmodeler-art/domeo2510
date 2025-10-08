@@ -30,82 +30,79 @@ export default function ClientsPage() {
     notes: ''
   });
 
-  // Демо-данные клиентов
-  const demoClients: Client[] = [
-    {
-      id: '1',
-      name: 'Иванов Иван Иванович',
-      email: 'ivanov@example.com',
-      phone: '+7 (999) 123-45-67',
-      address: 'г. Москва, ул. Тверская, д. 1',
-      objectId: 'OBJ-001',
-      notes: 'Постоянный клиент',
-      createdAt: '2024-01-15',
-      ordersCount: 5
-    },
-    {
-      id: '2',
-      name: 'Петрова Анна Сергеевна',
-      email: 'petrova@example.com',
-      phone: '+7 (999) 234-56-78',
-      address: 'г. Москва, ул. Арбат, д. 25',
-      objectId: 'OBJ-002',
-      notes: 'VIP клиент',
-      createdAt: '2024-01-20',
-      ordersCount: 12
-    },
-    {
-      id: '3',
-      name: 'Сидоров Петр Александрович',
-      email: 'sidorov@example.com',
-      phone: '+7 (999) 345-67-89',
-      address: 'г. Москва, ул. Красная Площадь, д. 1',
-      objectId: 'OBJ-003',
-      notes: 'Новый клиент',
-      createdAt: '2024-01-25',
-      ordersCount: 2
-    }
-  ];
-
   useEffect(() => {
-    // Имитируем загрузку данных
-    setTimeout(() => {
-      setClients(demoClients);
-      setIsLoading(false);
-    }, 1000);
+    loadClients();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const loadClients = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/clients');
+      if (response.ok) {
+        const data = await response.json();
+        setClients(data.clients || []);
+      } else {
+        console.error('Failed to load clients');
+        setClients([]);
+      }
+    } catch (error) {
+      console.error('Error loading clients:', error);
+      setClients([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (editingClient) {
-      // Редактирование существующего клиента
-      setClients(clients.map(client => 
-        client.id === editingClient.id 
-          ? { ...client, ...formData }
-          : client
-      ));
-    } else {
-      // Добавление нового клиента
-      const newClient: Client = {
-        id: Date.now().toString(),
-        ...formData,
-        createdAt: new Date().toISOString().split('T')[0],
-        ordersCount: 0
+    try {
+      const clientData = {
+        firstName: formData.name.split(' ')[1] || '',
+        lastName: formData.name.split(' ')[0] || '',
+        middleName: formData.name.split(' ')[2] || '',
+        phone: formData.phone,
+        address: formData.address,
+        objectId: formData.objectId,
+        customFields: {
+          notes: formData.notes,
+          email: formData.email
+        }
       };
-      setClients([...clients, newClient]);
+
+      const response = await fetch('/api/clients', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(clientData)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (editingClient) {
+          setClients(clients.map(client => 
+            client.id === editingClient.id ? data.client : client
+          ));
+        } else {
+          setClients([data.client, ...clients]);
+        }
+        setShowForm(false);
+        setEditingClient(null);
+        setFormData({
+          name: '',
+          email: '',
+          phone: '',
+          address: '',
+          objectId: '',
+          notes: ''
+        });
+      } else {
+        console.error('Failed to save client');
+      }
+    } catch (error) {
+      console.error('Error saving client:', error);
     }
-    
-    setShowForm(false);
-    setEditingClient(null);
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      address: '',
-      objectId: '',
-      notes: ''
-    });
   };
 
   const handleEdit = (client: Client) => {

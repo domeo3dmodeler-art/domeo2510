@@ -1,112 +1,165 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { NotificationService } from '../../../lib/notifications/notification-service';
-import { NotificationEvent, NotificationType, NotificationPriority, NotificationChannel } from '../../../lib/notifications/types';
+import { PrismaClient } from '@prisma/client';
 
-const notificationService = NotificationService.getInstance();
+const prisma = new PrismaClient();
 
-// GET - Получение уведомлений для пользователя
-export async function GET(req: NextRequest) {
+// GET /api/notifications - Получить все уведомления
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
+    const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
-    const status = searchParams.get('status');
-    const type = searchParams.get('type');
-    const priority = searchParams.get('priority');
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const isRead = searchParams.get('isRead');
+    const limit = parseInt(searchParams.get('limit') || '100');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
+    const where: any = {};
+    
+    if (userId) {
+      where.user_id = userId;
+    }
+    
+    if (isRead !== null && isRead !== undefined) {
+      where.is_read = isRead === 'true';
     }
 
-    const notifications = await notificationService.getNotificationsForUser(userId, {
-      status: status as any,
-      type: type as any,
-      priority: priority as any,
-      limit,
-      offset
-    });
+    const [notifications, total] = await Promise.all([
+      prisma.notification.findMany({
+        where,
+        select: {
+          id: true,
+          user_id: true,
+          type: true,
+          title: true,
+          message: true,
+          is_read: true,
+          data: true,
+          created_at: true
+        },
+        orderBy: {
+          created_at: 'desc'
+        },
+        take: limit,
+        skip: offset
+      }),
+      prisma.notification.count({ where })
+    ]);
 
-    const stats = await notificationService.getNotificationStats(userId);
+    // Форматируем данные уведомлений
+    const processedNotifications = notifications.map(notification => ({
+      id: notification.id,
+      userId: notification.user_id,
+      type: notification.type,
+      title: notification.title,
+      message: notification.message,
+      isRead: notification.is_read,
+      data: notification.data ? JSON.parse(notification.data) : {},
+      createdAt: notification.created_at
+    }));
 
     return NextResponse.json({
       success: true,
-      data: {
-        notifications,
-        stats
-      }
+      notifications: processedNotifications,
+      total,
+      limit,
+      offset
     });
   } catch (error) {
     console.error('Error fetching notifications:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { success: false, message: 'Ошибка при получении уведомлений' },
       { status: 500 }
     );
   }
 }
 
-// POST - Создание нового уведомления
-export async function POST(req: NextRequest) {
+// POST /api/notifications - Создать новое уведомление
+export async function POST(request: NextRequest) {
   try {
-    const body = await req.json();
-    const {
-      type,
-      title,
-      message,
-      description,
-      targetUsers,
-      targetRoles,
-      targetDepartments,
-      metadata,
-      actions,
-      priority,
-      channels,
-      expiresAt,
-      autoDismiss,
-      dismissAfter
+    const body = await request.json();
+    const { 
+      user_id, 
+      type, 
+      title, 
+      message, 
+      data 
     } = body;
 
-    if (!type || !title || !message) {
+    if (!user_id || !type || !title || !message) {
       return NextResponse.json(
-        { error: 'Type, title, and message are required' },
+        { success: false, message: 'Не указаны обязательные поля' },
         { status: 400 }
       );
     }
 
-    const event: NotificationEvent = {
-      type: type as NotificationType,
-      title,
-      message,
-      description,
-      targetUsers,
-      targetRoles,
-      targetDepartments,
-      metadata,
-      actions,
-      priority: priority as NotificationPriority,
-      channels: channels as NotificationChannel[],
-      expiresAt: expiresAt ? new Date(expiresAt) : undefined,
-      autoDismiss,
-      dismissAfter
-    };
-
-    const notification = await notificationService.createNotification(event);
+    const notification = await prisma.notification.create({
+      data: {
+        user_id,
+        type,
+        title,
+        message,
+        data: data ? JSON.stringify(data) : '{}',
+        is_read: false
+      }
+    });
 
     return NextResponse.json({
       success: true,
-      data: notification
+      notification: {
+        id: notification.id,
+        userId: notification.user_id,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        isRead: notification.is_read,
+        data: notification.data ? JSON.parse(notification.data) : {},
+        createdAt: notification.created_at
+      }
     });
   } catch (error) {
     console.error('Error creating notification:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { success: false, message: 'Ошибка при создании уведомления' },
       { status: 500 }
     );
   }
 }
 
+// PUT /api/notifications/[id] - Отметить уведомление как прочитанное
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, isRead } = body;
 
+    if (!id) {
+      return NextResponse.json(
+        { success: false, message: 'ID уведомления не указан' },
+        { status: 400 }
+      );
+    }
 
+    const notification = await prisma.notification.update({
+      where: { id },
+      data: { is_read: isRead !== undefined ? isRead : true }
+    });
+
+    return NextResponse.json({
+      success: true,
+      notification: {
+        id: notification.id,
+        userId: notification.user_id,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        isRead: notification.is_read,
+        data: notification.data ? JSON.parse(notification.data) : {},
+        createdAt: notification.created_at
+      }
+    });
+  } catch (error) {
+    console.error('Error updating notification:', error);
+    return NextResponse.json(
+      { success: false, message: 'Ошибка при обновлении уведомления' },
+      { status: 500 }
+    );
+  }
+}

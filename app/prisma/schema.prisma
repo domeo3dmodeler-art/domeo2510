@@ -262,6 +262,7 @@ model Quote {
   
   // Связи
   client       Client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  quote_items  QuoteItem[]
 
   @@map("quotes")
 }
@@ -274,6 +275,9 @@ model QuoteItem {
   unit_price  Float
   total_price Float
   notes       String?
+  
+  // Связи
+  quote       Quote   @relation(fields: [quote_id], references: [id], onDelete: Cascade)
 
   @@map("quote_items")
 }
@@ -297,6 +301,7 @@ model Order {
   
   // Связи
   client        Client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  order_items   OrderItem[]
 
   @@map("orders")
 }
@@ -309,6 +314,9 @@ model OrderItem {
   unit_price  Float
   total_price Float
   notes       String?
+  
+  // Связи
+  order       Order   @relation(fields: [order_id], references: [id], onDelete: Cascade)
 
   @@map("order_items")
 }
@@ -331,7 +339,8 @@ model Invoice {
   updated_at   DateTime  @updatedAt
   
   // Связи
-  client       Client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  client         Client      @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  invoice_items  InvoiceItem[]
 
   @@map("invoices")
 }
@@ -344,6 +353,9 @@ model InvoiceItem {
   unit_price  Float
   total_price Float
   notes       String?
+  
+  // Связи
+  invoice     Invoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
 
   @@map("invoice_items")
 }
