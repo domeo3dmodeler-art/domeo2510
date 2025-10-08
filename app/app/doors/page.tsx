@@ -96,11 +96,13 @@ const slugify = (s: string): string =>
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
 
-// Функция для форматирования названия модели под карточкой (убираем префикс DomeoDoors_)
+// Функция для форматирования названия модели под карточкой (убираем префикс DomeoDoors_ или Domeodoors_)
 const formatModelNameForCard = (modelName: string): string => {
   return modelName
-    .replace(/^DomeoDoors_/, '') // Убираем префикс DomeoDoors_
-    .replace(/_/g, ' '); // Заменяем подчеркивания на пробелы
+    .replace(/^DomeoDoors_/i, '') // Убираем префикс DomeoDoors_ (регистронезависимо)
+    .replace(/^Domeodoors_/i, '') // Убираем префикс Domeodoors_ (регистронезависимо)
+    .replace(/_/g, ' ') // Заменяем подчеркивания на пробелы
+    .trim(); // Убираем лишние пробелы
 };
 
 // Функция для форматирования названия модели над большим фото (заменяем только подчеркивания)
@@ -1154,7 +1156,7 @@ export default function DoorsPage() {
                   </button>
                 </div>
                 {Array.isArray(models) && models.length ? (
-                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5">
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8">
                     {models.map((m) => (
                       <DoorCard
                         key={m.model}
@@ -1848,15 +1850,19 @@ function DoorCard({
             <div className="h-full w-full flex items-center justify-center text-gray-400">
               <div className="text-center">
                 <div className="text-sm">Нет фото</div>
-                <div className="text-xs">{formatModelNameForCard(item.model)}</div>
+                <div className="text-[14px] whitespace-nowrap" title={formatModelNameForCard(item.model)}>
+                  {formatModelNameForCard(item.model)}
+                </div>
               </div>
             </div>
           )}
         </div>
       </button>
       {/* Название модели под карточкой */}
-      <div className="mt-2 text-center">
-        <div className="text-sm font-medium text-gray-900">{formatModelNameForCard(item.model)}</div>
+      <div className="mt-2 flex justify-center">
+        <div className="text-[14px] font-medium text-gray-900 whitespace-nowrap" title={formatModelNameForCard(item.model)}>
+          {formatModelNameForCard(item.model)}
+        </div>
       </div>
     </div>
   );
