@@ -72,6 +72,24 @@ type DomainHandles = {
   price_group_multiplier?: number;
 }[];
 
+type HardwareKit = {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  priceGroup: string;
+  isBasic: boolean;
+};
+
+type Handle = {
+  id: string;
+  name: string;
+  group: string;
+  price: number;
+  isBasic: boolean;
+  showroom: boolean;
+};
+
 type Domain =
   | {
       style?: string[];
@@ -381,40 +399,28 @@ const mockApi = {
   },
 
   async price(selection: any): Promise<any> {
-    const p = mockData.products.find(
-      (x) =>
-        x.model === selection.model &&
-        x.style === selection.style &&
-        x.finish === selection.finish &&
-        x.color === selection.color &&
-        x.type === selection.type &&
-        x.width === selection.width &&
-        x.height === selection.height
-    );
-    if (!p) throw new Error("Combination not found");
-    const kit =
-      selection.hardware_kit && selection.hardware_kit.id
-        ? mockData.kits.find((k) => k.id === selection.hardware_kit.id)
-        : undefined;
-    const handle =
-      selection.handle && selection.handle.id
-        ? mockData.handles.find((h) => h.id === selection.handle.id)
-        : undefined;
-    const base = p.rrc_price;
-    const addKit = kit ? kit.price_rrc : 0;
-    const addHandle = handle ? handle.price_rrc : 0;
-    const total = Math.round(base + addKit + addHandle);
+    // Используем реальный API для расчета цены
+    const response = await fetch('/api/price/doors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(selection)
+    });
+    
+    if (!response.ok) {
+      throw new Error('Price calculation failed');
+    }
+    
+    const priceData = await response.json();
+    
+    // Пока что возвращаем только базовую цену двери
+    // Цена комплекта и ручки будет добавлена в компоненте
     return {
       ok: true,
       currency: "RUB",
-      base,
-      breakdown: [
-        { label: "Base RRC", amount: base },
-        ...(kit ? [{ label: `Комплект: ${kit.name}`, amount: kit.price_rrc }] : []),
-        ...(handle ? [{ label: `Ручка: ${handle.name}`, amount: handle.price_rrc }] : []),
-      ],
-      total,
-      sku_1c: p.sku_1c,
+      base: priceData.total,
+      breakdown: priceData.breakdown || [],
+      total: priceData.total,
+      sku_1c: priceData.sku_1c,
     };
   },
 
@@ -434,6 +440,7 @@ const mockApi = {
         )}</td><td class="num">${it.qty}</td><td class="num">${fmtInt(sum)}</td></tr>`
       );
       if (it.handleId) {
+        // Временно используем mock данные для экспорта
         const h = mockData.handles.find((h) => h.id === it.handleId);
         if (h) {
           const handleRetail = Math.round(h.price_opt! * h.price_group_multiplier!);
@@ -574,7 +581,7 @@ const mockApi = {
           lines.push(
             [
               "",
-              h.supplier_name || "",
+              h.name || "",
               "",
               `Ручка: ${h.name}`,
               h.supplier_sku || "",
@@ -727,6 +734,8 @@ export default function DoorsPage() {
   const [domain, setDomain] = useState<Domain>(null);
   const [models, setModels] = useState<{ model: string; style: string; photo?: string | null }[]>([]);
   const [price, setPrice] = useState<any>(null);
+  const [hardwareKits, setHardwareKits] = useState<HardwareKit[]>([]);
+  const [handles, setHandles] = useState<Record<string, Handle[]>>({});
   const [cart, setCart] = useState<CartItem[]>([]);
   const [kpHtml, setKpHtml] = useState<string>("");
   const [selectedClient, setSelectedClient] = useState<string>('');
@@ -1007,7 +1016,30 @@ export default function DoorsPage() {
       }
       try {
         const p = await api.price(sel);
-        if (!c) setPrice(p);
+        
+        // Добавляем цену комплекта и ручки
+        const kit = sel.hardware_kit && sel.hardware_kit.id
+          ? hardwareKits.find((k: HardwareKit) => k.id === sel.hardware_kit!.id)
+          : undefined;
+        const handle = sel.handle && sel.handle.id
+          ? Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)
+          : undefined;
+        
+        const addKit = kit ? kit.price : 0;
+        const addHandle = handle ? handle.price : 0;
+        const total = Math.round(p.total + addKit + addHandle);
+        
+        if (!c) {
+          setPrice({
+            ...p,
+            total,
+            breakdown: [
+              ...p.breakdown || [],
+              ...(kit ? [{ label: `Комплект: ${kit.name}`, amount: kit.price }] : []),
+              ...(handle ? [{ label: `Ручка: ${handle.name}`, amount: handle.price }] : []),
+            ]
+          });
+        }
       } catch (e: any) {
         if (!c) setErr(e?.message ?? "Ошибка расчёта");
       }
@@ -1015,7 +1047,7 @@ export default function DoorsPage() {
     return () => {
       c = true;
     };
-  }, [sel]);
+  }, [sel, hardwareKits, handles]);
 
   // Предзагрузка всех данных при загрузке страницы
   useEffect(() => {
@@ -1043,6 +1075,50 @@ export default function DoorsPage() {
     };
     
     preloadAllData();
+  }, []);
+
+  // Загружаем данные фурнитуры
+  useEffect(() => {
+    const loadHardwareData = async () => {
+      try {
+        console.log('🔧 Загружаем данные фурнитуры...');
+        
+        // Загружаем комплекты фурнитуры
+        const kitsResponse = await fetch('/api/catalog/hardware?type=kits');
+        const kits = await kitsResponse.json();
+        setHardwareKits(kits);
+        console.log('🔧 Комплекты загружены:', kits);
+        
+        // Загружаем ручки
+        const handlesResponse = await fetch('/api/catalog/hardware?type=handles');
+        const handlesData = await handlesResponse.json();
+        setHandles(handlesData);
+        console.log('🔧 Ручки загружены:', handlesData);
+        
+        // Устанавливаем базовые значения по умолчанию
+        const basicKit = kits.find((k: any) => k.isBasic);
+        const basicHandle = Object.values(handlesData).flat().find((h: any) => h.isBasic);
+        
+        if (basicKit || basicHandle) {
+          setSel(prev => {
+            const newSel = { ...prev };
+            if (basicKit) {
+              newSel.hardware_kit = { id: (basicKit as any).id };
+            }
+            if (basicHandle) {
+              newSel.handle = { id: (basicHandle as any).id };
+            }
+            return newSel;
+          });
+          console.log('🔧 Установлены базовые значения:', { basicKit, basicHandle });
+        }
+        
+      } catch (error) {
+        console.error('Ошибка загрузки данных фурнитуры:', error);
+      }
+    };
+    
+    loadHardwareData();
   }, []);
 
   // Автоматическое сворачивание блока стилей при выборе стиля + мгновенная фильтрация
@@ -1094,6 +1170,8 @@ export default function DoorsPage() {
 
   const addToCart = () => {
     if (!price) return;
+    
+    // Добавляем дверь с комплектом
     const item: CartItem = {
       id: uid(),
       style: sel.style,
@@ -1105,14 +1183,35 @@ export default function DoorsPage() {
       color: sel.color,
       qty: 1,
       unitPrice: price.total,
-      handleId: (sel.handle && sel.handle.id) || undefined,
       sku_1c: price.sku_1c,
-      // edge: sel.edge,
-      // edge_note: sel.edge_note,
       hardwareKitId: (sel.hardware_kit && sel.hardware_kit.id) || undefined,
       baseAtAdd: price.total,
     };
-    setCart((c) => [...c, item]);
+    
+    const newCart = [...cart, item];
+    
+    // Если выбрана ручка, добавляем её отдельной строкой
+    if (sel.handle && sel.handle.id) {
+      const handle = Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id);
+      const handleItem: CartItem = {
+        id: uid(),
+        style: sel.style,
+        model: sel.model,
+        finish: sel.finish,
+        type: sel.type,
+        width: sel.width,
+        height: sel.height,
+        color: sel.color,
+        qty: 1,
+        unitPrice: handle ? handle.price : 0,
+        handleId: sel.handle.id,
+        sku_1c: price.sku_1c,
+        baseAtAdd: 0,
+      };
+      newCart.push(handleItem);
+    }
+    
+    setCart(newCart);
   };
   const removeFromCart = (id: string) =>
     setCart((c) => c.filter((i) => i.id !== id));
@@ -1662,27 +1761,32 @@ export default function DoorsPage() {
                     <div>
                   <h3 className="text-sm font-medium text-gray-700 mb-3">Фурнитура</h3>
                   <div className="grid grid-cols-2 gap-3">
-                      <Select
+                      <HardwareSelect
                         label="Комплект фурнитуры"
-                    value={sel.hardware_kit?.id || ""}
-                    onChange={(v: string) => setSel((s) => ({ 
-                      ...s, 
-                      hardware_kit: v ? { id: v } : undefined
-                    }))}
-                        options={sel.width && sel.height ? ((domain?.kits || []) as DomainKits).map((k) => k.id) : []}
-                    allowEmpty={true}
-                    disabled={!sel.width || !sel.height}
+                        value={sel.hardware_kit?.id || ""}
+                        onChange={(v: string) => setSel((s) => ({ 
+                          ...s, 
+                          hardware_kit: v ? { id: v } : undefined
+                        }))}
+                        options={sel.width && sel.height ? hardwareKits.map(kit => ({
+                          id: kit.id,
+                          name: kit.name,
+                          price: kit.price,
+                          description: kit.description
+                        })) : []}
+                        allowEmpty={true}
+                        disabled={!sel.width || !sel.height}
                       />
-                      <Select
+                      <HandleSelect
                         label="Ручка"
-                    value={sel.handle?.id || ""}
-                    onChange={(v: string) => setSel((s) => ({ 
-                      ...s, 
-                      handle: v ? { id: v } : undefined
-                    }))}
-                        options={sel.hardware_kit ? ((domain?.handles || []) as DomainHandles).map((h) => h.id) : []}
-                    allowEmpty={true}
-                    disabled={!sel.hardware_kit}
+                        value={sel.handle?.id || ""}
+                        onChange={(v: string) => setSel((s) => ({ 
+                          ...s, 
+                          handle: v ? { id: v } : undefined
+                        }))}
+                        handles={sel.hardware_kit ? handles : {}}
+                        allowEmpty={true}
+                        disabled={!sel.hardware_kit}
                       />
                   </div>
                 </div>
@@ -1876,7 +1980,29 @@ export default function DoorsPage() {
                 
                 {cart.length ? (
                   <div className="space-y-2">
-                    {cart.map((i) => (
+                    {cart.map((i) => {
+                      // Если это ручка, отображаем отдельно
+                      if (i.handleId) {
+                        const handle = Object.values(handles).flat().find((h: Handle) => h.id === i.handleId);
+                        return (
+                          <div key={i.id} className="border border-black/10 p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="font-medium text-black text-sm">
+                                Ручка: {handle?.name || "—"}
+                              </div>
+                              <div className="text-xs font-semibold text-black">
+                                {fmtInt(i.unitPrice * i.qty)} ₽
+                              </div>
+                            </div>
+                            <div className="text-xs text-gray-600 leading-tight">
+                              {handle?.showroom ? '✅ В шоуруме' : '❌ Не в шоуруме'}
+                            </div>
+                          </div>
+                        );
+                      }
+                      
+                      // Иначе отображаем дверь с комплектом
+                      return (
                       <div key={i.id} className="border border-black/10 p-3 space-y-2">
                         <div className="flex items-center justify-between">
                           <div className="font-medium text-black text-sm">
@@ -1889,108 +2015,20 @@ export default function DoorsPage() {
                         <div className="text-xs text-gray-600 leading-tight">
                           {i.color ? `${i.color}, ` : ""}
                           {i.width}×{i.height}
-                          {/* {i.edge === "да"
-                            ? `, Кромка${i.edge_note ? `: ${i.edge_note}` : ""}`
-                            : ""} */}
-                          {i.hardwareKitId
-                            ? `, Комплект: ${
-                                mockData.kits.find((k) => k.id === i.hardwareKitId)?.name
-                              }`
-                            : ""}
+                            {i.hardwareKitId
+                              ? `, Комплект: ${
+                                  hardwareKits.find((k: any) => k.id === i.hardwareKitId)?.name
+                                }`
+                              : ""}
                         </div>
-                        <div className="flex items-center justify-between gap-3">
-                          <input
-                            type="number"
-                            min={1}
-                            value={i.qty}
-                            className="w-16 border border-black/20 px-2 py-1 text-black"
-                            onChange={(e) =>
-                              changeQty(i.id, Number((e.target as HTMLInputElement).value) || 1)
-                            }
-                          />
-                          <div className="text-xs text-gray-500">
-                            Δ {fmtInt(i.unitPrice - i.baseAtAdd)} ₽
                           </div>
-                          <div className="flex gap-2">
-                            <button
-                              className="text-xs text-black hover:text-yellow-400 transition-colors duration-200"
-                              onClick={async () => {
-                                setEditingId(editingId === i.id ? null : i.id);
-                                if (editingId !== i.id)
-                                  await ensureItemDomain({
-                                    model: i.model as string,
-                                    style: i.style,
-                                  });
-                              }}
-                            >
-                              Изменить
-                            </button>
-                            <button
-                              className="text-xs text-red-600 hover:text-red-800 transition-colors duration-200"
-                              onClick={() => removeFromCart(i.id)}
-                            >
-                              Удалить
-                            </button>
+                      );
+                    })}
                           </div>
-                        </div>
-                        {editingId === i.id && (
-                          <div className="bg-black/5 border border-black/10 p-2 grid grid-cols-2 gap-1">
-                            <SelectMini
-                              label="Покрытие"
-                              value={i.finish || ""}
-                              options={(itemDomains[i.model!]?.finish || []) as string[]}
-                              onChange={async (v: string) => {
-                                changeItem(i.id, { finish: v });
-                                await recalcItem(i.id);
-                              }}
-                            />
-                            <SelectMini
-                              label="Цвет"
-                              value={i.color || ""}
-                              options={(itemDomains[i.model!]?.color || []) as string[]}
-                              onChange={async (v: string) => {
-                                changeItem(i.id, { color: v });
-                                await recalcItem(i.id);
-                              }}
-                            />
-                            <SelectMini
-                              label="Тип"
-                              value={i.type || ""}
-                              options={(itemDomains[i.model!]?.type || []) as string[]}
-                              onChange={async (v: string) => {
-                                changeItem(i.id, { type: v });
-                                await recalcItem(i.id);
-                              }}
-                            />
-                            <SelectMini
-                              label="Ширина"
-                              value={i.width?.toString() || ""}
-                              options={((itemDomains[i.model!]?.width) || ([] as number[])).map(
-                                String
-                              )}
-                              onChange={async (v: string) => {
-                                changeItem(i.id, { width: Number(v) });
-                                await recalcItem(i.id);
-                              }}
-                            />
-                            <SelectMini
-                              label="Высота"
-                              value={i.height?.toString() || ""}
-                              options={((itemDomains[i.model!]?.height) || ([] as number[])).map(
-                                String
-                              )}
-                              onChange={async (v: string) => {
-                                changeItem(i.id, { height: Number(v) });
-                                await recalcItem(i.id);
-                              }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
                 ) : (
-                  <div className="text-gray-500 text-center py-6 text-sm">Корзина пуста</div>
+                  <div className="text-sm text-gray-500 text-center py-4">
+                    Корзина пуста
+                        </div>
                 )}
 
                 {/* Кнопки экспорта в корзине */}
@@ -2475,6 +2513,116 @@ function Select({
           </option>
         ))}
       </select>
+    </label>
+  );
+}
+
+function HardwareSelect({
+  label,
+  value,
+  onChange,
+  options,
+  allowEmpty = false,
+  disabled = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { id: string; name: string; price?: number; showroom?: boolean; description?: string }[];
+  allowEmpty?: boolean;
+  disabled?: boolean;
+}) {
+  const [showDescription, setShowDescription] = useState<string | null>(null);
+  const selectedOption = options.find(opt => opt.id === value);
+
+  return (
+    <label className="text-sm space-y-1">
+      <div className={`text-gray-600 ${disabled ? 'opacity-50' : ''}`}>{label}</div>
+      <div className="relative">
+        <select
+          value={value}
+          onChange={(e) => onChange((e.target as HTMLSelectElement).value)}
+          disabled={disabled}
+          className={`w-full border border-black/20 px-3 py-2 pr-8 text-black ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
+        >
+          {allowEmpty && <option value="">—</option>}
+          {options.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.name.replace('Комплект фурнитуры — ', '')} {option.price ? `(${option.price} ₽)` : ''}
+            </option>
+          ))}
+        </select>
+        {selectedOption && selectedOption.description && (
+          <button
+            type="button"
+            onClick={() => setShowDescription(showDescription === selectedOption.id ? null : selectedOption.id)}
+            className="absolute right-8 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors z-10"
+            title="Показать описание"
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+          </button>
+        )}
+      </div>
+      {showDescription && selectedOption && (
+        <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded text-sm text-gray-700">
+          <div className="font-medium mb-1">Описание комплекта:</div>
+          <div>{selectedOption.description}</div>
+        </div>
+      )}
+    </label>
+  );
+}
+
+function HandleSelect({
+  label,
+  value,
+  onChange,
+  handles,
+  allowEmpty = false,
+  disabled = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  handles: Record<string, Handle[]>;
+  allowEmpty?: boolean;
+  disabled?: boolean;
+}) {
+  const selectedHandle = Object.values(handles).flat().find(h => h.id === value);
+
+  return (
+    <label className="text-sm space-y-1">
+      <div className={`text-gray-600 ${disabled ? 'opacity-50' : ''}`}>{label}</div>
+      <div className="relative">
+        <select
+          value={value}
+          onChange={(e) => onChange((e.target as HTMLSelectElement).value)}
+          disabled={disabled}
+          className={`w-full border border-black/20 px-3 py-2 text-black ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
+        >
+          {allowEmpty && <option value="">—</option>}
+          {Object.entries(handles).map(([groupName, groupHandles]) => (
+            <optgroup key={groupName} label={groupName}>
+              {groupHandles.map((handle) => (
+                <option key={handle.id} value={handle.id}>
+                  {handle.name} {handle.price ? `(${handle.price} ₽)` : ''} {handle.showroom ? '•' : ''}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        {selectedHandle && (
+          <div className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none">
+            {selectedHandle.showroom ? (
+              <span className="text-green-600 text-xs" title="В шоуруме">●</span>
+            ) : (
+              <span className="text-gray-400 text-xs" title="Не в шоуруме">○</span>
+            )}
+          </div>
+        )}
+      </div>
     </label>
   );
 }
