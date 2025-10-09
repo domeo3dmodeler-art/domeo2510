@@ -1393,20 +1393,6 @@ export default function DoorsPage() {
                         />
                       ))}
                     </div>
-                    {/* Кнопка Выбрать */}
-                    <div className="mt-8 flex justify-center">
-                      <button
-                        onClick={handleModelSelect}
-                        disabled={!sel.model}
-                        className={`px-6 py-3 font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
-                          sel.model
-                            ? 'bg-black text-white hover:bg-yellow-400 hover:text-black'
-                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        }`}
-                      >
-                        Выбрать
-                      </button>
-                    </div>
                   </>
                 ) : (
                   <div className="text-gray-600 text-center py-8">Нет моделей для выбранного стиля</div>
@@ -1561,6 +1547,23 @@ export default function DoorsPage() {
                       </div>
                     )}
                   </div>
+                  
+                  {/* Кнопка Выбрать под превью - показывается только когда модели развернуты */}
+                  {sel.model && !isModelCollapsed && (
+                    <div className="mt-6 flex justify-center">
+                      <button
+                        onClick={handleModelSelect}
+                        disabled={!sel.model}
+                        className={`px-6 py-3 font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-black ${
+                          sel.model
+                            ? 'bg-white text-black hover:bg-black hover:text-white'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
+                      >
+                        Выбрать
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="aspect-[2/3] w-full bg-gray-50 rounded-lg flex items-center justify-center">
