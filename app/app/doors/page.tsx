@@ -671,6 +671,7 @@ export default function DoorsPage() {
   // Обработка сброса выбора
   const handleResetSelection = () => {
     setIsModelSelected(false);
+    setIsModelCollapsed(false); // Разворачиваем блок моделей при сбросе
     setSel((v) => ({ 
       ...v, 
       model: undefined,
@@ -874,12 +875,12 @@ export default function DoorsPage() {
     }
   }, [sel.style, modelsCache]);
 
-  // Автоматическое сворачивание блока моделей при выборе модели
+  // Автоматическое сворачивание блока моделей только после нажатия кнопки "Выбрать"
   useEffect(() => {
-    if (sel.model) {
+    if (isModelSelected) {
       setIsModelCollapsed(true);
     }
-  }, [sel.model]);
+  }, [isModelSelected]);
 
   // Префилл по ?sku=...
   useEffect(() => {
@@ -1221,7 +1222,7 @@ export default function DoorsPage() {
       </header>
 
       {tab === "config" && (
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8 p-6">
+        <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8 p-6">
           <main className="lg:col-span-1 space-y-4">
             <section>
               <div className="mb-2">
@@ -1266,16 +1267,20 @@ export default function DoorsPage() {
                 {styleTiles.map((s) => (
                   <button
                     key={s.key}
-                    onClick={() => setSel((v) => ({ 
-                      ...v, 
-                      style: s.key, 
-                      model: undefined,
-                      finish: undefined,
-                      color: undefined,
-                      type: undefined,
-                      width: undefined,
-                      height: undefined
-                    }))}
+                    onClick={() => {
+                      setSel((v) => ({ 
+                        ...v, 
+                        style: s.key, 
+                        model: undefined,
+                        finish: undefined,
+                        color: undefined,
+                        type: undefined,
+                        width: undefined,
+                        height: undefined
+                      }));
+                      setIsModelSelected(false);
+                      setIsModelCollapsed(false);
+                    }}
                     className={`group overflow-hidden transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ring-offset-2 ${
                       sel.style === s.key 
                         ? "bg-gray-50" 
@@ -1337,7 +1342,7 @@ export default function DoorsPage() {
               </div>
             </section>
 
-            {sel.style && !isModelSelected && (
+            {sel.style && (
               <section>
                 <div className="mb-2">
                   {sel.model ? (
@@ -1369,7 +1374,7 @@ export default function DoorsPage() {
                 </div>
                 
                 <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                  isModelCollapsed ? 'max-h-0 opacity-0' : 'max-h-96 opacity-100'
+                  isModelCollapsed ? 'max-h-0 opacity-0' : 'opacity-100'
                 }`}>
                 {isLoadingModels ? (
                   <div className="flex justify-center items-center py-12">
@@ -1410,6 +1415,7 @@ export default function DoorsPage() {
               </section>
             )}
 
+            {/* Блок выбора параметров - появляется после сворачивания моделей */}
             {sel.model && isModelSelected && (
               <section className="space-y-6">
                 <div className="grid grid-cols-2 gap-3">
@@ -1527,6 +1533,7 @@ export default function DoorsPage() {
 
           {/* Центральная секция - превью модели */}
           <section className="lg:col-span-1">
+            <div className="max-w-md mx-auto">
             <div className="sticky top-6">
               {sel.model ? (
                 <div className="transition-all duration-500 ease-in-out">
@@ -1535,7 +1542,7 @@ export default function DoorsPage() {
                       {selectedModelCard ? formatModelNameForPreview(selectedModelCard.model) : "Выберите модель"}
                     </h3>
                   </div>
-                  <div className="aspect-[3/4] w-full bg-gray-50 rounded-lg overflow-hidden">
+                  <div className="aspect-[2/3] w-full bg-gray-50 rounded-lg overflow-hidden">
                     {selectedModelCard?.photo ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -1556,12 +1563,13 @@ export default function DoorsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="aspect-[3/4] w-full bg-gray-50 rounded-lg flex items-center justify-center">
+                <div className="aspect-[2/3] w-full bg-gray-50 rounded-lg flex items-center justify-center">
                   <div className="text-center text-gray-400">
                     <div className="text-sm">Выберите модель</div>
                   </div>
                 </div>
               )}
+            </div>
             </div>
           </section>
 
@@ -2088,9 +2096,9 @@ function DoorCard({
             <div className="h-full w-full flex items-center justify-center text-gray-400">
               <div className="text-center">
                 <div className="text-sm">Нет фото</div>
-                <div className="text-[14px] whitespace-nowrap" title={formatModelNameForCard(item.model)}>
+                <div className="text-[14px] text-center whitespace-nowrap px-2" title={formatModelNameForCard(item.model)}>
                   {formatModelNameForCard(item.model)}
-        </div>
+                </div>
         </div>
             </div>
           )}
@@ -2098,7 +2106,7 @@ function DoorCard({
     </button>
       {/* Название модели под карточкой */}
       <div className="mt-2 flex justify-center">
-        <div className="text-[14px] font-medium text-gray-900 whitespace-nowrap" title={formatModelNameForCard(item.model)}>
+        <div className="text-[14px] font-medium text-gray-900 text-center whitespace-nowrap px-2" title={formatModelNameForCard(item.model)}>
           {formatModelNameForCard(item.model)}
         </div>
       </div>
