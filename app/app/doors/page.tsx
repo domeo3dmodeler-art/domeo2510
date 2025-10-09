@@ -1608,6 +1608,7 @@ export default function DoorsPage() {
                       return newSel;
                     })}
                     options={(domain?.finish || []) as string[]}
+                    allowEmpty={true}
                   />
                   <Select
                     label="Цвет"
@@ -1617,7 +1618,9 @@ export default function DoorsPage() {
                       newSel.color = v;
                       return newSel;
                     })}
-                    options={(domain?.color || []) as string[]}
+                    options={sel.finish ? (domain?.color || []) as string[] : []}
+                    allowEmpty={true}
+                    disabled={!sel.finish}
                   />
                   </div>
                 </div>
@@ -1634,7 +1637,9 @@ export default function DoorsPage() {
                       newSel.width = Number(v);
                       return newSel;
                     })}
-                    options={((domain?.width || []) as number[]).map(String)}
+                    options={sel.color ? ((domain?.width || []) as number[]).map(String) : []}
+                    allowEmpty={true}
+                    disabled={!sel.color}
                   />
                   <Select
                     label="Высота"
@@ -1644,7 +1649,9 @@ export default function DoorsPage() {
                       newSel.height = Number(v);
                       return newSel;
                     })}
-                    options={((domain?.height || []) as number[]).map(String)}
+                    options={sel.width ? ((domain?.height || []) as number[]).map(String) : []}
+                    allowEmpty={true}
+                    disabled={!sel.width}
                   />
                   </div>
                 </div>
@@ -1662,8 +1669,9 @@ export default function DoorsPage() {
                       ...s, 
                       hardware_kit: v ? { id: v } : undefined
                     }))}
-                        options={((domain?.kits || []) as DomainKits).map((k) => k.id)}
+                        options={sel.width && sel.height ? ((domain?.kits || []) as DomainKits).map((k) => k.id) : []}
                     allowEmpty={true}
+                    disabled={!sel.width || !sel.height}
                       />
                       <Select
                         label="Ручка"
@@ -1672,8 +1680,9 @@ export default function DoorsPage() {
                       ...s, 
                       handle: v ? { id: v } : undefined
                     }))}
-                        options={((domain?.handles || []) as DomainHandles).map((h) => h.id)}
+                        options={sel.hardware_kit ? ((domain?.handles || []) as DomainHandles).map((h) => h.id) : []}
                     allowEmpty={true}
+                    disabled={!sel.hardware_kit}
                       />
                   </div>
                 </div>
@@ -1821,6 +1830,33 @@ export default function DoorsPage() {
                 </div>
                 <div className="mt-6 text-3xl font-bold text-black">
                   {price ? `${fmtInt(price.total)} ₽` : "—"}
+                </div>
+              </div>
+              )}
+
+              {/* Блок цены - показывается отдельно после параметров */}
+              {price && (
+              <div className="bg-white border border-black/10 p-6">
+                <h2 className="text-xl font-semibold text-black mb-4">Цена</h2>
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-black mb-2">
+                    {fmtInt(price.total)} ₽
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Цена РРЦ
+                  </div>
+                  {price.breakdown && price.breakdown.length > 1 && (
+                    <div className="mt-4 text-xs text-gray-500">
+                      <div className="text-left space-y-1">
+                        {price.breakdown.map((item: any, index: number) => (
+                          <div key={index} className="flex justify-between">
+                            <span>{item.label}:</span>
+                            <span>{fmtInt(item.amount)} ₽</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               )}
@@ -2414,20 +2450,23 @@ function Select({
   onChange,
   options,
   allowEmpty = false,
+  disabled = false,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: string[];
   allowEmpty?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <label className="text-sm space-y-1">
-      <div className="text-gray-600">{label}</div>
+      <div className={`text-gray-600 ${disabled ? 'opacity-50' : ''}`}>{label}</div>
       <select
         value={value}
         onChange={(e) => onChange((e.target as HTMLSelectElement).value)}
-        className="w-full border border-black/20 px-3 py-2 text-black"
+        disabled={disabled}
+        className={`w-full border border-black/20 px-3 py-2 text-black ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
       >
         {allowEmpty && <option value="">—</option>}
         {options.map((o) => (

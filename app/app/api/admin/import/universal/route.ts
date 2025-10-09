@@ -895,8 +895,15 @@ export async function POST(req: NextRequest) {
             fieldType = 'boolean';
           }
           
+          // Создаем fieldName, поддерживающий кириллицу
+          const fieldName = header.toLowerCase()
+            .replace(/\s+/g, '_')
+            .replace(/[^a-z0-9а-яё_]/g, '') // Добавляем поддержку кириллицы
+            .replace(/_+/g, '_') // Убираем множественные подчеркивания
+            .replace(/^_|_$/g, ''); // Убираем подчеркивания в начале и конце
+          
           return {
-            fieldName: header.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
+            fieldName: fieldName || `field_${index + 1}`, // Fallback если fieldName пустой
             displayName: header,
             type: fieldType,
             required: isRequired,

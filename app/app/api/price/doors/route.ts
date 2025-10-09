@@ -80,10 +80,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Ищем продукт в базе данных по модели
-    const product = await prisma.product.findFirst({
+    // Ищем продукт в базе данных по всем параметрам
+    const products = await prisma.product.findMany({
       where: {
-        model: selection.model
+        catalog_category: {
+          name: "Межкомнатные двери"
+        }
       },
       select: {
         id: true,
@@ -94,6 +96,22 @@ export async function POST(req: NextRequest) {
         base_price: true,
         properties_data: true
       }
+    });
+
+    // Фильтруем товары по выбранным параметрам
+    const product = products.find(p => {
+      const properties = p.properties_data ? 
+        (typeof p.properties_data === 'string' ? JSON.parse(p.properties_data) : p.properties_data) : {};
+
+      return (
+        (!selection.style || properties['Domeo_Стиль Web'] === selection.style) &&
+        (!selection.model || properties['Domeo_Название модели для Web']?.includes(selection.model)) &&
+        (!selection.finish || properties['Общее_Тип покрытия'] === selection.finish) &&
+        (!selection.color || properties['Domeo_Цвет'] === selection.color) &&
+        (!selection.type || properties['Тип конструкции'] === selection.type) &&
+        (!selection.width || properties['Ширина/мм'] === selection.width) &&
+        (!selection.height || properties['Высота/мм'] === selection.height)
+      );
     });
 
     if (!product) {
@@ -107,10 +125,11 @@ export async function POST(req: NextRequest) {
     const properties = product.properties_data ? 
       (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
 
-    // Рассчитываем цену
-    let total = parseFloat(product.base_price) || 0;
+    // Рассчитываем цену из поля РРЦ
+    const rrcPrice = properties['Цена ррц (включая цену полотна, короба, наличников, доборов)'];
+    let total = parseFloat(rrcPrice) || 0;
     const breakdown = [
-      { label: "Базовая цена", amount: total }
+      { label: "Цена РРЦ", amount: total }
     ];
 
     // Добавляем комплект фурнитуры если выбран
@@ -152,7 +171,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       currency: "RUB",
-      base: parseFloat(product.base_price) || 0,
+      base: parseFloat(rrcPrice) || 0,
       breakdown,
       total: Math.round(total),
       sku: product.sku

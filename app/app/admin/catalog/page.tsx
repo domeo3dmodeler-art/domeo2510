@@ -738,12 +738,26 @@ export default function CatalogPage() {
                                     }
                                     
                                     if (Array.isArray(fieldMappings) && fieldMappings.length > 0) {
-                                      // Фильтруем поля, исключая нежелательные
+                                      // Фильтруем поля, исключая нежелательные и пустые
                                       const filteredFields = fieldMappings.filter((field: any) => {
                                         const fieldName = field.fieldName || field;
-                                        return !fieldName.includes('№') && 
-                                               !fieldName.includes('Domeo_Ссылка на фото двери') &&
-                                               !fieldName.includes('DOMEO_ССЫЛКА НА ФОТО ДВЕРИ');
+                                        const displayName = field.displayName || field;
+                                        
+                                        // Проверяем, что есть хотя бы одно валидное название поля
+                                        const hasValidFieldName = fieldName && 
+                                                                 typeof fieldName === 'string' &&
+                                                                 fieldName.trim() !== '' && 
+                                                                 fieldName !== '_' &&
+                                                                 !fieldName.includes('№') && 
+                                                                 !fieldName.includes('Domeo_Ссылка на фото двери') &&
+                                                                 !fieldName.includes('DOMEO_ССЫЛКА НА ФОТО ДВЕРИ');
+                                                                 
+                                        const hasValidDisplayName = displayName && 
+                                                                   typeof displayName === 'string' &&
+                                                                   displayName.trim() !== '';
+                                                                   
+                                        // Поле проходит фильтрацию, если есть валидное fieldName ИЛИ валидное displayName
+                                        return (hasValidFieldName || hasValidDisplayName);
                                       });
                                       
                                       return filteredFields.map((field: any, index: number) => (
@@ -813,21 +827,48 @@ export default function CatalogPage() {
                                       
                                       
                                       if (Array.isArray(fieldMappings) && fieldMappings.length > 0) {
-                                        // Фильтруем поля, исключая нежелательные
+                                        // Фильтруем поля, исключая нежелательные и пустые
                                         const filteredFields = fieldMappings.filter((field: any) => {
                                           const fieldName = field.fieldName || field;
-                                          return !fieldName.includes('№') && 
+                                          const displayName = field.displayName || field;
+                                          return fieldName && 
+                                                 typeof fieldName === 'string' &&
+                                                 fieldName.trim() !== '' && 
+                                                 fieldName !== '_' &&
+                                                 !fieldName.includes('№') && 
                                                  !fieldName.includes('Domeo_Ссылка на фото двери') &&
-                                                 !fieldName.includes('DOMEO_ССЫЛКА НА ФОТО ДВЕРИ');
+                                                 !fieldName.includes('DOMEO_ССЫЛКА НА ФОТО ДВЕРИ') &&
+                                                 displayName && 
+                                                 typeof displayName === 'string' &&
+                                                 displayName.trim() !== '';
                                         });
                                         
                                         return filteredFields.map((field: any, fieldIndex: number) => {
-                                          // Пробуем разные варианты названий полей
+                                          // Пробуем разные варианты названий полей для поиска значения
                                           let value = specifications[field.fieldName] || 
                                                      specifications[field.displayName] ||
                                                      specifications[field.field_name] ||
                                                      specifications[field.display_name] ||
                                                      '-';
+                                          
+                                          // Если значение не найдено, пробуем найти по частичному совпадению
+                                          if (value === '-') {
+                                            const searchKeys = [field.fieldName, field.displayName].filter(Boolean);
+                                            const keys = Object.keys(specifications);
+                                            
+                                            for (const searchKey of searchKeys) {
+                                              if (searchKey) {
+                                                const matchingKey = keys.find(key => 
+                                                  key.toLowerCase().includes(searchKey.toLowerCase()) ||
+                                                  searchKey.toLowerCase().includes(key.toLowerCase())
+                                                );
+                                                if (matchingKey) {
+                                                  value = specifications[matchingKey];
+                                                  break;
+                                                }
+                                              }
+                                            }
+                                          }
                                           
                                           
                                           return (
