@@ -642,6 +642,9 @@ export default function DoorsPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [kpHtml, setKpHtml] = useState<string>("");
   const [selectedClient, setSelectedClient] = useState<string>('');
+  
+  // Состояние для интерактивной фишки
+  const [isModelSelected, setIsModelSelected] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -655,6 +658,29 @@ export default function DoorsPage() {
   
   // Состояние сворачивания блока стилей
   const [isStyleCollapsed, setIsStyleCollapsed] = useState(false);
+  // Состояние сворачивания блока моделей
+  const [isModelCollapsed, setIsModelCollapsed] = useState(false);
+
+  // Обработка выбора модели
+  const handleModelSelect = () => {
+    if (sel.model) {
+      setIsModelSelected(true);
+    }
+  };
+
+  // Обработка сброса выбора
+  const handleResetSelection = () => {
+    setIsModelSelected(false);
+    setSel((v) => ({ 
+      ...v, 
+      model: undefined,
+      finish: undefined,
+      color: undefined,
+      type: undefined,
+      width: undefined,
+      height: undefined
+    }));
+  };
 
   const selectedModelCard = useMemo(
     () => {
@@ -830,6 +856,8 @@ export default function DoorsPage() {
   useEffect(() => {
     if (sel.style) {
       setIsStyleCollapsed(true);
+      // Сбрасываем состояние сворачивания моделей при смене стиля
+      setIsModelCollapsed(false);
       
       // Мгновенная фильтрация из кэша
       const cached = modelsCache.get('all');
@@ -839,8 +867,19 @@ export default function DoorsPage() {
         setModels(filteredModels);
         setIsLoadingModels(false);
       }
+    } else {
+      // Если стиль не выбран, разворачиваем блок стилей
+      setIsStyleCollapsed(false);
+      setIsModelCollapsed(false);
     }
   }, [sel.style, modelsCache]);
+
+  // Автоматическое сворачивание блока моделей при выборе модели
+  useEffect(() => {
+    if (sel.model) {
+      setIsModelCollapsed(true);
+    }
+  }, [sel.model]);
 
   // Префилл по ?sku=...
   useEffect(() => {
@@ -1183,9 +1222,9 @@ export default function DoorsPage() {
 
       {tab === "config" && (
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8 p-6">
-          <main className="lg:col-span-1 space-y-8">
+          <main className="lg:col-span-1 space-y-4">
             <section>
-              <div className="mb-3">
+              <div className="mb-2">
                 {sel.style ? (
                   <button
                     onClick={() => setIsStyleCollapsed(!isStyleCollapsed)}
@@ -1293,41 +1332,85 @@ export default function DoorsPage() {
                     </div>
                   </button>
                 ))}
-                </div>
+              </div>
               )}
               </div>
             </section>
 
-            {sel.style && (
+            {sel.style && !isModelSelected && (
               <section>
-                <div className="mb-3">
-                  <h2 className="text-xl font-semibold text-black">
-                    Модели
-                  </h2>
+                <div className="mb-2">
+                  {sel.model ? (
+                    <button
+                      onClick={() => setIsModelCollapsed(!isModelCollapsed)}
+                      className="w-full flex items-center justify-between hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200"
+                      aria-label={isModelCollapsed ? "Развернуть модели" : "Свернуть модели"}
+                    >
+                      <h2 className="text-xl font-semibold text-black flex items-center">
+                        Модель
+                        <span className="text-black text-lg font-bold mx-3">•</span>
+                        <span className="text-lg font-medium text-gray-900">{selectedModelCard ? formatModelNameForCard(selectedModelCard.model) : sel.model}</span>
+                      </h2>
+                      
+                      <svg 
+                        className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${
+                          isModelCollapsed ? '' : 'rotate-180'
+                        }`} 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  ) : (
+                    <h2 className="text-xl font-semibold text-black">Модели</h2>
+                  )}
                 </div>
+                
+                <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                  isModelCollapsed ? 'max-h-0 opacity-0' : 'max-h-96 opacity-100'
+                }`}>
                 {isLoadingModels ? (
                   <div className="flex justify-center items-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
                     <span className="ml-3 text-gray-600">Загрузка моделей...</span>
                   </div>
                 ) : Array.isArray(models) && models.length ? (
-                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8">
-                    {models.map((m) => (
-                      <DoorCard
-                        key={m.model}
-                        item={m}
-                        selected={sel.model === m.model}
-                        onSelect={() => setSel((v) => ({ ...v, model: m.model }))}
-                      />
-                    ))}
-                  </div>
+                  <>
+                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8">
+                      {models.map((m) => (
+                        <DoorCard
+                          key={m.model}
+                          item={m}
+                          selected={sel.model === m.model}
+                          onSelect={() => setSel((v) => ({ ...v, model: m.model }))}
+                        />
+                      ))}
+                    </div>
+                    {/* Кнопка Выбрать */}
+                    <div className="mt-8 flex justify-center">
+                      <button
+                        onClick={handleModelSelect}
+                        disabled={!sel.model}
+                        className={`px-6 py-3 font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                          sel.model
+                            ? 'bg-black text-white hover:bg-yellow-400 hover:text-black'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
+                      >
+                        Выбрать
+                      </button>
+                    </div>
+                  </>
                 ) : (
                   <div className="text-gray-600 text-center py-8">Нет моделей для выбранного стиля</div>
                 )}
+                </div>
               </section>
             )}
 
-            {sel.model && (
+            {sel.model && isModelSelected && (
               <section className="space-y-6">
                 <div className="grid grid-cols-2 gap-3">
                   <Select
@@ -1439,24 +1522,53 @@ export default function DoorsPage() {
                 )}
               </section>
             )}
+
           </main>
 
+          {/* Центральная секция - превью модели */}
           <section className="lg:col-span-1">
             <div className="sticky top-6">
-              <StickyPreview
-                item={
-                  sel.model ? { 
-                    model: sel.model, 
-                    sku_1c: price?.sku_1c,
-                    photo: selectedModelCard?.photo || null
-                  } : null
-                }
-              />
+              {sel.model ? (
+                <div className="transition-all duration-500 ease-in-out">
+                  <div className="text-center mb-4">
+                    <h3 className="text-lg font-semibold text-black">
+                      {selectedModelCard ? formatModelNameForPreview(selectedModelCard.model) : "Выберите модель"}
+                    </h3>
+                  </div>
+                  <div className="aspect-[3/4] w-full bg-gray-50 rounded-lg overflow-hidden">
+                    {selectedModelCard?.photo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={selectedModelCard.photo.startsWith('/uploads') ? selectedModelCard.photo : `/uploads${selectedModelCard.photo}`}
+                        alt={selectedModelCard.model}
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center text-gray-400">
+                        <div className="text-center">
+                          <div className="text-sm">Нет фото</div>
+                          <div className="text-[14px] whitespace-nowrap">
+                            {selectedModelCard ? formatModelNameForCard(selectedModelCard.model) : ""}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="aspect-[3/4] w-full bg-gray-50 rounded-lg flex items-center justify-center">
+                  <div className="text-center text-gray-400">
+                    <div className="text-sm">Выберите модель</div>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 
           <aside className="lg:col-span-1">
             <div className="sticky top-6 space-y-6">
+              {/* Блок параметров - показывает выбранные параметры */}
+              {sel.model && (
               <div className="bg-white border border-black/10 p-6">
                 <h2 className="text-xl font-semibold text-black mb-4">Параметры</h2>
                 <div className="text-sm space-y-2">
@@ -1464,6 +1576,10 @@ export default function DoorsPage() {
                     <span className="text-gray-600">Стиль:</span>
                     <span className="text-black font-medium">{sel.style || "—"}</span>
                   </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Модель:</span>
+                      <span className="text-black font-medium">{selectedModelCard ? formatModelNameForCard(selectedModelCard.model) : "—"}</span>
+                    </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Покрытие и цвет:</span>
                     <span className="text-black font-medium">
@@ -1486,8 +1602,11 @@ export default function DoorsPage() {
                   {price ? `${fmtInt(price.total)} ₽` : "—"}
                 </div>
               </div>
+              )}
 
-              <div className="bg-white border border-black/10 p-5">
+
+              {/* Корзина - показывается всегда */}
+              <div className="bg-white border border-black/10 p-5 transition-all duration-700 ease-in-out">
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-lg font-semibold text-black">Корзина ({cart.length})</h2>
                   <div className="text-xs text-gray-600">
