@@ -12,17 +12,29 @@ import React, { useEffect, useMemo, useState } from "react";
 
 // ===================== Типы =====================
 type BasicState = {
-  style?: string;
-  model?: string;
-  finish?: string;
-  color?: string;
-  type?: string;
-  width?: number;
-  height?: number;
-  edge?: string;
-  edge_note?: string;
-  hardware_kit?: { id: string };
-  handle?: { id: string };
+  // Уровень 1: Основные характеристики
+  style?: string;        // Стиль двери (влияет на модели)
+  model?: string;        // Модель двери (влияет на покрытия)
+  
+  // Уровень 2: Материалы и отделка
+  finish?: string;       // Покрытие (влияет на цвета)
+  color?: string;        // Цвет (влияет на размеры)
+  
+  // Уровень 3: Размеры
+  width?: number;        // Ширина (влияет на кромку)
+  height?: number;       // Высота (влияет на кромку)
+  
+  // Уровень 4: Дополнительные элементы
+  // edge?: string;         // Кромка (временно отключена)
+  // edge_note?: string;    // Примечание к кромке
+  // edge_cost?: string;    // Стоимость надбавки за кромку
+  
+  // Уровень 5: Фурнитура
+  hardware_kit?: { id: string };  // Комплект фурнитуры
+  handle?: { id: string };        // Ручка
+  
+  // Технические параметры (не влияют на другие)
+  type?: string;         // Тип конструкции (обычно всегда "Распашная")
 };
 
 type ProductLike = {
@@ -43,8 +55,8 @@ type CartItem = {
   unitPrice: number;
   handleId?: string;
   sku_1c?: string | number | null;
-  edge?: string;
-  edge_note?: string;
+  // edge?: string;
+  // edge_note?: string;
   hardwareKitId?: string;
   baseAtAdd: number;
 };
@@ -69,6 +81,7 @@ type Domain =
       type?: string[];
       width?: number[];
       height?: number[];
+      // edge?: string[];
       kits?: DomainKits;
       handles?: DomainHandles;
     }
@@ -95,6 +108,81 @@ const slugify = (s: string): string =>
     .replace(/[^a-z0-9\-]/g, "")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
+
+// Функция для сброса зависимых параметров по иерархии
+const resetDependentParams = (currentSel: Partial<BasicState>, changedParam: keyof BasicState): Partial<BasicState> => {
+  const newSel = { ...currentSel };
+  
+  switch (changedParam) {
+    case 'style':
+      // При смене стиля сбрасываем все зависимые параметры
+      newSel.model = undefined;
+      newSel.finish = undefined;
+      newSel.color = undefined;
+      newSel.width = undefined;
+      newSel.height = undefined;
+      // newSel.edge = undefined;
+      // newSel.edge_note = undefined;
+      newSel.hardware_kit = undefined;
+      newSel.handle = undefined;
+      break;
+      
+    case 'model':
+      // При смене модели сбрасываем покрытие и все зависимые
+      newSel.finish = undefined;
+      newSel.color = undefined;
+      newSel.width = undefined;
+      newSel.height = undefined;
+      // newSel.edge = undefined;
+      // newSel.edge_note = undefined;
+      newSel.hardware_kit = undefined;
+      newSel.handle = undefined;
+      break;
+      
+    case 'finish':
+      // При смене покрытия сбрасываем цвет и все зависимые
+      newSel.color = undefined;
+      newSel.width = undefined;
+      newSel.height = undefined;
+      // newSel.edge = undefined;
+      // newSel.edge_note = undefined;
+      newSel.hardware_kit = undefined;
+      newSel.handle = undefined;
+      break;
+      
+    case 'color':
+      // При смене цвета сбрасываем размеры и все зависимые
+      newSel.width = undefined;
+      newSel.height = undefined;
+      // newSel.edge = undefined;
+      // newSel.edge_note = undefined;
+      newSel.hardware_kit = undefined;
+      newSel.handle = undefined;
+      break;
+      
+    case 'width':
+    case 'height':
+      // При смене размеров сбрасываем кромку и фурнитуру
+      // newSel.edge = undefined;
+      // newSel.edge_note = undefined;
+      newSel.hardware_kit = undefined;
+      newSel.handle = undefined;
+      break;
+      
+    // case 'edge':
+    //   // При смене кромки сбрасываем фурнитуру и стоимость
+    //   newSel.edge_note = undefined;
+    //   newSel.edge_cost = undefined;
+    //   newSel.hardware_kit = undefined;
+    //   newSel.handle = undefined;
+    //   break;
+      
+    // type не влияет на другие параметры
+    // hardware_kit и handle не влияют на другие параметры
+  }
+  
+  return newSel;
+};
 
 // Функция для форматирования названия модели под карточкой (убираем префикс DomeoDoors_ или Domeodoors_)
 const formatModelNameForCard = (modelName: string): string => {
@@ -337,7 +425,7 @@ const mockApi = {
       const parts: string[] = [];
       if (it.width && it.height) parts.push(`${it.width}×${it.height}`);
       if (it.color) parts.push(it.color);
-      if (it.edge === "да") parts.push(`Кромка${it.edge_note ? `: ${it.edge_note}` : ""}`);
+      // if (it.edge === "да") parts.push(`Кромка${it.edge_note ? `: ${it.edge_note}` : ""}`);
       const nameCore = `${it.model}${parts.length ? ` (${parts.join(", ")})` : ""}`;
       const sum = it.unitPrice * it.qty;
       rows.push(
@@ -660,11 +748,23 @@ export default function DoorsPage() {
   const [isStyleCollapsed, setIsStyleCollapsed] = useState(false);
   // Состояние сворачивания блока моделей
   const [isModelCollapsed, setIsModelCollapsed] = useState(false);
+  
+  // Состояние для стоимости кромки (временно отключено)
+  // const [edgeCostData, setEdgeCostData] = useState<{
+  //   hasCost: boolean;
+  //   costValues: string[];
+  //   sampleProduct: any;
+  //   hasNoEdgeWithoutCost: number;
+  //   hasNoEdgeWithCost: number;
+  //   hasSpecificEdgeProducts: number;
+  //   isEdgeUnavailable: boolean;
+  // } | null>(null);
 
   // Обработка выбора модели
   const handleModelSelect = () => {
     if (sel.model) {
       setIsModelSelected(true);
+      setIsModelCollapsed(true); // Сворачиваем блок моделей
     }
   };
 
@@ -672,15 +772,12 @@ export default function DoorsPage() {
   const handleResetSelection = () => {
     setIsModelSelected(false);
     setIsModelCollapsed(false); // Разворачиваем блок моделей при сбросе
-    setSel((v) => ({ 
-      ...v, 
-      model: undefined,
-      finish: undefined,
-      color: undefined,
-      type: undefined,
-      width: undefined,
-      height: undefined
-    }));
+    setIsLoadingModels(false); // Сбрасываем состояние загрузки
+    setSel((v) => {
+      const newSel = resetDependentParams(v, 'style');
+      newSel.style = undefined;
+      return newSel;
+    });
   };
 
   const selectedModelCard = useMemo(
@@ -725,14 +822,26 @@ export default function DoorsPage() {
             handles: []
           };
           const response = { domain };
-          if (!c) setDomain(response.domain);
+          if (!c && !sel.model) {
+            setDomain(response.domain);
+            console.log('🔍 Кэшированный domain установлен (нет выбранной модели)');
+          } else {
+            console.log('🔍 Пропускаем установку кэшированного domain - выбрана модель:', sel.model);
+          }
           return;
         }
         
         const response = await api.getOptions(query);
         // Извлекаем domain из ответа API
         const domain = response?.domain || response;
-        if (!c) setDomain(domain);
+        console.log('🔍 Общие данные загружены для query:', query, 'domain:', domain);
+        // НЕ устанавливаем domain если уже выбрана модель
+        if (!c && !sel.model) {
+          setDomain(domain);
+          console.log('🔍 Общий domain установлен (нет выбранной модели)');
+        } else {
+          console.log('🔍 Пропускаем установку общего domain - выбрана модель:', sel.model);
+        }
       } catch (e: any) {
         if (!c) setErr(e?.message ?? "Ошибка доменов");
       }
@@ -740,7 +849,83 @@ export default function DoorsPage() {
     return () => {
       c = true;
     };
-  }, [query]);
+  }, []); // Временно отключаем зависимость от query
+
+  // Сброс domain при смене стиля или модели
+  useEffect(() => {
+    if (!sel.model || !sel.style) {
+      setDomain(null);
+      return;
+    }
+  }, [sel.model, sel.style]);
+
+  // Каскадная загрузка опций при изменении любого параметра
+  useEffect(() => {
+    if (!sel.model || !sel.style) {
+      return;
+    }
+    
+    let c = false;
+    (async () => {
+      try {
+        const query = new URLSearchParams();
+        if (sel.style) query.set('style', sel.style);
+        if (sel.model) query.set('model', sel.model);
+        // НЕ передаем finish, чтобы всегда показывать все доступные покрытия
+        if (sel.color) query.set('color', sel.color);
+        if (sel.type) query.set('type', sel.type);
+        if (sel.width) query.set('width', sel.width.toString());
+        if (sel.height) query.set('height', sel.height.toString());
+        // if (sel.edge) query.set('edge', sel.edge);
+
+
+        const response = await fetch(`/api/catalog/doors/cascade-options?${query.toString()}`);
+        const data = await response.json();
+        
+        if (!c) {
+          setDomain(data.availableOptions);
+        }
+      } catch (e: any) {
+        console.error('❌ Ошибка каскадной загрузки:', e);
+        if (!c) setErr(e?.message ?? "Ошибка каскадной загрузки");
+      }
+    })();
+    return () => {
+      c = true;
+    };
+  }, [sel.model, sel.style, sel.color, sel.type, sel.width, sel.height]);
+
+  // Загрузка стоимости кромки при изменении параметров (временно отключено)
+  // useEffect(() => {
+  //   if (!sel.model || !sel.style) return;
+
+  //   let c = false;
+  //   (async () => {
+  //     try {
+  //       const query = new URLSearchParams();
+  //       if (sel.style) query.set('style', sel.style);
+  //       if (sel.model) query.set('model', sel.model);
+  //       if (sel.finish) query.set('finish', sel.finish);
+  //       if (sel.color) query.set('color', sel.color);
+  //       if (sel.type) query.set('type', sel.type);
+  //       if (sel.width) query.set('width', sel.width.toString());
+  //       if (sel.height) query.set('height', sel.height.toString());
+
+  //       const response = await fetch(`/api/catalog/doors/edge-cost?${query.toString()}`);
+  //       const data = await response.json();
+  //       
+  //       if (!c) {
+  //         setEdgeCostData(data);
+  //       }
+  //     } catch (e: any) {
+  //       console.error('❌ Ошибка загрузки стоимости кромки:', e);
+  //       if (!c) setErr(e?.message ?? "Ошибка загрузки стоимости кромки");
+  //     }
+  //   })();
+  //   return () => {
+  //     c = true;
+  //   };
+  // }, [sel.model, sel.style, sel.finish, sel.color, sel.type, sel.width, sel.height]);
 
   // Оптимизированная загрузка моделей и опций при изменении стиля
   useEffect(() => {
@@ -766,6 +951,13 @@ export default function DoorsPage() {
         
         // Если нет кэша, загружаем данные
         console.log('🔄 Загружаем данные для стиля:', sel.style || 'все');
+        
+        // Проверяем, не загружаются ли уже данные
+        if (isLoadingModels) {
+          console.log('⏸️ Данные уже загружаются, пропускаем');
+          return;
+        }
+        
         setIsLoadingModels(true);
         
         // Оптимистичное обновление: показываем пустой список сразу
@@ -804,7 +996,7 @@ export default function DoorsPage() {
     return () => {
       c = true;
     };
-  }, [sel.style, modelsCache]);
+  }, [sel.style]);
 
   useEffect(() => {
     let c = false;
@@ -875,12 +1067,6 @@ export default function DoorsPage() {
     }
   }, [sel.style, modelsCache]);
 
-  // Автоматическое сворачивание блока моделей только после нажатия кнопки "Выбрать"
-  useEffect(() => {
-    if (isModelSelected) {
-      setIsModelCollapsed(true);
-    }
-  }, [isModelSelected]);
 
   // Префилл по ?sku=...
   useEffect(() => {
@@ -921,8 +1107,8 @@ export default function DoorsPage() {
       unitPrice: price.total,
       handleId: (sel.handle && sel.handle.id) || undefined,
       sku_1c: price.sku_1c,
-      edge: sel.edge,
-      edge_note: sel.edge_note,
+      // edge: sel.edge,
+      // edge_note: sel.edge_note,
       hardwareKitId: (sel.hardware_kit && sel.hardware_kit.id) || undefined,
       baseAtAdd: price.total,
     };
@@ -1175,6 +1361,7 @@ export default function DoorsPage() {
     }));
   }, [cart]);
 
+
   return (
     <div className="min-h-screen bg-white">
       <header className="bg-white border-b border-black/10">
@@ -1254,6 +1441,7 @@ export default function DoorsPage() {
                 )}
               </div>
               
+              
               <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
                 isStyleCollapsed ? 'max-h-0 opacity-0' : 'max-h-96 opacity-100'
               }`}>
@@ -1268,18 +1456,14 @@ export default function DoorsPage() {
                   <button
                     key={s.key}
                     onClick={() => {
-                      setSel((v) => ({ 
-                        ...v, 
-                        style: s.key, 
-                        model: undefined,
-                        finish: undefined,
-                        color: undefined,
-                        type: undefined,
-                        width: undefined,
-                        height: undefined
-                      }));
+                      setSel((v) => {
+                        const newSel = resetDependentParams(v, 'style');
+                        newSel.style = s.key;
+                        return newSel;
+                      });
                       setIsModelSelected(false);
                       setIsModelCollapsed(false);
+                      setIsLoadingModels(false);
                     }}
                     className={`group overflow-hidden transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ring-offset-2 ${
                       sel.style === s.key 
@@ -1346,7 +1530,7 @@ export default function DoorsPage() {
               <section>
                 <div className="mb-2">
                   {sel.model ? (
-                    <button
+                  <button
                       onClick={() => setIsModelCollapsed(!isModelCollapsed)}
                       className="w-full flex items-center justify-between hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200"
                       aria-label={isModelCollapsed ? "Развернуть модели" : "Свернуть модели"}
@@ -1367,11 +1551,12 @@ export default function DoorsPage() {
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
-                    </button>
+                  </button>
                   ) : (
                     <h2 className="text-xl font-semibold text-black">Модели</h2>
                   )}
                 </div>
+                
                 
                 <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
                   isModelCollapsed ? 'max-h-0 opacity-0' : 'opacity-100'
@@ -1384,15 +1569,20 @@ export default function DoorsPage() {
                 ) : Array.isArray(models) && models.length ? (
                   <>
                     <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8">
-                      {models.map((m) => (
-                        <DoorCard
-                          key={m.model}
-                          item={m}
-                          selected={sel.model === m.model}
-                          onSelect={() => setSel((v) => ({ ...v, model: m.model }))}
-                        />
-                      ))}
-                    </div>
+                    {models.map((m) => (
+                      <DoorCard
+                        key={m.model}
+                        item={m}
+                        selected={sel.model === m.model}
+                          onSelect={() => setSel((v) => {
+                            const newSel = resetDependentParams(v, 'model');
+                            newSel.model = m.model;
+                            newSel.style = m.style;
+                            return newSel;
+                          })}
+                      />
+                    ))}
+                  </div>
                   </>
                 ) : (
                   <div className="text-gray-600 text-center py-8">Нет моделей для выбранного стиля</div>
@@ -1402,91 +1592,92 @@ export default function DoorsPage() {
             )}
 
             {/* Блок выбора параметров - появляется после сворачивания моделей */}
-            {sel.model && isModelSelected && (
+            {sel.model && isModelSelected && isModelCollapsed && (
               <section className="space-y-6">
+
+                {/* Материалы и отделка */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">Материалы и отделка</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <Select
                     label="Покрытие"
                     value={sel.finish || ""}
-                    onChange={(v: string) => setSel((s) => ({ ...s, finish: v }))}
+                    onChange={(v: string) => setSel((s) => {
+                      const newSel = resetDependentParams(s, 'finish');
+                      newSel.finish = v;
+                      return newSel;
+                    })}
                     options={(domain?.finish || []) as string[]}
                   />
                   <Select
                     label="Цвет"
                     value={sel.color || ""}
-                    onChange={(v: string) => setSel((s) => ({ ...s, color: v }))}
+                    onChange={(v: string) => setSel((s) => {
+                      const newSel = resetDependentParams(s, 'color');
+                      newSel.color = v;
+                      return newSel;
+                    })}
                     options={(domain?.color || []) as string[]}
                   />
-                  <Select
-                    label="Тип"
-                    value={sel.type || ""}
-                    onChange={(v: string) => setSel((s) => ({ ...s, type: v }))}
-                    options={(domain?.type || []) as string[]}
-                  />
+                  </div>
+                </div>
+
+                {/* Размеры */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">Размеры</h3>
+                  <div className="grid grid-cols-2 gap-3">
                   <Select
                     label="Ширина"
                     value={sel.width?.toString() || ""}
-                    onChange={(v: string) => setSel((s) => ({ ...s, width: Number(v) }))}
+                    onChange={(v: string) => setSel((s) => {
+                      const newSel = resetDependentParams(s, 'width');
+                      newSel.width = Number(v);
+                      return newSel;
+                    })}
                     options={((domain?.width || []) as number[]).map(String)}
                   />
                   <Select
                     label="Высота"
                     value={sel.height?.toString() || ""}
-                    onChange={(v: string) => setSel((s) => ({ ...s, height: Number(v) }))}
+                    onChange={(v: string) => setSel((s) => {
+                      const newSel = resetDependentParams(s, 'height');
+                      newSel.height = Number(v);
+                      return newSel;
+                    })}
                     options={((domain?.height || []) as number[]).map(String)}
                   />
-                  <Select
-                    label="Кромка"
-                    value={sel.edge || ""}
-                    onChange={(v: string) => setSel((s) => ({ ...s, edge: v }))}
-                    options={["да", "нет"]}
-                    allowEmpty
-                  />
-                  {sel.edge === "да" && (
-                    <label className="text-sm space-y-1">
-                      <div className="text-gray-600">Примечание к кромке</div>
-                      <input
-                        value={sel.edge_note || ""}
-                        onChange={(e) =>
-                          setSel((s) => ({
-                            ...s,
-                            edge_note: (e.target as HTMLInputElement).value,
-                          }))
-                        }
-                        className="w-full border border-black/20 px-3 py-2 text-black"
-                        placeholder="например: ABS BLACK"
-                      />
-                    </label>
-                  )}
-                </div>
-
-                <div className="bg-black/5 border border-black/10 p-6 space-y-4">
-                  <h3 className="text-lg font-semibold text-black">Выбор фурнитуры и ручек</h3>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <Select
-                        label="Комплект фурнитуры"
-                        value={(sel.hardware_kit && sel.hardware_kit.id) || ""}
-                        onChange={(v: string) =>
-                          setSel((s) => ({ ...s, hardware_kit: v ? { id: v } : undefined }))
-                        }
-                        options={((domain?.kits || []) as DomainKits).map((k) => k.id)}
-                        allowEmpty
-                      />
-                    </div>
-                    <div>
-                      <Select
-                        label="Ручка"
-                        value={(sel.handle && sel.handle.id) || ""}
-                        onChange={(v: string) =>
-                          setSel((s) => ({ ...s, handle: v ? { id: v } : undefined }))
-                        }
-                        options={((domain?.handles || []) as DomainHandles).map((h) => h.id)}
-                        allowEmpty
-                      />
-                    </div>
                   </div>
                 </div>
+
+                {/* Дополнительные элементы (временно отключено) */}
+
+                {/* Фурнитура */}
+                    <div>
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">Фурнитура</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                      <Select
+                        label="Комплект фурнитуры"
+                    value={sel.hardware_kit?.id || ""}
+                    onChange={(v: string) => setSel((s) => ({ 
+                      ...s, 
+                      hardware_kit: v ? { id: v } : undefined
+                    }))}
+                        options={((domain?.kits || []) as DomainKits).map((k) => k.id)}
+                    allowEmpty={true}
+                      />
+                      <Select
+                        label="Ручка"
+                    value={sel.handle?.id || ""}
+                    onChange={(v: string) => setSel((s) => ({ 
+                      ...s, 
+                      handle: v ? { id: v } : undefined
+                    }))}
+                        options={((domain?.handles || []) as DomainHandles).map((h) => h.id)}
+                    allowEmpty={true}
+                      />
+                  </div>
+                </div>
+
 
                 <div className="flex items-center gap-3">
                   <button
@@ -1494,7 +1685,7 @@ export default function DoorsPage() {
                     onClick={addToCart}
                     className="px-6 py-3 bg-black text-white hover:bg-yellow-400 hover:text-black transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
                   >
-                    В расчёт
+                    В корзину
                   </button>
                   {kpHtml && (
                     <button
@@ -1579,7 +1770,7 @@ export default function DoorsPage() {
           <aside className="lg:col-span-1">
             <div className="sticky top-6 space-y-6">
               {/* Блок параметров - показывает выбранные параметры */}
-              {sel.model && (
+              {(sel.style || sel.model || sel.finish || sel.color || sel.width || sel.height) && (
               <div className="bg-white border border-black/10 p-6">
                 <h2 className="text-xl font-semibold text-black mb-4">Параметры</h2>
                 <div className="text-sm space-y-2">
@@ -1590,24 +1781,43 @@ export default function DoorsPage() {
                     <div className="flex justify-between">
                       <span className="text-gray-600">Модель:</span>
                       <span className="text-black font-medium">{selectedModelCard ? formatModelNameForCard(selectedModelCard.model) : "—"}</span>
-                    </div>
+                  </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Покрытие и цвет:</span>
                     <span className="text-black font-medium">
-                    {sel.finish || "—"}
-                    {sel.color ? `, ${sel.color}` : ""}
+                    {sel.finish && sel.color
+                      ? `${sel.finish}, ${sel.color}`
+                      : sel.finish
+                        ? sel.finish
+                        : sel.color
+                          ? sel.color
+                          : "—"}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Кромка:</span>
+                    <span className="text-gray-600">Размеры:</span>
                     <span className="text-black font-medium">
-                    {sel.edge === "да"
-                      ? sel.edge_note
-                        ? `Кромка: ${sel.edge_note}`
-                        : "Кромка"
-                      : "Отсутствует"}
+                    {sel.width && sel.height
+                      ? `${sel.width} × ${sel.height} мм`
+                      : sel.width
+                        ? `${sel.width} мм`
+                        : sel.height
+                          ? `${sel.height} мм`
+                          : "—"}
                     </span>
                   </div>
+                  {/* <div className="flex justify-between">
+                    <span className="text-gray-600">Кромка:</span>
+                    <span className="text-black font-medium">
+                    {sel.edge && sel.edge !== "Нет" && sel.edge !== "нет"
+                      ? sel.edge === "Да" && sel.edge_cost
+                        ? `Да (${sel.edge_cost})`
+                        : sel.edge_note
+                          ? `${sel.edge}, ${sel.edge_note}`
+                          : sel.edge
+                      : "Отсутствует"}
+                    </span>
+                  </div> */}
                 </div>
                 <div className="mt-6 text-3xl font-bold text-black">
                   {price ? `${fmtInt(price.total)} ₽` : "—"}
@@ -1643,9 +1853,9 @@ export default function DoorsPage() {
                         <div className="text-xs text-gray-600 leading-tight">
                           {i.color ? `${i.color}, ` : ""}
                           {i.width}×{i.height}
-                          {i.edge === "да"
+                          {/* {i.edge === "да"
                             ? `, Кромка${i.edge_note ? `: ${i.edge_note}` : ""}`
-                            : ""}
+                            : ""} */}
                           {i.hardwareKitId
                             ? `, Комплект: ${
                                 mockData.kits.find((k) => k.id === i.hardwareKitId)?.name
@@ -2101,7 +2311,7 @@ function DoorCard({
                 <div className="text-sm">Нет фото</div>
                 <div className="text-[14px] text-center whitespace-nowrap px-2" title={formatModelNameForCard(item.model)}>
                   {formatModelNameForCard(item.model)}
-                </div>
+        </div>
         </div>
             </div>
           )}

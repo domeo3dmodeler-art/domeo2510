@@ -18,15 +18,15 @@ export async function GET(req: NextRequest) {
     const width = searchParams.get('width');
     const height = searchParams.get('height');
 
-    // Проверяем кэш
-    const cacheKey = `options_${style || 'all'}_${model || 'all'}_${finish || 'all'}_${color || 'all'}_${type || 'all'}_${width || 'all'}_${height || 'all'}`;
-    const cached = optionsCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      return NextResponse.json({
-        ...cached.data,
-        cached: true
-      });
-    }
+    // Временно отключаем кэш для отладки
+    // const cacheKey = `options_${style || 'all'}_${model || 'all'}_${finish || 'all'}_${color || 'all'}_${type || 'all'}_${width || 'all'}_${height || 'all'}`;
+    // const cached = optionsCache.get(cacheKey);
+    // if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    //   return NextResponse.json({
+    //     ...cached.data,
+    //     cached: true
+    //   });
+    // }
 
     console.log('🔍 API options - загрузка данных (не из кэша)');
 
@@ -54,6 +54,10 @@ export async function GET(req: NextRequest) {
     products.forEach(product => {
       const properties = product.properties_data ?
         (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
+
+      // Фильтруем по стилю и модели если они указаны
+      if (style && properties['Domeo_Стиль Web'] !== style) return;
+      if (model && !properties['Domeo_Название модели для Web']?.includes(model)) return;
 
       // Извлекаем данные из properties_data согласно реальной структуре
       if (properties['Domeo_Стиль Web']) distinctStyles.add(properties['Domeo_Стиль Web']);
@@ -108,15 +112,19 @@ export async function GET(req: NextRequest) {
       cached: false
     };
 
-    // Сохраняем в кэш
-    optionsCache.set(cacheKey, {
-      data: responseData,
-      timestamp: Date.now()
-    });
+    // Временно отключаем сохранение в кэш
+    // optionsCache.set(cacheKey, {
+    //   data: responseData,
+    //   timestamp: Date.now()
+    // });
 
     console.log('✅ API options - данные загружены и сохранены в кэш');
 
-    return NextResponse.json(responseData);
+    return NextResponse.json(responseData, {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8'
+      }
+    });
   } catch (error) {
     console.error('Error fetching door options:', error);
     return NextResponse.json(
