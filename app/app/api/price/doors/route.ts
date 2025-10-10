@@ -73,6 +73,17 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { selection } = body;
     
+    console.log('💰 Price calculation request:', {
+      style: selection.style,
+      model: selection.model,
+      finish: selection.finish,
+      color: selection.color,
+      width: selection.width,
+      height: selection.height,
+      hardware_kit: selection.hardware_kit,
+      handle: selection.handle
+    });
+    
 
     if (!selection) {
       return NextResponse.json(
@@ -113,13 +124,32 @@ export async function POST(req: NextRequest) {
       }
 
       // Затем по остальным параметрам
-      return (
-        (!selection.finish || properties['Общее_Тип покрытия'] === selection.finish) &&
-        (!selection.color || properties['Domeo_Цвет'] === selection.color) &&
-        (!selection.type || properties['Тип конструкции'] === selection.type) &&
-        (!selection.width || properties['Ширина/мм'] == selection.width) &&
-        (!selection.height || properties['Высота/мм'] == selection.height)
-      );
+      const finishMatch = !selection.finish || properties['Общее_Тип покрытия'] === selection.finish;
+      const colorMatch = !selection.color || properties['Domeo_Цвет'] === selection.color;
+      const typeMatch = !selection.type || properties['Тип конструкции'] === selection.type;
+      const widthMatch = !selection.width || properties['Ширина/мм'] == selection.width;
+      const heightMatch = !selection.height || properties['Высота/мм'] == selection.height;
+      
+      console.log('🔍 Product filter:', {
+        productId: p.id,
+        styleMatch,
+        modelMatch,
+        finishMatch,
+        colorMatch,
+        typeMatch,
+        widthMatch,
+        heightMatch,
+        requestedFinish: selection.finish,
+        actualFinish: properties['Общее_Тип покрытия'],
+        requestedColor: selection.color,
+        actualColor: properties['Domeo_Цвет'],
+        requestedWidth: selection.width,
+        actualWidth: properties['Ширина/мм'],
+        requestedHeight: selection.height,
+        actualHeight: properties['Высота/мм']
+      });
+      
+      return finishMatch && colorMatch && typeMatch && widthMatch && heightMatch;
     });
 
     // Если точный поиск не дал результатов, берем первый товар для тестирования
@@ -146,6 +176,8 @@ export async function POST(req: NextRequest) {
 
     // Добавляем комплект фурнитуры если выбран
     if (selection.hardware_kit?.id) {
+      console.log('🔧 Hardware kit selected:', selection.hardware_kit.id);
+      
       // Получаем комплекты фурнитуры из базы данных
       const hardwareKits = await prisma.product.findMany({
         where: {
@@ -160,12 +192,15 @@ export async function POST(req: NextRequest) {
         }
       });
 
+      console.log('🔧 Available hardware kits:', hardwareKits.length);
       const kit = hardwareKits.find(k => k.id === selection.hardware_kit.id);
+      console.log('🔧 Found kit:', kit ? 'Yes' : 'No');
       if (kit) {
         const kitProps = kit.properties_data ? 
           (typeof kit.properties_data === 'string' ? JSON.parse(kit.properties_data) : kit.properties_data) : {};
         
         const kitPrice = parseFloat(kitProps['Группа_цена']) || 0;
+        console.log('🔧 Kit price:', kitPrice);
         total += kitPrice;
         breakdown.push({ 
           label: `Комплект: ${kitProps['Наименование для Web'] || kit.name}`, 
@@ -176,6 +211,8 @@ export async function POST(req: NextRequest) {
 
     // Добавляем ручку если выбрана
     if (selection.handle?.id) {
+      console.log('🔧 Handle selected:', selection.handle.id);
+      
       // Получаем ручки из базы данных
       const handles = await prisma.product.findMany({
         where: {
@@ -190,12 +227,15 @@ export async function POST(req: NextRequest) {
         }
       });
 
+      console.log('🔧 Available handles:', handles.length);
       const handle = handles.find(h => h.id === selection.handle.id);
+      console.log('🔧 Found handle:', handle ? 'Yes' : 'No');
       if (handle) {
         const handleProps = handle.properties_data ? 
           (typeof handle.properties_data === 'string' ? JSON.parse(handle.properties_data) : handle.properties_data) : {};
         
         const handlePrice = parseFloat(handleProps['Domeo_цена группы Web']) || 0;
+        console.log('🔧 Handle price:', handlePrice);
         total += handlePrice;
         breakdown.push({ 
           label: `Ручка: ${handleProps['Domeo_наименование ручки_1С'] || handle.name}`, 

@@ -742,6 +742,47 @@ export default function DoorsPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showQuantityModal, setShowQuantityModal] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  
+  // Состояние для редактирования корзины
+  const [editingItem, setEditingItem] = useState<string | null>(null);
+  const [originalPrices, setOriginalPrices] = useState<Record<string, number>>({});
+  const [cartChanges, setCartChanges] = useState<Record<string, Partial<CartItem>>>({});
+  const [cartHistory, setCartHistory] = useState<Array<{timestamp: Date, changes: Record<string, any>, totalDelta: number}>>([]);
+  const [availableParams, setAvailableParams] = useState<any>(null);
+  const [showCartManager, setShowCartManager] = useState(false);
+  const [cartManagerBasePrices, setCartManagerBasePrices] = useState<Record<string, number>>({});
+
+  // Сохранение корзины в localStorage
+  useEffect(() => {
+    if (cart.length > 0) {
+      localStorage.setItem('domeo-cart', JSON.stringify(cart));
+      localStorage.setItem('domeo-original-prices', JSON.stringify(originalPrices));
+    }
+  }, [cart, originalPrices]);
+
+  // Загрузка корзины из localStorage при инициализации
+  useEffect(() => {
+    const savedCart = localStorage.getItem('domeo-cart');
+    const savedPrices = localStorage.getItem('domeo-original-prices');
+    
+    if (savedCart) {
+      try {
+        const parsedCart = JSON.parse(savedCart);
+        setCart(parsedCart);
+      } catch (error) {
+        console.error('Error loading cart from localStorage:', error);
+      }
+    }
+    
+    if (savedPrices) {
+      try {
+        const parsedPrices = JSON.parse(savedPrices);
+        setOriginalPrices(parsedPrices);
+      } catch (error) {
+        console.error('Error loading original prices from localStorage:', error);
+      }
+    }
+  }, []);
   const [kpHtml, setKpHtml] = useState<string>("");
   const [selectedClient, setSelectedClient] = useState<string>('');
   
@@ -1198,6 +1239,15 @@ export default function DoorsPage() {
     }
     
     setCart(newCart);
+    
+    // Сохраняем исходные цены для новых товаров
+    const newItems = newCart.filter(item => !cart.find(cartItem => cartItem.id === item.id));
+    const newOriginalPrices: Record<string, number> = {};
+    newItems.forEach(item => {
+      newOriginalPrices[item.id] = item.unitPrice;
+    });
+    setOriginalPrices(prev => ({ ...prev, ...newOriginalPrices }));
+    
     setShowQuantityModal(false);
     setQuantity(1);
   };
@@ -1452,6 +1502,8 @@ export default function DoorsPage() {
     }));
   }, [cart]);
 
+  // Функции для расчета дельт (только для отображения) - удалены, дельта показывается только в менеджере корзины
+
 
   return (
     <div className="min-h-screen bg-white">
@@ -1494,6 +1546,26 @@ export default function DoorsPage() {
                 Админ
               </button>
             )}
+            <button
+              onClick={() => {
+                // Сохраняем текущие цены как базовые для расчета дельты
+                const basePrices: Record<string, number> = {};
+                cart.forEach(item => {
+                  basePrices[item.id] = item.unitPrice;
+                });
+                setCartManagerBasePrices(basePrices);
+                setShowCartManager(true);
+              }}
+              className="flex items-center space-x-2 px-3 py-1 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 text-sm"
+            >
+              <span>🛒</span>
+              <span>Корзина</span>
+              {cart.length > 0 && (
+                <span className="bg-red-500 text-white text-xs rounded-full px-1 py-0.5 min-w-[16px] text-center">
+                  {cart.length}
+                </span>
+              )}
+            </button>
           </nav>
           </div>
         </div>
@@ -1750,11 +1822,11 @@ export default function DoorsPage() {
                 {/* Дополнительные элементы (временно отключено) */}
 
                 {/* Фурнитура */}
-                <div>
+                    <div>
                   <h3 className="text-sm font-medium text-gray-700 mb-3">Фурнитура</h3>
                   <div className="space-y-4">
                     <HardwareSelect
-                      label="Комплект фурнитуры"
+                        label="Комплект фурнитуры"
                       value={sel.hardware_kit?.id || ""}
                       onChange={(v: string) => setSel((s) => ({ 
                         ...s, 
@@ -1770,7 +1842,7 @@ export default function DoorsPage() {
                       disabled={!sel.width || !sel.height}
                     />
                     <HandleSelect
-                      label="Ручка"
+                        label="Ручка"
                       value={sel.handle?.id || ""}
                       onChange={(v: string) => setSel((s) => ({ 
                         ...s, 
@@ -1779,9 +1851,9 @@ export default function DoorsPage() {
                       handles={sel.hardware_kit ? handles : {}}
                       allowEmpty={true}
                       disabled={!sel.hardware_kit}
-                    />
+                      />
+                    </div>
                   </div>
-                </div>
 
                 {/* Общая стоимость конфигурации */}
                 {price && (
@@ -1808,7 +1880,7 @@ export default function DoorsPage() {
                                 ? `${fmtInt(price.breakdown.find((item: any) => item.label === 'Дверь').amount)} ₽`
                                 : "—"}
                           </span>
-                        </div>
+                </div>
                         
                         {/* Ручка */}
                         {sel.handle?.id && (
@@ -1962,7 +2034,7 @@ export default function DoorsPage() {
                         ? hardwareKits.find((k: HardwareKit) => k.id === sel.hardware_kit!.id)?.name.replace('Комплект фурнитуры — ', '') || "—"
                         : "—"}
                     </span>
-                  </div>
+                </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Ручка:</span>
                     <span className="text-black font-medium">
@@ -1970,7 +2042,7 @@ export default function DoorsPage() {
                         ? Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)?.name || "—"
                         : "—"}
                     </span>
-                  </div>
+                </div>
                   {/* <div className="flex justify-between">
                     <span className="text-gray-600">Кромка:</span>
                     <span className="text-black font-medium">
@@ -1983,7 +2055,7 @@ export default function DoorsPage() {
                       : "Отсутствует"}
                     </span>
                   </div> */}
-                </div>
+              </div>
               </div>
               )}
 
@@ -1993,9 +2065,9 @@ export default function DoorsPage() {
               <div className="bg-white border border-black/10 p-5 transition-all duration-700 ease-in-out">
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-lg font-semibold text-black">Корзина ({cart.length})</h2>
-                  <div className="text-sm text-gray-600">
+                <div className="text-sm text-gray-600">
                     Итого:{" "}
-                    <span className="font-semibold text-black text-base">
+                  <span className="font-semibold text-black text-base">
                       {fmtInt(cart.reduce((s, i) => s + i.unitPrice * i.qty, 0))} ₽
                     </span>
                   </div>
@@ -2009,40 +2081,40 @@ export default function DoorsPage() {
                         const handle = Object.values(handles).flat().find((h: Handle) => h.id === i.handleId);
                         return (
                           <div key={i.id} className="border border-black/10 p-3">
-                            <div className="flex items-center justify-between">
-                              <div className="font-medium text-black text-sm">
+                        <div className="flex items-center justify-between">
+                          <div className="font-medium text-black text-sm">
                                 {handle?.name || "Ручка"}
-                              </div>
+                          </div>
                               <div className="text-sm">
                                 <span className="text-gray-600">{i.qty}×{fmtInt(i.unitPrice)}</span>
                                 <span className="font-semibold text-black ml-3">{fmtInt(i.unitPrice * i.qty)} ₽</span>
-                              </div>
-                            </div>
                           </div>
+                        </div>
+                        </div>
                         );
                       }
                       
                       // Иначе отображаем дверь с комплектом
                       return (
-                      <div key={i.id} className="border border-black/10 p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm">
-                            <div className="font-medium text-black">
-                              Дверь DomeoDoors {i.model.replace(/DomeoDoors_/g, '').replace(/_/g, ' ')}
-                            </div>
-                            <div className="text-gray-600 text-xs font-normal">
-                              ({i.finish}, {i.color}, {i.width} × {i.height} мм, Фурнитура - {hardwareKits.find((k: any) => k.id === i.hardwareKitId)?.name.replace('Комплект фурнитуры — ', '') || 'Базовый'})
-                            </div>
+                        <div key={i.id} className="border border-black/10 p-3">
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm">
+                              <div className="font-medium text-black">
+                                Дверь DomeoDoors {i.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель'}
                           </div>
-                          <div className="text-sm">
-                            <span className="text-gray-600">{i.qty}×{fmtInt(i.unitPrice)}</span>
-                            <span className="font-semibold text-black ml-3">{fmtInt(i.unitPrice * i.qty)} ₽</span>
+                              <div className="text-gray-600 text-xs font-normal">
+                                ({i.finish}, {i.color}, {i.width} × {i.height} мм, Фурнитура - {hardwareKits.find((k: any) => k.id === i.hardwareKitId)?.name.replace('Комплект фурнитуры — ', '') || 'Базовый'})
                           </div>
                         </div>
+                            <div className="text-sm">
+                              <span className="text-gray-600">{i.qty}×{fmtInt(i.unitPrice)}</span>
+                              <span className="font-semibold text-black ml-3">{fmtInt(i.unitPrice * i.qty)} ₽</span>
+                          </div>
                       </div>
+                        </div>
                       );
                     })}
-                          </div>
+                  </div>
                 ) : (
                   <div className="text-sm text-gray-500 text-center py-4">
                     Корзина пуста
@@ -2392,11 +2464,660 @@ export default function DoorsPage() {
           </div>
         </div>
       )}
+
+      {/* Менеджер корзины */}
+      {showCartManager && (
+        <CartManager
+          cart={cart}
+          setCart={setCart}
+          originalPrices={originalPrices}
+          setOriginalPrices={setOriginalPrices}
+          cartHistory={cartHistory}
+          setCartHistory={setCartHistory}
+          hardwareKits={hardwareKits}
+          handles={handles}
+          cartManagerBasePrices={cartManagerBasePrices}
+          onClose={() => setShowCartManager(false)}
+        />
+      )}
     </div>
   );
 }
 
 // ===================== Вспомогательные компоненты =====================
+
+// Менеджер корзины
+function CartManager({
+  cart,
+  setCart,
+  originalPrices,
+  setOriginalPrices,
+  cartHistory,
+  setCartHistory,
+  hardwareKits,
+  handles,
+  cartManagerBasePrices,
+  onClose
+}: {
+  cart: CartItem[];
+  setCart: React.Dispatch<React.SetStateAction<CartItem[]>>;
+  originalPrices: Record<string, number>;
+  setOriginalPrices: React.Dispatch<React.SetStateAction<Record<string, number>>>;
+  cartHistory: Array<{timestamp: Date, changes: Record<string, any>, totalDelta: number}>;
+  setCartHistory: React.Dispatch<React.SetStateAction<Array<{timestamp: Date, changes: Record<string, any>, totalDelta: number}>>>;
+  hardwareKits: HardwareKit[];
+  handles: Record<string, Handle[]>;
+  cartManagerBasePrices: Record<string, number>;
+  onClose: () => void;
+}) {
+  const [editingItem, setEditingItem] = useState<string | null>(null);
+  const [availableParams, setAvailableParams] = useState<any>(null);
+
+  // Простое отображение всех товаров корзины
+  const filteredCart = cart;
+
+  // Функции редактирования
+  const startEditingItem = async (itemId: string) => {
+    const item = cart.find(i => i.id === itemId);
+    console.log('🔍 Starting edit for item:', item);
+    console.log('🔍 Item style:', JSON.stringify(item?.style));
+    console.log('🔍 Item model:', JSON.stringify(item?.model));
+    
+    if (item && item.style && item.model) {
+      setEditingItem(itemId);
+      
+      // Загружаем доступные параметры
+      try {
+        const response = await fetch('/api/available-params', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json; charset=utf-8',
+            'Accept': 'application/json; charset=utf-8'
+          },
+          body: JSON.stringify({
+            style: item.style,
+            model: item.model
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('📥 Available params response:', data);
+          setAvailableParams(data.params);
+        } else {
+          console.error('Error loading available parameters:', response.status, response.statusText);
+        }
+      } catch (error) {
+        console.error('Error loading available parameters:', error);
+      }
+    }
+  };
+
+  const updateCartItem = async (itemId: string, changes: Partial<CartItem>) => {
+    console.log('🔄 updateCartItem called:', { itemId, changes });
+    
+    // Если это изменение параметров (не количества), пересчитываем цену онлайн
+    if (changes.finish || changes.color || changes.width || changes.height || changes.hardwareKitId || changes.handleId) {
+      // Получаем текущий элемент из корзины
+      const currentItem = cart.find(i => i.id === itemId);
+      if (!currentItem) {
+        console.log('❌ Item not found in cart:', itemId);
+        return;
+      }
+
+      // Создаем обновленный элемент с новыми параметрами
+      const updatedItem = { ...currentItem, ...changes };
+      console.log('📝 Updated item:', updatedItem);
+
+      try {
+        if (updatedItem.handleId) {
+          // Для ручек получаем цену из каталога
+          const handle = Object.values(handles).flat().find((h: Handle) => h.id === updatedItem.handleId);
+          const newPrice = handle ? handle.price : updatedItem.unitPrice;
+          console.log('🔧 Handle price update:', { handleId: updatedItem.handleId, newPrice });
+          
+          // Обновляем корзину с новой ценой
+          setCart(prev => prev.map(item => 
+            item.id === itemId ? { ...item, ...changes, unitPrice: newPrice } : item
+          ));
+        } else {
+          // Для дверей используем API расчета цены
+          console.log('🚪 Door price calculation:', {
+            style: updatedItem.style,
+            model: updatedItem.model,
+            finish: updatedItem.finish,
+            color: updatedItem.color,
+            width: updatedItem.width,
+            height: updatedItem.height,
+            hardware_kit: updatedItem.hardwareKitId ? { id: updatedItem.hardwareKitId } : undefined
+          });
+
+          const response = await fetch('/api/price/doors', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8',
+            },
+            body: JSON.stringify({
+              selection: {
+                style: updatedItem.style,
+                model: updatedItem.model,
+                finish: updatedItem.finish,
+                color: updatedItem.color,
+                width: updatedItem.width,
+                height: updatedItem.height,
+                hardware_kit: updatedItem.hardwareKitId ? { id: updatedItem.hardwareKitId } : undefined,
+                handle: updatedItem.handleId ? { id: updatedItem.handleId } : undefined
+              }
+            })
+          });
+
+          console.log('📡 API response status:', response.status);
+
+          if (response.ok) {
+            const priceData = await response.json();
+            console.log('💰 Price data received:', priceData);
+            
+            if (priceData.total) {
+              console.log('✅ Updating cart with new price:', priceData.total);
+              // Обновляем корзину с новой ценой
+              setCart(prev => prev.map(item => 
+                item.id === itemId ? { ...item, ...changes, unitPrice: priceData.total } : item
+              ));
+            } else {
+              console.log('⚠️ No total price in response');
+            }
+          } else {
+            console.log('❌ API request failed:', response.status);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error updating price online:', error);
+        // В случае ошибки все равно обновляем корзину без изменения цены
+        setCart(prev => prev.map(item => 
+          item.id === itemId ? { ...item, ...changes } : item
+        ));
+      }
+    } else {
+      // Для изменений количества просто обновляем корзину
+      console.log('🔢 Quantity update only');
+      setCart(prev => prev.map(item => 
+        item.id === itemId ? { ...item, ...changes } : item
+      ));
+    }
+  };
+
+  const confirmCartChanges = async () => {
+    if (!editingItem) return;
+
+    const currentItem = cart.find(i => i.id === editingItem);
+    if (!currentItem) return;
+
+    // Валидация обязательных полей (только для дверей)
+    if (!currentItem.handleId && (!currentItem.finish || !currentItem.color || !currentItem.width || !currentItem.height)) {
+      alert('Пожалуйста, заполните все обязательные поля');
+      return;
+    }
+
+    try {
+      let response;
+      
+      if (currentItem.handleId) {
+        // Для ручек получаем цену из каталога
+        const handle = Object.values(handles).flat().find((h: Handle) => h.id === currentItem.handleId);
+            const newPrice = handle ? handle.price : currentItem.unitPrice;
+        
+        // Обновляем корзину
+        setCart(prev => prev.map(item => 
+          item.id === editingItem 
+            ? { ...item, unitPrice: newPrice }
+            : item
+        ));
+
+        // Сохраняем в историю
+        const originalPrice = originalPrices[editingItem] || 0;
+        const delta = newPrice - originalPrice;
+        
+        setCartHistory(prev => [...prev, {
+          timestamp: new Date(),
+          changes: { [editingItem]: { unitPrice: newPrice } },
+          totalDelta: delta
+        }]);
+
+        setEditingItem(null);
+        return;
+      } else {
+        // Для дверей используем API расчета цены
+        response = await fetch('/api/price/doors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            selection: {
+              style: currentItem.style,
+              model: currentItem.model,
+              finish: currentItem.finish,
+              color: currentItem.color,
+              width: currentItem.width,
+              height: currentItem.height,
+              hardware_kit: currentItem.hardwareKitId ? { id: currentItem.hardwareKitId } : undefined,
+              handle: currentItem.handleId ? { id: currentItem.handleId } : undefined
+            }
+          })
+        });
+      }
+
+      if (response.ok) {
+        const priceData = await response.json();
+        const newPrice = priceData.total;
+
+        // Обновляем корзину
+        setCart(prev => prev.map(item => 
+          item.id === editingItem 
+            ? { ...item, unitPrice: newPrice }
+            : item
+        ));
+
+        // Сохраняем в историю
+        const originalPrice = originalPrices[editingItem] || 0;
+        const delta = newPrice - originalPrice;
+        
+        setCartHistory(prev => [...prev, {
+          timestamp: new Date(),
+          changes: { [editingItem]: { unitPrice: newPrice } },
+          totalDelta: delta
+        }]);
+
+        // Уведомление убрано по запросу пользователя
+      } else {
+        alert('Ошибка при пересчете цены. Проверьте выбранные параметры.');
+      }
+    } catch (error) {
+      console.error('Error updating cart item:', error);
+      alert('Произошла ошибка при обновлении товара');
+    }
+
+    setEditingItem(null);
+  };
+
+  const cancelCartChanges = () => {
+    setEditingItem(null);
+  };
+
+  const removeItem = (itemId: string) => {
+    setCart(prev => prev.filter(item => item.id !== itemId));
+  };
+
+  const getItemDelta = (itemId: string) => {
+    const basePrice = cartManagerBasePrices[itemId] || 0;
+    const currentItem = cart.find(i => i.id === itemId);
+    const currentPrice = currentItem?.unitPrice || 0;
+    return currentPrice - basePrice;
+  };
+
+  const getTotalDelta = () => {
+    return cart.reduce((total, item) => {
+      return total + getItemDelta(item.id);
+    }, 0);
+  };
+
+  const totalPrice = cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <h2 className="text-2xl font-bold text-black">Корзина</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 text-2xl"
+          >
+            ×
+          </button>
+        </div>
+
+
+        {/* Список товаров */}
+        <div className="p-6 overflow-y-auto max-h-[60vh]">
+          {filteredCart.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              {cart.length === 0 ? 'Корзина пуста' : 'Товары не найдены'}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredCart.map((item) => {
+                const delta = getItemDelta(item.id);
+                const isEditing = editingItem === item.id;
+                
+                if (item.handleId) {
+                  const handle = Object.values(handles).flat().find((h: Handle) => h.id === item.handleId);
+                  return (
+                  <div key={item.id} className="border border-gray-200 rounded-lg p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-black text-sm truncate">
+                          {handle?.name || "Ручка"}
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-4 ml-6">
+                        <div className="flex items-center space-x-1">
+                          <button
+                            onClick={() => updateCartItem(item.id, { qty: Math.max(1, item.qty - 1) })}
+                            className="w-4 h-4 bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center text-xs"
+                          >
+                            -
+                          </button>
+                          <span className="min-w-[12px] text-center text-xs">{item.qty}</span>
+                          <button
+                            onClick={() => updateCartItem(item.id, { qty: item.qty + 1 })}
+                            className="w-4 h-4 bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center text-xs"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold text-black text-sm">
+                            {fmtInt(item.unitPrice * item.qty)} ₽
+                          </div>
+                          {delta !== 0 && (
+                            <div className={`text-xs ${delta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {delta > 0 ? '+' : ''}{fmtInt(delta)} ₽
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3 ml-4">
+                          {!isEditing && (
+                            <button
+                              onClick={() => startEditingItem(item.id)}
+                              className="w-5 h-5 bg-black text-white rounded hover:bg-gray-800 flex items-center justify-center text-xs"
+                              title="Редактировать"
+                            >
+                              ✏️
+                            </button>
+                          )}
+                          <button
+                            onClick={() => removeItem(item.id)}
+                            className="w-5 h-5 bg-gray-500 text-white rounded hover:bg-gray-600 flex items-center justify-center text-xs"
+                            title="Удалить"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                      {isEditing && availableParams && (
+                        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded">
+                          {/* Компактная строка с селектами и кнопками */}
+                          <div className="flex items-center space-x-2 mb-4">
+                            {/* Ручка */}
+                            <div className="flex-shrink-0">
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Ручка</label>
+                              <select
+                                value={item.handleId || ''}
+                                onChange={(e) => updateCartItem(item.id, { handleId: e.target.value })}
+                                className="w-32 text-xs border border-gray-300 rounded px-1 py-1"
+                              >
+                                <option value="">Выберите</option>
+                                {availableParams.handles?.map((handle: {id: string, name: string, group: string}) => (
+                                  <option key={handle.id} value={handle.id}>{handle.name}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Кнопки */}
+                            <div className="flex-shrink-0">
+                              <label className="block text-xs font-medium text-gray-700 mb-1">&nbsp;</label>
+                              <div className="flex space-x-1">
+                                <button
+                                  onClick={confirmCartChanges}
+                                  className="px-2 py-1 text-xs bg-black text-white rounded hover:bg-gray-800"
+                                >
+                                  Применить
+                                </button>
+                                <button
+                                  onClick={cancelCartChanges}
+                                  className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
+                                >
+                                  Отменить
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div key={item.id} className="border border-gray-200 rounded-lg p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-black text-sm truncate">
+                          Дверь DomeoDoors {item.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель'}
+                        </div>
+                        <div className="text-xs text-gray-600 truncate">
+                          {item.finish}, {item.color}, {item.width} × {item.height} мм, Фурнитура: {hardwareKits.find((k: any) => k.id === item.hardwareKitId)?.name.replace('Комплект фурнитуры — ', '') || 'Базовый'}
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-4 ml-6">
+                        <div className="flex items-center space-x-1">
+                          <button
+                            onClick={() => updateCartItem(item.id, { qty: Math.max(1, item.qty - 1) })}
+                            className="w-4 h-4 bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center text-xs"
+                          >
+                            -
+                          </button>
+                          <span className="min-w-[12px] text-center text-xs">{item.qty}</span>
+                          <button
+                            onClick={() => updateCartItem(item.id, { qty: item.qty + 1 })}
+                            className="w-4 h-4 bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center text-xs"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold text-black text-sm">
+                            {fmtInt(item.unitPrice * item.qty)} ₽
+                          </div>
+                          {delta !== 0 && (
+                            <div className={`text-xs ${delta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {delta > 0 ? '+' : ''}{fmtInt(delta)} ₽
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3 ml-4">
+                        {!isEditing && (
+                          <button
+                            onClick={() => startEditingItem(item.id)}
+                            className="w-5 h-5 bg-black text-white rounded hover:bg-gray-800 flex items-center justify-center text-xs"
+                            title="Редактировать"
+                          >
+                            ✏️
+                          </button>
+                        )}
+                        <button
+                          onClick={() => removeItem(item.id)}
+                          className="w-5 h-5 bg-gray-500 text-white rounded hover:bg-gray-600 flex items-center justify-center text-xs"
+                          title="Удалить"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                    {isEditing && availableParams && (
+                      <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded">
+                        {/* Компактная строка с селектами */}
+                        <div className="flex items-center space-x-2 mb-4">
+                          {/* Покрытие */}
+                          <div className="flex-shrink-0">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Покрытие</label>
+                            <select
+                              value={item.finish || ''}
+                              onChange={(e) => updateCartItem(item.id, { finish: e.target.value })}
+                              className="w-24 text-xs border border-gray-300 rounded px-1 py-1"
+                            >
+                              <option value="">Выберите</option>
+                              {availableParams.finishes?.map((finish: string) => (
+                                <option key={finish} value={finish}>{finish}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Цвет */}
+                          <div className="flex-shrink-0">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Цвет</label>
+                            <select
+                              value={item.color || ''}
+                              onChange={(e) => updateCartItem(item.id, { color: e.target.value })}
+                              className="w-24 text-xs border border-gray-300 rounded px-1 py-1"
+                            >
+                              <option value="">Выберите</option>
+                              {availableParams.colors?.map((color: string) => (
+                                <option key={color} value={color}>{color}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Ширина */}
+                          <div className="flex-shrink-0">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Ширина</label>
+                            <select
+                              value={item.width || ''}
+                              onChange={(e) => updateCartItem(item.id, { width: Number(e.target.value) })}
+                              className="w-16 text-xs border border-gray-300 rounded px-1 py-1"
+                            >
+                              <option value="">Выберите</option>
+                              {availableParams.widths?.map((width: number) => (
+                                <option key={width} value={width}>{width}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Высота */}
+                          <div className="flex-shrink-0">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Высота</label>
+                            <select
+                              value={item.height || ''}
+                              onChange={(e) => updateCartItem(item.id, { height: Number(e.target.value) })}
+                              className="w-16 text-xs border border-gray-300 rounded px-1 py-1"
+                            >
+                              <option value="">Выберите</option>
+                              {availableParams.heights?.map((height: number) => (
+                                <option key={height} value={height}>{height}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Комплект фурнитуры */}
+                          <div className="flex-shrink-0">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Фурнитура</label>
+                            <select
+                              value={item.hardwareKitId || ''}
+                              onChange={(e) => updateCartItem(item.id, { hardwareKitId: e.target.value })}
+                              className="w-24 text-xs border border-gray-300 rounded px-1 py-1"
+                            >
+                              <option value="">Выберите</option>
+                              {availableParams.hardwareKits?.map((kit: {id: string, name: string}) => (
+                                <option key={kit.id} value={kit.id}>{kit.name}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Количество */}
+                          <div className="flex-shrink-0">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Количество</label>
+                            <div className="flex items-center space-x-1">
+                              <button
+                                onClick={() => updateCartItem(item.id, { qty: Math.max(1, item.qty - 1) })}
+                                className="w-5 h-5 bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center text-xs"
+                              >
+                                -
+                              </button>
+                              <span className="min-w-[16px] text-center text-xs">{item.qty}</span>
+                              <button
+                                onClick={() => updateCartItem(item.id, { qty: item.qty + 1 })}
+                                className="w-5 h-5 bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center text-xs"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                          {/* Кнопки */}
+                          <div className="flex-shrink-0">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">&nbsp;</label>
+                            <div className="flex space-x-1">
+                              <button
+                                onClick={confirmCartChanges}
+                                className="px-2 py-1 text-xs bg-black text-white rounded hover:bg-gray-800"
+                              >
+                                Применить
+                              </button>
+                              <button
+                                onClick={cancelCartChanges}
+                                className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
+                              >
+                                Отменить
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 border-t border-gray-200 bg-gray-50">
+          <div className="flex items-center justify-between">
+            <div className="text-lg font-semibold text-black">
+              Итого: {fmtInt(totalPrice)} ₽
+              {getTotalDelta() !== 0 && (
+                <span className={`ml-2 text-sm ${getTotalDelta() > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  ({getTotalDelta() > 0 ? '+' : ''}{fmtInt(getTotalDelta())} ₽)
+                </span>
+              )}
+            </div>
+            <div className="flex space-x-3">
+              {cartHistory.length > 0 && (
+                <button
+                  onClick={() => {
+                    const historyText = cartHistory.map(entry => 
+                      `${entry.timestamp.toLocaleString()}: ${Object.keys(entry.changes).length} изменений (${entry.totalDelta > 0 ? '+' : ''}${fmtInt(entry.totalDelta)} ₽)`
+                    ).join('\n');
+                    alert(`История изменений:\n\n${historyText}`);
+                  }}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                >
+                  История ({cartHistory.length})
+                </button>
+              )}
+              <button
+                onClick={() => setCart([])}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
+              >
+                Очистить корзину
+              </button>
+              <button
+                onClick={onClose}
+                className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Компонент CartItemEditor удален - редактирование теперь инлайн в CartManager
+
 function DoorCard({
   item,
   selected,
@@ -2822,3 +3543,4 @@ function SelectMini({
     </label>
   );
 }
+
