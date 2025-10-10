@@ -751,6 +751,9 @@ export default function DoorsPage() {
   const [availableParams, setAvailableParams] = useState<any>(null);
   const [showCartManager, setShowCartManager] = useState(false);
   const [cartManagerBasePrices, setCartManagerBasePrices] = useState<Record<string, number>>({});
+  const [showClientManager, setShowClientManager] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<string>('');
+  const [selectedClientName, setSelectedClientName] = useState<string>('');
 
   // Сохранение корзины в localStorage
   useEffect(() => {
@@ -784,7 +787,6 @@ export default function DoorsPage() {
     }
   }, []);
   const [kpHtml, setKpHtml] = useState<string>("");
-  const [selectedClient, setSelectedClient] = useState<string>('');
   
   // Состояние для интерактивной фишки
   const [isModelSelected, setIsModelSelected] = useState(false);
@@ -1504,6 +1506,71 @@ export default function DoorsPage() {
 
   // Функции для расчета дельт (только для отображения) - удалены, дельта показывается только в менеджере корзины
 
+  // Функции генерации документов
+  const generateDocument = async (type: 'quote' | 'invoice' | 'order') => {
+    if (cart.length === 0) {
+      alert('Корзина пуста');
+      return;
+    }
+
+    if (!selectedClient) {
+      setShowClientManager(true);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/documents/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+        body: JSON.stringify({
+          type,
+          clientId: selectedClient,
+          items: cart.map(item => ({
+            id: item.id,
+            model: item.model,
+            finish: item.finish,
+            color: item.color,
+            width: item.width,
+            height: item.height,
+            qty: item.qty,
+            unitPrice: item.unitPrice,
+            sku_1c: item.sku_1c,
+            hardwareKitId: item.hardwareKitId,
+            hardwareKitName: item.hardwareKitId ? hardwareKits.find(k => k.id === item.hardwareKitId)?.name : undefined,
+            handleId: item.handleId,
+            description: item.handleId ? Object.values(handles).flat().find(h => h.id === item.handleId)?.name : undefined
+          })),
+          totalAmount: cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0)
+        })
+      });
+
+      if (response.ok) {
+        // Для всех типов документов скачиваем файлы
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        
+        if (type === 'order') {
+          a.download = `Заказ_${new Date().toISOString().split('T')[0]}.xlsx`;
+        } else {
+          a.download = `${type === 'quote' ? 'КП' : 'Счет'}_${new Date().toISOString().split('T')[0]}.pdf`;
+        }
+        
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert('Ошибка при генерации документа');
+      }
+    } catch (error) {
+      console.error('Error generating document:', error);
+      alert('Ошибка при генерации документа');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -1546,6 +1613,8 @@ export default function DoorsPage() {
                 Админ
               </button>
             )}
+            
+            
             <button
               onClick={() => {
                 // Сохраняем текущие цены как базовые для расчета дельты
@@ -2477,8 +2546,172 @@ export default function DoorsPage() {
           hardwareKits={hardwareKits}
           handles={handles}
           cartManagerBasePrices={cartManagerBasePrices}
+          showClientManager={showClientManager}
+          setShowClientManager={setShowClientManager}
+          generateDocument={generateDocument}
+          selectedClient={selectedClient}
+          selectedClientName={selectedClientName}
+          setSelectedClient={setSelectedClient}
+          setSelectedClientName={setSelectedClientName}
           onClose={() => setShowCartManager(false)}
         />
+      )}
+
+      {/* Менеджер заказчиков */}
+      {showClientManager && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-black">Менеджер заказчиков</h2>
+              <button
+                onClick={() => setShowClientManager(false)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Поиск и список клиентов */}
+                <div>
+                  <h3 className="text-lg font-semibold text-black mb-4">Поиск клиента</h3>
+                  <div className="space-y-4">
+                    <input
+                      type="text"
+                      placeholder="Поиск по ФИО, телефону, адресу..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
+                      <div 
+                        className={`p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
+                          selectedClient === '1' ? 'bg-blue-50 border-blue-200' : ''
+                        }`}
+                        onClick={() => {
+                          setSelectedClient('1');
+                          setSelectedClientName('Иванов Иван Иванович');
+                        }}
+                      >
+                        <div className="font-medium">Иванов Иван Иванович</div>
+                        <div className="text-sm text-gray-600">+7 (999) 123-45-67</div>
+                        <div className="text-sm text-gray-600">г. Москва, ул. Примерная, д. 1</div>
+                      </div>
+                      <div 
+                        className={`p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
+                          selectedClient === '2' ? 'bg-blue-50 border-blue-200' : ''
+                        }`}
+                        onClick={() => {
+                          setSelectedClient('2');
+                          setSelectedClientName('Петрова Анна Сергеевна');
+                        }}
+                      >
+                        <div className="font-medium">Петрова Анна Сергеевна</div>
+                        <div className="text-sm text-gray-600">+7 (999) 234-56-78</div>
+                        <div className="text-sm text-gray-600">г. Москва, ул. Тестовая, д. 2</div>
+                      </div>
+                      <div 
+                        className={`p-3 hover:bg-gray-50 cursor-pointer ${
+                          selectedClient === '3' ? 'bg-blue-50 border-blue-200' : ''
+                        }`}
+                        onClick={() => {
+                          setSelectedClient('3');
+                          setSelectedClientName('Сидоров Петр Александрович');
+                        }}
+                      >
+                        <div className="font-medium">Сидоров Петр Александрович</div>
+                        <div className="text-sm text-gray-600">+7 (999) 345-67-89</div>
+                        <div className="text-sm text-gray-600">г. Москва, ул. Образцовая, д. 3</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Создание нового клиента */}
+                <div>
+                  <h3 className="text-lg font-semibold text-black mb-4">Создать нового клиента</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Фамилия *</label>
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Имя *</label>
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Отчество</label>
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Телефон *</label>
+                      <input
+                        type="tel"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Адрес *</label>
+                      <textarea
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">ID объекта</label>
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Кнопки действий */}
+              <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
+                <button
+                  onClick={() => setShowClientManager(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-200"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={() => {
+                    // TODO: Создать нового клиента
+                    setShowClientManager(false);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200"
+                >
+                  Создать клиента
+                </button>
+                <button
+                  onClick={() => {
+                    if (selectedClient) {
+                      setShowClientManager(false);
+                    } else {
+                      alert('Пожалуйста, выберите клиента из списка');
+                    }
+                  }}
+                  disabled={!selectedClient}
+                  className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Выбрать клиента
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -2497,6 +2730,13 @@ function CartManager({
   hardwareKits,
   handles,
   cartManagerBasePrices,
+  showClientManager,
+  setShowClientManager,
+  generateDocument,
+  selectedClient,
+  selectedClientName,
+  setSelectedClient,
+  setSelectedClientName,
   onClose
 }: {
   cart: CartItem[];
@@ -2508,6 +2748,13 @@ function CartManager({
   hardwareKits: HardwareKit[];
   handles: Record<string, Handle[]>;
   cartManagerBasePrices: Record<string, number>;
+  showClientManager: boolean;
+  setShowClientManager: React.Dispatch<React.SetStateAction<boolean>>;
+  generateDocument: (type: 'quote' | 'invoice' | 'order') => Promise<void>;
+  selectedClient: string;
+  selectedClientName: string;
+  setSelectedClient: React.Dispatch<React.SetStateAction<string>>;
+  setSelectedClientName: React.Dispatch<React.SetStateAction<string>>;
   onClose: () => void;
 }) {
   const [editingItem, setEditingItem] = useState<string | null>(null);
@@ -2767,6 +3014,39 @@ function CartManager({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <h2 className="text-2xl font-bold text-black">Корзина</h2>
+          
+          {/* Кнопки экспорта документов */}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setShowClientManager(true)}
+              className="flex items-center space-x-1 px-3 py-1 text-sm border border-gray-400 text-gray-700 hover:bg-gray-50 transition-all duration-200"
+            >
+              <span>👤</span>
+              <span>{selectedClientName || 'Заказчик'}</span>
+            </button>
+            <button
+              onClick={() => generateDocument('quote')}
+              className="flex items-center space-x-1 px-3 py-1 text-sm border border-blue-500 text-blue-600 hover:bg-blue-50 transition-all duration-200"
+            >
+              <span>📄</span>
+              <span>КП</span>
+            </button>
+            <button
+              onClick={() => generateDocument('invoice')}
+              className="flex items-center space-x-1 px-3 py-1 text-sm border border-green-500 text-green-600 hover:bg-green-50 transition-all duration-200"
+            >
+              <span>💰</span>
+              <span>Счет</span>
+            </button>
+            <button
+              onClick={() => generateDocument('order')}
+              className="flex items-center space-x-1 px-3 py-1 text-sm border border-orange-500 text-orange-600 hover:bg-orange-50 transition-all duration-200"
+            >
+              <span>📋</span>
+              <span>Заказ</span>
+            </button>
+          </div>
+          
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 text-2xl"
