@@ -117,7 +117,7 @@ const fmt2 = (n: number): string => (Math.round(n * 100) / 100).toFixed(2);
 const uid = (): string => Math.random().toString(36).slice(2, 9);
 
 const hasBasic = (s: Partial<BasicState>): boolean =>
-  !!(s.style && s.model && s.finish && s.color && s.type && s.width && s.height);
+  !!(s.style && s.model && s.finish && s.color && s.width && s.height);
 
 const API: string | null =
   typeof window !== "undefined" ? ((window as any).__API_URL__ as string) : null;
@@ -1020,28 +1020,9 @@ export default function DoorsPage() {
       try {
         const p = await api.price(sel);
         
-        // Добавляем цену комплекта и ручки
-        const kit = sel.hardware_kit && sel.hardware_kit.id
-          ? hardwareKits.find((k: HardwareKit) => k.id === sel.hardware_kit!.id)
-          : undefined;
-        const handle = sel.handle && sel.handle.id
-          ? Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)
-          : undefined;
-        
-        const addKit = kit ? kit.price : 0;
-        const addHandle = handle ? handle.price : 0;
-        const total = Math.round(p.total + addKit + addHandle);
-        
+        // API уже включает комплект фурнитуры и ручку в расчет
         if (!c) {
-          setPrice({
-            ...p,
-            total,
-            breakdown: [
-              ...p.breakdown || [],
-              ...(kit ? [{ label: `Комплект: ${kit.name}`, amount: kit.price }] : []),
-              ...(handle ? [{ label: `Ручка: ${handle.name}`, amount: handle.price }] : []),
-            ]
-          });
+          setPrice(p);
         }
       } catch (e: any) {
         if (!c) setErr(e?.message ?? "Ошибка расчёта");
@@ -1797,26 +1778,44 @@ export default function DoorsPage() {
                 {/* Общая стоимость конфигурации */}
                 {price && (
                   <div className="bg-gray-50 border border-gray-200 rounded p-4">
-                    <h3 className="text-sm font-medium text-gray-700 mb-2">Стоимость конфигурации</h3>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-gray-900 mb-1">
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-sm font-medium text-gray-700">Стоимость конфигурации</h3>
+                      <div className="text-lg font-bold text-gray-900">
                         {fmtInt(price.total)} ₽
                       </div>
-                      <div className="text-xs text-gray-500">
-                        Цена РРЦ
-                      </div>
-                      {price.breakdown && price.breakdown.length > 1 && (
-                        <div className="mt-3 text-xs text-gray-600">
-                          <div className="text-left space-y-1">
-                            {price.breakdown.map((item: any, index: number) => (
-                              <div key={index} className="flex justify-between">
-                                <span>{item.label}:</span>
-                                <span>{fmtInt(item.amount)} ₽</span>
-                              </div>
-                            ))}
-                          </div>
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      <div className="space-y-1">
+                        {/* Дверь + комплект фурнитуры */}
+                        <div className="flex justify-between">
+                          <span>
+                            {sel.style && sel.model && sel.finish && sel.color && sel.width && sel.height && sel.hardware_kit?.id
+                              ? `Дверь ${sel.model.replace(/DomeoDoors_/g, '').replace(/_/g, ' ')} + комплект фурнитуры ${hardwareKits.find((k: HardwareKit) => k.id === sel.hardware_kit!.id)?.name.replace('Комплект фурнитуры — ', '') || 'Базовый'}`
+                              : "Дверь"}
+                          </span>
+                          <span>
+                            {price?.breakdown?.find((item: any) => item.label === 'Дверь')?.amount && price?.breakdown?.find((item: any) => item.label.startsWith('Комплект:'))?.amount
+                              ? `${fmtInt((price.breakdown.find((item: any) => item.label === 'Дверь').amount || 0) + (price.breakdown.find((item: any) => item.label.startsWith('Комплект:'))?.amount || 0))} ₽`
+                              : price?.breakdown?.find((item: any) => item.label === 'Дверь')?.amount
+                                ? `${fmtInt(price.breakdown.find((item: any) => item.label === 'Дверь').amount)} ₽`
+                                : "—"}
+                          </span>
                         </div>
-                      )}
+                        
+                        {/* Ручка */}
+                        {sel.handle?.id && (
+                          <div className="flex justify-between">
+                            <span>
+                              {Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)?.name || "Ручка"}
+                            </span>
+                            <span>
+                              {Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)?.price 
+                                ? `${fmtInt(Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)!.price)} ₽`
+                                : "—"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1948,6 +1947,58 @@ export default function DoorsPage() {
                           : "—"}
                     </span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Комплект фурнитуры:</span>
+                    <span className="text-black font-medium">
+                      {sel.hardware_kit?.id
+                        ? hardwareKits.find((k: HardwareKit) => k.id === sel.hardware_kit!.id)?.name.replace('Комплект фурнитуры — ', '') || "—"
+                        : "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Ручка:</span>
+                    <span className="text-black font-medium">
+                      {sel.handle?.id
+                        ? Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)?.name || "—"
+                        : "—"}
+                    </span>
+                  </div>
+                  
+                  {/* Серая горизонтальная линия */}
+                  <div className="border-t border-gray-300 my-3"></div>
+                  
+                  {/* Строки с ценами */}
+                  <div className="space-y-2">
+                    {/* Дверь + комплект фурнитуры */}
+                    <div className="flex justify-between">
+                      <span className="text-black font-medium">
+                        {sel.style && sel.model && sel.finish && sel.color && sel.width && sel.height && sel.hardware_kit?.id
+                          ? `Дверь ${sel.model.replace(/DomeoDoors_/g, '').replace(/_/g, ' ')} + комплект фурнитуры ${hardwareKits.find((k: HardwareKit) => k.id === sel.hardware_kit!.id)?.name.replace('Комплект фурнитуры — ', '') || 'Базовый'}`
+                          : "Дверь"}
+                      </span>
+                      <span className="text-black font-medium">
+                        {price?.breakdown?.find((item: any) => item.label === 'Дверь')?.amount && price?.breakdown?.find((item: any) => item.label.startsWith('Комплект:'))?.amount
+                          ? `${fmtInt((price.breakdown.find((item: any) => item.label === 'Дверь').amount || 0) + (price.breakdown.find((item: any) => item.label.startsWith('Комплект:'))?.amount || 0))} ₽`
+                          : price?.breakdown?.find((item: any) => item.label === 'Дверь')?.amount
+                            ? `${fmtInt(price.breakdown.find((item: any) => item.label === 'Дверь').amount)} ₽`
+                            : "—"}
+                      </span>
+                    </div>
+                    
+                    {/* Ручка */}
+                    {sel.handle?.id && (
+                      <div className="flex justify-between">
+                        <span className="text-black font-medium">
+                          {Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)?.name || "Ручка"}
+                        </span>
+                        <span className="text-black font-medium">
+                          {Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)?.price 
+                            ? `${fmtInt(Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)!.price)} ₽`
+                            : "—"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                   {/* <div className="flex justify-between">
                     <span className="text-gray-600">Кромка:</span>
                     <span className="text-black font-medium">
@@ -1967,32 +2018,6 @@ export default function DoorsPage() {
               </div>
               )}
 
-              {/* Блок цены - показывается отдельно после параметров */}
-              {price && (
-              <div className="bg-white border border-black/10 p-6">
-                <h2 className="text-xl font-semibold text-black mb-4">Цена</h2>
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-black mb-2">
-                    {fmtInt(price.total)} ₽
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    Цена РРЦ
-                  </div>
-                  {price.breakdown && price.breakdown.length > 1 && (
-                    <div className="mt-4 text-xs text-gray-500">
-                      <div className="text-left space-y-1">
-                        {price.breakdown.map((item: any, index: number) => (
-                          <div key={index} className="flex justify-between">
-                            <span>{item.label}:</span>
-                            <span>{fmtInt(item.amount)} ₽</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              )}
 
 
               {/* Корзина - показывается всегда */}

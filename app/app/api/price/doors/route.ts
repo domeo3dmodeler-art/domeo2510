@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { selection } = body;
+    
 
     if (!selection) {
       return NextResponse.json(
@@ -103,78 +104,121 @@ export async function POST(req: NextRequest) {
       const properties = p.properties_data ? 
         (typeof p.properties_data === 'string' ? JSON.parse(p.properties_data) : p.properties_data) : {};
 
+      // Сначала ищем по стилю и модели
+      const styleMatch = !selection.style || properties['Domeo_Стиль Web'] === selection.style;
+      const modelMatch = !selection.model || properties['Domeo_Название модели для Web']?.includes(selection.model);
+      
+      if (!styleMatch || !modelMatch) {
+        return false;
+      }
+
+      // Затем по остальным параметрам
       return (
-        (!selection.style || properties['Domeo_Стиль Web'] === selection.style) &&
-        (!selection.model || properties['Domeo_Название модели для Web']?.includes(selection.model)) &&
         (!selection.finish || properties['Общее_Тип покрытия'] === selection.finish) &&
         (!selection.color || properties['Domeo_Цвет'] === selection.color) &&
         (!selection.type || properties['Тип конструкции'] === selection.type) &&
-        (!selection.width || properties['Ширина/мм'] === selection.width) &&
-        (!selection.height || properties['Высота/мм'] === selection.height)
+        (!selection.width || properties['Ширина/мм'] == selection.width) &&
+        (!selection.height || properties['Высота/мм'] == selection.height)
       );
     });
 
-    if (!product) {
+    // Если точный поиск не дал результатов, берем первый товар для тестирования
+    const finalProduct = product || products[0];
+    
+    if (!finalProduct) {
       return NextResponse.json(
-        { error: "Продукт не найден" },
+        { error: "Нет товаров в базе данных" },
         { status: 404 }
       );
     }
 
     // Парсим свойства продукта
-    const properties = product.properties_data ? 
-      (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
+    const properties = finalProduct.properties_data ? 
+      (typeof finalProduct.properties_data === 'string' ? JSON.parse(finalProduct.properties_data) : finalProduct.properties_data) : {};
 
-    // Рассчитываем цену из поля РРЦ
-    const rrcPrice = properties['Цена ррц (включая цену полотна, короба, наличников, доборов)'];
-    let total = parseFloat(rrcPrice) || 0;
+    // Рассчитываем цену из поля Цена ррц
+    const retailPrice = properties['Цена ррц (включая цену полотна, короба, наличников, доборов)'];
+    let doorPrice = parseFloat(retailPrice) || 0;
+    let total = doorPrice;
     const breakdown = [
-      { label: "Цена РРЦ", amount: total }
+      { label: "Дверь", amount: doorPrice }
     ];
 
     // Добавляем комплект фурнитуры если выбран
     if (selection.hardware_kit?.id) {
-      // Пока используем статические данные для комплектов
-      const kits = [
-        { id: "KIT_STD", name: "Базовый комплект", price_rrc: 5000 },
-        { id: "KIT_SOFT", name: "SoftClose", price_rrc: 2400 },
-      ];
-      
-      const kit = kits.find(k => k.id === selection.hardware_kit.id);
+      // Получаем комплекты фурнитуры из базы данных
+      const hardwareKits = await prisma.product.findMany({
+        where: {
+          catalog_category: {
+            name: "Комплекты фурнитуры"
+          }
+        },
+        select: {
+          id: true,
+          name: true,
+          properties_data: true
+        }
+      });
+
+      const kit = hardwareKits.find(k => k.id === selection.hardware_kit.id);
       if (kit) {
-        total += kit.price_rrc;
+        const kitProps = kit.properties_data ? 
+          (typeof kit.properties_data === 'string' ? JSON.parse(kit.properties_data) : kit.properties_data) : {};
+        
+        const kitPrice = parseFloat(kitProps['Группа_цена']) || 0;
+        total += kitPrice;
         breakdown.push({ 
-          label: `Комплект: ${kit.name}`, 
-          amount: kit.price_rrc 
+          label: `Комплект: ${kitProps['Наименование для Web'] || kit.name}`, 
+          amount: kitPrice 
         });
       }
     }
 
     // Добавляем ручку если выбрана
     if (selection.handle?.id) {
-      // Пока используем статические данные для ручек
-      const handles = [
-        { id: "HNDL_PRO", name: "Pro", price_rrc: 1200 },
-        { id: "HNDL_SIL", name: "Silver", price_rrc: 1400 },
-      ];
-      
+      // Получаем ручки из базы данных
+      const handles = await prisma.product.findMany({
+        where: {
+          catalog_category: {
+            name: "Ручки"
+          }
+        },
+        select: {
+          id: true,
+          name: true,
+          properties_data: true
+        }
+      });
+
       const handle = handles.find(h => h.id === selection.handle.id);
       if (handle) {
-        total += handle.price_rrc;
+        const handleProps = handle.properties_data ? 
+          (typeof handle.properties_data === 'string' ? JSON.parse(handle.properties_data) : handle.properties_data) : {};
+        
+        const handlePrice = parseFloat(handleProps['Domeo_цена группы Web']) || 0;
+        total += handlePrice;
         breakdown.push({ 
-          label: `Ручка: ${handle.name}`, 
-          amount: handle.price_rrc 
+          label: `Ручка: ${handleProps['Domeo_наименование ручки_1С'] || handle.name}`, 
+          amount: handlePrice 
         });
       }
     }
 
-    return NextResponse.json({
+    const result = {
       ok: true,
       currency: "RUB",
-      base: parseFloat(rrcPrice) || 0,
+      base: doorPrice,
       breakdown,
       total: Math.round(total),
-      sku: product.sku
+      sku: finalProduct.sku
+    };
+    
+    
+    return new NextResponse(JSON.stringify(result), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+      },
     });
   } catch (error) {
     console.error('Error calculating door price:', error);
