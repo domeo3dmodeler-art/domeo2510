@@ -1,4 +1,0 @@
-DATABASE_URL="file:./database/dev.db"
-JWT_SECRET="dev_jwt_secret_key_here"
-NODE_ENV="development"
-PORT=3000
