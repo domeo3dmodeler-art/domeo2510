@@ -88,6 +88,9 @@ type Handle = {
   price: number;
   isBasic: boolean;
   showroom: boolean;
+  supplier?: string;
+  article?: string;
+  factoryName?: string;
 };
 
 type Domain =
@@ -1758,39 +1761,65 @@ export default function DoorsPage() {
                 {/* Дополнительные элементы (временно отключено) */}
 
                 {/* Фурнитура */}
-                    <div>
+                <div>
                   <h3 className="text-sm font-medium text-gray-700 mb-3">Фурнитура</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                      <HardwareSelect
-                        label="Комплект фурнитуры"
-                        value={sel.hardware_kit?.id || ""}
-                        onChange={(v: string) => setSel((s) => ({ 
-                          ...s, 
-                          hardware_kit: v ? { id: v } : undefined
-                        }))}
-                        options={sel.width && sel.height ? hardwareKits.map(kit => ({
-                          id: kit.id,
-                          name: kit.name,
-                          price: kit.price,
-                          description: kit.description
-                        })) : []}
-                        allowEmpty={true}
-                        disabled={!sel.width || !sel.height}
-                      />
-                      <HandleSelect
-                        label="Ручка"
-                        value={sel.handle?.id || ""}
-                        onChange={(v: string) => setSel((s) => ({ 
-                          ...s, 
-                          handle: v ? { id: v } : undefined
-                        }))}
-                        handles={sel.hardware_kit ? handles : {}}
-                        allowEmpty={true}
-                        disabled={!sel.hardware_kit}
-                      />
+                  <div className="space-y-4">
+                    <HardwareSelect
+                      label="Комплект фурнитуры"
+                      value={sel.hardware_kit?.id || ""}
+                      onChange={(v: string) => setSel((s) => ({ 
+                        ...s, 
+                        hardware_kit: v ? { id: v } : undefined
+                      }))}
+                      options={sel.width && sel.height ? hardwareKits.map(kit => ({
+                        id: kit.id,
+                        name: kit.name,
+                        price: kit.price,
+                        description: kit.description
+                      })) : []}
+                      allowEmpty={true}
+                      disabled={!sel.width || !sel.height}
+                    />
+                    <HandleSelect
+                      label="Ручка"
+                      value={sel.handle?.id || ""}
+                      onChange={(v: string) => setSel((s) => ({ 
+                        ...s, 
+                        handle: v ? { id: v } : undefined
+                      }))}
+                      handles={sel.hardware_kit ? handles : {}}
+                      allowEmpty={true}
+                      disabled={!sel.hardware_kit}
+                    />
                   </div>
                 </div>
 
+                {/* Общая стоимость конфигурации */}
+                {price && (
+                  <div className="bg-gray-50 border border-gray-200 rounded p-4">
+                    <h3 className="text-sm font-medium text-gray-700 mb-2">Стоимость конфигурации</h3>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-900 mb-1">
+                        {fmtInt(price.total)} ₽
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Цена РРЦ
+                      </div>
+                      {price.breakdown && price.breakdown.length > 1 && (
+                        <div className="mt-3 text-xs text-gray-600">
+                          <div className="text-left space-y-1">
+                            {price.breakdown.map((item: any, index: number) => (
+                              <div key={index} className="flex justify-between">
+                                <span>{item.label}:</span>
+                                <span>{fmtInt(item.amount)} ₽</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-3">
                   <button
@@ -2536,42 +2565,54 @@ function HardwareSelect({
   const selectedOption = options.find(opt => opt.id === value);
 
   return (
-    <label className="text-sm space-y-1">
+    <div className="text-sm space-y-1">
       <div className={`text-gray-600 ${disabled ? 'opacity-50' : ''}`}>{label}</div>
-      <div className="relative">
+      
+      {/* Селект и цена в одной строке */}
+      <div className="flex items-center gap-3">
         <select
           value={value}
           onChange={(e) => onChange((e.target as HTMLSelectElement).value)}
           disabled={disabled}
-          className={`w-full border border-black/20 px-3 py-2 pr-8 text-black ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
+          className={`flex-1 border border-black/20 px-3 py-2 text-black ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
         >
           {allowEmpty && <option value="">—</option>}
           {options.map((option) => (
             <option key={option.id} value={option.id}>
-              {option.name.replace('Комплект фурнитуры — ', '')} {option.price ? `(${option.price} ₽)` : ''}
+              {option.name.replace('Комплект фурнитуры — ', '')}
             </option>
           ))}
         </select>
-        {selectedOption && selectedOption.description && (
-          <button
-            type="button"
-            onClick={() => setShowDescription(showDescription === selectedOption.id ? null : selectedOption.id)}
-            className="absolute right-8 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors z-10"
-            title="Показать описание"
-          >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-          </button>
+        
+        {selectedOption && (
+          <div className="flex items-center gap-2">
+            {selectedOption.description && (
+              <button
+                type="button"
+                onClick={() => setShowDescription(showDescription === selectedOption.id ? null : selectedOption.id)}
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+                title="Показать описание"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </button>
+            )}
+            <div className="text-sm font-medium text-gray-900 min-w-[80px] text-right">
+              {selectedOption.price ? `${selectedOption.price} ₽` : ''}
+            </div>
+          </div>
         )}
       </div>
+      
+      {/* Описание комплекта */}
       {showDescription && selectedOption && (
         <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded text-sm text-gray-700">
           <div className="font-medium mb-1">Описание комплекта:</div>
           <div>{selectedOption.description}</div>
         </div>
       )}
-    </label>
+    </div>
   );
 }
 
@@ -2590,40 +2631,122 @@ function HandleSelect({
   allowEmpty?: boolean;
   disabled?: boolean;
 }) {
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [showInfo, setShowInfo] = useState(false);
   const selectedHandle = Object.values(handles).flat().find(h => h.id === value);
 
+  // Устанавливаем группу "Базовый" по умолчанию при загрузке
+  useEffect(() => {
+    if (handles['Базовый'] && handles['Базовый'].length > 0 && !selectedGroup) {
+      setSelectedGroup('Базовый');
+    }
+  }, [handles, selectedGroup]);
+
+  const handleGroupSelect = (groupName: string) => {
+    setSelectedGroup(groupName);
+    // Сбрасываем выбор ручки при смене группы
+    onChange('');
+  };
+
+  const handleHandleSelect = (handleId: string) => {
+    onChange(handleId);
+  };
+
+  const resetSelection = () => {
+    onChange('');
+    setSelectedGroup(null);
+  };
+
+  // Получаем все ручки для выбранной группы
+  const currentGroupHandles = selectedGroup ? handles[selectedGroup] || [] : [];
+  const displayPrice = selectedHandle 
+    ? selectedHandle.price 
+    : currentGroupHandles.length > 0 
+      ? currentGroupHandles[0].price 
+      : 0;
+
   return (
-    <label className="text-sm space-y-1">
+    <div className="text-sm space-y-1">
       <div className={`text-gray-600 ${disabled ? 'opacity-50' : ''}`}>{label}</div>
-      <div className="relative">
+      
+      {/* Компактный выбор: группа - ручка - цена */}
+      <div className="flex items-center gap-3">
+        {/* Селект группы */}
         <select
-          value={value}
-          onChange={(e) => onChange((e.target as HTMLSelectElement).value)}
+          value={selectedGroup || ''}
+          onChange={(e) => handleGroupSelect(e.target.value)}
           disabled={disabled}
-          className={`w-full border border-black/20 px-3 py-2 text-black ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
+          className={`border border-black/20 px-3 py-2 text-black ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
+          style={{ minWidth: '120px' }}
         >
-          {allowEmpty && <option value="">—</option>}
-          {Object.entries(handles).map(([groupName, groupHandles]) => (
-            <optgroup key={groupName} label={groupName}>
-              {groupHandles.map((handle) => (
-                <option key={handle.id} value={handle.id}>
-                  {handle.name} {handle.price ? `(${handle.price} ₽)` : ''} {handle.showroom ? '•' : ''}
-                </option>
-              ))}
-            </optgroup>
+          <option value="">Группа</option>
+          {['Базовый', 'Комфорт', 'Бизнес'].map((groupName) => (
+            handles[groupName] && (
+              <option key={groupName} value={groupName}>
+                {groupName}
+              </option>
+            )
           ))}
         </select>
-        {selectedHandle && (
-          <div className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none">
-            {selectedHandle.showroom ? (
-              <span className="text-green-600 text-xs" title="В шоуруме">●</span>
-            ) : (
-              <span className="text-gray-400 text-xs" title="Не в шоуруме">○</span>
-            )}
+
+        {/* Селект ручки */}
+        <select
+          value={value}
+          onChange={(e) => handleHandleSelect(e.target.value)}
+          disabled={disabled || !selectedGroup}
+          className={`flex-1 border border-black/20 px-3 py-2 text-black ${disabled || !selectedGroup ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
+        >
+          <option value="">Выберите ручку</option>
+          {currentGroupHandles.map((handle) => (
+            <option key={handle.id} value={handle.id}>
+              {handle.name} {handle.showroom ? '●' : '○'}
+            </option>
+          ))}
+        </select>
+
+        {/* Цена и информация */}
+        <div className="flex items-center gap-2">
+          {selectedHandle && (
+            <button
+              type="button"
+              onClick={() => setShowInfo(!showInfo)}
+              className="text-gray-500 hover:text-gray-700 transition-colors"
+              title="Показать информацию"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+            </button>
+          )}
+          <div className="text-sm font-medium text-gray-900 min-w-[80px] text-right">
+            {displayPrice ? `${displayPrice} ₽` : '—'}
           </div>
-        )}
+        </div>
       </div>
-    </label>
+
+      {/* Информация о ручке */}
+      {showInfo && selectedHandle && (
+        <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded text-sm text-gray-700">
+          <div className="space-y-1">
+            <div><span className="font-medium">Поставщик:</span> {selectedHandle.supplier || 'Не указан'}</div>
+            <div><span className="font-medium">Наименование:</span> {selectedHandle.factoryName || 'Не указано'}</div>
+            <div><span className="font-medium">Артикул:</span> {selectedHandle.article || 'Не указан'}</div>
+            <div><span className="font-medium">Наличие в шоуруме:</span> {selectedHandle.showroom ? 'Да' : 'Нет'}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Кнопка сброса выбора */}
+      {selectedHandle && (
+        <button
+          type="button"
+          onClick={resetSelection}
+          className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+        >
+          Выбрать другую ручку
+        </button>
+      )}
+    </div>
   );
 }
 

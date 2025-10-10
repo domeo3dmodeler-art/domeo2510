@@ -55,13 +55,17 @@ export async function GET(request: NextRequest) {
         const props = typeof handle.properties_data === 'string' 
           ? JSON.parse(handle.properties_data) 
           : handle.properties_data;
+        
         return {
           id: handle.id,
-          name: props['Domeo_наименование для Web'] || handle.name,
+          name: props['Domeo_наименование ручки_1С'] || props['Domeo_наименование для Web'] || handle.name,
           group: props['Группа'] || '',
           price: parseFloat(props['Domeo_цена группы Web'] || '0'),
           isBasic: props['Группа'] === 'Базовый',
           showroom: props['Наличие в шоуруме'] === 'да' || props['Наличие в шоуруме'] === 'Да',
+          supplier: props['Поставщик'] || '',
+          article: props['Фабрика_артикул'] || '',
+          factoryName: props['Фабрика_наименование'] || '',
         };
       });
 
