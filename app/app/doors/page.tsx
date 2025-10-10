@@ -740,6 +740,8 @@ export default function DoorsPage() {
   const [hardwareKits, setHardwareKits] = useState<HardwareKit[]>([]);
   const [handles, setHandles] = useState<Record<string, Handle[]>>({});
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [showQuantityModal, setShowQuantityModal] = useState(false);
+  const [quantity, setQuantity] = useState(1);
   const [kpHtml, setKpHtml] = useState<string>("");
   const [selectedClient, setSelectedClient] = useState<string>('');
   
@@ -1165,7 +1167,7 @@ export default function DoorsPage() {
       width: sel.width,
       height: sel.height,
       color: sel.color,
-      qty: 1,
+      qty: quantity,
       unitPrice: price.total,
       sku_1c: price.sku_1c,
       hardwareKitId: (sel.hardware_kit && sel.hardware_kit.id) || undefined,
@@ -1186,7 +1188,7 @@ export default function DoorsPage() {
         width: sel.width,
         height: sel.height,
         color: sel.color,
-        qty: 1,
+        qty: quantity,
         unitPrice: handle ? handle.price : 0,
         handleId: sel.handle.id,
         sku_1c: price.sku_1c,
@@ -1196,6 +1198,12 @@ export default function DoorsPage() {
     }
     
     setCart(newCart);
+    setShowQuantityModal(false);
+    setQuantity(1);
+  };
+
+  const handleAddToCartClick = () => {
+    setShowQuantityModal(true);
   };
   const removeFromCart = (id: string) =>
     setCart((c) => c.filter((i) => i.id !== id));
@@ -1823,7 +1831,7 @@ export default function DoorsPage() {
                 <div className="flex items-center gap-3">
                   <button
                     disabled={!hasBasic(sel)}
-                    onClick={addToCart}
+                    onClick={handleAddToCartClick}
                     className="px-6 py-3 bg-black text-white hover:bg-yellow-400 hover:text-black transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
                   >
                     В корзину
@@ -1908,7 +1916,7 @@ export default function DoorsPage() {
             </div>
           </section>
 
-          <aside className="lg:col-span-1">
+          <aside className="lg:col-span-1" style={{ width: '110%' }}>
             <div className="sticky top-6 space-y-6">
               {/* Блок параметров - показывает выбранные параметры */}
               {(sel.style || sel.model || sel.finish || sel.color || sel.width || sel.height) && (
@@ -1963,42 +1971,6 @@ export default function DoorsPage() {
                         : "—"}
                     </span>
                   </div>
-                  
-                  {/* Серая горизонтальная линия */}
-                  <div className="border-t border-gray-300 my-3"></div>
-                  
-                  {/* Строки с ценами */}
-                  <div className="space-y-2">
-                    {/* Дверь + комплект фурнитуры */}
-                    <div className="flex justify-between">
-                      <span className="text-black font-medium">
-                        {sel.style && sel.model && sel.finish && sel.color && sel.width && sel.height && sel.hardware_kit?.id
-                          ? `Дверь ${sel.model.replace(/DomeoDoors_/g, '').replace(/_/g, ' ')} + комплект фурнитуры ${hardwareKits.find((k: HardwareKit) => k.id === sel.hardware_kit!.id)?.name.replace('Комплект фурнитуры — ', '') || 'Базовый'}`
-                          : "Дверь"}
-                      </span>
-                      <span className="text-black font-medium">
-                        {price?.breakdown?.find((item: any) => item.label === 'Дверь')?.amount && price?.breakdown?.find((item: any) => item.label.startsWith('Комплект:'))?.amount
-                          ? `${fmtInt((price.breakdown.find((item: any) => item.label === 'Дверь').amount || 0) + (price.breakdown.find((item: any) => item.label.startsWith('Комплект:'))?.amount || 0))} ₽`
-                          : price?.breakdown?.find((item: any) => item.label === 'Дверь')?.amount
-                            ? `${fmtInt(price.breakdown.find((item: any) => item.label === 'Дверь').amount)} ₽`
-                            : "—"}
-                      </span>
-                    </div>
-                    
-                    {/* Ручка */}
-                    {sel.handle?.id && (
-                      <div className="flex justify-between">
-                        <span className="text-black font-medium">
-                          {Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)?.name || "Ручка"}
-                        </span>
-                        <span className="text-black font-medium">
-                          {Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)?.price 
-                            ? `${fmtInt(Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)!.price)} ₽`
-                            : "—"}
-                        </span>
-                      </div>
-                    )}
-                  </div>
                   {/* <div className="flex justify-between">
                     <span className="text-gray-600">Кромка:</span>
                     <span className="text-black font-medium">
@@ -2012,9 +1984,6 @@ export default function DoorsPage() {
                     </span>
                   </div> */}
                 </div>
-                <div className="mt-6 text-3xl font-bold text-black">
-                  {price ? `${fmtInt(price.total)} ₽` : "—"}
-                </div>
               </div>
               )}
 
@@ -2024,9 +1993,9 @@ export default function DoorsPage() {
               <div className="bg-white border border-black/10 p-5 transition-all duration-700 ease-in-out">
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-lg font-semibold text-black">Корзина ({cart.length})</h2>
-                  <div className="text-xs text-gray-600">
+                  <div className="text-sm text-gray-600">
                     Итого:{" "}
-                    <span className="font-semibold text-black">
+                    <span className="font-semibold text-black text-base">
                       {fmtInt(cart.reduce((s, i) => s + i.unitPrice * i.qty, 0))} ₽
                     </span>
                   </div>
@@ -2039,17 +2008,15 @@ export default function DoorsPage() {
                       if (i.handleId) {
                         const handle = Object.values(handles).flat().find((h: Handle) => h.id === i.handleId);
                         return (
-                          <div key={i.id} className="border border-black/10 p-3 space-y-2">
+                          <div key={i.id} className="border border-black/10 p-3">
                             <div className="flex items-center justify-between">
                               <div className="font-medium text-black text-sm">
-                                Ручка: {handle?.name || "—"}
+                                {handle?.name || "Ручка"}
                               </div>
-                              <div className="text-xs font-semibold text-black">
-                                {fmtInt(i.unitPrice * i.qty)} ₽
+                              <div className="text-sm">
+                                <span className="text-gray-600">{i.qty}×{fmtInt(i.unitPrice)}</span>
+                                <span className="font-semibold text-black ml-3">{fmtInt(i.unitPrice * i.qty)} ₽</span>
                               </div>
-                            </div>
-                            <div className="text-xs text-gray-600 leading-tight">
-                              {handle?.showroom ? '✅ В шоуруме' : '❌ Не в шоуруме'}
                             </div>
                           </div>
                         );
@@ -2057,25 +2024,22 @@ export default function DoorsPage() {
                       
                       // Иначе отображаем дверь с комплектом
                       return (
-                      <div key={i.id} className="border border-black/10 p-3 space-y-2">
+                      <div key={i.id} className="border border-black/10 p-3">
                         <div className="flex items-center justify-between">
-                          <div className="font-medium text-black text-sm">
-                            {i.model} — {i.type || "—"}
+                          <div className="text-sm">
+                            <div className="font-medium text-black">
+                              Дверь DomeoDoors {i.model.replace(/DomeoDoors_/g, '').replace(/_/g, ' ')}
+                            </div>
+                            <div className="text-gray-600 text-xs font-normal">
+                              ({i.finish}, {i.color}, {i.width} × {i.height} мм, Фурнитура - {hardwareKits.find((k: any) => k.id === i.hardwareKitId)?.name.replace('Комплект фурнитуры — ', '') || 'Базовый'})
+                            </div>
                           </div>
-                          <div className="text-xs font-semibold text-black">
-                            {fmtInt(i.unitPrice * i.qty)} ₽
+                          <div className="text-sm">
+                            <span className="text-gray-600">{i.qty}×{fmtInt(i.unitPrice)}</span>
+                            <span className="font-semibold text-black ml-3">{fmtInt(i.unitPrice * i.qty)} ₽</span>
                           </div>
                         </div>
-                        <div className="text-xs text-gray-600 leading-tight">
-                          {i.color ? `${i.color}, ` : ""}
-                          {i.width}×{i.height}
-                            {i.hardwareKitId
-                              ? `, Комплект: ${
-                                  hardwareKits.find((k: any) => k.id === i.hardwareKitId)?.name
-                                }`
-                              : ""}
-                        </div>
-                          </div>
+                      </div>
                       );
                     })}
                           </div>
@@ -2372,6 +2336,58 @@ export default function DoorsPage() {
                   Продолжить
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно выбора количества */}
+      {showQuantityModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-black mb-4">Выберите количество</h3>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Количество дверей
+              </label>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center text-lg font-bold"
+                >
+                  -
+                </button>
+                <input
+                  type="number"
+                  min="1"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-16 text-center border border-gray-300 rounded px-2 py-1"
+                />
+                <button
+                  onClick={() => setQuantity(quantity + 1)}
+                  className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center text-lg font-bold"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowQuantityModal(false);
+                  setQuantity(1);
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={addToCart}
+                className="flex-1 px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
+              >
+                Добавить в корзину
+              </button>
             </div>
           </div>
         </div>

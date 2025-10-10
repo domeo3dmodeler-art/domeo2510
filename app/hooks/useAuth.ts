@@ -242,7 +242,11 @@ function setCookie(name: string, value: string, days: number): void {
   const expires = new Date();
   expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
   
-  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;secure;samesite=strict`;
+  // Для локальной разработки убираем secure
+  const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+  const secureFlag = isLocalhost ? '' : 'secure;';
+  
+  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;${secureFlag}samesite=lax`;
 }
 
 function deleteCookie(name: string): void {

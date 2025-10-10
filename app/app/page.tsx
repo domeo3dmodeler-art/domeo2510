@@ -55,14 +55,16 @@ export default function Home() {
 
     if (token && userRole && userId) {
       // Пользователь авторизован
-      setUser({
+      const userData = {
         id: userId,
         email: localStorage.getItem('userEmail') || '',
         firstName: localStorage.getItem('userFirstName') || 'Иван',
         lastName: localStorage.getItem('userLastName') || 'Иванов',
         middleName: localStorage.getItem('userMiddleName') || 'Иванович',
         role: userRole
-      });
+      };
+      
+      setUser(userData);
     }
     
     setIsLoading(false);

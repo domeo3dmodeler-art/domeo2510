@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
+import { SignJWT } from 'jose';
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
 import { authRateLimiter, getClientIP, createRateLimitResponse } from '../../../../lib/security/rate-limiter';
@@ -73,15 +73,16 @@ export async function POST(req: NextRequest) {
     });
 
     // Создаем JWT токен
-    const token = jwt.sign(
-      { 
-        userId: user.id, 
-        email: user.email, 
-        role: user.role.toLowerCase() // Приводим роль к нижнему регистру
-      },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    const secret = new TextEncoder().encode(JWT_SECRET);
+    const token = await new SignJWT({ 
+      userId: user.id, 
+      email: user.email, 
+      role: user.role.toLowerCase() // Приводим роль к нижнему регистру
+    })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setExpirationTime('24h')
+      .setIssuedAt()
+      .sign(secret);
 
     // Возвращаем данные пользователя (без пароля)
     const userData = {

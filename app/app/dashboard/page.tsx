@@ -29,6 +29,7 @@ function DashboardContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [userCount, setUserCount] = useState<number>(0);
+  const [complectatorStats, setComplectatorStats] = useState<any>(null);
   const router = useRouter();
 
   // Мемоизируем контент по роли (всегда вызывается)
@@ -65,10 +66,10 @@ function DashboardContent() {
           title: 'Личный кабинет комплектатора',
           description: 'Работа с клиентами и коммерческими предложениями',
           widgets: [
-            { title: 'Клиенты', count: '23', link: '/clients', icon: '👥' },
-            { title: 'КП в работе', count: '7', link: '/quotes', icon: '📄' },
-            { title: 'Счета', count: '12', link: '/invoices', icon: '💰' },
-            { title: 'Каталог товаров', count: stats?.total?.totalProducts || 0, link: '/doors', icon: '📦' }
+            { title: 'Клиенты', count: complectatorStats?.clients?.total || 0, link: '/clients', icon: '👥' },
+            { title: 'КП в работе', count: complectatorStats?.quotes?.inWork || 0, link: '/quotes', icon: '📄' },
+            { title: 'Счета', count: complectatorStats?.invoices?.total || 0, link: '/invoices', icon: '💰' },
+            { title: 'Каталог товаров', count: complectatorStats?.products?.total || 0, link: '/doors', icon: '📦' }
           ],
           quickActions: [
             { title: 'Добавить клиента', link: '/clients', icon: '👤' },
@@ -102,7 +103,7 @@ function DashboardContent() {
           quickActions: []
         };
     }
-  }, [user, stats, userCount]);
+  }, [user, stats, userCount, complectatorStats]);
 
   useEffect(() => {
     // Проверяем аутентификацию
@@ -133,19 +134,33 @@ function DashboardContent() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const [statsResponse, usersResponse] = await Promise.all([
+      const promises = [
         fetch('/api/admin/stats'),
         fetch('/api/users')
-      ]);
+      ];
+
+      // Добавляем запрос статистики комплектатора если пользователь комплектатор
+      const userRole = localStorage.getItem('userRole');
+      if (userRole === 'complectator') {
+        promises.push(fetch('/api/complectator/stats'));
+      }
+
+      const responses = await Promise.all(promises);
       
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
+      if (responses[0].ok) {
+        const statsData = await responses[0].json();
         setStats(statsData);
       }
       
-      if (usersResponse.ok) {
-        const usersData = await usersResponse.json();
+      if (responses[1].ok) {
+        const usersData = await responses[1].json();
         setUserCount(usersData.users?.length || 0);
+      }
+
+      // Обрабатываем статистику комплектатора
+      if (userRole === 'complectator' && responses[2]?.ok) {
+        const complectatorData = await responses[2].json();
+        setComplectatorStats(complectatorData.stats);
       }
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -224,35 +239,6 @@ function DashboardContent() {
             </div>
           </Card>
 
-          {/* Recent Activity */}
-          <Card variant="base">
-            <div className="p-6">
-              <h2 className="text-xl font-semibold text-black mb-4">Последняя активность</h2>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                  <div className="flex items-center space-x-3">
-                    <span className="text-sm">📋</span>
-                    <span className="text-sm text-gray-600">Создан заказ #12345</span>
-                  </div>
-                  <span className="text-xs text-gray-500">2 часа назад</span>
-                </div>
-                <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                  <div className="flex items-center space-x-3">
-                    <span className="text-sm">📄</span>
-                    <span className="text-sm text-gray-600">Отправлен КП клиенту</span>
-                  </div>
-                  <span className="text-xs text-gray-500">4 часа назад</span>
-                </div>
-                <div className="flex items-center justify-between py-2">
-                  <div className="flex items-center space-x-3">
-                    <span className="text-sm">✅</span>
-                    <span className="text-sm text-gray-600">Заказ #12340 выполнен</span>
-                  </div>
-                  <span className="text-xs text-gray-500">1 день назад</span>
-                </div>
-              </div>
-            </div>
-          </Card>
         </div>
       </AdminLayout>
     );
@@ -266,7 +252,10 @@ function DashboardContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-3">
-              <div>
+              <div 
+                onClick={() => router.push('/')}
+                className="cursor-pointer hover:opacity-70 transition-opacity duration-200"
+              >
                 <h1 className="text-2xl font-bold text-black">Domeo</h1>
                 <p className="text-xs text-gray-500 font-medium">Configurators</p>
               </div>
@@ -338,35 +327,6 @@ function DashboardContent() {
           </div>
         </div>
 
-        {/* Recent Activity */}
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold text-black mb-4">Последняя активность</h2>
-          <div className="bg-white border border-gray-200 p-6">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                <div className="flex items-center space-x-3">
-                  <span className="text-sm">📋</span>
-                  <span className="text-sm text-gray-600">Создан заказ #12345</span>
-                </div>
-                <span className="text-xs text-gray-500">2 часа назад</span>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                <div className="flex items-center space-x-3">
-                  <span className="text-sm">📄</span>
-                  <span className="text-sm text-gray-600">Отправлен КП клиенту</span>
-                </div>
-                <span className="text-xs text-gray-500">4 часа назад</span>
-              </div>
-              <div className="flex items-center justify-between py-2">
-                <div className="flex items-center space-x-3">
-                  <span className="text-sm">✅</span>
-                  <span className="text-sm text-gray-600">Заказ #12340 выполнен</span>
-                </div>
-                <span className="text-xs text-gray-500">1 день назад</span>
-              </div>
-            </div>
-          </div>
-        </div>
       </main>
     </div>
   );

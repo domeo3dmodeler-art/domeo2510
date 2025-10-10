@@ -236,7 +236,7 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
       } lg:translate-x-0`}>
         {/* Sidebar header */}
         <div className="flex items-center justify-between h-16 px-6 border-b border-black/10">
-          <Link href="/dashboard" className="flex items-center space-x-2">
+          <Link href="/" className="flex items-center space-x-2">
             <span className="text-2xl font-bold text-black">Domeo</span>
           </Link>
           <button

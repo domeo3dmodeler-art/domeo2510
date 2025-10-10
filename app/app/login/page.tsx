@@ -13,7 +13,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirect') || '/dashboard';
+  const redirectTo = '/';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,21 +40,29 @@ export default function LoginPage() {
         localStorage.setItem('userRole', data.user.role);
         localStorage.setItem('userId', data.user.id);
         localStorage.setItem('userEmail', data.user.email);
-        localStorage.setItem('userName', data.user.name);
+        localStorage.setItem('userName', `${data.user.firstName} ${data.user.lastName}`);
         localStorage.setItem('userFirstName', data.user.firstName);
         localStorage.setItem('userLastName', data.user.lastName);
         localStorage.setItem('userMiddleName', data.user.middleName);
         
-        // Устанавливаем cookie для совместимости
-        document.cookie = `auth-token=${data.token}; path=/; max-age=86400; samesite=lax`;
-        console.log('🍪 Cookie установлен для совместимости');
+        // Cookie устанавливается сервером, не дублируем
+        console.log('🍪 Cookie устанавливается сервером');
+        
+        // Проверяем установку cookie
+        setTimeout(() => {
+          const cookieCheck = document.cookie.includes('auth-token');
+          console.log('🍪 Cookie проверка через 50ms:', cookieCheck);
+          console.log('🍪 Все cookies:', document.cookie);
+        }, 50);
         
         // Перенаправляем на нужную страницу
         console.log('🚀 Перенаправляем на:', redirectTo);
         console.log('🍪 Cookie установлен:', document.cookie.includes('auth-token'));
         
-        // Используем window.location для принудительного обновления страницы
-        window.location.href = redirectTo;
+        // Принудительный редирект с обновлением страницы для корректной работы middleware
+        setTimeout(() => {
+          window.location.href = redirectTo;
+        }, 200);
       } else {
         setError(data.error || 'Ошибка входа');
       }
