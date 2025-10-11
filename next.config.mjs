@@ -7,6 +7,18 @@ config();
 const nextConfig = { 
   reactStrictMode: true,
   
+  // Настройки кодировки UTF-8
+  env: {
+    NODE_ENV: process.env.NODE_ENV,
+  },
+  
+  // Настройки для правильной обработки UTF-8
+  experimental: {
+    optimizeCss: true,
+    optimizePackageImports: ['lucide-react'],
+    serverComponentsExternalPackages: ['@prisma/client'],
+  },
+  
   // Оптимизация производительности
   swcMinify: true,
   compress: true,
@@ -19,13 +31,8 @@ const nextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   
-  // Оптимизация сборки
-  experimental: {
-    optimizeCss: true,
-    optimizePackageImports: ['lucide-react'],
-  },
   
-  // Кэширование
+  // Кэширование и кодировка
   async headers() {
     return [
       {
@@ -34,6 +41,10 @@ const nextConfig = {
           {
             key: 'Cache-Control',
             value: 'public, max-age=60, s-maxage=60',
+          },
+          {
+            key: 'Content-Type',
+            value: 'application/json; charset=utf-8',
           },
         ],
       },

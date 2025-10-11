@@ -1,19 +1,11 @@
-// ============================================
-// ОПТИМИЗИРОВАННАЯ PRISMA СХЕМА DOMEO
-// ============================================
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"  // Изменено с SQLite на PostgreSQL
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./database/dev.db"
 }
-
-// ============================================
-// ОПТИМИЗИРОВАННЫЕ МОДЕЛИ
-// ============================================
 
 model User {
   id            String    @id @default(cuid())
@@ -29,9 +21,6 @@ model User {
   updated_at    DateTime  @updatedAt
 
   @@map("users")
-  @@index([email])
-  @@index([role])
-  @@index([is_active])
 }
 
 model Client {
@@ -41,19 +30,20 @@ model Client {
   middleName    String?
   phone         String
   address       String
-  objectId      String
-  customFields  Json     @default("{}")  // Изменено с String на Json
+  objectId      String   // ID объекта
+  customFields  String   @default("{}") // JSON с произвольными полями
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   
   // Связи с документами
+  quotes        Quote[]
+  invoices      Invoice[]
+  orders        Order[]
   documents     Document[]
+  notifications Notification[]
 
   @@map("clients")
-  @@index([phone])
-  @@index([isActive])
-  @@index([firstName, lastName])
 }
 
 model CatalogCategory {
@@ -64,26 +54,22 @@ model CatalogCategory {
   path                 String
   sort_order           Int                          @default(0)
   is_active            Boolean                      @default(true)
-  
-  // Кэшированные счетчики (обновляются триггерами)
-  direct_products_count Int                         @default(0)
-  total_products_count  Int                         @default(0)
-  
+  products_count       Int                          @default(0)
   created_at           DateTime                     @default(now())
   updated_at           DateTime                     @updatedAt
-  
   parent               CatalogCategory?             @relation("CatalogHierarchy", fields: [parent_id], references: [id], onDelete: Cascade)
   subcategories        CatalogCategory[]            @relation("CatalogHierarchy")
   property_assignments CategoryPropertyAssignment[]
   export_settings      ExportSetting[]
   import_templates     ImportTemplate[]
   products             Product[]
+  product_stats_cache  ProductStatsCache[]
 
   @@index([parent_id])
   @@index([path])
   @@index([level])
-  @@index([is_active])
-  @@index([sort_order])
+  @@index([is_active, level])
+  @@index([parent_id, sort_order])
   @@map("catalog_categories")
 }
 
@@ -92,7 +78,7 @@ model ProductProperty {
   name                 String                       @unique
   type                 String
   description          String?
-  options              Json?                        // Изменено с String на Json
+  options              String?
   is_required          Boolean                      @default(false)
   is_active            Boolean                      @default(true)
   created_at           DateTime                     @default(now())
@@ -100,8 +86,6 @@ model ProductProperty {
   category_assignments CategoryPropertyAssignment[]
 
   @@map("product_properties")
-  @@index([name])
-  @@index([is_active])
 }
 
 model CategoryPropertyAssignment {
@@ -118,14 +102,103 @@ model CategoryPropertyAssignment {
   catalog_category    CatalogCategory @relation(fields: [catalog_category_id], references: [id], onDelete: Cascade)
 
   @@unique([catalog_category_id, product_property_id])
-  @@index([catalog_category_id])
-  @@index([product_property_id])
   @@map("category_property_assignments")
 }
 
-// ============================================
-// ОПТИМИЗИРОВАННАЯ МОДЕЛЬ ТОВАРОВ
-// ============================================
+model ImportTemplate {
+  id                  String          @id @default(cuid())
+  catalog_category_id String          @unique // Один шаблон на категорию каталога
+  name                String
+  description         String?         // Описание шаблона
+  required_fields     String          @default("[]") // Обязательные поля
+  calculator_fields   String          @default("[]") // Поля для калькулятора
+  export_fields       String          @default("[]") // Поля для экспорта
+  template_config     String?         // JSON конфигурация шаблона
+  field_mappings      String?         // JSON маппинг полей
+  validation_rules    String?         // JSON правила валидации
+  is_active           Boolean         @default(true)
+  created_at          DateTime        @default(now())
+  updated_at          DateTime        @updatedAt
+  
+  // Связи
+  catalog_category    CatalogCategory @relation(fields: [catalog_category_id], references: [id], onDelete: Cascade)
+  import_history      ImportHistory[]
+
+  @@index([catalog_category_id])
+  @@map("import_templates")
+}
+
+model ConstructorConfiguration {
+  id            String   @id @default(cuid())
+  categoryId    String
+  name          String
+  configuration String   // JSON configuration of the constructor
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("constructor_configurations")
+}
+
+model Document {
+  id            String   @id @default(cuid())
+  clientId      String
+  type          String   // 'quote', 'invoice', 'order'
+  status        String   @default("draft") // 'draft', 'sent', 'paid', 'cancelled'
+  content       String   // JSON содержимого документа
+  documentData  String?  // JSON дополнительных данных
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Связи
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
+}
+
+model ExportSetting {
+  id                  String          @id @default(cuid())
+  catalog_category_id String
+  export_type         String
+  fields_config       String          @default("[]")
+  display_config      String          @default("{}")
+  created_at          DateTime        @default(now())
+  updated_at          DateTime        @updatedAt
+  catalog_category    CatalogCategory @relation(fields: [catalog_category_id], references: [id], onDelete: Cascade)
+
+  @@unique([catalog_category_id, export_type])
+  @@map("export_settings")
+}
+
+model FrontendCategory {
+  id                   String   @id @default(cuid())
+  name                 String
+  slug                 String   @unique
+  description          String?
+  icon                 String?
+  catalog_category_ids String   @default("[]") // JSON массив ID категорий каталога
+  display_config       String   @default("{}")
+  property_mapping     String?  @default("[]")
+  photo_mapping        String?  @default("{}")
+  photo_data           String?  @default("{}")
+  is_active            Boolean  @default(true)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  @@index([slug])
+  @@map("frontend_categories")
+}
+
+model ConstructorConfig {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  config      String   // JSON конфигурация конструктора
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("constructor_configs")
+}
 
 model Product {
   id                  String          @id @default(cuid())
@@ -136,69 +209,45 @@ model Product {
   brand               String?
   model               String?
   series              String?
-  
-  // Ценообразование
-  base_price          Decimal         @db.Decimal(10, 2)
+  base_price          Float
   currency            String          @default("RUB")
-  
-  // Склад
   stock_quantity      Int             @default(0)
   min_order_qty       Int             @default(1)
-  
-  // Физические характеристики (нормализованные)
-  weight_kg           Decimal?        @db.Decimal(8, 3)
-  width_mm            Int?
-  height_mm           Int?
-  depth_mm            Int?
-  
-  // Дополнительные данные (только для сложных случаев)
-  specifications      Json            @default("{}")
-  tags                Json            @default("[]")
-  
-  // Статусы
+  weight              Float?
+  dimensions          String          @default("{}")
+  specifications      String          @default("{}")
+  properties_data     String          @default("{}")
+  tags                String          @default("[]")
   is_active           Boolean         @default(true)
   is_featured         Boolean         @default(false)
-  
   created_at          DateTime        @default(now())
   updated_at          DateTime        @updatedAt
-  
   catalog_category    CatalogCategory @relation(fields: [catalog_category_id], references: [id], onDelete: Cascade)
   images              ProductImage[]
-  properties          ProductPropertyValue[]
-  document_items      DocumentItem[]
+  property_values     ProductPropertyValue[]
+
+  // Виртуальные поля для оптимизации JSON запросов
+  style_extracted     String?         // Извлекается из properties_data
+  model_extracted     String?         // Извлекается из properties_data
+  color_extracted     String?         // Извлекается из properties_data
+  finish_extracted    String?         // Извлекается из properties_data
+  width_extracted     Int?            // Извлекается из properties_data
+  height_extracted    Int?            // Извлекается из properties_data
 
   @@map("products")
   @@index([catalog_category_id])
   @@index([is_active])
-  @@index([sku])
-  @@index([brand])
-  @@index([model])
-  @@index([base_price])
-  @@index([width_mm, height_mm])
-  @@index([catalog_category_id, brand, model, width_mm, height_mm])
-}
-
-// ============================================
-// НОРМАЛИЗОВАННАЯ ТАБЛИЦА СВОЙСТВ ТОВАРОВ
-// ============================================
-
-model ProductPropertyValue {
-  id              String   @id @default(cuid())
-  product_id      String
-  property_name   String
-  property_value  String
-  property_type   String   @default("text") // text, number, boolean, date
-  sort_order      Int      @default(0)
-  created_at      DateTime @default(now())
-  
-  product         Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
-
-  @@unique([product_id, property_name])
-  @@index([product_id])
-  @@index([property_name])
-  @@index([property_value])
-  @@index([product_id, property_name, property_value])
-  @@map("product_property_values")
+  @@index([sku, is_active])
+  @@index([catalog_category_id, is_active])
+  @@index([base_price]) // Для фильтрации по цене
+  @@index([created_at(sort: Desc)])
+  @@index([is_featured, is_active])
+  @@index([style_extracted])
+  @@index([model_extracted])
+  @@index([color_extracted])
+  @@index([finish_extracted])
+  @@index([width_extracted])
+  @@index([height_extracted])
 }
 
 model ProductImage {
@@ -219,169 +268,268 @@ model ProductImage {
 
   @@map("product_images")
   @@index([product_id])
-  @@index([is_primary])
-  @@index([sort_order])
+  @@index([product_id, is_primary])
+  @@index([product_id, sort_order])
 }
 
-// ============================================
-// УНИВЕРСАЛЬНАЯ СИСТЕМА ДОКУМЕНТОВ
-// ============================================
+// Новая таблица для нормализации свойств товаров
+model ProductPropertyValue {
+  id             String   @id @default(cuid())
+  product_id     String
+  property_name  String
+  property_value String
+  property_type  String   @default("string") // 'string', 'number', 'boolean', 'date'
+  created_at     DateTime @default(now())
+  product        Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
 
-model Document {
+  @@map("product_property_values")
+  @@index([product_id])
+  @@index([property_name])
+  @@index([property_name, property_value])
+  @@unique([product_id, property_name])
+}
+
+// Таблица для кэширования статистики товаров
+model ProductStatsCache {
+  id                String          @id @default(cuid())
+  catalog_category_id String
+  total_products    Int             @default(0)
+  active_products   Int             @default(0)
+  featured_products Int            @default(0)
+  price_min         Float           @default(0)
+  price_max         Float           @default(0)
+  avg_price         Float           @default(0)
+  last_updated      DateTime        @default(now())
+  catalog_category  CatalogCategory @relation(fields: [catalog_category_id], references: [id], onDelete: Cascade)
+
+  @@map("product_stats_cache")
+  @@index([catalog_category_id])
+}
+
+// Таблица для кэширования результатов запросов
+model QueryCache {
+  id          String   @id @default(cuid())
+  cache_key   String   @unique
+  data        String   // JSON данные
+  expires_at  DateTime
+  created_at  DateTime @default(now())
+  hit_count   Int      @default(0)
+
+  @@map("query_cache")
+  @@index([expires_at])
+  @@index([cache_key])
+}
+
+// Таблица для мониторинга производительности
+model PerformanceStats {
+  id               String   @id @default(cuid())
+  table_name       String
+  operation_type   String   // 'SELECT', 'INSERT', 'UPDATE', 'DELETE'
+  execution_time_ms Int
+  rows_affected    Int      @default(0)
+  query_hash       String?
+  created_at       DateTime @default(now())
+
+  @@map("performance_stats")
+  @@index([table_name, created_at(sort: Desc)])
+  @@index([execution_time_ms(sort: Desc)])
+}
+
+// Таблица для логирования медленных запросов
+model SlowQueryLog {
+  id               String   @id @default(cuid())
+  query_text       String
+  execution_time_ms Int
+  rows_affected    Int      @default(0)
+  created_at       DateTime @default(now())
+  user_id          String?
+  ip_address       String?
+
+  @@map("slow_query_log")
+  @@index([execution_time_ms(sort: Desc)])
+  @@index([created_at(sort: Desc)])
+}
+
+model Quote {
   id           String    @id @default(cuid())
+  number       String    @unique
   client_id    String
-  type         String    // quote, invoice, order, supplier_order
-  number       String?   @unique
-  status       String    @default("draft")
-  
-  // Даты
-  document_date DateTime @default(now())
+  created_by   String
+  status       String    @default("DRAFT")
   valid_until  DateTime?
-  due_date     DateTime?
-  
-  // Финансы
-  subtotal     Decimal   @default(0) @db.Decimal(12, 2)
-  tax_amount   Decimal   @default(0) @db.Decimal(12, 2)
-  total_amount Decimal   @default(0) @db.Decimal(12, 2)
+  subtotal     Float     @default(0)
+  tax_amount   Float     @default(0)
+  total_amount Float     @default(0)
   currency     String    @default("RUB")
-  
-  // Связи между документами
-  parent_document_id String?
-  
-  // Метаданные
   notes        String?
   terms        String?
-  created_by   String?
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
   
-  client       Client         @relation(fields: [client_id], references: [id], onDelete: Cascade)
-  parent_document Document?    @relation("DocumentHierarchy", fields: [parent_document_id], references: [id])
-  child_documents Document[]   @relation("DocumentHierarchy")
-  items        DocumentItem[]
+  // Связи
+  client       Client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  quote_items  QuoteItem[]
 
-  @@map("documents")
-  @@index([client_id])
-  @@index([type])
-  @@index([status])
-  @@index([document_date])
-  @@index([number])
-  @@index([parent_document_id])
+  @@map("quotes")
 }
 
-model DocumentItem {
-  id          String   @id @default(cuid())
-  document_id String
+model QuoteItem {
+  id          String  @id @default(cuid())
+  quote_id    String
   product_id  String
   quantity    Int
-  unit_price  Decimal  @db.Decimal(10, 2)
-  total_price Decimal  @db.Decimal(10, 2)
+  unit_price  Float
+  total_price Float
   notes       String?
-  created_at  DateTime @default(now())
   
-  document    Document @relation(fields: [document_id], references: [id], onDelete: Cascade)
-  product     Product  @relation(fields: [product_id], references: [id])
+  // Связи
+  quote       Quote   @relation(fields: [quote_id], references: [id], onDelete: Cascade)
 
-  @@map("document_items")
-  @@index([document_id])
-  @@index([product_id])
+  @@map("quote_items")
 }
 
-// ============================================
-// СИСТЕМА ИМПОРТА И ЭКСПОРТА
-// ============================================
-
-model ImportTemplate {
-  id                  String          @id @default(cuid())
-  catalog_category_id String          @unique
-  name                String
-  description         String?
-  required_fields     Json            @default("[]")
-  calculator_fields   Json            @default("[]")
-  export_fields       Json            @default("[]")
-  template_config     Json?
-  field_mappings      Json?
-  validation_rules    Json?
-  is_active           Boolean         @default(true)
-  created_at          DateTime        @default(now())
-  updated_at          DateTime        @updatedAt
+model Order {
+  id            String    @id @default(cuid())
+  number        String    @unique
+  quote_id      String?
+  client_id     String
+  created_by    String
+  status        String    @default("PENDING")
+  order_date    DateTime  @default(now())
+  delivery_date DateTime?
+  subtotal      Float     @default(0)
+  tax_amount    Float     @default(0)
+  total_amount  Float     @default(0)
+  currency      String    @default("RUB")
+  notes         String?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
   
-  catalog_category    CatalogCategory @relation(fields: [catalog_category_id], references: [id], onDelete: Cascade)
-  import_history      ImportHistory[]
+  // Связи
+  client        Client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  order_items   OrderItem[]
 
-  @@index([catalog_category_id])
-  @@map("import_templates")
+  @@map("orders")
 }
 
-model ExportSetting {
-  id                  String          @id @default(cuid())
-  catalog_category_id String
-  export_type         String
-  fields_config       Json            @default("[]")
-  display_config      Json            @default("{}")
-  created_at          DateTime        @default(now())
-  updated_at          DateTime        @updatedAt
-  catalog_category    CatalogCategory @relation(fields: [catalog_category_id], references: [id], onDelete: Cascade)
+model OrderItem {
+  id          String  @id @default(cuid())
+  order_id    String
+  product_id  String
+  quantity    Int
+  unit_price  Float
+  total_price Float
+  notes       String?
+  
+  // Связи
+  order       Order   @relation(fields: [order_id], references: [id], onDelete: Cascade)
 
-  @@unique([catalog_category_id, export_type])
-  @@map("export_settings")
+  @@map("order_items")
+}
+
+model Invoice {
+  id           String    @id @default(cuid())
+  number       String    @unique
+  order_id     String?
+  client_id    String
+  created_by   String
+  status       String    @default("DRAFT")
+  invoice_date DateTime  @default(now())
+  due_date     DateTime?
+  subtotal     Float     @default(0)
+  tax_amount   Float     @default(0)
+  total_amount Float     @default(0)
+  currency     String    @default("RUB")
+  notes        String?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  
+  // Связи
+  client         Client      @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  invoice_items  InvoiceItem[]
+
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoice_id  String
+  product_id  String
+  quantity    Int
+  unit_price  Float
+  total_price Float
+  notes       String?
+  
+  // Связи
+  invoice     Invoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+
+  @@map("invoice_items")
+}
+
+model SupplierOrder {
+  id             String    @id @default(cuid())
+  order_id       String
+  executor_id    String
+  supplier_name  String
+  supplier_email String?
+  supplier_phone String?
+  status         String    @default("PENDING")
+  order_date     DateTime  @default(now())
+  expected_date  DateTime?
+  notes          String?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  @@map("supplier_orders")
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  user_id    String
+  type       String
+  title      String
+  message    String
+  is_read    Boolean  @default(false)
+  data       String?  @default("{}")
+  created_at DateTime @default(now())
+  
+  // Связи
+  client     Client   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
 }
 
 model ImportHistory {
   id                  String   @id @default(cuid())
-  template_id         String?
+  template_id         String?  // Связь с шаблоном загрузки
   catalog_category_id String
   filename            String
   file_size           Int?
   imported_count      Int      @default(0)
   error_count         Int      @default(0)
   status              String   @default("pending")
-  errors              Json     @default("[]")
-  import_data         Json?
+  errors              String   @default("[]")
+  import_data         String?  // JSON данные импорта
   created_at          DateTime @default(now())
 
+  // Связи
   template ImportTemplate? @relation(fields: [template_id], references: [id])
 
   @@index([template_id])
-  @@index([catalog_category_id])
-  @@index([created_at])
+  @@index([catalog_category_id, created_at(sort: Desc)])
+  @@index([status, created_at(sort: Desc)])
   @@map("import_history")
 }
 
-// ============================================
-// СИСТЕМА КОНСТРУКТОРА И СТРАНИЦ
-// ============================================
-
-model FrontendCategory {
-  id                   String   @id @default(cuid())
-  name                 String
-  slug                 String   @unique
-  description          String?
-  icon                 String?
-  catalog_category_ids Json     @default("[]")
-  display_config       Json     @default("{}")
-  property_mapping     Json?
-  photo_mapping        Json?
-  photo_data           Json?
-  is_active            Boolean  @default(true)
-  created_at           DateTime @default(now())
-  updated_at           DateTime @updatedAt
-
-  @@index([slug])
-  @@index([is_active])
-  @@map("frontend_categories")
-}
-
-model ConstructorConfig {
+model SystemSetting {
   id          String   @id @default(cuid())
-  name        String
+  key         String   @unique
+  value       String
   description String?
-  config      Json
-  is_active   Boolean  @default(true)
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
-  @@map("constructor_configs")
+  @@map("system_settings")
 }
 
 model Page {
@@ -393,22 +541,22 @@ model Page {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   
+  // Связи
   elements    PageElement[]
 
   @@map("pages")
-  @@index([url])
-  @@index([isPublished])
 }
 
 model PageElement {
   id        String   @id @default(cuid())
   type      String
-  props     Json     @default("{}")
-  position  Json     @default("{}")
-  size      Json     @default("{}")
+  props     String   @default("{}") // JSON с настройками компонента
+  position  String   @default("{}") // JSON с позицией {x, y}
+  size      String   @default("{}") // JSON с размером {width, height}
   zIndex    Int      @default(0)
-  parentId  String?
+  parentId  String?  // ID родительского элемента
   
+  // Связи
   pageId    String
   page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
   
@@ -416,40 +564,4 @@ model PageElement {
   updatedAt DateTime @updatedAt
 
   @@map("page_elements")
-  @@index([pageId])
-  @@index([parentId])
-}
-
-// ============================================
-// СИСТЕМНЫЕ ТАБЛИЦЫ
-// ============================================
-
-model SystemSetting {
-  id          String   @id @default(cuid())
-  key         String   @unique
-  value       String
-  description String?
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-
-  @@map("system_settings")
-  @@index([key])
-}
-
-model Notification {
-  id         String   @id @default(cuid())
-  user_id    String
-  type       String
-  title      String
-  message    String
-  is_read    Boolean  @default(false)
-  data       Json?
-  created_at DateTime @default(now())
-  
-  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@map("notifications")
-  @@index([user_id])
-  @@index([is_read])
-  @@index([created_at])
 }

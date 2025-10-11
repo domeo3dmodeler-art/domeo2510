@@ -5,6 +5,7 @@ import { Button, Card, Badge, Input, Dialog, DialogContent, DialogHeader, Dialog
 import { Plus, Search, Folder, FolderOpen, Edit, Trash2, Settings, ChevronRight, ChevronDown, Package, Package2 } from 'lucide-react';
 import { CatalogCategory, CreateCatalogCategoryDto } from '@/lib/types/catalog';
 import TemplateManager from '../../../components/admin/TemplateManager';
+import { fixFieldsEncoding } from '@/lib/encoding-utils';
 
 interface CatalogTreeProps {
   categories: CatalogCategory[];
@@ -391,35 +392,19 @@ export default function CatalogPage() {
   const loadTemplate = async (categoryId: string) => {
     try {
       setTemplateLoading(true);
-      const response = await fetch(`/api/admin/import-templates?catalog_category_id=${categoryId}`);
+      const response = await fetch(`/api/admin/templates?catalogCategoryId=${categoryId}`);
       const data = await response.json();
       
       console.log('=== TEMPLATE DEBUG ===');
       console.log('Template API response:', data);
-      console.log('Templates found:', data.templates?.length || 0);
+      console.log('Templates found:', data.template ? 'YES' : 'NO');
       
-      if (data.success && data.templates && data.templates.length > 0) {
-        // Показываем все найденные шаблоны
-        console.log('ALL TEMPLATES FOUND:');
-        data.templates.forEach((template: any, index: number) => {
-          console.log(`Template ${index + 1}:`, {
-            id: template.id,
-            name: template.name,
-            requiredFields: template.requiredFields,
-            requiredFieldsLength: template.requiredFields?.length || 0,
-            frontendCategory: template.frontendCategory,
-            catalogCategory: template.catalogCategory
-          });
-        });
-        
-        // Берем первый шаблон (должен быть только один)
-        const template = data.templates[0];
+      if (data.success && data.template) {
+        const template = data.template;
         console.log('SELECTED TEMPLATE:', template);
         console.log('Template requiredFields:', template.requiredFields);
-        console.log('Template fieldMappings:', template.fieldMappings);
-        console.log('Template fieldMappings type:', typeof template.fieldMappings);
-        console.log('Template fieldMappings length:', Array.isArray(template.fieldMappings) ? template.fieldMappings.length : 'not an array');
         console.log('Template requiredFields type:', typeof template.requiredFields);
+        console.log('Template requiredFields length:', Array.isArray(template.requiredFields) ? template.requiredFields.length : 'not an array');
         
         if (template.requiredFields) {
           try {
@@ -427,13 +412,17 @@ export default function CatalogPage() {
             console.log('Template fields:', fields);
             console.log('Fields count:', Array.isArray(fields) ? fields.length : 'not an array');
             
+            // Исправляем кодировку полей
+            const fixedFields = fixFieldsEncoding(fields);
+            console.log('Fixed fields:', fixedFields);
+            
             // Показываем каждое поле (если fields является массивом)
-            if (Array.isArray(fields)) {
-              fields.forEach((field: any, index: number) => {
+            if (Array.isArray(fixedFields)) {
+              fixedFields.forEach((field: any, index: number) => {
                 console.log(`Field ${index + 1}:`, field);
               });
             } else {
-              console.log('Fields is not an array:', fields);
+              console.log('Fixed fields is not an array:', fixedFields);
             }
           } catch (e) {
             console.error('Error processing requiredFields:', e);
@@ -442,9 +431,9 @@ export default function CatalogPage() {
           console.error('Template has no requiredFields!');
         }
         
-        setSelectedTemplate(template); // Берем первый шаблон для категории
+        setSelectedTemplate(template);
       } else {
-        console.log('No template found for category');
+        console.log('No template found for category:', categoryId);
         setSelectedTemplate(null);
       }
       console.log('=== END TEMPLATE DEBUG ===');
@@ -631,15 +620,8 @@ export default function CatalogPage() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <TemplateManager
-                      categoryId={selectedCategory.id}
-                      categoryName={selectedCategory.name}
-                      template={selectedTemplate}
-                      onTemplateUpdate={(template) => {
-                        setSelectedTemplate(template);
-                        if (selectedCategory.id) {
-                          loadTemplate(selectedCategory.id);
-                        }
-                      }}
+                      catalogCategoryId={selectedCategory?.id || null}
+                      catalogCategoryName={selectedCategory?.name}
                     />
                   </div>
                 </div>
@@ -718,56 +700,51 @@ export default function CatalogPage() {
                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                                 #
                               </th>
-                              {/* Динамические заголовки из fieldMappings шаблона */}
+                              {/* Динамические заголовки из requiredFields шаблона */}
                               {(() => {
                                 
-                                if (selectedTemplate?.fieldMappings) {
+                                if (selectedTemplate?.requiredFields) {
                                   try {
-                                    let fieldMappings = selectedTemplate.fieldMappings; // Уже парсится в API
+                                    let requiredFields = selectedTemplate.requiredFields; // Уже парсится в API
                                     
                                     console.log('TEMPLATE DEBUG:', {
                                       selectedTemplate,
-                                      fieldMappings: selectedTemplate.fieldMappings,
-                                      fieldMappingsType: typeof fieldMappings,
-                                      fieldMappingsIsArray: Array.isArray(fieldMappings)
+                                      requiredFields: selectedTemplate.requiredFields,
+                                      requiredFieldsType: typeof requiredFields,
+                                      requiredFieldsIsArray: Array.isArray(requiredFields)
                                     });
                                     
-                                    // Проверяем, что fieldMappings является массивом
-                                    if (typeof fieldMappings === 'string') {
-                                      fieldMappings = JSON.parse(fieldMappings);
+                                    // Проверяем, что requiredFields является массивом
+                                    if (typeof requiredFields === 'string') {
+                                      requiredFields = JSON.parse(requiredFields);
                                     }
                                     
-                                    if (Array.isArray(fieldMappings) && fieldMappings.length > 0) {
+                                    if (Array.isArray(requiredFields) && requiredFields.length > 0) {
+                                      // Исправляем кодировку полей
+                                      const fixedFields = fixFieldsEncoding(requiredFields);
+                                      
                                       // Фильтруем поля, исключая нежелательные и пустые
-                                      const filteredFields = fieldMappings.filter((field: any) => {
-                                        const fieldName = field.fieldName || field;
-                                        const displayName = field.displayName || field;
-                                        
-                                        // Проверяем, что есть хотя бы одно валидное название поля
-                                        const hasValidFieldName = fieldName && 
-                                                                 typeof fieldName === 'string' &&
-                                                                 fieldName.trim() !== '' && 
-                                                                 fieldName !== '_' &&
-                                                                 !fieldName.includes('№') && 
-                                                                 !fieldName.includes('Domeo_Ссылка на фото двери') &&
-                                                                 !fieldName.includes('DOMEO_ССЫЛКА НА ФОТО ДВЕРИ');
-                                                                 
-                                        const hasValidDisplayName = displayName && 
-                                                                   typeof displayName === 'string' &&
-                                                                   displayName.trim() !== '';
+                                      const filteredFields = fixedFields.filter((field: string) => {
+                                        // Проверяем, что поле валидно
+                                        const isValidField = field && 
+                                                           typeof field === 'string' &&
+                                                           field.trim() !== '' && 
+                                                           field !== '_' &&
+                                                           !field.includes('№') && 
+                                                           !field.includes('Domeo_Ссылка на фото двери') &&
+                                                           !field.includes('DOMEO_ССЫЛКА НА ФОТО ДВЕРИ');
                                                                    
-                                        // Поле проходит фильтрацию, если есть валидное fieldName ИЛИ валидное displayName
-                                        return (hasValidFieldName || hasValidDisplayName);
+                                        return isValidField;
                                       });
                                       
-                                      return filteredFields.map((field: any, index: number) => (
+                                      return filteredFields.map((field: string, index: number) => (
                                         <th key={index} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                                          {field.displayName || field.fieldName}
+                                          {field}
                                         </th>
                                       ));
                                     }
                                   } catch (error) {
-                                    console.error('Ошибка при обработке fieldMappings шаблона:', error);
+                                    console.error('Ошибка при обработке requiredFields шаблона:', error);
                                   }
                                 }
                                 
@@ -811,65 +788,53 @@ export default function CatalogPage() {
                                 <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-500 border-r border-gray-200">
                                   {index + 1}
                                 </td>
-                                {/* Динамические ячейки свойств из fieldMappings шаблона */}
+                                {/* Динамические ячейки свойств из requiredFields шаблона */}
                                 {(() => {
-                                  if (selectedTemplate?.fieldMappings) {
+                                  if (selectedTemplate?.requiredFields) {
                                     try {
-                                      let fieldMappings = selectedTemplate.fieldMappings; // Уже парсится в API
+                                      let requiredFields = selectedTemplate.requiredFields; // Уже парсится в API
                                       
-                                      // Проверяем, что fieldMappings является массивом
-                                      if (typeof fieldMappings === 'string') {
-                                        fieldMappings = JSON.parse(fieldMappings);
+                                      // Проверяем, что requiredFields является массивом
+                                      if (typeof requiredFields === 'string') {
+                                        requiredFields = JSON.parse(requiredFields);
                                       }
                                       
                                       const specifications = product.properties_data ? 
                                         (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
                                       
                                       
-                                      if (Array.isArray(fieldMappings) && fieldMappings.length > 0) {
+                                      if (Array.isArray(requiredFields) && requiredFields.length > 0) {
+                                        // Исправляем кодировку полей
+                                        const fixedFields = fixFieldsEncoding(requiredFields);
+                                        
                                         // Фильтруем поля, исключая нежелательные и пустые
-                                        const filteredFields = fieldMappings.filter((field: any) => {
-                                          const fieldName = field.fieldName || field;
-                                          const displayName = field.displayName || field;
-                                          return fieldName && 
-                                                 typeof fieldName === 'string' &&
-                                                 fieldName.trim() !== '' && 
-                                                 fieldName !== '_' &&
-                                                 !fieldName.includes('№') && 
-                                                 !fieldName.includes('Domeo_Ссылка на фото двери') &&
-                                                 !fieldName.includes('DOMEO_ССЫЛКА НА ФОТО ДВЕРИ') &&
-                                                 displayName && 
-                                                 typeof displayName === 'string' &&
-                                                 displayName.trim() !== '';
+                                        const filteredFields = fixedFields.filter((field: string) => {
+                                          return field && 
+                                                 typeof field === 'string' &&
+                                                 field.trim() !== '' && 
+                                                 field !== '_' &&
+                                                 !field.includes('№') && 
+                                                 !field.includes('Domeo_Ссылка на фото двери') &&
+                                                 !field.includes('DOMEO_ССЫЛКА НА ФОТО ДВЕРИ');
                                         });
                                         
-                                        return filteredFields.map((field: any, fieldIndex: number) => {
+                                        return filteredFields.map((field: string, fieldIndex: number) => {
                                           // Пробуем разные варианты названий полей для поиска значения
-                                          let value = specifications[field.fieldName] || 
-                                                     specifications[field.displayName] ||
-                                                     specifications[field.field_name] ||
-                                                     specifications[field.display_name] ||
-                                                     '-';
+                                          let value = specifications[field] || '-';
                                           
                                           // Если значение не найдено, пробуем найти по частичному совпадению
                                           if (value === '-') {
-                                            const searchKeys = [field.fieldName, field.displayName].filter(Boolean);
                                             const keys = Object.keys(specifications);
                                             
-                                            for (const searchKey of searchKeys) {
-                                              if (searchKey) {
-                                                const matchingKey = keys.find(key => 
-                                                  key.toLowerCase().includes(searchKey.toLowerCase()) ||
-                                                  searchKey.toLowerCase().includes(key.toLowerCase())
-                                                );
-                                                if (matchingKey) {
-                                                  value = specifications[matchingKey];
-                                                  break;
-                                                }
-                                              }
+                                            const matchingKey = keys.find(key => 
+                                              key.toLowerCase().includes(field.toLowerCase()) ||
+                                              field.toLowerCase().includes(key.toLowerCase())
+                                            );
+                                            
+                                            if (matchingKey) {
+                                              value = specifications[matchingKey];
                                             }
                                           }
-                                          
                                           
                                           return (
                                             <td key={fieldIndex} className="px-3 py-2 whitespace-nowrap text-sm text-gray-600 border-r border-gray-200">
