@@ -5,6 +5,7 @@ import { Button, Card, Badge, Input, Dialog, DialogContent, DialogHeader, Dialog
 import { Plus, Search, Folder, FolderOpen, Edit, Trash2, Settings, ChevronRight, ChevronDown, Package, Package2 } from 'lucide-react';
 import { CatalogCategory, CreateCatalogCategoryDto } from '@/lib/types/catalog';
 import TemplateManager from '../../../components/admin/TemplateManager';
+import PriceListExporter from '../../../components/admin/PriceListExporter';
 import { fixFieldsEncoding } from '@/lib/encoding-utils';
 
 interface CatalogTreeProps {
@@ -620,6 +621,10 @@ export default function CatalogPage() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <TemplateManager
+                      catalogCategoryId={selectedCategory?.id || null}
+                      catalogCategoryName={selectedCategory?.name}
+                    />
+                    <PriceListExporter
                       catalogCategoryId={selectedCategory?.id || null}
                       catalogCategoryName={selectedCategory?.name}
                     />

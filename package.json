@@ -18,6 +18,8 @@
   "author": "Domeo Team",
   "license": "MIT",
   "dependencies": {
+    "@prisma/client": "^6.17.1",
+    "prisma": "^6.17.1",
     "xlsx": "^0.18.5"
   }
 }
