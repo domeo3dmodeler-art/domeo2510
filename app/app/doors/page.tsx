@@ -1653,14 +1653,10 @@ export default function DoorsPage() {
               ← Категории
             </Link>
             <button
-              onClick={() => setTab("config")}
-              className={`px-3 py-1 border transition-all duration-200 text-sm ${
-                tab === "config" 
-                  ? "bg-black text-white border-black" 
-                  : "border-black text-black hover:bg-black hover:text-white"
-              }`}
+              onClick={() => setShowClientManager(true)}
+              className="px-3 py-1 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 text-sm"
             >
-              Конфигуратор
+              👤 {selectedClientName || 'Заказчик'}
             </button>
             {tab === "admin" && (
               <button
@@ -2194,7 +2190,15 @@ export default function DoorsPage() {
               {/* Корзина - показывается всегда */}
               <div className="bg-white border border-black/10 p-5 transition-all duration-700 ease-in-out">
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-lg font-semibold text-black">Корзина ({cart.length})</h2>
+                  <div className="flex items-center space-x-3">
+                    <h2 className="text-lg font-semibold text-black">Корзина ({cart.length})</h2>
+                    {selectedClientName && (
+                      <div className="flex items-center space-x-1 px-2 py-1 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700">
+                        <span>👤</span>
+                        <span>{selectedClientName}</span>
+                      </div>
+                    )}
+                  </div>
                 <div className="text-sm text-gray-600">
                     Итого:{" "}
                   <span className="font-semibold text-black text-base">
