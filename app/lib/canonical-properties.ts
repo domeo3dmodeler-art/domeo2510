@@ -115,7 +115,7 @@ export const PROPERTY_MAPPING: Record<string, CanonicalPropertyValue> = {
   'Стоимость': CANONICAL_PROPERTIES.BASE_PRICE,
   'Цена ррц': CANONICAL_PROPERTIES.RETAIL_PRICE,
   'Цена опт': CANONICAL_PROPERTIES.WHOLESALE_PRICE,
-  'Цена ррц (включая цену полотна, короба, наличников, доборов)': CANONICAL_PROPERTIES.RETAIL_PRICE,
+  'Цена РРЦ': CANONICAL_PROPERTIES.RETAIL_PRICE,
   
   // Материалы
   'Общее_Тип покрытия': CANONICAL_PROPERTIES.COATING_TYPE,

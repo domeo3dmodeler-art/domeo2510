@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
       row.push(properties['Тип конструкции'] || '');
       row.push(properties['Тип открывания'] || '');
       row.push(properties['Поставщик'] || '');
-      row.push(properties['Цена ррц (включая цену полотна, короба, наличников, доборов)'] || '');
+      row.push(properties['Цена РРЦ'] || '');
       row.push(properties['Цена опт'] || '');
 
       // Добавляем базовую цену и остаток

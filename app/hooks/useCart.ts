@@ -18,6 +18,7 @@ export interface UseCartResult {
   addOption: (itemId: string, option: any) => Promise<CartItem>;
   addModification: (itemId: string, modification: any) => Promise<CartItem>;
   applyDiscount: (type: 'percentage' | 'fixed', value: number) => Promise<void>;
+  recalculateItemPrice: (itemId: string) => Promise<void>;
   
   // Утилиты
   getItemCount: () => number;
@@ -164,6 +165,19 @@ export const useCart = (): UseCartResult => {
     }
   }, []);
 
+  const recalculateItemPrice = useCallback(async (itemId: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await cartService.recalculateItemPrice(itemId);
+    } catch (err: any) {
+      setError(err);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   const getItemCount = useCallback(() => {
     return cart?.items.length || 0;
   }, [cart]);
@@ -199,6 +213,7 @@ export const useCart = (): UseCartResult => {
     addOption,
     addModification,
     applyDiscount,
+    recalculateItemPrice,
     getItemCount,
     getTotalValue,
     getCategoryCount,

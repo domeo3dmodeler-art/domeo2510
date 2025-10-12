@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     console.log('📥 Request body:', body);
     console.log('📥 Raw style:', JSON.stringify(body.style));
     console.log('📥 Raw model:', JSON.stringify(body.model));
-    const { style, model } = body;
+    const { style, model, color } = body;
     
     if (!style || !model) {
       console.log('❌ Missing style or model:', { style, model });
@@ -41,25 +41,30 @@ export async function POST(req: NextRequest) {
 
     console.log('📦 Total products loaded:', products.length);
 
-    // Фильтруем по стилю и модели на клиенте
+    // Фильтруем по стилю, модели и цвету (если указан) на клиенте
     const filteredProducts = products.filter(product => {
       try {
         const props = product.properties_data ? 
           (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
         const styleMatch = props?.['Domeo_Стиль Web'] === style;
         const modelMatch = props?.['Domeo_Название модели для Web']?.includes(model);
+        const colorMatch = !color || props?.['Domeo_Цвет'] === color; // Если цвет не указан, пропускаем проверку
+        
         // Логируем только первые несколько товаров для отладки
         if (Math.random() < 0.01) { // 1% вероятность логирования
           console.log('🔍 Product check:', {
             style: props?.['Domeo_Стиль Web'],
             model: props?.['Domeo_Название модели для Web'],
+            color: props?.['Domeo_Цвет'],
             styleMatch,
             modelMatch,
+            colorMatch,
             requestedStyle: style,
-            requestedModel: model
+            requestedModel: model,
+            requestedColor: color
           });
         }
-        return styleMatch && modelMatch;
+        return styleMatch && modelMatch && colorMatch;
       } catch (error) {
         console.error('❌ Error parsing product properties:', error);
         return false;

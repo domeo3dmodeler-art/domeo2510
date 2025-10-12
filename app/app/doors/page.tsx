@@ -9,6 +9,7 @@ import Link from "next/link";
 import ExportButtons from "../components/ExportButtons"; // ПУТЬ ОТНОСИТЕЛЬНО /doors/page.tsx
 import UnifiedExportButtons from "../../components/UnifiedExportButtons"; // Новый унифицированный компонент
 import React, { useEffect, useMemo, useState } from "react";
+import { priceRecalculationService } from "@/lib/cart/price-recalculation-service";
 
 // ===================== Типы =====================
 type BasicState = {
@@ -754,6 +755,16 @@ export default function DoorsPage() {
   const [showClientManager, setShowClientManager] = useState(false);
   const [selectedClient, setSelectedClient] = useState<string>('');
   const [selectedClientName, setSelectedClientName] = useState<string>('');
+  const [clients, setClients] = useState<any[]>([]);
+  const [clientsLoading, setClientsLoading] = useState(false);
+  const [showCreateClientForm, setShowCreateClientForm] = useState(false);
+  const [newClientData, setNewClientData] = useState({
+    firstName: '',
+    lastName: '',
+    middleName: '',
+    phone: '',
+    address: ''
+  });
 
   // Сохранение корзины в localStorage
   useEffect(() => {
@@ -786,6 +797,56 @@ export default function DoorsPage() {
       }
     }
   }, []);
+
+  // Загрузка клиентов
+  const fetchClients = async () => {
+    try {
+      setClientsLoading(true);
+      const response = await fetch('/api/clients');
+      if (response.ok) {
+        const data = await response.json();
+        setClients(data.clients || []);
+      } else {
+        console.error('Failed to fetch clients');
+      }
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    } finally {
+      setClientsLoading(false);
+    }
+  };
+
+  // Загружаем клиентов при открытии менеджера
+  useEffect(() => {
+    if (showClientManager) {
+      fetchClients();
+    }
+  }, [showClientManager]);
+
+  // Создание нового клиента
+  const createClient = async (clientData: any) => {
+    try {
+      const response = await fetch('/api/clients', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(clientData)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        await fetchClients(); // Обновляем список
+        return data.client;
+      } else {
+        throw new Error('Failed to create client');
+      }
+    } catch (error) {
+      console.error('Error creating client:', error);
+      throw error;
+    }
+  };
+
   const [kpHtml, setKpHtml] = useState<string>("");
   
   // Состояние для интерактивной фишки
@@ -2585,45 +2646,32 @@ export default function DoorsPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
-                      <div 
-                        className={`p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
-                          selectedClient === '1' ? 'bg-blue-50 border-blue-200' : ''
-                        }`}
-                        onClick={() => {
-                          setSelectedClient('1');
-                          setSelectedClientName('Иванов Иван Иванович');
-                        }}
-                      >
-                        <div className="font-medium">Иванов Иван Иванович</div>
-                        <div className="text-sm text-gray-600">+7 (999) 123-45-67</div>
-                        <div className="text-sm text-gray-600">г. Москва, ул. Примерная, д. 1</div>
-                      </div>
-                      <div 
-                        className={`p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
-                          selectedClient === '2' ? 'bg-blue-50 border-blue-200' : ''
-                        }`}
-                        onClick={() => {
-                          setSelectedClient('2');
-                          setSelectedClientName('Петрова Анна Сергеевна');
-                        }}
-                      >
-                        <div className="font-medium">Петрова Анна Сергеевна</div>
-                        <div className="text-sm text-gray-600">+7 (999) 234-56-78</div>
-                        <div className="text-sm text-gray-600">г. Москва, ул. Тестовая, д. 2</div>
-                      </div>
-                      <div 
-                        className={`p-3 hover:bg-gray-50 cursor-pointer ${
-                          selectedClient === '3' ? 'bg-blue-50 border-blue-200' : ''
-                        }`}
-                        onClick={() => {
-                          setSelectedClient('3');
-                          setSelectedClientName('Сидоров Петр Александрович');
-                        }}
-                      >
-                        <div className="font-medium">Сидоров Петр Александрович</div>
-                        <div className="text-sm text-gray-600">+7 (999) 345-67-89</div>
-                        <div className="text-sm text-gray-600">г. Москва, ул. Образцовая, д. 3</div>
-                      </div>
+                      {clientsLoading ? (
+                        <div className="p-4 text-center text-gray-500">
+                          Загрузка клиентов...
+                        </div>
+                      ) : clients.length === 0 ? (
+                        <div className="p-4 text-center text-gray-500">
+                          Клиенты не найдены
+                        </div>
+                      ) : (
+                        clients.map((client) => (
+                          <div 
+                            key={client.id}
+                            className={`p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
+                              selectedClient === client.id ? 'bg-blue-50 border-blue-200' : ''
+                            }`}
+                            onClick={() => {
+                              setSelectedClient(client.id);
+                              setSelectedClientName(`${client.firstName} ${client.lastName}`);
+                            }}
+                          >
+                            <div className="font-medium">{client.firstName} {client.lastName}</div>
+                            <div className="text-sm text-gray-600">{client.phone}</div>
+                            <div className="text-sm text-gray-600">{client.address}</div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2636,6 +2684,8 @@ export default function DoorsPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Фамилия *</label>
                       <input
                         type="text"
+                        value={newClientData.lastName}
+                        onChange={(e) => setNewClientData(prev => ({ ...prev, lastName: e.target.value }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -2643,6 +2693,8 @@ export default function DoorsPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Имя *</label>
                       <input
                         type="text"
+                        value={newClientData.firstName}
+                        onChange={(e) => setNewClientData(prev => ({ ...prev, firstName: e.target.value }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -2650,6 +2702,8 @@ export default function DoorsPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Отчество</label>
                       <input
                         type="text"
+                        value={newClientData.middleName}
+                        onChange={(e) => setNewClientData(prev => ({ ...prev, middleName: e.target.value }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -2657,16 +2711,40 @@ export default function DoorsPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Телефон *</label>
                       <input
                         type="tel"
+                        value={newClientData.phone}
+                        onChange={(e) => setNewClientData(prev => ({ ...prev, phone: e.target.value }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Адрес *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Адрес</label>
                       <textarea
                         rows={3}
+                        value={newClientData.address}
+                        onChange={(e) => setNewClientData(prev => ({ ...prev, address: e.target.value }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
+                    <button
+                      onClick={async () => {
+                        if (!newClientData.firstName || !newClientData.lastName || !newClientData.phone) {
+                          alert('Пожалуйста, заполните обязательные поля');
+                          return;
+                        }
+                        try {
+                          const client = await createClient(newClientData);
+                          setSelectedClient(client.id);
+                          setSelectedClientName(`${client.firstName} ${client.lastName}`);
+                          setNewClientData({ firstName: '', lastName: '', middleName: '', phone: '', address: '' });
+                          setShowClientManager(false);
+                        } catch (error) {
+                          alert('Ошибка при создании клиента');
+                        }
+                      }}
+                      className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200"
+                    >
+                      Создать клиента
+                    </button>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">ID объекта</label>
                       <input
@@ -2687,10 +2765,7 @@ export default function DoorsPage() {
                   Отмена
                 </button>
                 <button
-                  onClick={() => {
-                    // TODO: Создать нового клиента
-                    setShowClientManager(false);
-                  }}
+                  onClick={() => setShowCreateClientForm(true)}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200"
                 >
                   Создать клиента
@@ -2783,7 +2858,8 @@ function CartManager({
           },
           body: JSON.stringify({
             style: item.style,
-            model: item.model
+            model: item.model,
+            color: item.color
           })
         });
 
@@ -2803,90 +2879,95 @@ function CartManager({
   const updateCartItem = async (itemId: string, changes: Partial<CartItem>) => {
     console.log('🔄 updateCartItem called:', { itemId, changes });
     
-    // Если это изменение параметров (не количества), пересчитываем цену онлайн
-    if (changes.finish || changes.color || changes.width || changes.height || changes.hardwareKitId || changes.handleId) {
-      // Получаем текущий элемент из корзины
-      const currentItem = cart.find(i => i.id === itemId);
-      if (!currentItem) {
-        console.log('❌ Item not found in cart:', itemId);
-        return;
-      }
+    // Получаем текущий элемент из корзины
+    const currentItem = cart.find(i => i.id === itemId);
+    if (!currentItem) {
+      console.log('❌ Item not found in cart:', itemId);
+      return;
+    }
 
-      // Создаем обновленный элемент с новыми параметрами
-      const updatedItem = { ...currentItem, ...changes };
-      console.log('📝 Updated item:', updatedItem);
+    // Проверяем, действительно ли изменились параметры
+    const hasRealChanges = Object.keys(changes).some(key => {
+      const currentValue = currentItem[key as keyof CartItem];
+      const newValue = changes[key as keyof CartItem];
+      return currentValue !== newValue;
+    });
 
-      try {
-        if (updatedItem.handleId) {
-          // Для ручек получаем цену из каталога
-          const handle = Object.values(handles).flat().find((h: Handle) => h.id === updatedItem.handleId);
-          const newPrice = handle ? handle.price : updatedItem.unitPrice;
-          console.log('🔧 Handle price update:', { handleId: updatedItem.handleId, newPrice });
-          
-          // Обновляем корзину с новой ценой
-          setCart(prev => prev.map(item => 
-            item.id === itemId ? { ...item, ...changes, unitPrice: newPrice } : item
-          ));
-        } else {
-          // Для дверей используем API расчета цены
-          console.log('🚪 Door price calculation:', {
-            style: updatedItem.style,
-            model: updatedItem.model,
-            finish: updatedItem.finish,
-            color: updatedItem.color,
-            width: updatedItem.width,
-            height: updatedItem.height,
-            hardware_kit: updatedItem.hardwareKitId ? { id: updatedItem.hardwareKitId } : undefined
-          });
+    console.log('🔍 Change detection:', {
+      changes,
+      currentItem: {
+        finish: currentItem.finish,
+        color: currentItem.color,
+        width: currentItem.width,
+        height: currentItem.height,
+        hardwareKitId: currentItem.hardwareKitId,
+        handleId: currentItem.handleId
+      },
+      hasRealChanges
+    });
 
-          const response = await fetch('/api/price/doors', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json; charset=utf-8',
-            },
-            body: JSON.stringify({
-              selection: {
-                style: updatedItem.style,
-                model: updatedItem.model,
-                finish: updatedItem.finish,
-                color: updatedItem.color,
-                width: updatedItem.width,
-                height: updatedItem.height,
-                hardware_kit: updatedItem.hardwareKitId ? { id: updatedItem.hardwareKitId } : undefined,
-                handle: updatedItem.handleId ? { id: updatedItem.handleId } : undefined
-              }
-            })
-          });
+    // Если нет реальных изменений - ничего не делаем
+    if (!hasRealChanges) {
+      console.log('⏭️ No real changes detected, skipping update');
+      return;
+    }
 
-          console.log('📡 API response status:', response.status);
+    // Создаем обновленный элемент с новыми параметрами
+    const updatedItem = { ...currentItem, ...changes };
+    console.log('📝 Updated item:', updatedItem);
 
-          if (response.ok) {
-            const priceData = await response.json();
-            console.log('💰 Price data received:', priceData);
-            
-            if (priceData.total) {
-              console.log('✅ Updating cart with new price:', priceData.total);
-              // Обновляем корзину с новой ценой
-              setCart(prev => prev.map(item => 
-                item.id === itemId ? { ...item, ...changes, unitPrice: priceData.total } : item
-              ));
-            } else {
-              console.log('⚠️ No total price in response');
-            }
-          } else {
-            console.log('❌ API request failed:', response.status);
-          }
-        }
-      } catch (error) {
-        console.error('❌ Error updating price online:', error);
-        // В случае ошибки все равно обновляем корзину без изменения цены
-        setCart(prev => prev.map(item => 
-          item.id === itemId ? { ...item, ...changes } : item
-        ));
-      }
+    // Проверяем, изменились ли параметры, влияющие на цену
+    const priceAffectingChanges: (keyof CartItem)[] = ['finish', 'color', 'width', 'height', 'hardwareKitId', 'handleId'];
+    const hasPriceAffectingChanges = priceAffectingChanges.some(key => 
+      changes[key] !== undefined && currentItem[key] !== changes[key]
+    );
+
+    if (!hasPriceAffectingChanges) {
+      console.log('⏭️ Нет изменений, влияющих на цену, обновляем только параметры');
+      setCart(prev => prev.map(item => 
+        item.id === itemId ? { ...item, ...changes } : item
+      ));
+      return;
+    }
+
+    // Для ручек получаем цену из каталога
+    if (updatedItem.handleId) {
+      const handle = Object.values(handles).flat().find((h: Handle) => h.id === updatedItem.handleId);
+      const newPrice = handle ? handle.price : updatedItem.unitPrice;
+      console.log('🔧 Handle price update:', { handleId: updatedItem.handleId, newPrice });
+      
+      setCart(prev => prev.map(item => 
+        item.id === itemId ? { ...item, ...changes, unitPrice: newPrice } : item
+      ));
+      return;
+    }
+
+    // Для дверей используем унифицированный сервис расчета цены
+    console.log('🚪 Door price calculation using unified service');
+    
+    const result = await priceRecalculationService.recalculateItemPrice(updatedItem, {
+      validateCombination: true,
+      useCache: true,
+      timeout: 10000
+    });
+
+    if (result.success && result.price !== undefined) {
+      console.log('✅ Price calculated successfully:', result.price);
+      setCart(prev => prev.map(item => 
+        item.id === itemId ? { 
+          ...item, 
+          ...changes, 
+          unitPrice: result.price!,
+          sku_1c: result.sku_1c || item.sku_1c
+        } : item
+      ));
     } else {
-      // Для изменений количества просто обновляем корзину
-      console.log('🔢 Quantity update only');
+      console.log('❌ Price calculation failed:', result.error);
+      // Показываем пользователю понятное сообщение об ошибке
+      if (result.error) {
+        alert(`Ошибка расчета цены: ${result.error}`);
+      }
+      // В случае ошибки обновляем корзину без изменения цены
       setCart(prev => prev.map(item => 
         item.id === itemId ? { ...item, ...changes } : item
       ));
@@ -2906,79 +2987,53 @@ function CartManager({
     }
 
     try {
-      let response;
+      let newPrice: number;
       
       if (currentItem.handleId) {
         // Для ручек получаем цену из каталога
         const handle = Object.values(handles).flat().find((h: Handle) => h.id === currentItem.handleId);
-            const newPrice = handle ? handle.price : currentItem.unitPrice;
-        
-        // Обновляем корзину
-        setCart(prev => prev.map(item => 
-          item.id === editingItem 
-            ? { ...item, unitPrice: newPrice }
-            : item
-        ));
-
-        // Сохраняем в историю
-        const originalPrice = originalPrices[editingItem] || 0;
-        const delta = newPrice - originalPrice;
-        
-        setCartHistory(prev => [...prev, {
-          timestamp: new Date(),
-          changes: { [editingItem]: { unitPrice: newPrice } },
-          totalDelta: delta
-        }]);
-
-        setEditingItem(null);
-        return;
+        newPrice = handle ? handle.price : currentItem.unitPrice;
       } else {
-        // Для дверей используем API расчета цены
-        response = await fetch('/api/price/doors', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            selection: {
-              style: currentItem.style,
-              model: currentItem.model,
-              finish: currentItem.finish,
-              color: currentItem.color,
-              width: currentItem.width,
-              height: currentItem.height,
-              hardware_kit: currentItem.hardwareKitId ? { id: currentItem.hardwareKitId } : undefined,
-              handle: currentItem.handleId ? { id: currentItem.handleId } : undefined
-            }
-          })
+        // Для дверей используем унифицированный сервис расчета цены
+        console.log('🚪 Door price calculation using unified service in confirmCartChanges');
+        
+        const result = await priceRecalculationService.recalculateItemPrice(currentItem, {
+          validateCombination: true,
+          useCache: true,
+          timeout: 10000
         });
+
+        if (!result.success || !result.price) {
+          const errorMessage = result.error || 'Не удалось рассчитать цену';
+          alert(`Ошибка расчета цены: ${errorMessage}`);
+          setEditingItem(null);
+          return;
+        }
+
+        newPrice = result.price;
       }
 
-      if (response.ok) {
-        const priceData = await response.json();
-        const newPrice = priceData.total;
+      // Обновляем корзину
+      setCart(prev => prev.map(item => 
+        item.id === editingItem 
+          ? { ...item, unitPrice: newPrice }
+          : item
+      ));
 
-        // Обновляем корзину
-        setCart(prev => prev.map(item => 
-          item.id === editingItem 
-            ? { ...item, unitPrice: newPrice }
-            : item
-        ));
+      // Сохраняем в историю
+      const originalPrice = originalPrices[editingItem] || 0;
+      const delta = newPrice - originalPrice;
+      
+      setCartHistory(prev => [...prev, {
+        timestamp: new Date(),
+        changes: { [editingItem]: { unitPrice: newPrice } },
+        totalDelta: delta
+      }]);
 
-        // Сохраняем в историю
-        const originalPrice = originalPrices[editingItem] || 0;
-        const delta = newPrice - originalPrice;
-        
-        setCartHistory(prev => [...prev, {
-          timestamp: new Date(),
-          changes: { [editingItem]: { unitPrice: newPrice } },
-          totalDelta: delta
-        }]);
+      console.log('✅ Cart changes confirmed successfully');
 
-        // Уведомление убрано по запросу пользователя
-      } else {
-        alert('Ошибка при пересчете цены. Проверьте выбранные параметры.');
-      }
     } catch (error) {
-      console.error('Error updating cart item:', error);
+      console.error('❌ Error confirming cart changes:', error);
       alert('Произошла ошибка при обновлении товара');
     }
 

@@ -30,7 +30,7 @@ export const DOOR_PROPERTIES = {
   FACTORY_COLOR_FINISH: 'Фабрика_Цвет/Отделка',
   
   // Ценообразование
-  RETAIL_PRICE: 'Цена ррц (включая цену полотна, короба, наличников, доборов)',
+  RETAIL_PRICE: 'Цена РРЦ',
   WHOLESALE_PRICE: 'Цена опт',
   EDGE_COST: 'Стоимость надбавки за кромку',
   

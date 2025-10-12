@@ -107,6 +107,9 @@ export async function POST(req: NextRequest) {
         series: true,
         base_price: true,
         properties_data: true
+      },
+      orderBy: {
+        id: 'asc'
       }
     });
 
@@ -152,23 +155,42 @@ export async function POST(req: NextRequest) {
       return finishMatch && colorMatch && typeMatch && widthMatch && heightMatch;
     });
 
-    // Если точный поиск не дал результатов, берем первый товар для тестирования
-    const finalProduct = product || products[0];
-    
-    if (!finalProduct) {
+    // Если точный поиск не дал результатов, возвращаем ошибку
+    if (!product) {
+      console.log('❌ Точный товар не найден для параметров:', {
+        style: selection.style,
+        model: selection.model,
+        finish: selection.finish,
+        color: selection.color,
+        width: selection.width,
+        height: selection.height
+      });
+      
       return NextResponse.json(
-        { error: "Нет товаров в базе данных" },
+        { error: "Товар с указанными параметрами не найден" },
         { status: 404 }
       );
     }
+    
+    const finalProduct = product;
 
     // Парсим свойства продукта
     const properties = finalProduct.properties_data ? 
       (typeof finalProduct.properties_data === 'string' ? JSON.parse(finalProduct.properties_data) : finalProduct.properties_data) : {};
 
-    // Рассчитываем цену из поля Цена ррц
-    const retailPrice = properties['Цена ррц (включая цену полотна, короба, наличников, доборов)'];
-    let doorPrice = parseFloat(retailPrice) || 0;
+    // Рассчитываем цену из цены РРЦ товара
+    const rrcPrice = parseFloat(properties['Цена РРЦ']) || 0;
+    const basePrice = finalProduct.base_price || 0;
+    let doorPrice = rrcPrice || basePrice;
+    
+    console.log('💰 Price calculation:', {
+      productId: finalProduct.id,
+      rrcPrice,
+      basePrice,
+      finalDoorPrice: doorPrice,
+      rrcPriceExists: !!properties['Цена РРЦ']
+    });
+    
     let total = doorPrice;
     const breakdown = [
       { label: "Дверь", amount: doorPrice }
