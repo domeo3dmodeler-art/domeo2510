@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { apiErrorHandler } from '@/lib/api-error-handler';
+import { apiValidator } from '@/lib/api-validator';
 
 const prisma = new PrismaClient();
 
@@ -19,6 +21,9 @@ interface BulkUpdateRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: BulkUpdateRequest = await request.json();
+    
+    // Валидация данных
+    apiValidator.validateBulkEdit(body);
     const { updates } = body;
 
     if (!updates || !Array.isArray(updates) || updates.length === 0) {
@@ -90,15 +95,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Ошибка массового обновления товаров:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Внутренняя ошибка сервера',
-        details: error instanceof Error ? error.message : 'Неизвестная ошибка'
-      },
-      { status: 500 }
-    );
+    return apiErrorHandler.handle(error, 'bulk-edit');
   } finally {
     await prisma.$disconnect();
   }
@@ -109,15 +106,13 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const categoryId = searchParams.get('categoryId');
-    const limit = parseInt(searchParams.get('limit') || '100');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const limitParam = searchParams.get('limit');
+    const offsetParam = searchParams.get('offset');
+    
+    // Валидация параметров
+    apiValidator.validateId(categoryId!, 'categoryId');
+    const { limit, offset } = apiValidator.validatePagination(limitParam, offsetParam);
 
-    if (!categoryId) {
-      return NextResponse.json(
-        { success: false, error: 'Не указан ID категории' },
-        { status: 400 }
-      );
-    }
 
     const products = await prisma.product.findMany({
       where: { catalog_category_id: categoryId },
@@ -148,15 +143,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Ошибка получения товаров для массового редактирования:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Ошибка получения товаров',
-        details: error instanceof Error ? error.message : 'Неизвестная ошибка'
-      },
-      { status: 500 }
-    );
+    return apiErrorHandler.handle(error, 'bulk-edit-get');
   } finally {
     await prisma.$disconnect();
   }

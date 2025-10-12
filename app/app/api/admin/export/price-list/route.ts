@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import * as XLSX from 'xlsx';
+import { apiErrorHandler } from '@/lib/api-error-handler';
+import { apiValidator } from '@/lib/api-validator';
 
 const prisma = new PrismaClient();
 
@@ -8,12 +10,11 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const catalogCategoryId = searchParams.get('catalogCategoryId');
+    
+    // Валидация параметров
+    apiValidator.validateId(catalogCategoryId!, 'catalogCategoryId');
 
     console.log('🔍 Экспорт прайса в Excel для категории:', catalogCategoryId);
-
-    if (!catalogCategoryId) {
-      return NextResponse.json({ success: false, error: 'catalogCategoryId is required' }, { status: 400 });
-    }
 
     // Получаем категорию
     const category = await prisma.catalogCategory.findUnique({
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
 
     console.log('📂 Категория найдена:', category.name);
 
-    // Получаем ВСЕ товары без ограничений
+    // Получаем товары с ограничением для производительности
     const products = await prisma.product.findMany({
       where: { catalog_category_id: catalogCategoryId },
       select: {
@@ -37,8 +38,9 @@ export async function GET(req: NextRequest) {
         properties_data: true,
         base_price: true,
         stock_quantity: true
-      }
-      // Убираем take: 100 - экспортируем все товары
+      },
+      take: 10000, // Ограничиваем до 10,000 товаров для производительности
+      orderBy: { sku: 'asc' }
     });
 
     console.log(`📦 Найдено товаров для экспорта: ${products.length}`);
@@ -126,10 +128,6 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Error exporting price list to Excel:', error);
-    return NextResponse.json(
-      { success: false, error: `Failed to export price list: ${error.message}` },
-      { status: 500 }
-    );
+    return apiErrorHandler.handle(error, 'price-list-export');
   }
 }

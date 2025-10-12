@@ -5,12 +5,32 @@ const prisma = new PrismaClient();
 
 // Кэш для фотографий
 const photosCache = new Map<string, { photos: string[], timestamp: number }>();
-const CACHE_TTL = 30 * 60 * 1000; // 30 минут
+const CACHE_TTL = 15 * 60 * 1000; // 15 минут (уменьшено с 30)
 
 // Кэш для всех товаров (чтобы не делать запрос к БД каждый раз)
 let allProductsCache: any[] | null = null;
 let allProductsCacheTimestamp = 0;
-const ALL_PRODUCTS_CACHE_TTL = 10 * 60 * 1000; // 10 минут
+const ALL_PRODUCTS_CACHE_TTL = 5 * 60 * 1000; // 5 минут (уменьшено с 10)
+
+// Максимальный размер кэша фотографий
+const MAX_PHOTOS_CACHE_SIZE = 50;
+
+// DELETE - очистка кэша
+export async function DELETE() {
+  try {
+    photosCache.clear();
+    allProductsCache = null;
+    allProductsCacheTimestamp = 0;
+    console.log('🧹 Кэш photos очищен');
+    return NextResponse.json({ success: true, message: 'Кэш photos очищен' });
+  } catch (error) {
+    console.error('❌ Ошибка очистки кэша photos:', error);
+    return NextResponse.json(
+      { error: 'Ошибка очистки кэша photos' },
+      { status: 500 }
+    );
+  }
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -52,6 +72,9 @@ export async function GET(req: NextRequest) {
         where: {
           catalog_category: {
             name: "Межкомнатные двери"
+          },
+          properties_data: {
+            not: null
           }
         },
         select: {
@@ -60,8 +83,11 @@ export async function GET(req: NextRequest) {
           name: true,
           properties_data: true
         },
-        // Ограничиваем количество товаров для ускорения
-        take: 1000
+        // Оптимизация: уменьшаем количество товаров и добавляем сортировку
+        take: 200,
+        orderBy: {
+          created_at: 'desc'
+        }
       });
 
       // Сохраняем в кэш
@@ -74,26 +100,44 @@ export async function GET(req: NextRequest) {
     const photos: string[] = [];
     const seenArticles = new Set<string>();
 
-    for (const product of products) {
-      const properties = product.properties_data ?
-        (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
+    // Оптимизация: предварительно парсим все properties_data
+    const parsedProducts = products.map(product => {
+      try {
+        const properties = product.properties_data ?
+          (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
+        
+        return {
+          ...product,
+          parsedProperties: properties,
+          productModel: properties['Domeo_Название модели для Web'],
+          productArticle: properties['Артикул поставщика'],
+          productPhotos: properties.photos || []
+        };
+      } catch (error) {
+        console.warn(`Ошибка парсинга properties_data для товара ${product.sku}:`, error);
+        return {
+          ...product,
+          parsedProperties: {},
+          productModel: null,
+          productArticle: null,
+          productPhotos: []
+        };
+      }
+    });
 
-      const productModel = properties['Domeo_Название модели для Web'];
-      const productArticle = properties['Артикул поставщика'];
-      const productPhotos = properties.photos || [];
-
-      // Точное совпадение модели
-      if (productModel === model && productPhotos.length > 0) {
-        console.log(`✅ Найдена модель ${model} с артикулом ${productArticle} и ${productPhotos.length} фотографиями`);
+    // Точное совпадение модели
+    for (const product of parsedProducts) {
+      if (product.productModel === model && product.productPhotos.length > 0) {
+        console.log(`✅ Найдена модель ${model} с артикулом ${product.productArticle} и ${product.productPhotos.length} фотографиями`);
 
         // Добавляем фотографии только если артикул еще не обработан
-        if (productArticle && !seenArticles.has(productArticle)) {
-          seenArticles.add(productArticle);
+        if (product.productArticle && !seenArticles.has(product.productArticle)) {
+          seenArticles.add(product.productArticle);
 
           // Берем первую фотографию
-          if (productPhotos.length > 0) {
-            console.log(`📸 Добавляем фотографию для артикула ${productArticle}: ${productPhotos[0]}`);
-            photos.push(productPhotos[0]);
+          if (product.productPhotos.length > 0) {
+            console.log(`📸 Добавляем фотографию для артикула ${product.productArticle}: ${product.productPhotos[0]}`);
+            photos.push(product.productPhotos[0]);
           }
         }
 
@@ -103,26 +147,19 @@ export async function GET(req: NextRequest) {
 
     // Если не найдено точное совпадение, ищем по частичному совпадению
     if (photos.length === 0) {
-      for (const product of products) {
-        const properties = product.properties_data ?
-          (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
-
-        const productModel = properties['Domeo_Название модели для Web'];
-        const productArticle = properties['Артикул поставщика'];
-        const productPhotos = properties.photos || [];
-
+      for (const product of parsedProducts) {
         // Частичное совпадение (модель содержит искомое название)
-        if (productModel && productModel.includes(model) && productPhotos.length > 0) {
-          console.log(`✅ Найдена модель ${model} (частичное совпадение) с артикулом ${productArticle} и ${productPhotos.length} фотографиями`);
+        if (product.productModel && product.productModel.includes(model) && product.productPhotos.length > 0) {
+          console.log(`✅ Найдена модель ${model} (частичное совпадение) с артикулом ${product.productArticle} и ${product.productPhotos.length} фотографиями`);
 
           // Добавляем фотографии только если артикул еще не обработан
-          if (productArticle && !seenArticles.has(productArticle)) {
-            seenArticles.add(productArticle);
+          if (product.productArticle && !seenArticles.has(product.productArticle)) {
+            seenArticles.add(product.productArticle);
 
             // Берем первую фотографию
-            if (productPhotos.length > 0) {
-              console.log(`📸 Добавляем фотографию для артикула ${productArticle}: ${productPhotos[0]}`);
-              photos.push(productPhotos[0]);
+            if (product.productPhotos.length > 0) {
+              console.log(`📸 Добавляем фотографию для артикула ${product.productArticle}: ${product.productPhotos[0]}`);
+              photos.push(product.productPhotos[0]);
             }
           }
 
@@ -131,7 +168,26 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Сохраняем в кэш
+    // Если фото не найдены, добавляем заглушки для известных моделей
+    if (photos.length === 0) {
+      if (model.includes('Moonstone')) {
+        const moonstoneNumber = model.match(/\d+/)?.[0] || '1';
+        photos.push(`/uploads/products/moonstone/moonstone_${moonstoneNumber}.png`);
+        console.log(`🖼️ Добавлена заглушка для ${model}: /uploads/products/moonstone/moonstone_${moonstoneNumber}.png`);
+      } else if (model.includes('Ledoux')) {
+        const ledouxNumber = model.match(/\d+/)?.[0] || '2';
+        photos.push(`/uploads/products/ledoux/ledoux_${ledouxNumber}.png`);
+        console.log(`🖼️ Добавлена заглушка для ${model}: /uploads/products/ledoux/ledoux_${ledouxNumber}.png`);
+      }
+    }
+
+    // Сохраняем в кэш с ограничением размера
+    if (photosCache.size >= MAX_PHOTOS_CACHE_SIZE) {
+      // Удаляем самый старый элемент
+      const oldestKey = photosCache.keys().next().value;
+      photosCache.delete(oldestKey);
+    }
+    
     photosCache.set(cacheKey, {
       photos,
       timestamp: Date.now()

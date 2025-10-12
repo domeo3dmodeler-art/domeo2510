@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { promises as fs } from 'fs';
+import { apiErrorHandler } from '@/lib/api-error-handler';
+import { apiValidator } from '@/lib/api-validator';
 
 const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const period = searchParams.get('period') || '30d';
+    const periodParam = searchParams.get('period');
+    
+    // Валидация параметров
+    const period = apiValidator.validatePeriod(periodParam);
 
     // Вычисляем дату начала периода
     const now = new Date();
@@ -248,11 +253,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Ошибка при получении аналитики:', error);
-    return NextResponse.json(
-      { error: 'Ошибка при получении данных аналитики' },
-      { status: 500 }
-    );
+    return apiErrorHandler.handle(error, 'analytics');
   } finally {
     await prisma.$disconnect();
   }

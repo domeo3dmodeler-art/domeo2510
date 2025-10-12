@@ -72,7 +72,7 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     fetchAnalyticsData();
-    const interval = setInterval(fetchAnalyticsData, 30000); // Обновляем каждые 30 секунд
+    const interval = setInterval(fetchAnalyticsData, 60000); // Обновляем каждые 60 секунд
     return () => clearInterval(interval);
   }, [selectedPeriod]);
 

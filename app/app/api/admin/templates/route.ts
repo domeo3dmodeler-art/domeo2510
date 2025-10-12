@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { fixFieldsEncoding, validateAndFixData, fixFieldEncoding } from '@/lib/encoding-utils';
+import { apiErrorHandler } from '@/lib/api-error-handler';
+import { apiValidator } from '@/lib/api-validator';
 
 const prisma = new PrismaClient();
 
@@ -8,10 +10,9 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const catalogCategoryId = searchParams.get('catalogCategoryId');
-
-    if (!catalogCategoryId) {
-      return NextResponse.json({ success: false, error: 'catalogCategoryId is required' }, { status: 400 });
-    }
+    
+    // Валидация параметров
+    apiValidator.validateId(catalogCategoryId!, 'catalogCategoryId');
 
     // Получаем шаблон для категории
     console.log('🔍 Ищем шаблон для категории:', catalogCategoryId);
@@ -77,11 +78,7 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching template:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch template' },
-      { status: 500 }
-    );
+    return apiErrorHandler.handle(error, 'templates-get');
   }
 }
 

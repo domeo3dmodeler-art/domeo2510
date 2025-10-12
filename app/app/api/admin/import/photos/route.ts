@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { writeFile, mkdir } from 'fs/promises';
+import fs from 'fs';
 import path from 'path';
 import { validateImageFile, generateUniqueFileName } from '../../../../../lib/validation/file-validation';
 import { uploadRateLimiter, getClientIP, createRateLimitResponse } from '../../../../../lib/security/rate-limiter';
@@ -223,11 +224,22 @@ export async function POST(request: NextRequest) {
             const currentProperties = JSON.parse(product.properties_data || '{}');
             if (currentProperties.photos && Array.isArray(currentProperties.photos)) {
               const originalPhotosCount = currentProperties.photos.length;
+              
               // Удаляем фото, которые содержат имена из загружаемых файлов
               currentProperties.photos = currentProperties.photos.filter((photoPath: string) => {
                 const photoFileName = path.parse(photoPath).name;
                 return !photoNamesToClean.some(name => photoFileName.includes(name));
               });
+              
+              // Дополнительно удаляем несуществующие файлы
+              const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'products', category);
+              if (fs.existsSync(uploadDir)) {
+                const realFiles = fs.readdirSync(uploadDir);
+                currentProperties.photos = currentProperties.photos.filter((photoPath: string) => {
+                  const fileName = path.basename(photoPath);
+                  return realFiles.includes(fileName);
+                });
+              }
               
               if (currentProperties.photos.length !== originalPhotosCount) {
                 await prisma.product.update({
@@ -420,10 +432,23 @@ export async function POST(request: NextRequest) {
       mapping_property: mappingProperty
     };
 
-    console.log('=== РЕЗУЛЬТАТ ЗАГРУЗКИ ===');
-    console.log(result);
+        console.log('=== РЕЗУЛЬТАТ ЗАГРУЗКИ ===');
+        console.log(result);
 
-    return NextResponse.json(result);
+        // Очищаем кэш калькулятора после успешной загрузки
+        try {
+          const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+          
+          await Promise.all([
+            fetch(`${baseUrl}/api/catalog/doors/complete-data`, { method: 'DELETE' }),
+            fetch(`${baseUrl}/api/catalog/doors/photos`, { method: 'DELETE' })
+          ]);
+          console.log('🧹 Кэш калькулятора очищен');
+        } catch (error) {
+          console.warn('⚠️ Не удалось очистить кэш калькулятора:', error);
+        }
+
+        return NextResponse.json(result);
   } catch (error) {
     console.error('Ошибка при загрузке фотографий:', error);
     return NextResponse.json(

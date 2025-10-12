@@ -2013,7 +2013,7 @@ export default function DoorsPage() {
                     {selectedModelCard?.photo ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={selectedModelCard.photo.startsWith('/uploads') ? selectedModelCard.photo : `/uploads${selectedModelCard.photo}`}
+                        src={selectedModelCard.photo.startsWith('/uploads') ? `/api${selectedModelCard.photo}` : `/api/uploads${selectedModelCard.photo}`}
                         alt={selectedModelCard.model}
                         className="h-full w-full object-contain"
                       />
@@ -3413,7 +3413,7 @@ function DoorCard({
   useEffect(() => {
     // Используем фото напрямую из данных модели
     if (item.photo) {
-      const imageUrl = item.photo.startsWith('/uploads') ? item.photo : `/uploads${item.photo}`;
+      const imageUrl = item.photo.startsWith('/uploads') ? `/api${item.photo}` : `/api/uploads${item.photo}`;
       setImageSrc(imageUrl);
       setIsLoading(false);
     } else {
@@ -3485,7 +3485,7 @@ function StickyPreview({ item }: { item: { model: string; sku_1c?: any; photo?: 
 
     // Если фото уже предзагружено в item.photo, используем его мгновенно
     if (item.photo) {
-      const imageUrl = item.photo.startsWith('/uploads') ? item.photo : `/uploads${item.photo}`;
+      const imageUrl = item.photo.startsWith('/uploads') ? `/api${item.photo}` : `/api/uploads${item.photo}`;
       setImageSrc(imageUrl);
       setIsLoading(false);
       return;
@@ -3503,7 +3503,7 @@ function StickyPreview({ item }: { item: { model: string; sku_1c?: any; photo?: 
           const data = await response.json();
           if (data.photos && data.photos.length > 0) {
             const photoPath = data.photos[0];
-            const imageUrl = photoPath.startsWith('/uploads') ? photoPath : `/uploads${photoPath}`;
+            const imageUrl = photoPath.startsWith('/uploads') ? `/api${photoPath}` : `/api/uploads${photoPath}`;
             setImageSrc(imageUrl);
           } else {
             setImageSrc(null);

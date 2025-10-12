@@ -48,20 +48,24 @@ interface CatalogCategory {
   displayName?: string;
 }
 
-type ImportStep = 'catalog' | 'template' | 'upload' | 'validation' | 'import' | 'photos' | 'complete';
-type TabType = 'import' | 'templates';
+type ImportStep = 'catalog' | 'template' | 'upload' | 'validation' | 'import' | 'complete';
+type PhotoStep = 'photo-catalog' | 'photo-mapping' | 'photo-upload' | 'photo-complete';
+type TabType = 'products' | 'photos' | 'templates';
 
 export default function CatalogImportPage() {
   // Основные состояния
-  const [activeTab, setActiveTab] = useState<TabType>('import');
+  const [activeTab, setActiveTab] = useState<TabType>('products');
   const [currentStep, setCurrentStep] = useState<ImportStep>('catalog');
+  const [currentPhotoStep, setCurrentPhotoStep] = useState<PhotoStep>('photo-catalog');
   const [priceListData, setPriceListData] = useState<PriceListData | null>(null);
   const [photoData, setPhotoData] = useState<PhotoData | null>(null);
   const [propertyMappings, setPropertyMappings] = useState<PropertyMapping[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedCatalogCategoryId, setSelectedCatalogCategoryId] = useState<string>('');
+  const [selectedPhotoCategoryId, setSelectedPhotoCategoryId] = useState<string>('');
   const [requiredFields, setRequiredFields] = useState<any[]>([]);
   const [completedSteps, setCompletedSteps] = useState<ImportStep[]>([]);
+  const [completedPhotoSteps, setCompletedPhotoSteps] = useState<PhotoStep[]>([]);
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [progressMessage, setProgressMessage] = useState('');
   
@@ -108,6 +112,13 @@ export default function CatalogImportPage() {
       loadExistingProductProperties(selectedCatalogCategoryId);
     }
   }, [selectedCatalogCategoryId]);
+
+  // Загружаем свойства существующих товаров при выборе категории для фото
+  useEffect(() => {
+    if (selectedPhotoCategoryId) {
+      loadExistingProductProperties(selectedPhotoCategoryId);
+    }
+  }, [selectedPhotoCategoryId]);
 
   const loadImportHistory = async () => {
     try {
@@ -281,7 +292,7 @@ export default function CatalogImportPage() {
         formData.append('photos', photo);
       });
       
-      formData.append('category', selectedCatalogCategoryId);
+      formData.append('category', selectedPhotoCategoryId);
       formData.append('mapping_property', photoMappingProperty);
 
       console.log('Отправка фотографий...', photoFiles.length, 'файлов');
@@ -319,14 +330,14 @@ export default function CatalogImportPage() {
       if (result.details && result.details.length > 0) {
         reportMessage += `\n📋 Детали:\n`;
         result.details.forEach((detail: any) => {
-          reportMessage += `• ${detail.filename}: ${detail.status}\n`;
+          reportMessage += `• ${detail.fileName}: ${detail.message}\n`;
         });
       }
       
       alert(reportMessage);
       
-      setCompletedSteps(prev => [...prev, 'photos']);
-      setCurrentStep('complete');
+      setCompletedPhotoSteps(prev => [...prev, 'photo-upload']);
+      setCurrentPhotoStep('photo-complete');
       
     } catch (error) {
       console.error('Error uploading photos:', error);
@@ -337,32 +348,84 @@ export default function CatalogImportPage() {
   };
 
   const getStepTitle = () => {
-    switch (currentStep) {
-      case 'catalog': return 'Выбор категории каталога';
-      case 'template': return 'Просмотр шаблона';
-      case 'upload': return 'Загрузка файла';
-      case 'validation': return 'Проверка соответствия';
-      case 'import': return 'Импорт товаров';
-      case 'photos': return 'Загрузка фотографий';
-      case 'complete': return 'Завершение импорта';
-      default: return 'Импорт товаров';
+    if (activeTab === 'products') {
+      switch (currentStep) {
+        case 'catalog': return 'Выбор категории каталога';
+        case 'template': return 'Просмотр шаблона';
+        case 'upload': return 'Загрузка файла';
+        case 'validation': return 'Проверка соответствия';
+        case 'import': return 'Импорт товаров';
+        case 'complete': return 'Завершение импорта';
+        default: return 'Импорт товаров';
+      }
+    } else if (activeTab === 'photos') {
+      switch (currentPhotoStep) {
+        case 'photo-catalog': return 'Выбор категории для фото';
+        case 'photo-mapping': return 'Настройка привязки';
+        case 'photo-upload': return 'Загрузка фотографий';
+        case 'photo-complete': return 'Завершение загрузки фото';
+        default: return 'Импорт фотографий';
+      }
+    } else if (activeTab === 'templates') {
+      return 'Управление шаблонами';
     }
+    return 'Импорт';
   };
 
   const getStepDescription = () => {
-    switch (currentStep) {
-      case 'catalog': return 'Выберите категорию каталога для привязки товаров';
-      case 'template': return 'Просмотрите и скачайте шаблон для выбранной категории';
-      case 'upload': return 'Загрузите файл с данными о товарах';
-      case 'validation': return 'Проверьте соответствие полей файла шаблону';
-      case 'import': return 'Выполните импорт товаров в систему';
-      case 'photos': return 'Загрузите фотографии товаров и настройте их привязку';
-      case 'complete': return 'Все данные загружены и настроены';
-      default: return '';
+    if (activeTab === 'products') {
+      switch (currentStep) {
+        case 'catalog': return 'Выберите категорию каталога для привязки товаров';
+        case 'template': return 'Просмотрите и скачайте шаблон для выбранной категории';
+        case 'upload': return 'Загрузите файл с данными о товарах';
+        case 'validation': return 'Проверьте соответствие полей файла шаблону';
+        case 'import': return 'Выполните импорт товаров в систему';
+        case 'complete': return 'Все данные загружены и настроены';
+        default: return '';
+      }
+    } else if (activeTab === 'photos') {
+      switch (currentPhotoStep) {
+        case 'photo-catalog': return 'Выберите категорию для загрузки фотографий';
+        case 'photo-mapping': return 'Настройте свойство для привязки фотографий к товарам';
+        case 'photo-upload': return 'Загрузите фотографии товаров';
+        case 'photo-complete': return 'Фотографии успешно загружены';
+        default: return '';
+      }
+    } else if (activeTab === 'templates') {
+      return 'Создание, редактирование и управление шаблонами импорта';
     }
+    return '';
   };
 
   const renderStepContent = () => {
+    if (activeTab === 'products') {
+      return renderProductStepContent();
+    } else if (activeTab === 'photos') {
+      return renderPhotoStepContent();
+    } else if (activeTab === 'templates') {
+      return (
+        <div className="space-y-6">
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h4 className="font-medium text-gray-900 mb-2">Управление шаблонами</h4>
+            <p className="text-gray-700 text-sm">
+              Создание, редактирование и управление шаблонами импорта для различных категорий
+            </p>
+          </div>
+          
+          <div className="text-center py-8">
+            <div className="text-4xl mb-4">📋</div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Функция в разработке</h3>
+            <p className="text-gray-600">
+              Управление шаблонами будет доступно в следующих версиях
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const renderProductStepContent = () => {
     switch (currentStep) {
       case 'catalog':
         return (
@@ -557,88 +620,13 @@ export default function CatalogImportPage() {
               <Button
                 onClick={() => {
                   setCompletedSteps(prev => [...prev, 'import']);
-                  setCurrentStep('photos');
+                  setCurrentStep('complete');
                 }}
                 className="bg-black hover:bg-gray-800"
               >
                 Загрузить товары
                 <Upload className="w-4 h-4 ml-2" />
               </Button>
-            </div>
-          </div>
-        );
-
-      case 'photos':
-        return (
-          <div className="space-y-6">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="font-medium text-gray-900 mb-2">Загрузка фотографий</h4>
-              <p className="text-gray-700 text-sm">
-                Загрузите фотографии товаров и настройте их привязку по артикулу поставщика
-              </p>
-            </div>
-
-            {/* Выбор свойства для привязки */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Свойство для привязки фото
-                </label>
-                <select
-                  value={photoMappingProperty}
-                  onChange={(e) => setPhotoMappingProperty(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
-                >
-                  <option value="">Выберите свойство...</option>
-                  <option value="Артикул поставщика">Артикул поставщика</option>
-                  <option value="Domeo Артикул 1C (Проставляется атоматически)">Domeo Артикул 1C</option>
-                  <option value="Domeo_Название модели для Web">Domeo_Название модели для Web</option>
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Название файла должно совпадать со значением выбранного свойства
-                </p>
-              </div>
-
-              {/* Загрузка файлов */}
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files || []);
-                    handlePhotosComplete(files);
-                  }}
-                  className="hidden"
-                  id="photo-upload"
-                />
-                <label
-                  htmlFor="photo-upload"
-                  className="cursor-pointer flex flex-col items-center space-y-2"
-                >
-                  <div className="text-4xl">📸</div>
-                  <div className="text-lg font-medium text-gray-900">
-                    {uploadingPhotos ? 'Загрузка...' : 'Выберите фотографии'}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    Поддерживаются форматы: JPG, PNG, GIF, WebP
-                  </div>
-                </label>
-              </div>
-
-              {/* Кнопка пропуска */}
-              <div className="text-center">
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setCompletedSteps(prev => [...prev, 'photos']);
-                    setCurrentStep('complete');
-                  }}
-                  disabled={uploadingPhotos}
-                >
-                  Пропустить загрузку фото
-                </Button>
-              </div>
             </div>
           </div>
         );
@@ -677,13 +665,256 @@ export default function CatalogImportPage() {
     }
   };
 
+  const renderPhotoStepContent = () => {
+    switch (currentPhotoStep) {
+      case 'photo-catalog':
+        return (
+          <div className="space-y-6">
+            <div className="grid gap-4">
+              <h4 className="text-lg font-medium">Выберите категорию для загрузки фотографий:</h4>
+              
+              {/* Поиск по категориям */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Поиск по названию категории..."
+                  value={photoCategorySearchTerm}
+                  onChange={(e) => setPhotoCategorySearchTerm(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                />
+                <div className="absolute right-3 top-2.5 text-gray-400">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Дерево категорий */}
+              <div className="border rounded-lg max-h-80 overflow-y-auto">
+                <CatalogTree
+                  categories={catalogCategories}
+                  selectedCategoryId={selectedPhotoCategoryId}
+                  onCategorySelect={setSelectedPhotoCategoryId}
+                  searchTerm={photoCategorySearchTerm}
+                />
+              </div>
+
+              {selectedPhotoCategoryId && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <span className="text-sm font-medium text-blue-900">
+                        Выбрана категория: {catalogCategories.find(c => c.id === selectedPhotoCategoryId)?.name}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-between">
+              <Button variant="secondary" onClick={() => setCurrentPhotoStep('photo-upload')}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Назад
+              </Button>
+              <Button
+                onClick={() => {
+                  setCompletedPhotoSteps(prev => [...prev, 'photo-catalog']);
+                  setCurrentPhotoStep('photo-mapping');
+                }}
+                disabled={!selectedPhotoCategoryId}
+                className={selectedPhotoCategoryId ? 'bg-black hover:bg-gray-800' : ''}
+              >
+                Продолжить
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 'photo-mapping':
+        return (
+          <div className="space-y-6">
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span className="text-sm font-medium text-blue-900">
+                  Выбрана категория: {catalogCategories.find(c => c.id === selectedPhotoCategoryId)?.name}
+                </span>
+              </div>
+            </div>
+
+            {/* Выбор свойства для привязки */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Свойство для привязки фото
+                </label>
+                <select
+                  value={photoMappingProperty}
+                  onChange={(e) => setPhotoMappingProperty(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                >
+                  <option value="">Выберите свойство...</option>
+                  {existingProductProperties.map(prop => (
+                    <option key={prop} value={prop}>{prop}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Название файла должно совпадать со значением выбранного свойства
+                </p>
+              </div>
+
+              {/* Кнопка продолжения */}
+              <div className="flex justify-end">
+                <Button
+                  onClick={() => {
+                    setCompletedPhotoSteps(prev => [...prev, 'photo-mapping']);
+                    setCurrentPhotoStep('photo-upload');
+                  }}
+                  disabled={!photoMappingProperty}
+                  className={photoMappingProperty ? 'bg-black hover:bg-gray-800' : ''}
+                >
+                  Продолжить к загрузке
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'photo-upload':
+        return (
+          <div className="space-y-6">
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-medium text-gray-900 mb-2">Загрузка фотографий</h4>
+              <p className="text-gray-700 text-sm">
+                Загрузите фотографии товаров и настройте их привязку по {photoMappingProperty}
+              </p>
+            </div>
+
+            {/* Загрузка файлов */}
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  handlePhotosComplete(files);
+                }}
+                className="hidden"
+                id="photo-upload"
+              />
+              <label
+                htmlFor="photo-upload"
+                className="cursor-pointer flex flex-col items-center space-y-2"
+              >
+                <div className="text-4xl">📸</div>
+                <div className="text-lg font-medium text-gray-900">
+                  {uploadingPhotos ? 'Загрузка...' : 'Выберите фотографии'}
+                </div>
+                <div className="text-sm text-gray-500">
+                  Поддерживаются форматы: JPG, PNG, GIF, WebP
+                </div>
+              </label>
+            </div>
+
+            {/* Кнопка пропуска */}
+            <div className="text-center">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setCompletedPhotoSteps(prev => [...prev, 'photo-upload']);
+                  setCurrentPhotoStep('photo-complete');
+                }}
+                disabled={uploadingPhotos}
+              >
+                Пропустить загрузку фото
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 'photo-complete':
+        return (
+          <div className="space-y-6">
+            <div className="bg-green-50 p-6 rounded-lg border border-green-200 text-center">
+              <div className="text-4xl mb-4">✅</div>
+              <h3 className="text-xl font-semibold text-green-900 mb-2">Загрузка фотографий завершена!</h3>
+              <p className="text-green-700">
+                Фотографии успешно загружены и привязаны к товарам
+              </p>
+            </div>
+
+            <div className="flex justify-center">
+              <Button
+                onClick={() => {
+                  setCurrentPhotoStep('photo-catalog');
+                  setCompletedPhotoSteps([]);
+                  setPhotoData(null);
+                  setSelectedPhotoCategoryId('');
+                }}
+                className="bg-black hover:bg-gray-800"
+              >
+                Начать новую загрузку фото
+                <RefreshCw className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Заголовок */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Импорт товаров</h1>
-          <p className="mt-2 text-gray-600">Загрузка и настройка товаров в каталог</p>
+          <h1 className="text-3xl font-bold text-gray-900">Импорт данных</h1>
+          <p className="mt-2 text-gray-600">Загрузка и настройка товаров и фотографий в каталог</p>
+        </div>
+
+        {/* Вкладки */}
+        <div className="mb-6">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setActiveTab('products')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'products'
+                    ? 'border-black text-black'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                📦 Импорт товаров
+              </button>
+              <button
+                onClick={() => setActiveTab('photos')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'photos'
+                    ? 'border-black text-black'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                📸 Импорт фотографий
+              </button>
+              <button
+                onClick={() => setActiveTab('templates')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'templates'
+                    ? 'border-black text-black'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                📋 Управление шаблонами
+              </button>
+            </nav>
+          </div>
         </div>
 
         {/* Основной контент */}
@@ -695,26 +926,47 @@ export default function CatalogImportPage() {
                 <h2 className="text-lg font-semibold text-black">{getStepTitle()}</h2>
                 <p className="text-gray-600">{getStepDescription()}</p>
               </div>
-              {currentStep !== 'catalog' && (
-                <Button variant="secondary" onClick={() => setCurrentStep('catalog')}>
+              {(activeTab === 'products' && currentStep !== 'catalog') || 
+               (activeTab === 'photos' && currentPhotoStep !== 'photo-catalog') ? (
+                <Button variant="secondary" onClick={() => {
+                  if (activeTab === 'products') {
+                    setCurrentStep('catalog');
+                    setCompletedSteps([]);
+                    setPriceListData(null);
+                    setSelectedCatalogCategoryId('');
+                  } else if (activeTab === 'photos') {
+                    setCurrentPhotoStep('photo-catalog');
+                    setCompletedPhotoSteps([]);
+                    setPhotoData(null);
+                    setSelectedPhotoCategoryId('');
+                  }
+                }}>
                   Начать заново
                 </Button>
-              )}
+              ) : null}
             </div>
 
             {/* Прогресс бар */}
             <div className="flex items-center space-x-4 mb-8">
-              {[
+              {(activeTab === 'products' ? [
                 { key: 'catalog', label: 'Категория', icon: '📁' },
                 { key: 'template', label: 'Шаблон', icon: '📋' },
                 { key: 'upload', label: 'Файл', icon: '📊' },
                 { key: 'validation', label: 'Проверка', icon: '🔍' },
                 { key: 'import', label: 'Импорт', icon: '⬆️' },
-                { key: 'photos', label: 'Фото', icon: '📸' },
                 { key: 'complete', label: 'Готово', icon: '✅' }
-              ].map((step, index) => {
-                const isActive = step.key === currentStep;
-                const isCompleted = completedSteps.includes(step.key as ImportStep);
+              ] : activeTab === 'photos' ? [
+                { key: 'photo-catalog', label: 'Категория', icon: '📁' },
+                { key: 'photo-mapping', label: 'Привязка', icon: '🔗' },
+                { key: 'photo-upload', label: 'Загрузка', icon: '📸' },
+                { key: 'photo-complete', label: 'Готово', icon: '✅' }
+              ] : []).map((step, index) => {
+                const isActive = activeTab === 'products' 
+                  ? step.key === currentStep 
+                  : step.key === currentPhotoStep;
+                const isCompleted = activeTab === 'products'
+                  ? completedSteps.includes(step.key as ImportStep)
+                  : completedPhotoSteps.includes(step.key as PhotoStep);
                 
                 return (
                   <div key={step.key} className="flex items-center">
@@ -734,7 +986,7 @@ export default function CatalogImportPage() {
                         {step.label}
                       </p>
                     </div>
-                    {index < 6 && (
+                    {index < (activeTab === 'products' ? 5 : activeTab === 'photos' ? 3 : 0) && (
                       <div className={`w-8 h-0.5 mx-2 ${
                         isCompleted ? 'bg-green-500' : 'bg-gray-300'
                       }`} />

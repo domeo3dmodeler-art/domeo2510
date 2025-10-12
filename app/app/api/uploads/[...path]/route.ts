@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
-import path from 'path';
+import { join } from 'path';
 import { existsSync } from 'fs';
 
 export async function GET(
@@ -10,25 +10,22 @@ export async function GET(
   try {
     const filePath = params.path.join('/');
     
-    // Безопасность: проверяем, что путь не содержит опасные символы
-    if (filePath.includes('..') || filePath.includes('\\')) {
+    // Проверяем безопасность пути
+    if (filePath.includes('..') || filePath.includes('~')) {
       return NextResponse.json(
-        { error: 'Небезопасный путь к файлу' },
+        { error: 'Invalid file path' },
         { status: 400 }
       );
     }
 
-    // Полный путь к файлу в public директории
-    const fullPath = path.join(process.cwd(), 'public', filePath);
+    // Путь к файлу в папке public/uploads
+    const fullPath = join(process.cwd(), 'public', 'uploads', filePath);
     
-    console.log('🔍 Запрос файла:', filePath);
-    console.log('📁 Полный путь:', fullPath);
-
     // Проверяем существование файла
     if (!existsSync(fullPath)) {
-      console.log('❌ Файл не найден:', fullPath);
+      console.log(`❌ Файл не найден: ${fullPath}`);
       return NextResponse.json(
-        { error: 'Файл не найден' },
+        { error: 'File not found' },
         { status: 404 }
       );
     }
@@ -37,44 +34,41 @@ export async function GET(
     const fileBuffer = await readFile(fullPath);
     
     // Определяем MIME тип по расширению
-    const ext = path.extname(filePath).toLowerCase();
-    let contentType = 'application/octet-stream';
+    const ext = filePath.split('.').pop()?.toLowerCase();
+    let mimeType = 'application/octet-stream';
     
     switch (ext) {
-      case '.jpg':
-      case '.jpeg':
-        contentType = 'image/jpeg';
+      case 'jpg':
+      case 'jpeg':
+        mimeType = 'image/jpeg';
         break;
-      case '.png':
-        contentType = 'image/png';
+      case 'png':
+        mimeType = 'image/png';
         break;
-      case '.gif':
-        contentType = 'image/gif';
+      case 'gif':
+        mimeType = 'image/gif';
         break;
-      case '.webp':
-        contentType = 'image/webp';
+      case 'webp':
+        mimeType = 'image/webp';
         break;
-      case '.svg':
-        contentType = 'image/svg+xml';
+      case 'svg':
+        mimeType = 'image/svg+xml';
         break;
     }
 
-    console.log('✅ Файл найден и отправлен:', filePath, 'размер:', fileBuffer.length, 'тип:', contentType);
-
     // Возвращаем файл с правильными заголовками
     return new NextResponse(fileBuffer, {
-      status: 200,
       headers: {
-        'Content-Type': contentType,
+        'Content-Type': mimeType,
+        'Cache-Control': 'public, max-age=31536000, immutable',
         'Content-Length': fileBuffer.length.toString(),
-        'Cache-Control': 'public, max-age=31536000', // Кэшируем на год
       },
     });
 
   } catch (error) {
-    console.error('❌ Ошибка при чтении файла:', error);
+    console.error('❌ Ошибка загрузки файла:', error);
     return NextResponse.json(
-      { error: 'Ошибка при чтении файла' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

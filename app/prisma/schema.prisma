@@ -225,6 +225,8 @@ model Product {
   @@map("products")
   @@index([catalog_category_id])
   @@index([is_active])
+  @@index([created_at])
+  @@index([properties_data])
 }
 
 model ProductImage {

@@ -193,7 +193,11 @@ export default function CatalogTree({
         {/* Дочерние узлы */}
         {hasChildren && isExpanded && (
           <div>
-            {node.children.map(child => renderTreeNode(child, depth + 1))}
+            {node.children.map(child => (
+              <div key={child.id}>
+                {renderTreeNode(child, depth + 1)}
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -230,7 +234,11 @@ export default function CatalogTree({
           {searchTerm ? 'Категории не найдены' : 'Нет категорий'}
         </div>
       ) : (
-        filteredTreeData.map(node => renderTreeNode(node))
+        filteredTreeData.map(node => (
+          <div key={node.id}>
+            {renderTreeNode(node)}
+          </div>
+        ))
       )}
     </div>
   );

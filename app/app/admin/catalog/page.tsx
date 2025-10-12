@@ -327,7 +327,7 @@ export default function CatalogPage() {
   const [categoryProducts, setCategoryProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [totalProductsCount, setTotalProductsCount] = useState(0);
-  const [itemsPerPage, setItemsPerPage] = useState(500);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
   const [currentLoadedCount, setCurrentLoadedCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);

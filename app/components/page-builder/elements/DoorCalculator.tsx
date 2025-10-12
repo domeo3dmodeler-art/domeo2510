@@ -15,6 +15,7 @@ interface CalculationResult {
   styleMultiplier: number;
   systemMultiplier: number;
   finishMultiplier: number;
+  hardwareMultiplier: number;
   areaMultiplier: number;
   totalPrice: number;
 }
@@ -34,14 +35,21 @@ export function DoorCalculator({
   const [doorSystem, setDoorSystem] = useState('swing');
   const [finish, setFinish] = useState('paint');
   const [hardware, setHardware] = useState('standard');
+  const [warnings, setWarnings] = useState<string[]>([]);
   const [result, setResult] = useState<CalculationResult>({
     basePrice: 15000,
     styleMultiplier: 1.0,
     systemMultiplier: 1.0,
     finishMultiplier: 1.0,
+    hardwareMultiplier: 1.0,
     areaMultiplier: 1.0,
     totalPrice: 15000
   });
+  
+  // Состояние для фотографий
+  const [currentPhoto, setCurrentPhoto] = useState<string | null>(null);
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   // Стили дверей (как на Framyr.ru)
   const styles = [
@@ -77,7 +85,21 @@ export function DoorCalculator({
   ];
 
   const calculatePrice = () => {
-    const area = (dimensions.width * dimensions.height) / 1000000; // в м²
+    const newWarnings: string[] = [];
+    
+    // Валидация размеров
+    const validWidth = Math.max(600, Math.min(1200, dimensions.width));
+    const validHeight = Math.max(1800, Math.min(2200, dimensions.height));
+    
+    if (dimensions.width !== validWidth) {
+      newWarnings.push(`Ширина скорректирована до ${validWidth} мм (допустимый диапазон: 600-1200 мм)`);
+    }
+    
+    if (dimensions.height !== validHeight) {
+      newWarnings.push(`Высота скорректирована до ${validHeight} мм (допустимый диапазон: 1800-2200 мм)`);
+    }
+    
+    const area = (validWidth * validHeight) / 1000000; // в м²
     const areaMultiplier = Math.max(0.8, Math.min(1.5, area)); // от 0.8 до 1.5
     
     const selectedStyle = styles.find(s => s.value === style);
@@ -94,25 +116,83 @@ export function DoorCalculator({
     const totalMultiplier = styleMultiplier * systemMultiplier * finishMultiplier * hardwareMultiplier;
     const totalPrice = Math.round(basePrice * areaMultiplier * totalMultiplier);
     
+    setWarnings(newWarnings);
     setResult({
       basePrice,
       styleMultiplier,
       systemMultiplier,
       finishMultiplier,
+      hardwareMultiplier,
       areaMultiplier,
       totalPrice
     });
+  };
+
+  // Функция загрузки фотографии для выбранного стиля
+  const loadPhoto = async (styleName: string) => {
+    try {
+      setPhotoLoading(true);
+      setPhotoError(null);
+      
+      console.log('🔄 Загружаем фото для стиля:', styleName);
+      
+      // Используем оптимизированный API
+      const response = await fetch(`/api/catalog/doors/photos-optimized?model=${encodeURIComponent(styleName)}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.photos && data.photos.length > 0) {
+          const photoPath = data.photos[0];
+          const imageUrl = photoPath.startsWith('/uploads') ? photoPath : `/uploads${photoPath}`;
+          setCurrentPhoto(imageUrl);
+          console.log('✅ Фото загружено:', imageUrl);
+        } else {
+          setCurrentPhoto(null);
+          console.log('ℹ️ Фото не найдено для стиля:', styleName);
+        }
+      } else {
+        setPhotoError('Ошибка загрузки фотографии');
+        setCurrentPhoto(null);
+      }
+    } catch (error) {
+      console.error('❌ Ошибка загрузки фото:', error);
+      setPhotoError('Ошибка загрузки фотографии');
+      setCurrentPhoto(null);
+    } finally {
+      setPhotoLoading(false);
+    }
   };
 
   useEffect(() => {
     calculatePrice();
   }, [dimensions, style, doorSystem, finish, hardware]);
 
+  // Загружаем фото при изменении стиля
+  useEffect(() => {
+    if (style) {
+      loadPhoto(style);
+    }
+  }, [style]);
+
   return (
     <div className="bg-white p-8 rounded-xl shadow-lg border max-w-4xl mx-auto">
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-gray-900 mb-2">{title}</h2>
         <p className="text-gray-600">Рассчитайте стоимость вашей двери</p>
+        
+        {/* Предупреждения */}
+        {warnings.length > 0 && (
+          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="text-sm text-yellow-800">
+              <div className="font-semibold mb-2">⚠️ Предупреждения:</div>
+              <ul className="list-disc list-inside space-y-1">
+                {warnings.map((warning, index) => (
+                  <li key={index}>{warning}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -273,6 +353,31 @@ export function DoorCalculator({
         <div className="bg-gradient-to-br from-blue-50 to-indigo-100 p-8 rounded-xl">
           <h3 className="text-xl font-bold text-gray-900 mb-6 text-center">Расчет стоимости</h3>
           
+          {/* Фотография двери */}
+          <div className="mb-6 text-center">
+            <div className="bg-white p-4 rounded-lg shadow-sm inline-block">
+              {photoLoading ? (
+                <div className="w-48 h-32 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : currentPhoto ? (
+                <img 
+                  src={currentPhoto} 
+                  alt={`Дверь стиля ${style}`}
+                  className="w-48 h-32 object-cover rounded-lg"
+                  onError={() => setPhotoError('Ошибка загрузки изображения')}
+                />
+              ) : (
+                <div className="w-48 h-32 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">
+                  {photoError ? '❌' : '🚪'}
+                </div>
+              )}
+              {photoError && (
+                <div className="text-xs text-red-500 mt-2">{photoError}</div>
+              )}
+            </div>
+          </div>
+          
           <div className="space-y-4 mb-8">
             <div className="flex justify-between items-center py-3 border-b border-gray-200">
               <span className="text-gray-700">Размер:</span>
@@ -325,6 +430,41 @@ export function DoorCalculator({
               </div>
               <div className="text-sm text-gray-500">
                 Включая материалы, работы и фурнитуру
+              </div>
+            </div>
+            
+            {/* Детализация расчета */}
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">Детализация расчета:</h4>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span>Базовая цена:</span>
+                  <span>{result.basePrice.toLocaleString()} ₽</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Множитель площади:</span>
+                  <span>{result.areaMultiplier.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Множитель стиля:</span>
+                  <span>{result.styleMultiplier.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Множитель системы:</span>
+                  <span>{result.systemMultiplier.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Множитель покрытия:</span>
+                  <span>{result.finishMultiplier.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Множитель фурнитуры:</span>
+                  <span>{result.hardwareMultiplier.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between font-semibold pt-2 border-t">
+                  <span>Итого:</span>
+                  <span>{result.totalPrice.toLocaleString()} ₽</span>
+                </div>
               </div>
             </div>
           </div>
