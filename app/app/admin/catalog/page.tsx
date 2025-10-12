@@ -1,12 +1,42 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Badge, Input, Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui';
 import { Plus, Search, Folder, FolderOpen, Edit, Trash2, Settings, ChevronRight, ChevronDown, Package, Package2 } from 'lucide-react';
 import { CatalogCategory, CreateCatalogCategoryDto } from '@/lib/types/catalog';
 import TemplateManager from '../../../components/admin/TemplateManager';
 import PriceListExporter from '../../../components/admin/PriceListExporter';
+import BulkEditDialog from '../../../components/admin/BulkEditDialog';
+import ProductFilters from '../../../components/admin/ProductFilters';
 import { fixFieldsEncoding } from '@/lib/encoding-utils';
+
+interface Product {
+  id: string;
+  sku: string;
+  name: string;
+  base_price: number;
+  stock_quantity: number;
+  brand?: string;
+  model?: string;
+  properties_data: string | Record<string, any>;
+  specifications?: Record<string, any>;
+  images?: Array<{ url: string; alt_text?: string }>;
+}
+
+interface ImportTemplate {
+  id: string;
+  catalog_category_id: string;
+  name: string;
+  description: string;
+  requiredFields: string[];
+  calculatorFields: string[];
+  exportFields: string[];
+  templateConfig: {
+    headers: string[];
+  };
+  created_at: string;
+  updated_at: string;
+}
 
 interface CatalogTreeProps {
   categories: CatalogCategory[];
@@ -15,10 +45,10 @@ interface CatalogTreeProps {
   onCategoryEdit: (category: CatalogCategory) => void;
   onCategoryDelete: (category: CatalogCategory) => void;
   selectedCategory: CatalogCategory | null;
-  selectedTemplate: any;
+  selectedTemplate: ImportTemplate | null;
   templateLoading: boolean;
   loadTemplate: (categoryId: string) => void;
-  categoryProducts: any[];
+  categoryProducts: Product[];
   productsLoading: boolean;
   loadCategoryProducts: (categoryId: string) => void;
 }
@@ -293,13 +323,16 @@ function CatalogTree({
 export default function CatalogPage() {
   const [categories, setCategories] = useState<CatalogCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<CatalogCategory | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
-  const [categoryProducts, setCategoryProducts] = useState<any[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<ImportTemplate | null>(null);
+  const [categoryProducts, setCategoryProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [totalProductsCount, setTotalProductsCount] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(500);
   const [currentLoadedCount, setCurrentLoadedCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [templateLoading, setTemplateLoading] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -327,7 +360,7 @@ export default function CatalogPage() {
   };
 
 
-  const loadCategoryProducts = async (categoryId: string, limit?: number, append: boolean = false) => {
+  const loadCategoryProducts = useCallback(async (categoryId: string, limit?: number, append: boolean = false) => {
     const actualLimit = limit || itemsPerPage;
     try {
       if (append) {
@@ -340,23 +373,8 @@ export default function CatalogPage() {
       const response = await fetch(`/api/catalog/products?category=${categoryId}&limit=${actualLimit}&offset=${offset}`);
       const data = await response.json();
       
-      console.log('=== PRODUCTS DEBUG ===');
-      console.log('Products API response:', data);
-      console.log('Products found:', data.products?.length || 0);
-      console.log('Append mode:', append);
-      console.log('Current loaded count:', currentLoadedCount);
-      console.log('Offset:', offset);
       
       if (data.success && data.products) {
-        console.log('First product:', data.products[0]);
-        console.log('First product specifications:', data.products[0]?.specifications);
-        console.log('First product specifications type:', typeof data.products[0]?.specifications);
-        
-        // Показываем все поля первого товара
-        if (data.products[0]?.specifications) {
-          console.log('First product specifications keys:', Object.keys(data.products[0].specifications));
-          console.log('First product specifications values:', Object.values(data.products[0].specifications));
-        }
         
         if (append) {
           // Дозагружаем товары
@@ -368,16 +386,13 @@ export default function CatalogPage() {
           setCurrentLoadedCount(data.products.length);
         }
         setTotalProductsCount(data.total || 0);
-        console.log(`Загружено ${data.products.length} товаров из ${data.total} для категории ${categoryId}`);
       } else {
-        console.log('No products found');
         if (!append) {
           setCategoryProducts([]);
           setCurrentLoadedCount(0);
         }
         setTotalProductsCount(0);
       }
-      console.log('=== END PRODUCTS DEBUG ===');
     } catch (error) {
       console.error('Error loading products:', error);
       if (!append) {
@@ -388,43 +403,23 @@ export default function CatalogPage() {
       setProductsLoading(false);
       setLoadingMore(false);
     }
-  };
+  }, [itemsPerPage, currentLoadedCount]);
 
-  const loadTemplate = async (categoryId: string) => {
+  const loadTemplate = useCallback(async (categoryId: string) => {
     try {
       setTemplateLoading(true);
       const response = await fetch(`/api/admin/templates?catalogCategoryId=${categoryId}`);
       const data = await response.json();
       
-      console.log('=== TEMPLATE DEBUG ===');
-      console.log('Template API response:', data);
-      console.log('Templates found:', data.template ? 'YES' : 'NO');
       
       if (data.success && data.template) {
         const template = data.template;
-        console.log('SELECTED TEMPLATE:', template);
-        console.log('Template requiredFields:', template.requiredFields);
-        console.log('Template requiredFields type:', typeof template.requiredFields);
-        console.log('Template requiredFields length:', Array.isArray(template.requiredFields) ? template.requiredFields.length : 'not an array');
         
         if (template.requiredFields) {
           try {
             const fields = template.requiredFields; // Уже парсится в API
-            console.log('Template fields:', fields);
-            console.log('Fields count:', Array.isArray(fields) ? fields.length : 'not an array');
-            
             // Исправляем кодировку полей
             const fixedFields = fixFieldsEncoding(fields);
-            console.log('Fixed fields:', fixedFields);
-            
-            // Показываем каждое поле (если fields является массивом)
-            if (Array.isArray(fixedFields)) {
-              fixedFields.forEach((field: any, index: number) => {
-                console.log(`Field ${index + 1}:`, field);
-              });
-            } else {
-              console.log('Fixed fields is not an array:', fixedFields);
-            }
           } catch (e) {
             console.error('Error processing requiredFields:', e);
           }
@@ -434,19 +429,17 @@ export default function CatalogPage() {
         
         setSelectedTemplate(template);
       } else {
-        console.log('No template found for category:', categoryId);
         setSelectedTemplate(null);
       }
-      console.log('=== END TEMPLATE DEBUG ===');
     } catch (error) {
       console.error('Error loading template:', error);
       setSelectedTemplate(null);
     } finally {
       setTemplateLoading(false);
     }
-  };
+  }, []);
 
-  const handleCategorySelect = (category: CatalogCategory) => {
+  const handleCategorySelect = useCallback((category: CatalogCategory) => {
     setSelectedCategory(category);
     setSelectedTemplate(null); // Сбрасываем шаблон - будем считать что следующая загрузка будет первая
     setCurrentLoadedCount(0); // Сбрасываем счетчик загруженных товаров
@@ -454,7 +447,72 @@ export default function CatalogPage() {
       loadTemplate(category.id);
       loadCategoryProducts(category.id); // Загружаем товары с настройками по умолчанию
     }
-  };
+  }, [loadTemplate, loadCategoryProducts]);
+
+  // Функции для массового редактирования
+  const handleBulkEdit = useCallback(async (updates: Array<{ id: string; updates: Partial<Product> }>) => {
+    try {
+      const response = await fetch('/api/admin/products/bulk-edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates })
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert(`✅ Успешно обновлено ${result.updated} товаров`);
+        
+        // Перезагружаем товары
+        if (selectedCategory) {
+          await loadCategoryProducts(selectedCategory.id);
+        }
+        
+        // Очищаем выбор
+        setSelectedProducts(new Set());
+      } else {
+        alert(`❌ Ошибка при обновлении: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Ошибка массового редактирования:', error);
+      alert('Ошибка при массовом редактировании товаров');
+    }
+  }, [selectedCategory, loadCategoryProducts]);
+
+  const handleProductSelect = useCallback((productId: string, selected: boolean) => {
+    setSelectedProducts(prev => {
+      const newSet = new Set(prev);
+      if (selected) {
+        newSet.add(productId);
+      } else {
+        newSet.delete(productId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback((selected: boolean) => {
+    if (selected) {
+      const allIds = new Set(filteredProducts.map(p => p.id));
+      setSelectedProducts(allIds);
+    } else {
+      setSelectedProducts(new Set());
+    }
+  }, [filteredProducts]);
+
+  const handleFilteredProducts = useCallback((products: Product[]) => {
+    setFilteredProducts(products);
+  }, []);
+
+  const handleClearFilters = useCallback(() => {
+    setFilteredProducts(categoryProducts);
+  }, [categoryProducts]);
+
+  // Обновляем отфильтрованные товары при изменении категории
+  useEffect(() => {
+    setFilteredProducts(categoryProducts);
+    setSelectedProducts(new Set());
+  }, [categoryProducts]);
 
   const handleCategoryCreate = (parentId?: string) => {
     setNewCategoryParent(parentId);
@@ -473,14 +531,12 @@ export default function CatalogPage() {
 
   const handleDeleteAllProducts = async (categoryId: string) => {
     try {
-      console.log('🗑️ Начинаем удаление товаров из категории:', categoryId);
       
       const response = await fetch(`/api/admin/products/delete-all?categoryId=${categoryId}`, {
         method: 'DELETE'
       });
 
       const result = await response.json();
-      console.log('🗑️ Результат удаления:', result);
 
       if (response.ok) {
         alert(`✅ Успешно удалено ${result.deleted} товаров из категории "${selectedCategory?.name}"`);
@@ -494,12 +550,12 @@ export default function CatalogPage() {
           
           if (updateCountsResponse.ok) {
             const countsData = await updateCountsResponse.json();
-            console.log('Счетчики обновлены после удаления:', countsData);
+            // Счетчики обновлены
           } else {
-            console.log('Не удалось обновить счетчики после удаления');
+            // Не удалось обновить счетчики
           }
         } catch (updateError) {
-          console.log('Ошибка при обновлении счетчиков после удаления:', updateError);
+          // Ошибка при обновлении счетчиков
         }
         
         // Перезагружаем список товаров
@@ -628,9 +684,28 @@ export default function CatalogPage() {
                       catalogCategoryId={selectedCategory?.id || null}
                       catalogCategoryName={selectedCategory?.name}
                     />
+                    {selectedProducts.size > 0 && (
+                      <Button
+                        onClick={() => setBulkEditOpen(true)}
+                        variant="primary"
+                        className="flex items-center space-x-2"
+                      >
+                        <Edit className="h-4 w-4" />
+                        <span>Редактировать ({selectedProducts.size})</span>
+                      </Button>
+                    )}
                   </div>
                 </div>
                 
+                {/* Фильтры товаров */}
+                {categoryProducts.length > 0 && (
+                  <ProductFilters
+                    products={categoryProducts}
+                    onFilteredProducts={handleFilteredProducts}
+                    onClearFilters={handleClearFilters}
+                  />
+                )}
+
                 {/* Список товаров */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
@@ -680,7 +755,7 @@ export default function CatalogPage() {
                           </div>
                         </div>
                         <Button
-                          variant="destructive"
+                          variant="danger"
                           size="sm"
                           className="flex items-center space-x-1"
                           onClick={() => {
@@ -703,6 +778,14 @@ export default function CatalogPage() {
                           <thead className="bg-gray-50">
                             <tr>
                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedProducts.size === filteredProducts.length && filteredProducts.length > 0}
+                                  onChange={(e) => handleSelectAll(e.target.checked)}
+                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                              </th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                                 #
                               </th>
                               {/* Динамические заголовки из requiredFields шаблона */}
@@ -711,13 +794,6 @@ export default function CatalogPage() {
                                 if (selectedTemplate?.requiredFields) {
                                   try {
                                     let requiredFields = selectedTemplate.requiredFields; // Уже парсится в API
-                                    
-                                    console.log('TEMPLATE DEBUG:', {
-                                      selectedTemplate,
-                                      requiredFields: selectedTemplate.requiredFields,
-                                      requiredFieldsType: typeof requiredFields,
-                                      requiredFieldsIsArray: Array.isArray(requiredFields)
-                                    });
                                     
                                     // Проверяем, что requiredFields является массивом
                                     if (typeof requiredFields === 'string') {
@@ -788,8 +864,16 @@ export default function CatalogPage() {
                           
                           {/* Тело таблицы */}
                           <tbody className="bg-white divide-y divide-gray-200">
-                            {categoryProducts.map((product: any, index: number) => (
+                            {filteredProducts.map((product: Product, index: number) => (
                               <tr key={product.id} className="hover:bg-gray-50 transition-colors">
+                                <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-500 border-r border-gray-200">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedProducts.has(product.id)}
+                                    onChange={(e) => handleProductSelect(product.id, e.target.checked)}
+                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                  />
+                                </td>
                                 <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-500 border-r border-gray-200">
                                   {index + 1}
                                 </td>
@@ -905,7 +989,6 @@ export default function CatalogPage() {
                                       className="text-xs"
                                       onClick={() => {
                                         // Редактировать товар
-                                        console.log('Редактировать товар:', product.id);
                                       }}
                                     >
                                       Редактировать
@@ -916,7 +999,6 @@ export default function CatalogPage() {
                                       className="text-xs text-red-600 hover:text-red-700"
                                       onClick={() => {
                                         // Удалить товар
-                                        console.log('Удалить товар:', product.id);
                                       }}
                                     >
                                       Удалить
@@ -1070,6 +1152,15 @@ export default function CatalogPage() {
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDeleteCategory}
         category={categoryToDelete}
+      />
+
+      <BulkEditDialogWrapper
+        isOpen={bulkEditOpen}
+        onClose={() => setBulkEditOpen(false)}
+        products={Array.from(selectedProducts).map(id => 
+          filteredProducts.find(p => p.id === id)!
+        ).filter(Boolean)}
+        onSave={handleBulkEdit}
       />
 
     </div>
@@ -1252,12 +1343,34 @@ function DeleteCategoryDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Отмена
             </Button>
-            <Button variant="destructive" onClick={onConfirm}>
+            <Button variant="danger" onClick={onConfirm}>
               Удалить
             </Button>
           </div>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// Компонент диалога массового редактирования
+function BulkEditDialogWrapper({ 
+  isOpen, 
+  onClose, 
+  products, 
+  onSave 
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  products: Product[];
+  onSave: (updates: Array<{ id: string; updates: Partial<Product> }>) => Promise<void>;
+}) {
+  return (
+    <BulkEditDialog
+      isOpen={isOpen}
+      onClose={onClose}
+      products={products}
+      onSave={onSave}
+    />
   );
 }

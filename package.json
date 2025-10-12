@@ -19,6 +19,7 @@
   "license": "MIT",
   "dependencies": {
     "@prisma/client": "^6.17.1",
+    "lucide-react": "^0.545.0",
     "prisma": "^6.17.1",
     "xlsx": "^0.18.5"
   }
