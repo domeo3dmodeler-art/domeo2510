@@ -31,15 +31,19 @@
     "deploy:staging:safe": "chmod +x deploy-staging-safe.sh && ./deploy-staging-safe.sh",
     "deploy:prod:safe": "chmod +x deploy-production-safe.sh && ./deploy-production-safe.sh",
     "rollback:prod": "chmod +x rollback-production.sh && ./rollback-production.sh",
-    "health:staging": "curl -f http://staging.yourdomain.com:3001/api/health",
+    "health:staging": "curl -f http://89.169.189.66:3001/api/health",
     "health:prod": "curl -f http://130.193.40.35:3000/api/health",
+    "monitor": "chmod +x scripts/monitor-environments.sh && ./scripts/monitor-environments.sh",
+    "monitor:ps1": "powershell -ExecutionPolicy Bypass -File scripts/monitor-environments.ps1",
     "git:init": "chmod +x init-git-workflow.sh && ./init-git-workflow.sh",
     "git:feature": "chmod +x create-feature.sh && ./create-feature.sh",
     "git:status": "git status && echo 'Current branch:' && git branch --show-current",
     "new:feature": "chmod +x new-feature.sh && ./new-feature.sh",
     "workflow:status": "echo 'Current branch:' && git branch --show-current && echo 'Remote branches:' && git branch -r",
     "sync:production": "chmod +x sync-from-production.sh && ./sync-from-production.sh",
-    "setup:staging": "chmod +x setup-staging-vm.sh && ./setup-staging-vm.sh"
+    "sync:data": "chmod +x scripts/sync-data-between-environments.sh && ./scripts/sync-data-between-environments.sh",
+    "setup:staging": "chmod +x setup-staging-vm.sh && ./setup-staging-vm.sh",
+    "setup:staging:ps1": "powershell -ExecutionPolicy Bypass -File setup-staging-vm.ps1"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.913.0",

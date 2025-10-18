@@ -7,22 +7,21 @@ set -e
 
 echo "🧪 Безопасный деплой на staging..."
 
-# Проверяем переменные окружения
-if [ -z "$STAGING_HOST" ]; then
-    echo "❌ STAGING_HOST не установлен"
-    echo "Установите: export STAGING_HOST=staging.yourdomain.com"
-    exit 1
-fi
+# Настройки staging VM
+STAGING_HOST="89.169.189.66"
+STAGING_USER="ubuntu"
+STAGING_PATH="/opt/domeo-staging"
 
-if [ -z "$STAGING_SSH_KEY" ]; then
-    echo "❌ STAGING_SSH_KEY не установлен"
-    echo "Установите: export STAGING_SSH_KEY=/path/to/ssh/key"
+# Проверяем наличие SSH ключа
+if [ ! -f "staging_key" ]; then
+    echo "❌ SSH ключ staging_key не найден"
+    echo "Создайте файл staging_key с приватным ключом для доступа к staging VM"
     exit 1
 fi
 
 # Проверяем подключение к staging
 echo "🔍 Проверяем подключение к staging..."
-if ! ssh -i "$STAGING_SSH_KEY" -o ConnectTimeout=10 ubuntu@$STAGING_HOST "echo 'Connection OK'"; then
+if ! ssh -i "staging_key" -o ConnectTimeout=10 ubuntu@$STAGING_HOST "echo 'Connection OK'"; then
     echo "❌ Не удается подключиться к staging серверу"
     exit 1
 fi
@@ -31,7 +30,7 @@ echo "✅ Подключение к staging успешно"
 
 # Создаем бэкап staging
 echo "💾 Создаем бэкап staging..."
-ssh -i "$STAGING_SSH_KEY" ubuntu@$STAGING_HOST << 'EOF'
+ssh -i "staging_key" ubuntu@$STAGING_HOST << 'EOF'
 cd /opt/domeo-staging
 if [ -f "package.json" ]; then
     echo "Создаем бэкап staging..."
@@ -49,11 +48,11 @@ tar -czf staging-build.tar.gz .next package.json package-lock.json prisma
 
 # Загружаем на staging
 echo "📤 Загружаем на staging сервер..."
-scp -i "$STAGING_SSH_KEY" staging-build.tar.gz ubuntu@$STAGING_HOST:/tmp/
+scp -i "staging_key" staging-build.tar.gz ubuntu@$STAGING_HOST:/tmp/
 
 # Деплоим на staging
 echo "🚀 Деплоим на staging..."
-ssh -i "$STAGING_SSH_KEY" ubuntu@$STAGING_HOST << 'EOF'
+ssh -i "staging_key" ubuntu@$STAGING_HOST << 'EOF'
 cd /opt/domeo-staging
 tar -xzf /tmp/staging-build.tar.gz
 rm /tmp/staging-build.tar.gz
@@ -70,7 +69,7 @@ if curl -f http://$STAGING_HOST:3001/api/health; then
     echo "🌐 Staging доступен: http://$STAGING_HOST:3001"
 else
     echo "❌ Health check не прошел, откатываем..."
-    ssh -i "$STAGING_SSH_KEY" ubuntu@$STAGING_HOST << 'EOF'
+    ssh -i "staging_key" ubuntu@$STAGING_HOST << 'EOF'
 cd /opt/domeo-staging
 git checkout HEAD~1
 npm ci --only=production

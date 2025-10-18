@@ -14,8 +14,8 @@ if [ ! -f "staging_key" ]; then
     exit 1
 fi
 
-# Настройки staging VM (замените на ваши данные)
-STAGING_HOST="staging.yourdomain.com"  # Замените на IP staging VM
+# Настройки staging VM
+STAGING_HOST="89.169.189.66"
 STAGING_USER="ubuntu"
 STAGING_PATH="/opt/domeo-staging"
 
