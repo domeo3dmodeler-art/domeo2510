@@ -35,13 +35,14 @@ export async function GET(request: NextRequest) {
 
     console.log(`Найдено ${products.length} товаров в категории ${categoryId}`);
 
-    // Группируем товары по моделям
+    // Группируем товары по моделям (используем свойство "Domeo_Название модели для Web")
     const modelGroups: Record<string, any[]> = {};
     
     products.forEach(product => {
       try {
         const properties = JSON.parse(product.properties_data || '{}');
-        const model = product.model || 'Без модели';
+        // Используем свойство "Domeo_Название модели для Web" для группировки
+        const model = properties['Domeo_Название модели для Web'] || 'Без модели';
         
         if (!modelGroups[model]) {
           modelGroups[model] = [];
@@ -51,7 +52,8 @@ export async function GET(request: NextRequest) {
           id: product.id,
           sku: product.sku,
           name: product.name,
-          model: product.model,
+          model: product.model, // Оригинальное поле model из БД
+          domeoModel: model, // Свойство "Domeo_Название модели для Web"
           properties: properties
         });
       } catch (error) {
@@ -74,7 +76,7 @@ export async function GET(request: NextRequest) {
     ];
 
     for (const [modelName, modelProducts] of Object.entries(modelGroups)) {
-      console.log(`\n=== АНАЛИЗ МОДЕЛИ: ${modelName} ===`);
+      console.log(`\n=== АНАЛИЗ МОДЕЛИ: "${modelName}" (Domeo_Название модели для Web) ===`);
       console.log(`Товаров в модели: ${modelProducts.length}`);
 
       // Собираем все уникальные артикулы поставщика для этой модели
