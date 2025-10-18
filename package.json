@@ -37,7 +37,9 @@
     "git:feature": "chmod +x create-feature.sh && ./create-feature.sh",
     "git:status": "git status && echo 'Current branch:' && git branch --show-current",
     "new:feature": "chmod +x new-feature.sh && ./new-feature.sh",
-    "workflow:status": "echo 'Current branch:' && git branch --show-current && echo 'Remote branches:' && git branch -r"
+    "workflow:status": "echo 'Current branch:' && git branch --show-current && echo 'Remote branches:' && git branch -r",
+    "sync:production": "chmod +x sync-from-production.sh && ./sync-from-production.sh",
+    "setup:staging": "chmod +x setup-staging-vm.sh && ./setup-staging-vm.sh"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.913.0",
