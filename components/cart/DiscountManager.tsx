@@ -25,7 +25,7 @@ interface CartItem {
 
 interface DiscountManagerProps {
   cartItems: CartItem[];
-  onApplyDiscount: (itemId: string, discount: number, discountType: 'percentage' | 'fixed' | 'bulk') => void;
+  onApplyDiscount: (itemId: string, discount: number, discountType: 'percentage' | 'fixed') => void;
   onRemoveDiscount: (itemId: string) => void;
 }
 
@@ -85,7 +85,7 @@ export default function DiscountManager({ cartItems, onApplyDiscount, onRemoveDi
   const [selectedRuleId, setSelectedRuleId] = useState<string>('');
   const [customDiscount, setCustomDiscount] = useState<string>('');
   const [customDiscountType, setCustomDiscountType] = useState<'percentage' | 'fixed'>('percentage');
-  const [appliedDiscounts, setAppliedDiscounts] = useState<Record<string, { value: number; type: 'percentage' | 'fixed' | 'bulk'; ruleName?: string }>>({});
+  const [appliedDiscounts, setAppliedDiscounts] = useState<Record<string, { value: number; type: 'percentage' | 'fixed'; ruleName?: string }>>({});
 
   const getCartTotal = () => {
     return cartItems.reduce((sum, item) => sum + item.subtotal, 0);
@@ -226,7 +226,7 @@ export default function DiscountManager({ cartItems, onApplyDiscount, onRemoveDi
               </div>
               <div>
                 <span className="text-blue-700">Цена за шт:</span>
-                <span className="ml-2 font-medium">{selectedItem.price.toLocaleString()} ₽</span>
+                <span className="ml-2 font-medium">{item.price.toLocaleString()} ₽</span>
               </div>
               <div>
                 <span className="text-blue-700">Сумма:</span>
@@ -297,7 +297,7 @@ export default function DiscountManager({ cartItems, onApplyDiscount, onRemoveDi
                 <label className="block text-xs text-gray-600 mb-1">Тип скидки</label>
                 <Select
                   value={customDiscountType}
-                  onValueChange={(value) => setCustomDiscountType(value as 'percentage' | 'fixed')}
+                  onValueChange={(value: 'percentage' | 'fixed') => setCustomDiscountType(value)}
                 >
                   <option value="percentage">Процент</option>
                   <option value="fixed">Фиксированная сумма</option>

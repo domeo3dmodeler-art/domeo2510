@@ -126,7 +126,7 @@ export default function CartDisplayComponent({
           // Обычный список
           pricing.map((priceGroup, index) => (
             <div key={index} className="border border-gray-100 rounded-lg p-4">
-              {priceGroup.type === 'separate' ? (
+              {priceGroup.type === 'main' && priceGroup.categoryLink ? (
                 // Комбинированная цена
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -145,6 +145,11 @@ export default function CartDisplayComponent({
                     </div>
                     <div className="text-right">
                       <div className="font-semibold text-lg">{priceGroup.subtotal}₽</div>
+                      {priceGroup.categoryLink && (
+                        <div className="text-xs text-gray-500">
+                          {priceGroup.categoryLink.label || 'Комплект'}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

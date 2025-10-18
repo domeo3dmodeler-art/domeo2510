@@ -1,222 +1,168 @@
-import { BlockDefinition } from './types';
+import { ConstructorElement } from './types';
 
-export const BLOCK_DEFINITIONS: Record<string, BlockDefinition> = {
-  // Контейнеры
+export const BLOCK_DEFINITIONS: Record<string, Partial<ConstructorElement>> = {
   container: {
     type: 'container',
-    name: 'Контейнер',
-    category: 'layout',
-    icon: '📦',
-    defaultProps: {
+    component: 'ContainerBlock',
+    props: {
       backgroundColor: '#ffffff',
-      padding: 20,
-      borderRadius: 0,
-      border: 'none'
+      padding: '20px',
     },
-    defaultSize: { width: 400, height: 200 },
-    minSize: { width: 100, height: 50 },
-    maxSize: { width: 1200, height: 800 },
-    resizable: true,
-    draggable: true
+    size: { width: '100%', height: 'auto' },
+    responsive: {},
   },
-
-  row: {
-    type: 'row',
-    name: 'Строка',
-    category: 'layout',
-    icon: '📏',
-    defaultProps: {
-      direction: 'row',
-      gap: 16,
-      alignItems: 'flex-start',
-      justifyContent: 'flex-start'
-    },
-    defaultSize: { width: 400, height: 100 },
-    minSize: { width: 200, height: 50 },
-    maxSize: { width: 1200, height: 300 },
-    resizable: true,
-    draggable: true
-  },
-
-  column: {
-    type: 'column',
-    name: 'Колонка',
-    category: 'layout',
-    icon: '📐',
-    defaultProps: {
-      direction: 'column',
-      gap: 16,
-      alignItems: 'flex-start',
-      justifyContent: 'flex-start'
-    },
-    defaultSize: { width: 200, height: 300 },
-    minSize: { width: 100, height: 100 },
-    maxSize: { width: 600, height: 800 },
-    resizable: true,
-    draggable: true
-  },
-
-  // Контент
   text: {
-    type: 'text',
-    name: 'Текст',
-    category: 'content',
-    icon: '📝',
-    defaultProps: {
-      content: 'Введите текст...',
-      fontSize: 16,
-      fontWeight: 'normal',
-      color: '#000000',
-      textAlign: 'left'
+    type: 'block',
+    component: 'TextBlock',
+    props: {
+      content: 'Напишите ваш текст здесь',
+      fontSize: '16px',
+      color: '#333333',
     },
-    defaultSize: { width: 200, height: 50 },
-    minSize: { width: 50, height: 20 },
-    maxSize: { width: 800, height: 200 },
-    resizable: true,
-    draggable: true
+    size: { width: 'auto', height: 'auto' },
+    responsive: {},
   },
-
   image: {
-    type: 'image',
-    name: 'Изображение',
-    category: 'content',
-    icon: '🖼️',
-    defaultProps: {
-      src: '/placeholder-image.jpg',
+    type: 'block',
+    component: 'ImageBlock',
+    props: {
+      src: '/placeholder.jpg',
       alt: 'Изображение',
-      objectFit: 'cover',
-      borderRadius: 0
+      width: '100%',
+      height: 'auto',
     },
-    defaultSize: { width: 300, height: 200 },
-    minSize: { width: 50, height: 50 },
-    maxSize: { width: 800, height: 600 },
-    resizable: true,
-    draggable: true
+    size: { width: '100%', height: 'auto' },
+    responsive: {},
   },
-
+  productGrid: {
+    type: 'module',
+    component: 'ProductGridBlock',
+    props: {
+      categoryId: '',
+      columns: 3,
+      showPrices: true,
+      showImages: true,
+    },
+    size: { width: '100%', height: 'auto' },
+    responsive: {},
+  },
+  productFilter: {
+    type: 'module',
+    component: 'ProductFilterBlock',
+    props: {
+      categoryId: '',
+      filters: [],
+    },
+    size: { width: '100%', height: 'auto' },
+    responsive: {},
+  },
+  productCart: {
+    type: 'module',
+    component: 'ProductCartBlock',
+    props: {
+      showTotal: true,
+      showButtons: true,
+    },
+    size: { width: '300px', height: 'auto' },
+    responsive: {},
+  },
+  productComparison: {
+    type: 'module',
+    component: 'ProductComparisonBlock',
+    props: {
+      maxItems: 3,
+      showDifferences: true,
+      showPrices: true,
+    },
+    size: { width: '100%', height: 'auto' },
+    responsive: {},
+  },
+  priceCalculator: {
+    type: 'module',
+    component: 'PriceCalculatorBlock',
+    props: {
+      showBreakdown: true,
+      allowDiscounts: true,
+    },
+    size: { width: '100%', height: 'auto' },
+    responsive: {},
+  },
   button: {
-    type: 'button',
-    name: 'Кнопка',
-    category: 'forms',
-    icon: '🔘',
-    defaultProps: {
+    type: 'block',
+    component: 'ButtonBlock',
+    props: {
       text: 'Кнопка',
       variant: 'primary',
       size: 'medium',
-      disabled: false,
-      onClick: null
     },
-    defaultSize: { width: 120, height: 40 },
-    minSize: { width: 80, height: 32 },
-    maxSize: { width: 300, height: 60 },
-    resizable: true,
-    draggable: true
+    size: { width: 'auto', height: 'auto' },
+    responsive: {},
   },
-
-  // Специальные блоки для конфигураторов
-  productGrid: {
-    type: 'productGrid',
-    name: 'Сетка товаров',
-    category: 'products',
-    icon: '🛍️',
-    defaultProps: {
-      columns: 3,
-      rows: 4,
-      showPrices: true,
-      showImages: true,
-      showButtons: true,
-      pagination: true,
-      sorting: true,
-      categoryId: null
+  form: {
+    type: 'block',
+    component: 'FormBlock',
+    props: {
+      fields: [],
     },
-    defaultSize: { width: 600, height: 400 },
-    minSize: { width: 300, height: 200 },
-    maxSize: { width: 1200, height: 800 },
-    resizable: true,
-    draggable: true
+    size: { width: '100%', height: 'auto' },
+    responsive: {},
   },
-
-  productFilter: {
-    type: 'productFilter',
-    name: 'Фильтр товаров',
-    category: 'products',
-    icon: '🔍',
-    defaultProps: {
-      filterTypes: [
-        { type: 'range', label: 'Цена', active: true },
-        { type: 'select', label: 'Бренд', active: true },
-        { type: 'checkbox', label: 'Материал', active: false },
-        { type: 'color', label: 'Цвет', active: false }
-      ],
-      categoryId: null
+  spacer: {
+    type: 'block',
+    component: 'SpacerBlock',
+    props: {
+      height: '20px',
     },
-    defaultSize: { width: 300, height: 200 },
-    minSize: { width: 200, height: 100 },
-    maxSize: { width: 500, height: 400 },
-    resizable: true,
-    draggable: true
+    size: { width: '100%', height: '20px' },
+    responsive: {},
   },
-
-  productCart: {
-    type: 'productCart',
-    name: 'Корзина',
-    category: 'products',
-    icon: '🛒',
-    defaultProps: {
-      showImages: true,
-      showQuantity: true,
-      showTotal: true,
-      showButtons: true,
-      position: 'fixed-right',
-      maxItems: 10
+  divider: {
+    type: 'block',
+    component: 'DividerBlock',
+    props: {
+      style: 'solid',
+      color: '#e5e7eb',
     },
-    defaultSize: { width: 350, height: 500 },
-    minSize: { width: 250, height: 300 },
-    maxSize: { width: 500, height: 700 },
-    resizable: true,
-    draggable: true
+    size: { width: '100%', height: '1px' },
+    responsive: {},
   },
-
-  priceCalculator: {
-    type: 'priceCalculator',
-    name: 'Калькулятор цен',
-    category: 'products',
-    icon: '💰',
-    defaultProps: {
-      showFormula: true,
-      showBreakdown: true,
-      showTotal: true,
-      currency: 'RUB',
-      taxRate: 0.2
+  row: {
+    type: 'container',
+    component: 'RowBlock',
+    props: {
+      columns: 2,
+      gap: '20px',
     },
-    defaultSize: { width: 400, height: 300 },
-    minSize: { width: 250, height: 200 },
-    maxSize: { width: 600, height: 500 },
-    resizable: true,
-    draggable: true
-  }
+    size: { width: '100%', height: 'auto' },
+    responsive: {},
+  },
+  column: {
+    type: 'container',
+    component: 'ColumnBlock',
+    props: {
+      width: '50%',
+    },
+    size: { width: '50%', height: 'auto' },
+    responsive: {},
+  },
 };
 
-export const BLOCK_CATEGORIES = {
+export const ELEMENT_CATEGORIES = {
   layout: {
     title: 'Макет',
-    icon: '🏗️',
-    blocks: ['container', 'row', 'column']
+    elements: ['container', 'row', 'column', 'spacer']
   },
   content: {
     title: 'Контент',
-    icon: '📄',
-    blocks: ['text', 'image']
+    elements: ['text', 'image', 'divider']
   },
   forms: {
     title: 'Формы',
-    icon: '📝',
-    blocks: ['button', 'form']
+    elements: ['form', 'button']
   },
   products: {
     title: 'Товары',
-    icon: '🛍️',
-    blocks: ['productGrid', 'productFilter', 'productCart', 'priceCalculator']
+    elements: ['productGrid', 'productFilter', 'productCart', 'productComparison', 'priceCalculator']
   }
 };
 

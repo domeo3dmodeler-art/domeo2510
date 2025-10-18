@@ -92,7 +92,7 @@ export default function ModernConstructor() {
 
       <div className="flex-1 flex">
         {/* LEFT PANEL - BLOCKS */}
-        <BlocksPanel onAddBlock={(type) => addBlock(type as Block['type'])} />
+        <BlocksPanel onAddBlock={addBlock} />
 
         {/* CENTER - CANVAS */}
         <Canvas

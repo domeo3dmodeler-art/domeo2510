@@ -332,7 +332,7 @@ export default function PropertyMapper({
                 <div className="flex flex-col space-y-2">
                   <div className="flex space-x-1">
                     <Button
-                      variant={property.isVisible ? "primary" : "outline"}
+                      variant={property.isVisible ? "default" : "outline"}
                       size="sm"
                       onClick={() => toggleVisibility(property.id)}
                       title={property.isVisible ? "Скрыть" : "Показать"}
@@ -340,7 +340,7 @@ export default function PropertyMapper({
                       {property.isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                     </Button>
                     <Button
-                      variant="error"
+                      variant="destructive"
                       size="sm"
                       onClick={() => removeProperty(property.id)}
                       title="Удалить"

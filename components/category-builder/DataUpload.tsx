@@ -277,8 +277,8 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: `Шаблон для категории`,
-          description: `Автоматически созданный шаблон загрузки для категории`,
+          name: `Шаблон для ${selectedCatalogCategory?.name || 'категории'}`,
+          description: `Автоматически созданный шаблон загрузки для категории ${selectedCatalogCategory?.name}`,
           catalog_category_id: selectedCatalogCategoryId,
           template_config: JSON.stringify({
             headers: priceListData?.headers || [],

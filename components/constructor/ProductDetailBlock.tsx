@@ -13,7 +13,6 @@ interface ProductDetailBlockProps {
 
 export default function ProductDetailBlock({ block, onUpdate }: ProductDetailBlockProps) {
   const settings = block.detailSettings || {
-    categoryId: '',
     showMainImage: true,
     showThumbnailGallery: true,
     showZoom: true,

@@ -581,7 +581,7 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
             {/* Переключатель режима отображения */}
             <div className="flex border border-gray-300 rounded-md">
               <Button
-                variant={displayMode === 'cards' ? 'primary' : 'ghost'}
+                variant={displayMode === 'cards' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setDisplayMode('cards')}
                 className="rounded-r-none"
@@ -589,7 +589,7 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
                 <Grid className="w-4 h-4" />
               </Button>
               <Button
-                variant={displayMode === 'list' ? 'primary' : 'ghost'}
+                variant={displayMode === 'list' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setDisplayMode('list')}
                 className="rounded-none border-x-0"
@@ -597,7 +597,7 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
                 <List className="w-4 h-4" />
               </Button>
               <Button
-                variant={displayMode === 'table' ? 'primary' : 'ghost'}
+                variant={displayMode === 'table' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setDisplayMode('table')}
                 className="rounded-l-none"
@@ -747,7 +747,7 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
                   return (
                     <Button
                       key={pageNum}
-                      variant={pageNum === pagination.page ? 'primary' : 'outline'}
+                      variant={pageNum === pagination.page ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => handlePageChange(pageNum)}
                       className="w-8 h-8 p-0"

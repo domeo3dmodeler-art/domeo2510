@@ -1286,7 +1286,11 @@ const DetailedBlockEditor: React.FC<DetailedBlockEditorProps> = ({
                               onClick={() => {
                                 handleBlockUpdate({
                                   ...editedBlock,
-                                  displayFields: [property.key]
+                                  simpleMode: true,
+                                  focusedProperty: property.key,
+                                  displayFields: [property.key],
+                                  propertyDisplayMode: 'chips',
+                                  showProductList: true
                                 });
                                 setShowPropertySelection(false);
                               }}

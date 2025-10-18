@@ -203,7 +203,7 @@ export default function PricingFormulaEditor({ categoryLinkId, linkType, onSave,
                     </label>
                     <Select
                       value={rule.type}
-                      onValueChange={(value) => updateRule('type', value as 'percentage' | 'fixed' | 'formula')}
+                      onValueChange={(value: 'percentage' | 'fixed' | 'formula') => updateRule('type', value)}
                     >
                       <option value="percentage">Процент от базовой цены</option>
                       <option value="fixed">Фиксированная сумма</option>
@@ -388,9 +388,7 @@ export default function PricingFormulaEditor({ categoryLinkId, linkType, onSave,
                   </Button>
 
                   {testError && (
-                    <Alert variant="error">
-                      {testError}
-                    </Alert>
+                    <Alert type="error" message={testError} />
                   )}
 
                   {testResult !== null && (

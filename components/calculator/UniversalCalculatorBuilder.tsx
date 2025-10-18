@@ -509,7 +509,7 @@ export default function UniversalCalculatorBuilder() {
             {/* ⚙️ Панель свойств */}
             <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto">
               <ElementPropertiesPanel
-                element={selectedElement ? config.elements.find(el => el.id === selectedElement) || null : null}
+                element={selectedElement ? config.elements.find(el => el.id === selectedElement) : null}
                 onUpdate={(updates) => selectedElement && updateElement(selectedElement, updates)}
               />
             </div>

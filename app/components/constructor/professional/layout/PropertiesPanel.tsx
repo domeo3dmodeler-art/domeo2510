@@ -106,7 +106,6 @@ export default function PropertiesPanel({
             className="w-full px-2 py-1 text-xs border border-gray-300 rounded"
             placeholder="Y"
           />
-        }
         </div>
       </div>
 

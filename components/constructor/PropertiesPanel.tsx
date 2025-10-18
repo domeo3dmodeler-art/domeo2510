@@ -1,423 +1,393 @@
 'use client';
 
-import React from 'react';
-import { ConstructorElement } from './types';
+import React, { useState } from 'react';
+import { useConstructor } from './ConstructorContext';
+import AnimationSystem from './AnimationSystem';
+import { Button } from '../ui';
+import { 
+  Type, 
+  Palette, 
+  Layout, 
+  Smartphone, 
+  Tablet, 
+  Monitor,
+  Copy,
+  Trash2,
+  Eye,
+  EyeOff
+} from 'lucide-react';
 
-interface PropertiesPanelProps {
-  selectedElement: ConstructorElement | null;
-  viewport: 'desktop' | 'tablet' | 'mobile';
-  onUpdate: (updates: Partial<ConstructorElement>) => void;
-}
+export default function PropertiesPanel() {
+  const { selectedElement, updateElement, deleteElement, duplicateElement } = useConstructor();
+  const [activeTab, setActiveTab] = useState<'properties' | 'animations'>('properties');
 
-export default function PropertiesPanel({
-  selectedElement,
-  viewport,
-  onUpdate
-}: PropertiesPanelProps) {
   if (!selectedElement) {
     return (
-      <div className="w-80 bg-white border-l border-gray-200 h-full">
+      <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto">
         <div className="p-4">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">
-            Свойства
-          </h3>
-          <div className="text-center text-gray-500 py-8">
-            Выберите элемент для редактирования
+          <div className="text-center text-gray-500 py-12">
+            <div className="text-4xl mb-4">⚙️</div>
+            <h3 className="text-lg font-medium mb-2">Свойства элемента</h3>
+            <p className="text-sm">
+              Выберите элемент на канвасе для редактирования его свойств
+            </p>
           </div>
         </div>
       </div>
     );
   }
 
-  const currentSettings = selectedElement.responsive[viewport];
+  const handleApplyAnimation = (elementId: string, animation: any) => {
+    updateElement(elementId, {
+      animations: [animation]
+    });
+  };
+
+  const handlePropChange = (key: string, value: any) => {
+    updateElement(selectedElement.id, { 
+      props: { ...selectedElement.props, [key]: value } 
+    });
+  };
+
+  const handleStyleChange = (key: string, value: any) => {
+    updateElement(selectedElement.id, { 
+      styles: { ...selectedElement.styles, [key]: value } 
+    });
+  };
+
+  const handleSizeChange = (key: 'width' | 'height', value: string) => {
+    updateElement(selectedElement.id, { 
+      size: { ...selectedElement.size, [key]: value } 
+    });
+  };
+
+  const handlePositionChange = (key: 'x' | 'y', value: number) => {
+    updateElement(selectedElement.id, { 
+      position: { ...selectedElement.position, [key]: value } 
+    });
+  };
+
+  const handleDelete = () => {
+    if (confirm('Удалить элемент?')) {
+      deleteElement(selectedElement.id);
+    }
+  };
+
+  const handleDuplicate = () => {
+    duplicateElement(selectedElement.id);
+  };
 
   return (
-    <div className="w-80 bg-white border-l border-gray-200 h-full overflow-y-auto">
+    <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto">
       <div className="p-4">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">
-          Свойства
-        </h3>
-        
-        {/* Общая информация */}
-        <div className="mb-6">
-          <h4 className="font-medium text-gray-700 mb-3">Элемент</h4>
-          <div className="space-y-2">
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">
-                Тип
-              </label>
-              <input
-                type="text"
-                value={selectedElement.component}
-                disabled
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-gray-50"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">
-                ID
-              </label>
-              <input
-                type="text"
-                value={selectedElement.id}
-                disabled
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-gray-50"
-              />
-            </div>
+        {/* Заголовок */}
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold text-gray-900">Свойства</h3>
+          <div className="flex space-x-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDuplicate}
+              title="Дублировать"
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDelete}
+              className="text-red-600 hover:text-red-700"
+              title="Удалить"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 
-        {/* Размер и позиция */}
-        <div className="mb-6">
-          <h4 className="font-medium text-gray-700 mb-3">Размер и позиция</h4>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">
-                Ширина
-              </label>
-              <input
-                type="number"
-                value={currentSettings.width}
-                onChange={(e) => onUpdate({
-                  size: { ...selectedElement.size, width: parseInt(e.target.value) }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">
-                Высота
-              </label>
-              <input
-                type="number"
-                value={currentSettings.height}
-                onChange={(e) => onUpdate({
-                  size: { ...selectedElement.size, height: parseInt(e.target.value) }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">
-                X
-              </label>
-              <input
-                type="number"
-                value={Math.round(selectedElement.position.x)}
-                onChange={(e) => onUpdate({
-                  position: { ...selectedElement.position, x: parseInt(e.target.value) }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">
-                Y
-              </label>
-              <input
-                type="number"
-                value={Math.round(selectedElement.position.y)}
-                onChange={(e) => onUpdate({
-                  position: { ...selectedElement.position, y: parseInt(e.target.value) }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-              />
-            </div>
-          </div>
+        {/* Табы */}
+        <div className="flex space-x-1 bg-gray-100 rounded-lg p-1 mb-6">
+          <button
+            onClick={() => setActiveTab('properties')}
+            className={`px-3 py-1 text-sm rounded-md transition-colors ${
+              activeTab === 'properties' 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Свойства
+          </button>
+          <button
+            onClick={() => setActiveTab('animations')}
+            className={`px-3 py-1 text-sm rounded-md transition-colors ${
+              activeTab === 'animations' 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Анимации
+          </button>
         </div>
 
-        {/* Стили */}
-        <div className="mb-6">
-          <h4 className="font-medium text-gray-700 mb-3">Стили</h4>
-          <div className="space-y-3">
-            {/* Фоновый цвет */}
+        {/* Контент вкладок */}
+        {activeTab === 'properties' ? (
+          <div className="space-y-4">
             <div>
-              <label className="block text-sm text-gray-600 mb-1">
-                Фон
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Тип элемента
               </label>
-              <div className="flex items-center space-x-2">
+              <div className="text-sm text-gray-900 bg-gray-50 p-2 rounded">
+                {selectedElement.type}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Компонент
+              </label>
+              <div className="text-sm text-gray-900 bg-gray-50 p-2 rounded">
+                {selectedElement.component}
+              </div>
+            </div>
+
+            {/* Позиция и размер */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  X (px)
+                </label>
                 <input
-                  type="color"
-                  value={selectedElement.props.backgroundColor || '#ffffff'}
-                  onChange={(e) => onUpdate({
-                    props: { ...selectedElement.props, backgroundColor: e.target.value }
-                  })}
-                  className="w-8 h-8 border border-gray-300 rounded"
+                  type="number"
+                  value={selectedElement.position.x}
+                  onChange={(e) => handlePositionChange('x', parseInt(e.target.value) || 0)}
+                  className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Y (px)
+                </label>
                 <input
-                  type="text"
-                  value={selectedElement.props.backgroundColor || '#ffffff'}
-                  onChange={(e) => onUpdate({
-                    props: { ...selectedElement.props, backgroundColor: e.target.value }
-                  })}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
+                  type="number"
+                  value={selectedElement.position.y}
+                  onChange={(e) => handlePositionChange('y', parseInt(e.target.value) || 0)}
+                  className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
                 />
               </div>
             </div>
 
-            {/* Отступы */}
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">
-                Отступы
-              </label>
-              <input
-                type="number"
-                value={selectedElement.props.padding || 0}
-                onChange={(e) => onUpdate({
-                  props: { ...selectedElement.props, padding: parseInt(e.target.value) }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                placeholder="0"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Ширина
+                </label>
+                <input
+                  type="text"
+                  value={selectedElement.size.width}
+                  onChange={(e) => handleSizeChange('width', e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+                  placeholder="100%"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Высота
+                </label>
+                <input
+                  type="text"
+                  value={selectedElement.size.height}
+                  onChange={(e) => handleSizeChange('height', e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+                  placeholder="auto"
+                />
+              </div>
             </div>
 
-            {/* Скругление */}
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">
-                Скругление
-              </label>
-              <input
-                type="number"
-                value={selectedElement.props.borderRadius || 0}
-                onChange={(e) => onUpdate({
-                  props: { ...selectedElement.props, borderRadius: parseInt(e.target.value) }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                placeholder="0"
-              />
+            {/* Специфичные свойства по типу элемента */}
+            <div className="mt-6">
+              {selectedElement.type === 'text' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Текст
+                    </label>
+                    <textarea
+                      value={selectedElement.props.content || ''}
+                      onChange={(e) => handlePropChange('content', e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+                      rows={3}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Размер шрифта
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedElement.props.fontSize || '16px'}
+                      onChange={(e) => handlePropChange('fontSize', e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+                      placeholder="16px"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Цвет
+                    </label>
+                    <input
+                      type="color"
+                      value={selectedElement.props.color || '#333333'}
+                      onChange={(e) => handlePropChange('color', e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-1 py-1"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {selectedElement.type === 'image' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      URL изображения
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedElement.props.src || ''}
+                      onChange={(e) => handlePropChange('src', e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+                      placeholder="/image.jpg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Alt текст
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedElement.props.alt || ''}
+                      onChange={(e) => handlePropChange('alt', e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+                      placeholder="Описание изображения"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {selectedElement.type === 'productGrid' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      ID категории
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedElement.props.categoryId || ''}
+                      onChange={(e) => handlePropChange('categoryId', e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+                      placeholder="category-id"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Колонки
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="6"
+                      value={selectedElement.props.columns || 3}
+                      onChange={(e) => handlePropChange('columns', parseInt(e.target.value) || 3)}
+                      className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedElement.props.showPrices || false}
+                        onChange={(e) => handlePropChange('showPrices', e.target.checked)}
+                        className="mr-2"
+                      />
+                      <span className="text-sm text-gray-700">Показывать цены</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedElement.props.showImages || false}
+                        onChange={(e) => handlePropChange('showImages', e.target.checked)}
+                        className="mr-2"
+                      />
+                      <span className="text-sm text-gray-700">Показывать изображения</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Responsive настройки */}
+            <div className="mt-6">
+              <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                <Smartphone className="h-4 w-4 mr-2" />
+                Адаптивность
+              </h4>
+              
+              <div className="space-y-3">
+                {['desktop', 'tablet', 'mobile'].map(device => (
+                  <div key={device} className="border border-gray-200 rounded-lg p-3">
+                    <div className="flex items-center mb-2">
+                      {device === 'desktop' && <Monitor className="h-4 w-4 mr-2" />}
+                      {device === 'tablet' && <Tablet className="h-4 w-4 mr-2" />}
+                      {device === 'mobile' && <Smartphone className="h-4 w-4 mr-2" />}
+                      <span className="text-sm font-medium capitalize">{device}</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Ширина</label>
+                        <input
+                          type="text"
+                          value={selectedElement.responsive[device as keyof typeof selectedElement.responsive]?.width || ''}
+                          onChange={(e) => {
+                            const newResponsive = { ...selectedElement.responsive };
+                            if (!newResponsive[device as keyof typeof newResponsive]) {
+                              newResponsive[device as keyof typeof newResponsive] = {};
+                            }
+                            newResponsive[device as keyof typeof newResponsive]!.width = e.target.value;
+                            updateElement(selectedElement.id, { responsive: newResponsive });
+                          }}
+                          className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
+                          placeholder="100%"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Высота</label>
+                        <input
+                          type="text"
+                          value={selectedElement.responsive[device as keyof typeof selectedElement.responsive]?.height || ''}
+                          onChange={(e) => {
+                            const newResponsive = { ...selectedElement.responsive };
+                            if (!newResponsive[device as keyof typeof newResponsive]) {
+                              newResponsive[device as keyof typeof newResponsive] = {};
+                            }
+                            newResponsive[device as keyof typeof newResponsive]!.height = e.target.value;
+                            updateElement(selectedElement.id, { responsive: newResponsive });
+                          }}
+                          className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
+                          placeholder="auto"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-
-        {/* Специфичные настройки для разных типов элементов */}
-        {renderSpecificProperties(selectedElement, onUpdate)}
-
-        {/* Адаптивность */}
-        <div className="mb-6">
-          <h4 className="font-medium text-gray-700 mb-3">Адаптивность</h4>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Desktop</span>
-              <input
-                type="checkbox"
-                checked={selectedElement.responsive.desktop.visible}
-                onChange={(e) => onUpdate({
-                  responsive: {
-                    ...selectedElement.responsive,
-                    desktop: {
-                      ...selectedElement.responsive.desktop,
-                      visible: e.target.checked
-                    }
-                  }
-                })}
-                className="rounded"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Tablet</span>
-              <input
-                type="checkbox"
-                checked={selectedElement.responsive.tablet.visible}
-                onChange={(e) => onUpdate({
-                  responsive: {
-                    ...selectedElement.responsive,
-                    tablet: {
-                      ...selectedElement.responsive.tablet,
-                      visible: e.target.checked
-                    }
-                  }
-                })}
-                className="rounded"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Mobile</span>
-              <input
-                type="checkbox"
-                checked={selectedElement.responsive.mobile.visible}
-                onChange={(e) => onUpdate({
-                  responsive: {
-                    ...selectedElement.responsive,
-                    mobile: {
-                      ...selectedElement.responsive.mobile,
-                      visible: e.target.checked
-                    }
-                  }
-                })}
-                className="rounded"
-              />
-            </div>
-          </div>
-        </div>
+        ) : (
+          <AnimationSystem 
+            elementId={selectedElement.id}
+            onApplyAnimation={handleApplyAnimation}
+          />
+        )}
       </div>
     </div>
   );
 }
-
-function renderSpecificProperties(element: ConstructorElement, onUpdate: (updates: Partial<ConstructorElement>) => void) {
-  switch (element.component) {
-    case 'text':
-      return (
-        <div className="mb-6">
-          <h4 className="font-medium text-gray-700 mb-3">Текст</h4>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">
-                Содержимое
-              </label>
-              <textarea
-                value={element.props.content || ''}
-                onChange={(e) => onUpdate({
-                  props: { ...element.props, content: e.target.value }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                rows={3}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">
-                Размер шрифта
-              </label>
-              <input
-                type="number"
-                value={element.props.fontSize || 16}
-                onChange={(e) => onUpdate({
-                  props: { ...element.props, fontSize: parseInt(e.target.value) }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">
-                Цвет текста
-              </label>
-              <input
-                type="color"
-                value={element.props.color || '#000000'}
-                onChange={(e) => onUpdate({
-                  props: { ...element.props, color: e.target.value }
-                })}
-                className="w-full h-10 border border-gray-300 rounded"
-              />
-            </div>
-          </div>
-        </div>
-      );
-
-    case 'button':
-      return (
-        <div className="mb-6">
-          <h4 className="font-medium text-gray-700 mb-3">Кнопка</h4>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">
-                Текст
-              </label>
-              <input
-                type="text"
-                value={element.props.text || ''}
-                onChange={(e) => onUpdate({
-                  props: { ...element.props, text: e.target.value }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">
-                Вариант
-              </label>
-              <select
-                value={element.props.variant || 'primary'}
-                onChange={(e) => onUpdate({
-                  props: { ...element.props, variant: e.target.value }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-              >
-                <option value="primary">Основная</option>
-                <option value="secondary">Вторичная</option>
-                <option value="outline">Контурная</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      );
-
-    case 'productGrid':
-      return (
-        <div className="mb-6">
-          <h4 className="font-medium text-gray-700 mb-3">Сетка товаров</h4>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">
-                Колонки
-              </label>
-              <input
-                type="number"
-                value={element.props.columns || 3}
-                onChange={(e) => onUpdate({
-                  props: { ...element.props, columns: parseInt(e.target.value) }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                min="1"
-                max="6"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">
-                Строки
-              </label>
-              <input
-                type="number"
-                value={element.props.rows || 4}
-                onChange={(e) => onUpdate({
-                  props: { ...element.props, rows: parseInt(e.target.value) }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                min="1"
-                max="10"
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Показывать цены</span>
-                <input
-                  type="checkbox"
-                  checked={element.props.showPrices !== false}
-                  onChange={(e) => onUpdate({
-                    props: { ...element.props, showPrices: e.target.checked }
-                  })}
-                  className="rounded"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Показывать изображения</span>
-                <input
-                  type="checkbox"
-                  checked={element.props.showImages !== false}
-                  onChange={(e) => onUpdate({
-                    props: { ...element.props, showImages: e.target.checked }
-                  })}
-                  className="rounded"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Показывать кнопки</span>
-                <input
-                  type="checkbox"
-                  checked={element.props.showButtons !== false}
-                  onChange={(e) => onUpdate({
-                    props: { ...element.props, showButtons: e.target.checked }
-                  })}
-                  className="rounded"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-
-    default:
-      return null;
-  }
-}
-

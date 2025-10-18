@@ -1,24 +1,8 @@
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import '../globals.css';
-
-const inter = Inter({ subsets: ['latin'] });
-
-export const metadata: Metadata = {
-  title: 'Domeo Doors Platform',
-  description: 'NoCode платформа конфигураторов для дверей',
-};
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+import '../globals.css'
+import React from 'react'
+export const metadata = { title: 'Domeo', description: 'No‑Code Calculators MVP' }
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ru">
-      <body className={inter.className}>
-        {children}
-      </body>
-    </html>
-  );
+    <html lang="ru"><body className="min-h-screen bg-neutral-50 text-neutral-900">{children}</body></html>
+  )
 }

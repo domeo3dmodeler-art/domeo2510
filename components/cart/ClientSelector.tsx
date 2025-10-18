@@ -84,11 +84,10 @@ export default function ClientSelector({ onClientSelect, onClose }: ClientSelect
         {/* Alert */}
         {alert && (
           <Alert
-            variant={alert.type}
+            type={alert.type}
+            message={alert.message}
             onClose={() => setAlert(null)}
-          >
-            {alert.message}
-          </Alert>
+          />
         )}
 
         {/* Search */}

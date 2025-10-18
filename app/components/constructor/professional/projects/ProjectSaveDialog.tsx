@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Save, X, Eye, Tag, Lock, Unlock, AlertCircle } from 'lucide-react';
+import { Save, X, Eye, Tag, Lock, Unlock, AlertCircle, Star } from 'lucide-react';
 import { DocumentData } from '../ProfessionalPageBuilder';
 import { Project } from './ProjectManager';
 

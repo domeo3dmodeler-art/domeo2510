@@ -251,14 +251,14 @@ export default function ConfiguratorCart({
           {showGrouped && (
             <div className="flex bg-gray-100 rounded-lg p-1">
               <Button
-                variant={viewMode === 'separated' ? 'primary' : 'ghost'}
+                variant={viewMode === 'separated' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setViewMode('separated')}
               >
                 Раздельно
               </Button>
               <Button
-                variant={viewMode === 'grouped' ? 'primary' : 'ghost'}
+                variant={viewMode === 'grouped' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setViewMode('grouped')}
               >

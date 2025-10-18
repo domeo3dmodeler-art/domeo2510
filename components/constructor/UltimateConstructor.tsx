@@ -1019,7 +1019,7 @@ export default function UltimateConstructor() {
                   />
                 </div>
 
-                <Button onClick={() => deleteBlock(selectedBlock.id)} variant="danger" className="w-full">
+                <Button onClick={() => deleteBlock(selectedBlock.id)} variant="destructive" className="w-full">
                   Удалить блок
                 </Button>
               </div>

@@ -1,74 +1,69 @@
-// Типы для No-Code конструктора
-export interface ConstructorElement {
-  id: string;
-  type: 'block' | 'module' | 'container';
-  component: string;
-  props: Record<string, any>;
-  children?: ConstructorElement[];
-  position: { x: number; y: number };
-  size: { width: number; height: number };
-  responsive: ResponsiveSettings;
-  animations?: AnimationSettings;
-  zIndex: number;
-}
-
 export interface ResponsiveSettings {
-  desktop: ElementSettings;
-  tablet: ElementSettings;
-  mobile: ElementSettings;
-}
-
-export interface ElementSettings {
-  width: number;
-  height: number;
-  position: { x: number; y: number };
-  visible: boolean;
-  styles: Record<string, any>;
+  desktop?: { 
+    width?: string; 
+    height?: string; 
+    x?: string; 
+    y?: string; 
+    display?: string; 
+  };
+  tablet?: { 
+    width?: string; 
+    height?: string; 
+    x?: string; 
+    y?: string; 
+    display?: string; 
+  };
+  mobile?: { 
+    width?: string; 
+    height?: string; 
+    x?: string; 
+    y?: string; 
+    display?: string; 
+  };
 }
 
 export interface AnimationSettings {
-  type: 'entrance' | 'exit' | 'hover' | 'scroll';
-  animation: string;
+  type: string;
   duration: number;
   delay: number;
-  easing: string;
+  iteration: string;
+}
+
+export interface ConstructorElement {
+  id: string;
+  type: string; // e.g., 'block', 'module', 'container', 'text', 'image'
+  component: string; // React component name
+  props: Record<string, any>; // Props passed to the component
+  children?: ConstructorElement[];
+  position: { x: number; y: number };
+  size: { width: string; height: string };
+  responsive: ResponsiveSettings;
+  animations?: AnimationSettings[];
+  styles?: Record<string, any>; // Tailwind or CSS styles
 }
 
 export interface ConstructorState {
   elements: ConstructorElement[];
-  selectedElement: string | null;
-  viewport: 'desktop' | 'tablet' | 'mobile';
-  zoom: number;
-  grid: boolean;
-  snapToGrid: boolean;
+  selectedElementId: string | null;
+  history: ConstructorState[];
+  historyPointer: number;
 }
 
-// Типы блоков
-export type BlockType = 
-  | 'container'
-  | 'row'
-  | 'column'
-  | 'text'
-  | 'image'
-  | 'button'
-  | 'form'
-  | 'productGrid'
-  | 'productFilter'
-  | 'productCart'
-  | 'priceCalculator'
-  | 'productGallery'
-  | 'productComparison';
-
-export interface BlockDefinition {
-  type: BlockType;
-  name: string;
-  category: 'layout' | 'content' | 'forms' | 'products';
-  icon: string;
-  defaultProps: Record<string, any>;
-  defaultSize: { width: number; height: number };
-  minSize: { width: number; height: number };
-  maxSize: { width: number; height: number };
-  resizable: boolean;
-  draggable: boolean;
+export interface ConstructorContextType {
+  state: ConstructorState;
+  addElement: (element: Partial<ConstructorElement>) => void;
+  updateElement: (id: string, updates: Partial<ConstructorElement>) => void;
+  deleteElement: (id: string) => void;
+  selectElement: (id: string | null) => void;
+  moveElement: (id: string, position: { x: number; y: number }) => void;
+  resizeElement: (id: string, size: { width: string; height: string }) => void;
+  duplicateElement: (id: string) => void;
+  saveToHistory: () => void;
+  undo: () => void;
+  redo: () => void;
+  loadState: (state: ConstructorState) => void;
+  resetState: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  selectedElement: ConstructorElement | null;
 }
-

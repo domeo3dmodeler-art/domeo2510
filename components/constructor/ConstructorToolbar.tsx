@@ -139,6 +139,7 @@ export default function ConstructorToolbar({ onToggleSmartSuggestions, showSmart
           <Button
             variant="outline"
             size="sm"
+            as="div"
             className="flex items-center space-x-1"
           >
             <Upload className="h-4 w-4" />
@@ -156,7 +157,7 @@ export default function ConstructorToolbar({ onToggleSmartSuggestions, showSmart
       {/* Центральная часть - переключатель устройств */}
       <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
         <Button
-          variant={currentDevice === 'desktop' ? 'primary' : 'ghost'}
+          variant={currentDevice === 'desktop' ? 'default' : 'ghost'}
           size="sm"
           onClick={() => setCurrentDevice('desktop')}
           className="flex items-center space-x-1"
@@ -166,7 +167,7 @@ export default function ConstructorToolbar({ onToggleSmartSuggestions, showSmart
         </Button>
         
         <Button
-          variant={currentDevice === 'tablet' ? 'primary' : 'ghost'}
+          variant={currentDevice === 'tablet' ? 'default' : 'ghost'}
           size="sm"
           onClick={() => setCurrentDevice('tablet')}
           className="flex items-center space-x-1"
@@ -176,7 +177,7 @@ export default function ConstructorToolbar({ onToggleSmartSuggestions, showSmart
         </Button>
         
         <Button
-          variant={currentDevice === 'mobile' ? 'primary' : 'ghost'}
+          variant={currentDevice === 'mobile' ? 'default' : 'ghost'}
           size="sm"
           onClick={() => setCurrentDevice('mobile')}
           className="flex items-center space-x-1"
@@ -189,7 +190,7 @@ export default function ConstructorToolbar({ onToggleSmartSuggestions, showSmart
       {/* Правая часть - дополнительные действия */}
       <div className="flex items-center space-x-2">
         <Button
-          variant={showSmartSuggestions ? 'primary' : 'outline'}
+          variant={showSmartSuggestions ? 'default' : 'outline'}
           size="sm"
           onClick={onToggleSmartSuggestions}
           className="flex items-center space-x-1"

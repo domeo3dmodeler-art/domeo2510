@@ -17,6 +17,7 @@ import {
   CartSettings,
   CartStats
 } from './types';
+import { priceService, PriceCalculationRequest } from '../price/price-service';
 
 export class CartService {
   private static instance: CartService;
@@ -170,6 +171,32 @@ export class CartService {
     }
 
     const cartItem = this.cart.items[itemIndex];
+    
+    // Проверяем, действительно ли изменились параметры
+    const hasRealChanges = Object.keys(updates).some(key => {
+      const currentValue = cartItem[key as keyof CartItem];
+      const newValue = updates[key as keyof CartItem];
+      return currentValue !== newValue;
+    });
+
+    console.log('🔍 CartService change detection:', {
+      updates,
+      currentItem: {
+        hardwareKitId: cartItem.hardwareKitId,
+        finish: cartItem.metadata?.finish,
+        color: cartItem.metadata?.color,
+        width: cartItem.metadata?.width,
+        height: cartItem.metadata?.height
+      },
+      hasRealChanges
+    });
+
+    // Если нет реальных изменений, возвращаем текущий товар
+    if (!hasRealChanges) {
+      console.log('⏭️ No real changes detected in CartService, skipping update');
+      return cartItem;
+    }
+
     const updatedItem = { ...cartItem, ...updates, updatedAt: new Date() };
 
     // Проверяем лимиты
@@ -178,8 +205,22 @@ export class CartService {
     }
 
     this.cart.items[itemIndex] = updatedItem;
-    this.calculateItemPrices(updatedItem);
-    this.calculateCartTotals();
+    
+    // Если изменились параметры двери (включая комплект фурнитуры), пересчитываем цену через API
+    if (updatedItem.categoryId === 'doors' && 
+        (updates.hardwareKitId !== undefined || updates.metadata)) {
+      console.log('🔄 Обнаружено изменение параметров двери, запускаем пересчет цены через API');
+      this.recalculateItemPrice(itemId).catch(error => {
+        console.error('❌ Ошибка пересчета цены:', error);
+        // Fallback к локальному расчету
+        this.calculateItemPrices(updatedItem);
+        this.calculateCartTotals();
+      });
+    } else {
+      // Обычный расчет цены
+      this.calculateItemPrices(updatedItem);
+      this.calculateCartTotals();
+    }
 
     // Создаем событие
     const event: CartEvent = {
@@ -431,6 +472,68 @@ export class CartService {
     item.total = finalPrice - discount + tax;
   }
 
+  // Пересчет цены товара через API (для дверей)
+  private async recalculateItemPriceInternal(itemId: string): Promise<void> {
+    const itemIndex = this.cart.items.findIndex(item => item.id === itemId);
+    if (itemIndex === -1) {
+      throw new Error('Товар не найден в корзине');
+    }
+
+    const item = this.cart.items[itemIndex];
+    
+    // Проверяем, является ли товар дверью
+    if (item.categoryId === 'doors' && item.metadata) {
+      try {
+        const requestData: PriceCalculationRequest = {
+          style: item.metadata.style,
+          model: item.metadata.model,
+          finish: item.metadata.finish,
+          color: item.metadata.color,
+          width: item.metadata.width,
+          height: item.metadata.height,
+          hardware_kit: item.hardwareKitId ? { id: item.hardwareKitId } : undefined
+        };
+
+        console.log('🔄 Пересчет цены товара через унифицированный сервис:', requestData);
+
+        const priceResult = await priceService.calculatePriceUniversal(requestData);
+        const newPrice = priceResult.total;
+        
+        // Обновляем базовую цену товара
+        item.basePrice = newPrice;
+        
+        // Пересчитываем цены товара
+        this.calculateItemPrices(item);
+        this.calculateCartTotals();
+        
+        console.log('✅ Цена товара обновлена:', { itemId, oldPrice: item.basePrice, newPrice });
+        
+        // Создаем событие
+        const event: CartEvent = {
+          type: CartEventType.ITEM_UPDATED,
+          cartId: this.cart.id,
+          itemId: item.id,
+          data: { 
+            updates: { basePrice: newPrice }, 
+            item: item 
+          },
+          timestamp: new Date()
+        };
+        
+        this.notifyEventListeners(event);
+        this.notifyListeners();
+        
+      } catch (error) {
+        console.error('❌ Ошибка пересчета цены товара:', error);
+        throw error;
+      }
+    } else {
+      // Для товаров, не являющихся дверями, используем обычный расчет
+      this.calculateItemPrices(item);
+      this.calculateCartTotals();
+    }
+  }
+
   // Расчет общих итогов корзины
   private calculateCartTotals(): void {
     this.cart.subtotal = this.cart.items.reduce((sum, item) => sum + item.subtotal, 0);
@@ -450,6 +553,11 @@ export class CartService {
     this.cart.total = this.cart.subtotal - this.cart.discount + this.cart.deliveryCost + this.cart.installationCost + this.cart.tax;
 
     this.cart.updatedAt = new Date();
+  }
+
+  // Пересчет цены товара через API (публичный метод)
+  async recalculateItemPrice(itemId: string): Promise<void> {
+    return this.recalculateItemPriceInternal(itemId);
   }
 
   // Получение детального расчета

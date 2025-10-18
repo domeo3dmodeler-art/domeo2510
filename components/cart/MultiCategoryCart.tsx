@@ -21,6 +21,7 @@ export default function MultiCategoryCart({ className = "" }: MultiCategoryCartP
     updateQuantity,
     removeItem,
     clearCart,
+    recalculateItemPrice,
     getCategoryCount,
     getItemsByCategory
   } = useCart();
@@ -219,6 +220,7 @@ export default function MultiCategoryCart({ className = "" }: MultiCategoryCartP
               items={categoryData.items}
               onUpdateQuantity={handleUpdateQuantity}
               onRemoveItem={handleRemoveItem}
+              onRecalculatePrice={recalculateItemPrice}
               isLoading={isLoading}
             />
           ))}
@@ -286,10 +288,11 @@ interface CategorySectionProps {
   items: CartItem[];
   onUpdateQuantity: (itemId: string, quantity: number) => void;
   onRemoveItem: (itemId: string) => void;
+  onRecalculatePrice?: (itemId: string) => void;
   isLoading: boolean;
 }
 
-function CategorySection({ categoryName, items, onUpdateQuantity, onRemoveItem, isLoading }: CategorySectionProps) {
+function CategorySection({ categoryName, items, onUpdateQuantity, onRemoveItem, onRecalculatePrice, isLoading }: CategorySectionProps) {
   const totalCategoryValue = items.reduce((sum, item) => sum + item.total, 0);
 
   return (
@@ -314,6 +317,7 @@ function CategorySection({ categoryName, items, onUpdateQuantity, onRemoveItem, 
             item={item}
             onUpdateQuantity={onUpdateQuantity}
             onRemove={onRemoveItem}
+            onRecalculatePrice={onRecalculatePrice}
             isLoading={isLoading}
           />
         ))}
@@ -327,10 +331,11 @@ interface CartItemCardProps {
   item: CartItem;
   onUpdateQuantity: (itemId: string, quantity: number) => void;
   onRemove: (itemId: string) => void;
+  onRecalculatePrice?: (itemId: string) => void;
   isLoading: boolean;
 }
 
-function CartItemCard({ item, onUpdateQuantity, onRemove, isLoading }: CartItemCardProps) {
+function CartItemCard({ item, onUpdateQuantity, onRemove, onRecalculatePrice, isLoading }: CartItemCardProps) {
   return (
     <div className="bg-gray-50 rounded-lg p-3 space-y-2">
       {/* Header */}
@@ -413,6 +418,17 @@ function CartItemCard({ item, onUpdateQuantity, onRemove, isLoading }: CartItemC
             <div className="text-xs text-gray-500">
               {item.basePrice.toLocaleString('ru-RU')} ₽ за шт.
             </div>
+          )}
+          
+          {/* Кнопка пересчета цены для дверей */}
+          {item.categoryId === 'doors' && onRecalculatePrice && (
+            <button
+              onClick={() => onRecalculatePrice(item.id)}
+              className="mt-1 text-xs text-blue-600 hover:text-blue-800 underline"
+              disabled={isLoading}
+            >
+              🔄 Пересчитать цену
+            </button>
           )}
         </div>
       </div>

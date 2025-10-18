@@ -2460,7 +2460,7 @@ export default function UltimateConstructorFixed({ hideHeader = false }: { hideH
                     </Button>
                     <Button 
                       onClick={() => deleteBlock(selectedBlock.id)} 
-                      variant="danger" 
+                      variant="destructive" 
                       className="flex-1"
                     >
                       <Trash2 className="h-4 w-4 mr-1" />

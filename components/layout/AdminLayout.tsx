@@ -82,17 +82,7 @@ const menuItems: MenuItem[] = [
     children: [
       { id: 'configurator-list', label: 'Список категорий', href: '/admin/categories' },
       { id: 'configurator-create', label: 'Создать категорию', href: '/admin/categories/builder' },
-      { id: 'configurator-professional', label: 'Профессиональный конструктор', href: '/professional-builder' },
-      { id: 'configurator-export', label: 'Настройки экспорта', href: '/admin/categories/export-settings' }
-    ]
-  },
-  {
-    id: 'cart',
-    label: 'Корзина',
-    href: '/admin/cart-demo',
-    children: [
-      { id: 'cart-demo', label: 'Демо корзины', href: '/admin/cart-demo' },
-      { id: 'cart-multi', label: 'Мультикатегории', href: '/admin/cart-demo' }
+      { id: 'configurator-professional', label: 'Профессиональный конструктор', href: '/professional-builder' }
     ]
   },
   { id: 'analytics', href: '/admin/analytics', label: 'Аналитика', icon: 'BarChart3' },
@@ -105,12 +95,6 @@ const menuItems: MenuItem[] = [
     id: 'users',
     label: 'Пользователи',
     href: '/admin/users'
-  },
-  {
-    id: 'notifications-demo',
-    label: 'Демо уведомлений',
-    href: '/admin/notifications-demo',
-    icon: '🔔'
   },
   {
     id: 'settings',
@@ -172,7 +156,7 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
     
     if (userRole === 'complectator') {
       // Комплектатор видит категории, каталог и конфигуратор
-      const allowedItems = ['categories', 'catalog', 'configurator', 'notifications-demo'];
+      const allowedItems = ['catalog', 'configurator'];
       filteredItems.push(...menuItems.filter(item => allowedItems.includes(item.id)));
       
       // Добавляем специфичный пункт для комплектатора
@@ -186,7 +170,7 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
     
     if (userRole === 'executor') {
       // Исполнитель видит каталог
-      const allowedItems = ['catalog', 'notifications-demo'];
+      const allowedItems = ['catalog'];
       filteredItems.push(...menuItems.filter(item => allowedItems.includes(item.id)));
       
       // Добавляем специфичный пункт для исполнителя

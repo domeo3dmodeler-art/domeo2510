@@ -1,20 +1,6 @@
 // Расширенные типы для продвинутого конструктора
 
-export interface CategoryLink {
-  id: string;
-  configurator_category_id: string;
-  catalog_category_id: string;
-  link_type: 'main' | 'additional';
-  display_order: number;
-  is_required: boolean;
-  pricing_type: 'separate' | 'included' | 'formula';
-  formula?: string;
-  export_as_separate: boolean;
-  catalog_category: {
-    id: string;
-    name: string;
-  };
-}
+// CategoryLink removed - categories are now simply part of one configurator category
 
 export interface ProductDisplaySettings {
   categoryId: string;

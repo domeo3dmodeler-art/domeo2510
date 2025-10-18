@@ -30,15 +30,17 @@
     ]
   },
   "include": [
-    "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
+    "next-env.d.ts",
     ".next/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
     "__tests__",
     "**/*.spec.ts",
-    "**/*.test.ts"
+    "**/*.test.ts",
+    ".next",
+    "app/.next"
   ]
 }

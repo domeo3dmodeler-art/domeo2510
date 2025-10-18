@@ -328,7 +328,7 @@ export default function TemplateEditor({
               </Button>
             )}
             <Button
-              variant="error"
+              variant="destructive"
               size="sm"
               onClick={() => removeField(type, field.id)}
               title="Удалить поле"

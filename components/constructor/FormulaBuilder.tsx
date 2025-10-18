@@ -317,7 +317,7 @@ export default function FormulaBuilder({
                       placeholder="Название формулы"
                     />
                     <Button
-                      variant="danger"
+                      variant="destructive"
                       size="sm"
                       onClick={() => removeCustomFormula(formula.id)}
                     >

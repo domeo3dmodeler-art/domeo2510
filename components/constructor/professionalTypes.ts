@@ -95,7 +95,6 @@ export interface ProfessionalBlock {
   
   // Настройки детального просмотра товара
   detailSettings?: {
-    categoryId: string;
     showMainImage: boolean;
     showThumbnailGallery: boolean;
     showZoom: boolean;

@@ -256,7 +256,7 @@ export default function ConfiguratorCategoryDisplay({
               <h2 className="text-xl font-semibold">{link.catalog_category.name}</h2>
               <Badge variant="default">Основная</Badge>
               {link.is_required && (
-                <Badge variant="error">Обязательная</Badge>
+                <Badge variant="destructive">Обязательная</Badge>
               )}
             </div>
             
@@ -287,9 +287,9 @@ export default function ConfiguratorCategoryDisplay({
               <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium">Выбрано: {selectedProducts[link.id]?.name}</p>
+                    <p className="font-medium">Выбрано: {selectedProducts[link.id].name}</p>
                     <p className="text-sm text-gray-600">
-                      Цена: {selectedProducts[link.id]?.price?.toLocaleString()} ₽
+                      Цена: {selectedProducts[link.id].price.toLocaleString()} ₽
                     </p>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -333,7 +333,7 @@ export default function ConfiguratorCategoryDisplay({
               <h3 className="text-lg font-semibold">{link.catalog_category.name}</h3>
               <Badge variant="secondary">Дополнительная</Badge>
               {link.is_required && (
-                <Badge variant="error">Обязательная</Badge>
+                <Badge variant="destructive">Обязательная</Badge>
               )}
               <Badge variant="outline">
                 {getPricingTypeLabel(link.pricing_type)}
@@ -378,18 +378,18 @@ export default function ConfiguratorCategoryDisplay({
               <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium">Выбрано: {selectedProducts[link.id]?.name}</p>
+                    <p className="font-medium">Выбрано: {selectedProducts[link.id].name}</p>
                     <p className="text-sm text-gray-600">
-                      Цена: {selectedProducts[link.id]?.price?.toLocaleString()} ₽
+                      Цена: {selectedProducts[link.id].price.toLocaleString()} ₽
                     </p>
                     {link.pricing_type === 'formula' && link.formula && (
                       <p className="text-sm text-yellow-600">
                         С учетом формулы: {(() => {
                           try {
-                            const formula = link.formula!.replace('price', selectedProducts[link.id]?.price?.toString() || '0');
+                            const formula = link.formula!.replace('price', selectedProducts[link.id]!.price.toString());
                             return eval(formula).toLocaleString();
                           } catch {
-                            return selectedProducts[link.id]?.price?.toLocaleString() || '0';
+                            return selectedProducts[link.id]!.price.toLocaleString();
                           }
                         })()} ₽
                       </p>

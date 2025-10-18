@@ -533,11 +533,10 @@ export default function CategoryConstructor() {
                     <label className="block text-xs font-medium text-gray-600 mb-1">Множественный выбор</label>
                     <Checkbox
                       checked={selectedBlock.catalogSelectorSettings.multiSelect}
-                      onChange={(e) => updateBlock(selectedBlock.id, {
+                      onChange={(checked) => updateBlock(selectedBlock.id, {
                         catalogSelectorSettings: {
-                          selectedCategories: selectedBlock.catalogSelectorSettings?.selectedCategories || [],
-                          multiSelect: e.target.checked,
-                          showProductCount: selectedBlock.catalogSelectorSettings?.showProductCount || false
+                          ...selectedBlock.catalogSelectorSettings,
+                          multiSelect: checked
                         }
                       })}
                     />
@@ -546,11 +545,10 @@ export default function CategoryConstructor() {
                     <label className="block text-xs font-medium text-gray-600 mb-1">Показывать количество товаров</label>
                     <Checkbox
                       checked={selectedBlock.catalogSelectorSettings.showProductCount}
-                      onChange={(e) => updateBlock(selectedBlock.id, {
+                      onChange={(checked) => updateBlock(selectedBlock.id, {
                         catalogSelectorSettings: {
-                          selectedCategories: selectedBlock.catalogSelectorSettings?.selectedCategories || [],
-                          multiSelect: selectedBlock.catalogSelectorSettings?.multiSelect || false,
-                          showProductCount: e.target.checked
+                          ...selectedBlock.catalogSelectorSettings,
+                          showProductCount: checked
                         }
                       })}
                     />
@@ -564,11 +562,10 @@ export default function CategoryConstructor() {
                   <label className="block text-xs font-medium text-gray-600 mb-1">Макет</label>
                   <Select
                     value={selectedBlock.propertyMapperSettings.layout}
-                    onChange={(e) => updateBlock(selectedBlock.id, {
+                    onChange={(value) => updateBlock(selectedBlock.id, {
                       propertyMapperSettings: {
-                        showFields: selectedBlock.propertyMapperSettings?.showFields || [],
-                        requiredFields: selectedBlock.propertyMapperSettings?.requiredFields || [],
-                        layout: e.target.value as 'grid' | 'list'
+                        ...selectedBlock.propertyMapperSettings,
+                        layout: value as 'grid' | 'list'
                       }
                     })}
                   >
@@ -591,7 +588,7 @@ export default function CategoryConstructor() {
                 Копировать
               </Button>
               <Button
-                variant="danger"
+                variant="destructive"
                 size="sm"
                 onClick={() => deleteBlock(selectedBlock.id)}
                 className="flex-1"
@@ -702,9 +699,8 @@ export default function CategoryConstructor() {
                       showProductCount={block.catalogSelectorSettings?.showProductCount || true}
                       onSelectionChange={(selectedIds) => updateBlock(block.id, {
                         catalogSelectorSettings: {
-                          selectedCategories: selectedIds,
-                          multiSelect: block.catalogSelectorSettings?.multiSelect || false,
-                          showProductCount: block.catalogSelectorSettings?.showProductCount || false
+                          ...block.catalogSelectorSettings,
+                          selectedCategories: selectedIds
                         }
                       })}
                     />
@@ -721,18 +717,17 @@ export default function CategoryConstructor() {
                         // Обновляем поля в настройках блока
                         updateBlock(block.id, {
                           propertyMapperSettings: {
+                            ...block.propertyMapperSettings,
                             showFields: fields.filter(f => f.isVisible).map(f => f.name),
-                            requiredFields: fields.filter(f => f.isRequired).map(f => f.name),
-                            layout: block.propertyMapperSettings?.layout || 'grid'
+                            requiredFields: fields.filter(f => f.isRequired).map(f => f.name)
                           }
                         });
                       }}
                       onRequiredFieldsChange={(requiredFields) => {
                         updateBlock(block.id, {
                           propertyMapperSettings: {
-                            showFields: block.propertyMapperSettings?.showFields || [],
-                            requiredFields,
-                            layout: block.propertyMapperSettings?.layout || 'grid'
+                            ...block.propertyMapperSettings,
+                            requiredFields
                           }
                         });
                       }}
@@ -745,30 +740,22 @@ export default function CategoryConstructor() {
                     <FormulaBuilder
                       priceFormula={block.formulaBuilderSettings?.priceFormula || 'base_price * 1.2'}
                       discountFormula={block.formulaBuilderSettings?.discountFormula || 'quantity > 10 ? 0.1 : 0'}
-                      customFormulas={(block.formulaBuilderSettings?.customFormulas || []).map(formula => ({
-                        id: Math.random().toString(36).substr(2, 9),
-                        name: formula.name,
-                        formula: formula.formula,
-                        variables: []
-                      }))}
+                      customFormulas={block.formulaBuilderSettings?.customFormulas || []}
                       onPriceFormulaChange={(formula) => updateBlock(block.id, {
                         formulaBuilderSettings: {
-                          priceFormula: formula,
-                          discountFormula: block.formulaBuilderSettings?.discountFormula || '',
-                          customFormulas: block.formulaBuilderSettings?.customFormulas || []
+                          ...block.formulaBuilderSettings,
+                          priceFormula: formula
                         }
                       })}
                       onDiscountFormulaChange={(formula) => updateBlock(block.id, {
                         formulaBuilderSettings: {
-                          priceFormula: block.formulaBuilderSettings?.priceFormula || '',
-                          discountFormula: formula,
-                          customFormulas: block.formulaBuilderSettings?.customFormulas || []
+                          ...block.formulaBuilderSettings,
+                          discountFormula: formula
                         }
                       })}
                       onCustomFormulasChange={(formulas) => updateBlock(block.id, {
                         formulaBuilderSettings: {
-                          priceFormula: block.formulaBuilderSettings?.priceFormula || '',
-                          discountFormula: block.formulaBuilderSettings?.discountFormula || '',
+                          ...block.formulaBuilderSettings,
                           customFormulas: formulas
                         }
                       })}
