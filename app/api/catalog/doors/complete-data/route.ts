@@ -88,6 +88,7 @@ export async function GET(req: NextRequest) {
               model,
               style: productStyle,
               photo: productPhotos.length > 0 ? productPhotos[0] : null,
+              products: [], // Добавляем массив товаров
               options: {
                 finishes: [],
                 colors: [],
@@ -95,6 +96,15 @@ export async function GET(req: NextRequest) {
                 widths: [],
                 heights: []
               }
+            });
+          }
+          
+          // Добавляем товар к модели
+          const modelIndex = models.findIndex(m => m.model === model);
+          if (modelIndex !== -1) {
+            models[modelIndex].products.push({
+              sku: product.sku,
+              properties: properties
             });
           }
         }

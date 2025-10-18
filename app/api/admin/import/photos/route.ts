@@ -217,7 +217,8 @@ export async function POST(request: NextRequest) {
         
         // Сначала очищаем существующие привязки фото с такими же именами
         const photoNamesToClean = uploadedPhotos.map(photo => path.parse(photo.originalName).name);
-        console.log('Очистка существующих привязок для имен фото:', photoNamesToClean);
+        console.log('Очистка существующих привязок для ТОЧНЫХ имен фото:', photoNamesToClean);
+        console.log('Пример: будет удалено только фото с именем "d2", но НЕ "d2_variant" или "product_d2"');
         
         for (const product of products) {
           try {
@@ -225,10 +226,10 @@ export async function POST(request: NextRequest) {
             if (currentProperties.photos && Array.isArray(currentProperties.photos)) {
               const originalPhotosCount = currentProperties.photos.length;
               
-              // Удаляем фото, которые содержат имена из загружаемых файлов
+              // Удаляем фото, которые ТОЧНО совпадают с именами из загружаемых файлов
               currentProperties.photos = currentProperties.photos.filter((photoPath: string) => {
                 const photoFileName = path.parse(photoPath).name;
-                return !photoNamesToClean.some(name => photoFileName.includes(name));
+                return !photoNamesToClean.some(name => photoFileName === name);
               });
               
               // Дополнительно удаляем несуществующие файлы
@@ -248,7 +249,7 @@ export async function POST(request: NextRequest) {
                     properties_data: JSON.stringify(currentProperties)
                   }
                 });
-                console.log(`Очищено ${originalPhotosCount - currentProperties.photos.length} привязок фото для товара ${product.sku}`);
+                console.log(`Очищено ${originalPhotosCount - currentProperties.photos.length} привязок фото для товара ${product.sku} (было: ${originalPhotosCount}, стало: ${currentProperties.photos.length})`);
               }
             }
           } catch (error) {
