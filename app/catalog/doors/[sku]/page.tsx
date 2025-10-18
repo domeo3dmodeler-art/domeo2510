@@ -1,28 +1,48 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { PhotoGallery } from "../../../../components/PhotoGallery";
 
 export default function DoorProductPage({ params }: { params: { sku: string } }) {
   const router = useRouter();
   const sku = decodeURIComponent(params.sku);
-  const [data, setData] = useState<{ item: any; media: { relativePath: string }[] } | null>(null);
-  const [idx, setIdx] = useState(0);
+  const [data, setData] = useState<{ product: any } | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let c = false;
-    fetch(`/api/catalog/doors/${encodeURIComponent(sku)}`)
-      .then((r) => r.json())
-      .then((j) => !c && setData(j))
-      .catch(() => !c && setData(null));
+    let cancelled = false;
+    
+    const fetchProduct = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/catalog/products/by-sku/${encodeURIComponent(sku)}`);
+        const result = await response.json();
+        
+        if (!cancelled) {
+          if (result.success) {
+            setData(result);
+          } else {
+            setData(null);
+          }
+        }
+      } catch (error) {
+        console.error('Ошибка загрузки товара:', error);
+        if (!cancelled) {
+          setData(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchProduct();
+    
     return () => {
-      c = true;
+      cancelled = true;
     };
   }, [sku]);
-
-  const images = useMemo(
-    () => (data?.media || []).map((m) => `/assets/doors/${m.relativePath}`),
-    [data]
-  );
 
   const addToCalc = () => {
     // теперь калькулятор живет на /doors
@@ -30,76 +50,87 @@ export default function DoorProductPage({ params }: { params: { sku: string } })
     router.push(`/doors?${q.toString()}`);
   };
 
-  if (!data?.item)
-    return <div className="max-w-4xl mx-auto p-6">Товар не найден</div>;
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="aspect-square bg-gray-200 rounded-2xl"></div>
+            <div className="space-y-3">
+              <div className="h-6 bg-gray-200 rounded w-1/4"></div>
+              <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+              <div className="h-6 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const it = data.item;
+  if (!data?.product) {
+    return <div className="max-w-4xl mx-auto p-6">Товар не найден</div>;
+  }
+
+  const product = data.product;
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <div className="aspect-[3/4] bg-gray-50 rounded-2xl overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={images[idx] || "/assets/doors/_placeholder.png"}
-              alt={it.name}
-              className="w-full h-full object-cover"
-            />
-          </div>
-          {images.length > 1 && (
-            <div className="flex gap-2 mt-2 overflow-x-auto">
-              {images.map((src, i) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={i}
-                  src={src}
-                  className={`w-16 h-20 object-cover rounded-lg border ${
-                    i === idx ? "border-black" : "border-transparent"
-                  }`}
-                  onClick={() => setIdx(i)}
-                  alt="thumb"
-                />
-              ))}
-            </div>
-          )}
+              <PhotoGallery
+                photos={product.photos.structure}
+                productName={product.name}
+                className="w-full"
+                showModal={true}
+                showArrows={true}
+              />
         </div>
         <div className="space-y-3">
           <div className="text-xs text-gray-500">SKU: {sku}</div>
-          <h1 className="text-2xl font-bold">{it.name}</h1>
-          {it.series && (
-            <div className="text-sm text-gray-600">Серия: {it.series}</div>
+          <h1 className="text-2xl font-bold">{product.name}</h1>
+          {product.series && (
+            <div className="text-sm text-gray-600">Серия: {product.series}</div>
           )}
           <div className="text-3xl font-semibold">
-            {it.basePrice
+            {product.base_price
               ? new Intl.NumberFormat(undefined, {
                   style: "currency",
                   currency: "RUB",
                   maximumFractionDigits: 0,
-                }).format(it.basePrice)
+                }).format(product.base_price)
               : "—"}
           </div>
-          <div className="text-sm text-gray-600">
-            Материал: {it.material || "—"}
-          </div>
-          <div className="text-sm text-gray-600">
-            Отделка: {it.finish || "—"}
-          </div>
-          <div className="text-sm text-gray-600">
-            Цвет: {it.color || "—"}
-          </div>
-          <div className="text-sm text-gray-600">
-            Размеры: {it.widthMm || "—"}×{it.heightMm || "—"}×
-            {it.thicknessMm || "—"} мм
-          </div>
+          
+          {/* Отображаем свойства товара */}
+          {product.properties && (
+            <div className="space-y-2 text-sm text-gray-600">
+              {product.properties['Материал'] && (
+                <div>Материал: {product.properties['Материал']}</div>
+              )}
+              {product.properties['Отделка'] && (
+                <div>Отделка: {product.properties['Отделка']}</div>
+              )}
+              {product.properties['Цвет'] && (
+                <div>Цвет: {product.properties['Цвет']}</div>
+              )}
+              {product.properties['Ширина/мм'] && product.properties['Высота/мм'] && (
+                <div>
+                  Размеры: {product.properties['Ширина/мм']}×{product.properties['Высота/мм']}×
+                  {product.properties['Толщина/мм'] || '—'} мм
+                </div>
+              )}
+            </div>
+          )}
+          
           <div className="flex gap-2 pt-2">
             <button
               onClick={addToCalc}
-              className="px-4 py-2 rounded-xl bg-black text-white"
+              className="px-4 py-2 rounded-xl bg-black text-white hover:bg-gray-800 transition-colors"
             >
               В расчёт
             </button>
-            <a href="/catalog/doors" className="px-4 py-2 rounded-xl border">
+            <a href="/catalog/doors" className="px-4 py-2 rounded-xl border hover:bg-gray-50 transition-colors">
               В каталог
             </a>
           </div>

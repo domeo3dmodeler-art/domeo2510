@@ -5,6 +5,61 @@ import fs from 'fs';
 import path from 'path';
 import { validateImageFile, generateUniqueFileName } from '../../../../../lib/validation/file-validation';
 import { uploadRateLimiter, getClientIP, createRateLimitResponse } from '../../../../../lib/security/rate-limiter';
+// Импортируем функции напрямую для совместимости
+function parsePhotoFileName(fileName: string) {
+  const nameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
+  
+  // Проверяем, есть ли номер в конце (_1, _2, etc.)
+  const match = nameWithoutExt.match(/^(.+)_(\d+)$/);
+  
+  if (match) {
+    return {
+      fileName,
+      isCover: false,
+      number: parseInt(match[2]),
+      baseName: match[1]
+    };
+  } else {
+    return {
+      fileName,
+      isCover: true,
+      number: null,
+      baseName: nameWithoutExt
+    };
+  }
+}
+
+function structurePhotos(photos: string[]) {
+  const coverPhotos: string[] = [];
+  const galleryPhotos: { photo: string; number: number }[] = [];
+  
+  photos.forEach(photo => {
+    const photoInfo = parsePhotoFileName(photo);
+    
+    if (photoInfo.isCover) {
+      coverPhotos.push(photo);
+    } else if (photoInfo.number !== null) {
+      galleryPhotos.push({ photo, number: photoInfo.number });
+    }
+  });
+  
+  // Сортируем галерею по номерам
+  galleryPhotos.sort((a, b) => a.number - b.number);
+  
+  return {
+    cover: coverPhotos.length > 0 ? coverPhotos[0] : null,
+    gallery: galleryPhotos.map(item => item.photo)
+  };
+}
+
+function canAddMorePhotos(existingPhotos: string[], baseName: string): boolean {
+  const galleryCount = existingPhotos
+    .map(photo => parsePhotoFileName(photo))
+    .filter(info => !info.isCover && info.baseName === baseName)
+    .length;
+  
+  return galleryCount < 5;
+}
 
 const prisma = new PrismaClient();
 
@@ -258,11 +313,13 @@ export async function POST(request: NextRequest) {
         }
 
         for (const photo of uploadedPhotos) {
-          // Извлекаем имя файла без расширения для поиска
-          const fileNameWithoutExt = path.parse(photo.originalName).name;
+          // Парсим имя файла для определения типа фото
+          const photoInfo = parsePhotoFileName(photo.originalName);
           
           console.log(`\n=== ОБРАБОТКА ФОТО: ${photo.originalName} ===`);
-          console.log(`Имя файла без расширения: ${fileNameWithoutExt}`);
+          console.log(`Тип фото: ${photoInfo.isCover ? 'ОБЛОЖКА' : 'ГАЛЕРЕЯ'}`);
+          console.log(`Базовое имя: ${photoInfo.baseName}`);
+          console.log(`Номер: ${photoInfo.number || 'N/A'}`);
           console.log(`Свойство для поиска: ${mappingProperty}`);
           
           // Находим ВСЕ товары с таким же значением свойства
@@ -304,16 +361,16 @@ export async function POST(request: NextRequest) {
                 const propertyValue = properties[key];
                 if (propertyValue) {
                   const valueStr = propertyValue.toString().trim();
-                  const fileNameStr = fileNameWithoutExt.trim();
+                  const baseNameStr = photoInfo.baseName.trim();
                   
                   console.log(`Проверка товара ${product.sku} по ключу "${key}":`, {
                     propertyValue: valueStr,
-                    fileNameWithoutExt: fileNameStr,
-                    exactMatch: valueStr === fileNameStr
+                    baseName: baseNameStr,
+                    exactMatch: valueStr === baseNameStr
                   });
                   
-                  // Проверяем ТОЛЬКО точное совпадение
-                  const exactMatch = valueStr === fileNameStr;
+                  // Проверяем ТОЛЬКО точное совпадение с базовым именем
+                  const exactMatch = valueStr === baseNameStr;
                   
                   if (exactMatch) {
                     foundMatch = true;
@@ -347,18 +404,67 @@ export async function POST(request: NextRequest) {
           for (const product of matchingProducts) {
             try {
               const currentProperties = JSON.parse(product.properties_data || '{}');
-              currentProperties.photos = currentProperties.photos || [];
+              const existingPhotos = currentProperties.photos || [];
               
-              // Проверяем, не привязано ли уже это фото к товару
-              // Ищем по имени файла (без полного пути), так как путь может отличаться
-              const isAlreadyLinked = currentProperties.photos.some((existingPhoto: string) => {
-                const existingFileName = path.parse(existingPhoto).name;
-                const newFileName = path.parse(photo.filePath).name;
-                return existingFileName === newFileName;
-              });
+              // Структурируем существующие фото
+              const photoStructure = structurePhotos(existingPhotos);
               
-              if (!isAlreadyLinked) {
-                currentProperties.photos.push(photo.filePath);
+              // Проверяем ограничения для галереи
+              if (!photoInfo.isCover && !canAddMorePhotos(existingPhotos, photoInfo.baseName)) {
+                console.log(`⚠️ Достигнут лимит фото для товара ${product.sku} (базовое имя: ${photoInfo.baseName})`);
+                photo.matchedProducts.push({
+                  id: product.id,
+                  sku: product.sku,
+                  name: product.name,
+                  error: 'Достигнут лимит фото (максимум 5)'
+                });
+                continue;
+              }
+              
+              // Определяем, нужно ли обновлять фото
+              let shouldUpdate = false;
+              let updatedPhotos = [...existingPhotos];
+              
+              if (photoInfo.isCover) {
+                // Для обложки: заменяем существующую обложку или добавляем новую
+                const existingCoverIndex = updatedPhotos.findIndex(existingPhoto => {
+                  const existingInfo = parsePhotoFileName(path.parse(existingPhoto).name);
+                  return existingInfo.isCover && existingInfo.baseName === photoInfo.baseName;
+                });
+                
+                if (existingCoverIndex !== -1) {
+                  // Заменяем существующую обложку
+                  updatedPhotos[existingCoverIndex] = photo.filePath;
+                  console.log(`🔄 Заменена обложка для товара ${product.sku}`);
+                } else {
+                  // Добавляем новую обложку
+                  updatedPhotos.unshift(photo.filePath); // Обложка всегда первая
+                  console.log(`➕ Добавлена новая обложка для товара ${product.sku}`);
+                }
+                shouldUpdate = true;
+              } else {
+                // Для галереи: заменяем существующее фото с тем же номером или добавляем новое
+                const existingGalleryIndex = updatedPhotos.findIndex(existingPhoto => {
+                  const existingInfo = parsePhotoFileName(path.parse(existingPhoto).name);
+                  return !existingInfo.isCover && 
+                         existingInfo.baseName === photoInfo.baseName && 
+                         existingInfo.number === photoInfo.number;
+                });
+                
+                if (existingGalleryIndex !== -1) {
+                  // Заменяем существующее фото галереи
+                  updatedPhotos[existingGalleryIndex] = photo.filePath;
+                  console.log(`🔄 Заменено фото галереи #${photoInfo.number} для товара ${product.sku}`);
+                } else {
+                  // Добавляем новое фото галереи
+                  updatedPhotos.push(photo.filePath);
+                  console.log(`➕ Добавлено новое фото галереи #${photoInfo.number} для товара ${product.sku}`);
+                }
+                shouldUpdate = true;
+              }
+              
+              if (shouldUpdate) {
+                currentProperties.photos = updatedPhotos;
                 
                 await prisma.product.update({
                   where: { id: product.id },
@@ -375,15 +481,7 @@ export async function POST(request: NextRequest) {
                   name: product.name
                 });
                 
-                console.log(`Фото ${photo.originalName} привязано к товару ${product.sku}`);
-              } else {
-                console.log(`Фото ${photo.originalName} уже привязано к товару ${product.sku}`);
-                photo.matchedProducts.push({
-                  id: product.id,
-                  sku: product.sku,
-                  name: product.name,
-                  alreadyLinked: true
-                });
+                console.log(`✅ Фото ${photo.originalName} успешно обработано для товара ${product.sku}`);
               }
             } catch (error) {
               console.error(`Ошибка при привязке фото ${photo.originalName} к товару ${product.sku}:`, error);

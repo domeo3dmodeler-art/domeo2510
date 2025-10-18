@@ -9,6 +9,8 @@ import Link from "next/link";
 import ExportButtons from "../components/ExportButtons"; // ПУТЬ ОТНОСИТЕЛЬНО /doors/page.tsx
 import UnifiedExportButtons from "../../components/UnifiedExportButtons"; // Новый унифицированный компонент
 import React, { useEffect, useMemo, useState } from "react";
+import { PhotoGallery } from "../../components/PhotoGallery";
+import { ModernPhotoGallery } from "../../components/ModernPhotoGallery";
 import { priceRecalculationService } from "@/lib/cart/price-recalculation-service";
 
 // ===================== Типы =====================
@@ -736,12 +738,13 @@ export default function DoorsPage() {
   // Состояние конфигуратора
   const [sel, setSel] = useState<Partial<BasicState>>({});
   const [domain, setDomain] = useState<Domain>(null);
-  const [models, setModels] = useState<{ model: string; style: string; photo?: string | null }[]>([]);
+  const [models, setModels] = useState<{ model: string; style: string; photo?: string | null; photos?: { cover: string | null; gallery: string[] }; hasGallery?: boolean }[]>([]);
   const [price, setPrice] = useState<any>(null);
   const [hardwareKits, setHardwareKits] = useState<HardwareKit[]>([]);
   const [handles, setHandles] = useState<Record<string, Handle[]>>({});
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showQuantityModal, setShowQuantityModal] = useState(false);
+  const [hideSidePanels, setHideSidePanels] = useState(false);
   const [quantity, setQuantity] = useState(1);
   
   // Состояние для редактирования корзины
@@ -1698,8 +1701,12 @@ export default function DoorsPage() {
       </header>
 
       {tab === "config" && (
-        <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8 p-6">
-          <main className="lg:col-span-1 space-y-4">
+        <div className={`max-w-[1600px] mx-auto grid grid-cols-1 gap-8 p-6 transition-all duration-300 ${
+          hideSidePanels ? 'lg:grid-cols-1' : 'lg:grid-cols-3'
+        }`}>
+          <main className={`space-y-4 transition-all duration-300 ${
+            hideSidePanels ? 'lg:col-span-1' : 'lg:col-span-1'
+          }`}>
             <section>
               <div className="mb-2">
                 {sel.style ? (
@@ -2056,8 +2063,12 @@ export default function DoorsPage() {
           </main>
 
           {/* Центральная секция - превью модели */}
-          <section className="lg:col-span-1">
-            <div className="max-w-md mx-auto">
+          <section className={`transition-all duration-300 ${
+            hideSidePanels ? 'lg:col-span-1' : 'lg:col-span-1'
+          }`}>
+            <div className={`mx-auto transition-all duration-300 ${
+              hideSidePanels ? 'max-w-4xl' : 'max-w-md'
+            }`}>
             <div className="sticky top-6">
               {sel.model ? (
                 <div className="transition-all duration-500 ease-in-out">
@@ -2066,8 +2077,17 @@ export default function DoorsPage() {
                       {selectedModelCard ? formatModelNameForPreview(selectedModelCard.model) : "Выберите модель"}
                     </h3>
                   </div>
-                  <div className="aspect-[2/3] w-full bg-gray-50 rounded-lg overflow-hidden">
-                    {selectedModelCard?.photo ? (
+                  {/* Профессиональная галерея с увеличенным размером */}
+                  <div className="w-full bg-white rounded-xl shadow-lg overflow-visible">
+                    <div className="aspect-[4/6.5] overflow-hidden rounded-t-xl">
+                    {selectedModelCard?.photos && (selectedModelCard.photos.cover || selectedModelCard.photos.gallery.length > 0) ? (
+                      <ModernPhotoGallery
+                        photos={selectedModelCard.photos}
+                        productName={selectedModelCard.model}
+                        hasGallery={selectedModelCard.hasGallery || false}
+                        onToggleSidePanels={setHideSidePanels}
+                      />
+                    ) : selectedModelCard?.photo ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={selectedModelCard.photo.startsWith('/uploads') ? `/api${selectedModelCard.photo}` : `/api/uploads${selectedModelCard.photo}`}
@@ -2084,6 +2104,7 @@ export default function DoorsPage() {
                         </div>
                       </div>
                     )}
+                    </div>
                   </div>
                   
                   {/* Кнопка Выбрать под превью - показывается только когда модели развернуты */}
@@ -2114,7 +2135,7 @@ export default function DoorsPage() {
             </div>
           </section>
 
-          <aside className="lg:col-span-1" style={{ width: '110%' }}>
+          <aside className={`lg:col-span-1 transition-all duration-300 ${hideSidePanels ? 'opacity-0 pointer-events-none' : 'opacity-100'}`} style={{ width: '110%' }}>
             <div className="sticky top-6 space-y-6">
               {/* Блок параметров - показывает выбранные параметры */}
               {(sel.style || sel.model || sel.finish || sel.color || sel.width || sel.height) && (
@@ -3462,7 +3483,7 @@ function DoorCard({
   selected,
   onSelect,
 }: {
-  item: { model: string; style?: string; photo?: string | null };
+  item: { model: string; style?: string; photo?: string | null; photos?: { cover: string | null; gallery: string[] }; hasGallery?: boolean };
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -3495,31 +3516,39 @@ function DoorCard({
       ].join(" ")}
     >
         {/* Фото полностью заполняет карточку с правильным соотношением сторон для дверей */}
-        <div className="aspect-[16/33] w-full bg-gray-50">
+        <div className="aspect-[16/33] w-full bg-gray-50 relative group">
           {isLoading ? (
             <div className="h-full w-full animate-pulse bg-gray-200" />
           ) : imageSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={imageSrc}
-              alt={item.model}
-              className="h-full w-full object-contain"
-              onError={() => {
-                console.log('❌ Ошибка загрузки изображения:', imageSrc);
-                setImageSrc(null);
-              }}
-            />
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imageSrc}
+                alt={item.model}
+                className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
+                onError={() => {
+                  console.log('❌ Ошибка загрузки изображения:', imageSrc);
+                  setImageSrc(null);
+                }}
+              />
+              {/* Индикатор галереи */}
+              {item.hasGallery && (
+                <div className="absolute top-2 right-2 bg-white/90 text-gray-700 text-xs px-2 py-1 rounded-full font-medium shadow-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  +{item.photos?.gallery.length || 0}
+                </div>
+              )}
+            </>
           ) : (
             <div className="h-full w-full flex items-center justify-center text-gray-400">
               <div className="text-center">
                 <div className="text-sm">Нет фото</div>
                 <div className="text-[14px] text-center whitespace-nowrap px-2" title={formatModelNameForCard(item.model)}>
                   {formatModelNameForCard(item.model)}
-        </div>
-        </div>
+                </div>
+              </div>
             </div>
           )}
-      </div>
+        </div>
     </button>
       {/* Название модели под карточкой */}
       <div className="mt-2 flex justify-center">

@@ -1,5 +1,127 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from '@prisma/client';
+// Импортируем функции напрямую для совместимости
+function structurePhotos(photos: string[]) {
+  if (photos.length === 0) {
+    return { cover: null, gallery: [] };
+  }
+  
+  // Проверяем, есть ли фото с суффиксами _N (галерея)
+  const hasGalleryPhotos = photos.some(photo => {
+    const fileName = photo.split('/').pop() || photo;
+    const nameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
+    const parts = nameWithoutExt.split('_');
+    const lastPart = parts[parts.length - 1];
+    return /^\d+$/.test(lastPart); // Последняя часть - это число
+  });
+  
+  // Если есть фото с суффиксами _N, это галерея - НЕ убираем дубликаты
+  if (hasGalleryPhotos) {
+    // Находим базовое имя для фото с суффиксами _N
+    const galleryBaseNames = new Set();
+    photos.forEach(photo => {
+      const fileName = photo.split('/').pop() || photo;
+      const nameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
+      const parts = nameWithoutExt.split('_');
+      const lastPart = parts[parts.length - 1];
+      
+      if (/^\d+$/.test(lastPart)) {
+        // Это фото с суффиксом _N, извлекаем базовое имя (последняя часть перед _N)
+        const baseName = parts[parts.length - 2];
+        galleryBaseNames.add(baseName);
+      }
+    });
+    
+    // Разделяем на обложку и галерею
+    const coverPhotos = photos.filter(photo => {
+      const fileName = photo.split('/').pop() || photo;
+      const nameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
+      const parts = nameWithoutExt.split('_');
+      const lastPart = parts[parts.length - 1];
+      
+      // Если это фото с суффиксом _N, не включаем в обложку
+      if (/^\d+$/.test(lastPart)) {
+        return false;
+      }
+      
+      // Если это фото без суффикса, проверяем, есть ли для него галерея
+      const baseName = parts[parts.length - 1]; // Последняя часть
+      return !galleryBaseNames.has(baseName);
+    });
+    
+    const galleryPhotos = photos.filter(photo => {
+      const fileName = photo.split('/').pop() || photo;
+      const nameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
+      const parts = nameWithoutExt.split('_');
+      const lastPart = parts[parts.length - 1];
+      
+      // Если это фото с суффиксом _N, включаем в галерею
+      if (/^\d+$/.test(lastPart)) {
+        return true;
+      }
+      
+      // Если это фото без суффикса, но есть галерея с таким же базовым именем, включаем в галерею
+      const baseName = parts[parts.length - 1]; // Последняя часть
+      return galleryBaseNames.has(baseName);
+    });
+    
+    return {
+      cover: galleryPhotos[0] || null, // Первое фото из галереи становится обложкой
+      gallery: galleryPhotos.slice(1) // Убираем первое фото из галереи, так как оно уже обложка
+    };
+  }
+  
+  // Если нет фото с суффиксами _N, убираем дубликаты и проверяем уникальность
+  const uniquePhotos = [...new Set(photos)];
+  const baseNames = new Set();
+  uniquePhotos.forEach(photo => {
+    const fileName = photo.split('/').pop() || photo;
+    const nameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
+    const parts = nameWithoutExt.split('_');
+    const baseName = parts[parts.length - 1]; // Последняя часть
+    baseNames.add(baseName);
+  });
+  
+  // Если только одно уникальное фото (по базовому имени)
+  if (baseNames.size === 1) {
+    return { cover: uniquePhotos[0], gallery: [] };
+  }
+  
+  // Если несколько уникальных фото - показываем галерею
+  return {
+    cover: uniquePhotos[0],
+    gallery: uniquePhotos.slice(1)
+  };
+}
+
+function parsePhotoFileName(fileName: string) {
+  // Извлекаем имя файла из полного пути
+  const fileNameOnly = fileName.split('/').pop() || fileName;
+  const nameWithoutExt = fileNameOnly.replace(/\.[^/.]+$/, "");
+  
+  // Проверяем, есть ли номер в конце (_1, _2, etc.)
+  const match = nameWithoutExt.match(/^(.+)_(\d+)$/);
+  
+  if (match) {
+    return {
+      fileName,
+      isCover: false,
+      number: parseInt(match[2]),
+      baseName: match[1]
+    };
+  } else {
+    return {
+      fileName,
+      isCover: true,
+      number: null,
+      baseName: nameWithoutExt
+    };
+  }
+}
+
+function getCoverPhoto(photoStructure: { cover: string | null; gallery: string[] }) {
+  return photoStructure.cover;
+}
 
 const prisma = new PrismaClient();
 
@@ -64,6 +186,9 @@ export async function GET(req: NextRequest) {
     const models: any[] = [];
     const styles = new Set<string>();
 
+    // Сначала собираем все товары по моделям
+    const modelMap = new Map<string, any>();
+    
     products.forEach(product => {
       try {
         const properties = product.properties_data ?
@@ -82,35 +207,48 @@ export async function GET(req: NextRequest) {
           styles.add(productStyle);
 
           // Проверяем, есть ли уже такая модель
-          const existingModel = models.find(m => m.model === model);
-          if (!existingModel) {
-            models.push({
+          if (!modelMap.has(model)) {
+            modelMap.set(model, {
               model,
               style: productStyle,
-              photo: productPhotos.length > 0 ? productPhotos[0] : null,
-              products: [], // Добавляем массив товаров
-              options: {
-                finishes: [],
-                colors: [],
-                types: [],
-                widths: [],
-                heights: []
-              }
+              photos: productPhotos, // Берем фото только из первого товара модели
+              products: []
             });
           }
           
-          // Добавляем товар к модели
-          const modelIndex = models.findIndex(m => m.model === model);
-          if (modelIndex !== -1) {
-            models[modelIndex].products.push({
-              sku: product.sku,
-              properties: properties
-            });
-          }
+          // Добавляем товар к модели (фото уже установлены из первого товара)
+          const modelData = modelMap.get(model);
+          modelData.products.push({
+            sku: product.sku,
+            properties: properties
+          });
         }
       } catch (error) {
         console.warn(`Ошибка обработки товара ${product.sku}:`, error);
       }
+    });
+
+    // Теперь структурируем фото для каждой модели
+    modelMap.forEach((modelData) => {
+      // Структурируем фото для получения обложки и галереи
+      const photoStructure = structurePhotos(modelData.photos);
+      const coverPhoto = getCoverPhoto(photoStructure);
+
+      models.push({
+        model: modelData.model,
+        style: modelData.style,
+        photo: coverPhoto, // Только обложка для каталога
+        photos: photoStructure, // Полная структура для центрального отображения
+        hasGallery: photoStructure.gallery.length > 0, // Флаг наличия галереи
+        products: modelData.products, // Добавляем массив товаров
+        options: {
+          finishes: [],
+          colors: [],
+          types: [],
+          widths: [],
+          heights: []
+        }
+      });
     });
 
     const result = {
