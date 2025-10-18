@@ -1,7 +1,4 @@
-import { config } from 'dotenv';
-
-// Загружаем переменные окружения
-config();
+// Next.js автоматически загружает переменные окружения
 
 /** @type {import('next').NextConfig} */
 const nextConfig = { 
