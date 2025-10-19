@@ -3,6 +3,10 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// Простое кэширование в памяти (для продакшена лучше использовать Redis)
+const cache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 минут
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -17,7 +21,20 @@ export async function GET(req: NextRequest) {
 
     console.log('🔍 Каскадная фильтрация:', { style, model, finish, color, type, width, height, edge });
 
-    // Получаем все товары категории двери
+    // Проверяем кэш
+    const cacheKey = `cascade_${style || 'all'}_${model || 'all'}_${finish || 'all'}_${color || 'all'}`;
+    const cached = cache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+      console.log('⚡ Используем кэшированные данные для:', cacheKey);
+      return NextResponse.json(cached.data, {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'public, max-age=300' // 5 минут кэш в браузере
+        }
+      });
+    }
+    
+    // Загружаем все товары (оптимизация будет в кэшировании)
     const products = await prisma.product.findMany({
       where: {
         catalog_category: {
@@ -159,9 +176,14 @@ export async function GET(req: NextRequest) {
 
     console.log('✅ Каскадные опции:', responseData.availableOptions);
 
+    // Сохраняем в кэш
+    cache.set(cacheKey, { data: responseData, timestamp: Date.now() });
+    console.log('💾 Сохранили в кэш:', cacheKey);
+
     return NextResponse.json(responseData, {
       headers: {
-        'Content-Type': 'application/json; charset=utf-8'
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'public, max-age=300' // 5 минут кэш в браузере
       }
     });
   } catch (error) {

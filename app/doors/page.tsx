@@ -1017,13 +1017,15 @@ export default function DoorsPage() {
     }
   }, [sel.model, sel.style]);
 
-  // Каскадная загрузка опций при изменении любого параметра
+  // Каскадная загрузка опций при изменении любого параметра (с дебаунсингом)
   useEffect(() => {
     if (!sel.model || !sel.style) {
       return;
     }
     
-    let c = false;
+    // Дебаунсинг для предотвращения частых запросов
+    const timeoutId = setTimeout(() => {
+      let c = false;
     (async () => {
       try {
         setIsLoadingOptions(true);
@@ -1052,8 +1054,10 @@ export default function DoorsPage() {
         if (!c) setIsLoadingOptions(false);
       }
     })();
+    }, 300); // Дебаунсинг 300ms
+    
     return () => {
-      c = true;
+      clearTimeout(timeoutId);
     };
   }, [sel.model, sel.style, sel.finish, sel.color, sel.type, sel.width, sel.height]);
 
@@ -1133,7 +1137,39 @@ export default function DoorsPage() {
           console.log('✅ Все данные загружены одним запросом:', data);
           
           const rows = data?.models || [];
-          setModels(rows);
+          
+          // Оптимизированная загрузка фото для всех моделей
+          if (rows.length > 0) {
+            try {
+              const modelNames = rows.map((m: any) => m.model);
+              const photoResponse = await fetch('/api/catalog/doors/photos-batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ models: modelNames })
+              });
+              
+              if (photoResponse.ok) {
+                const photoData = await photoResponse.json();
+                console.log('⚡ Batch загрузка фото завершена для', modelNames.length, 'моделей');
+                
+                // Объединяем данные моделей с фото
+                const modelsWithPhotos = rows.map((model: any) => ({
+                  ...model,
+                  photo: photoData.photos[model.model]?.photo || model.photo,
+                  photos: photoData.photos[model.model]?.photos || model.photos
+                }));
+                
+                setModels(modelsWithPhotos);
+              } else {
+                setModels(rows);
+              }
+            } catch (photoError) {
+              console.warn('⚠️ Ошибка batch загрузки фото, используем обычную:', photoError);
+              setModels(rows);
+            }
+          } else {
+            setModels(rows);
+          }
           
           // Сохраняем в клиентский кэш с временной меткой
           setModelsCache(prev => {
