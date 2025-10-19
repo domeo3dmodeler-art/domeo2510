@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { exportService, CartItem, ExportOptions } from '@/lib/export/ExportService';
+import { exportService, CartItem, ExportOptions } from '@/lib/services/export.service';
 
 export interface ExportButtonsProps {
   getCart: () => CartItem[];

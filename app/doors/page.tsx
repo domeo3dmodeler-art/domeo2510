@@ -2942,6 +2942,70 @@ function CartManager({
   // Простое отображение всех товаров корзины
   const filteredCart = cart;
 
+  // Функция быстрого экспорта
+  const generateDocumentFast = async (type: 'quote' | 'invoice' | 'order', format: 'pdf' | 'excel' | 'csv') => {
+    if (!selectedClient) {
+      alert('Выберите клиента');
+      return;
+    }
+
+    console.log('🚀 Начинаем экспорт:', { type, format, clientId: selectedClient });
+    console.log('📦 Данные корзины:', cart);
+
+    try {
+      const response = await fetch('/api/export/fast', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type,
+          format,
+          clientId: selectedClient,
+          items: cart,
+          totalAmount: cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0)
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка экспорта');
+      }
+
+      // Получаем файл
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      
+      // Получаем имя файла из заголовков
+      const contentDisposition = response.headers.get('Content-Disposition');
+      const filename = contentDisposition 
+        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
+        : `${type}.${format}`;
+
+      // Получаем информацию о созданном документе
+      const documentId = response.headers.get('X-Document-Id');
+      const documentType = response.headers.get('X-Document-Type');
+      const documentNumber = response.headers.get('X-Document-Number');
+
+      // Скачиваем файл
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      console.log(`✅ Документ экспортирован: ${filename}`);
+      if (documentId) {
+        console.log(`📄 Создан документ в БД: ${documentType} #${documentId} (${documentNumber})`);
+      }
+
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('Ошибка при экспорте документа');
+    }
+  };
+
   // Функции редактирования
   const startEditingItem = async (itemId: string) => {
     const item = cart.find(i => i.id === itemId);
@@ -3184,24 +3248,24 @@ function CartManager({
               <span>{selectedClientName || 'Заказчик'}</span>
             </button>
             <button
-              onClick={() => generateDocument('quote')}
+              onClick={() => generateDocumentFast('quote', 'pdf')}
               className="flex items-center space-x-1 px-3 py-1 text-sm border border-blue-500 text-blue-600 hover:bg-blue-50 transition-all duration-200"
             >
               <span>📄</span>
               <span>КП</span>
             </button>
             <button
-              onClick={() => generateDocument('invoice')}
+              onClick={() => generateDocumentFast('invoice', 'pdf')}
               className="flex items-center space-x-1 px-3 py-1 text-sm border border-green-500 text-green-600 hover:bg-green-50 transition-all duration-200"
             >
-              <span>💰</span>
+              <span>📄</span>
               <span>Счет</span>
             </button>
             <button
-              onClick={() => generateDocument('order')}
+              onClick={() => generateDocumentFast('order', 'excel')}
               className="flex items-center space-x-1 px-3 py-1 text-sm border border-orange-500 text-orange-600 hover:bg-orange-50 transition-all duration-200"
             >
-              <span>📋</span>
+              <span>📊</span>
               <span>Заказ</span>
             </button>
           </div>

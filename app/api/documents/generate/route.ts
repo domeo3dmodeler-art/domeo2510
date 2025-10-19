@@ -9,7 +9,31 @@ const prisma = new PrismaClient();
 async function generatePDF(data: any): Promise<Buffer> {
   const browser = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--disable-gpu',
+      '--disable-web-security',
+      '--disable-features=VizDisplayCompositor',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding',
+      '--disable-extensions',
+      '--disable-plugins',
+      '--disable-default-apps',
+      '--disable-sync',
+      '--disable-translate',
+      '--hide-scrollbars',
+      '--mute-audio',
+      '--no-default-browser-check',
+      '--no-pings',
+      '--password-store=basic',
+      '--use-mock-keychain'
+    ],
+    timeout: 30000
   });
   
   const page = await browser.newPage();
@@ -121,7 +145,10 @@ async function generatePDF(data: any): Promise<Buffer> {
     </html>
   `;
   
-  await page.setContent(html, { waitUntil: 'networkidle0' });
+  await page.setContent(html, { 
+    waitUntil: 'networkidle0',
+    timeout: 30000 
+  });
   
   const pdf = await page.pdf({
     format: 'A4',
@@ -131,7 +158,8 @@ async function generatePDF(data: any): Promise<Buffer> {
       right: '20mm',
       bottom: '20mm',
       left: '20mm'
-    }
+    },
+    timeout: 30000
   });
   
   await browser.close();
