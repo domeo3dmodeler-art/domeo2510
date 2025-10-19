@@ -62,7 +62,7 @@ export class DatabaseOptimizationService {
         },
         {
           name: 'finish_extracted',
-          expression: "json_extract(properties_data, '$.Общее_Тип покрытия')"
+          expression: "json_extract(properties_data, '$.Тип покрытия')"
         },
         {
           name: 'width_extracted',

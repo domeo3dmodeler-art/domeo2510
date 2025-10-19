@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
       // Извлекаем данные из properties_data согласно реальной структуре
       if (properties['Domeo_Стиль Web']) distinctStyles.add(properties['Domeo_Стиль Web']);
       if (properties['Domeo_Название модели для Web']) distinctModels.add(properties['Domeo_Название модели для Web']);
-      if (properties['Общее_Тип покрытия']) distinctFinishes.add(properties['Общее_Тип покрытия']);
+      if (properties['Тип покрытия']) distinctFinishes.add(properties['Тип покрытия']);
       if (properties['Domeo_Цвет']) distinctColors.add(properties['Domeo_Цвет']);
       if (properties['Тип конструкции']) distinctTypes.add(properties['Тип конструкции']);
       if (properties['Ширина/мм']) distinctWidths.add(Number(properties['Ширина/мм']));

@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
           return 2000;
         case 'Толщина/мм':
           return 40;
-        case 'Общее_Тип покрытия':
+        case 'Тип покрытия':
           return 'Экошпон';
         case 'Domeo_Цвет':
           return 'Дуб';
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
           return 'Модель А';
         case 'Domeo_Стиль Web':
           return 'Современный';
-        case 'Общее_Тип покрытия':
+        case 'Тип покрытия':
           return 'ПВХ';
         case 'Domeo_Цвет':
           return 'Белый';

@@ -566,7 +566,7 @@ export async function POST(request: NextRequest) {
                 // Проверяем соответствие конфигурации
                 const styleMatch = !item.style || props['Domeo_Стиль Web'] === item.style;
                 const modelMatch = !item.model || props['Domeo_Название модели для Web'] === item.model;
-                const finishMatch = !item.finish || props['Общее_Тип покрытия'] === item.finish;
+                const finishMatch = !item.finish || props['Тип покрытия'] === item.finish;
                 const colorMatch = !item.color || props['Общее_Цвет'] === item.color;
                 const widthMatch = !item.width || props['Общее_Ширина'] === item.width;
                 const heightMatch = !item.height || props['Общее_Высота'] === item.height;
@@ -576,7 +576,7 @@ export async function POST(request: NextRequest) {
                   console.log(`🔍 Checking product ${product.sku}:`, {
                     style: props['Domeo_Стиль Web'],
                     model: props['Domeo_Название модели для Web'],
-                    finish: props['Общее_Тип покрытия'],
+                    finish: props['Тип покрытия'],
                     color: props['Общее_Цвет'],
                     width: props['Общее_Ширина'],
                     height: props['Общее_Высота'],

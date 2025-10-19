@@ -4,7 +4,62 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export async function GET(req: NextRequest) {
-  return NextResponse.json({ message: 'API available-params is working' });
+  try {
+    // Простой GET endpoint для тестирования
+    const products = await prisma.product.findMany({
+      where: {
+        is_active: true,
+        catalog_category: {
+          name: 'Межкомнатные двери'
+        }
+      },
+      select: {
+        properties_data: true
+      },
+      take: 100 // Ограничиваем для производительности
+    });
+
+    const availableParams = {
+      finishes: new Set<string>(),
+      colors: new Set<string>(),
+      widths: new Set<number>(),
+      heights: new Set<number>()
+    };
+
+    products.forEach(product => {
+      const props = product.properties_data ? 
+        (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
+      
+      if (props?.['Тип покрытия']) {
+        availableParams.finishes.add(props['Тип покрытия']);
+      }
+      if (props?.['Domeo_Цвет']) {
+        availableParams.colors.add(props['Domeo_Цвет']);
+      }
+      if (props?.['Ширина/мм']) {
+        availableParams.widths.add(Number(props['Ширина/мм']));
+      }
+      if (props?.['Высота/мм']) {
+        availableParams.heights.add(Number(props['Высота/мм']));
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      params: {
+        finishes: Array.from(availableParams.finishes).sort(),
+        colors: Array.from(availableParams.colors).sort(),
+        widths: Array.from(availableParams.widths).sort((a, b) => a - b),
+        heights: Array.from(availableParams.heights).sort((a, b) => a - b)
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error in GET /api/available-params:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch available parameters', details: error.message },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -96,8 +151,8 @@ export async function POST(req: NextRequest) {
       const props = product.properties_data ? 
         (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
       
-      if (props?.['Общее_Тип покрытия']) {
-        availableParams.finishes.add(props['Общее_Тип покрытия']);
+      if (props?.['Тип покрытия']) {
+        availableParams.finishes.add(props['Тип покрытия']);
       }
       if (props?.['Domeo_Цвет']) {
         availableParams.colors.add(props['Domeo_Цвет']);

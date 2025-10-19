@@ -35,8 +35,8 @@ export async function GET(req: NextRequest) {
 
       // Применяем фильтры по порядку
       if (style && properties['Domeo_Стиль Web'] !== style) return false;
-      if (model && !properties['Domeo_Название модели для Web']?.includes(model)) return false;
-      if (finish && properties['Общее_Тип покрытия'] !== finish) return false;
+      if (model && properties['Артикул поставщика'] !== model) return false;
+      if (finish && properties['Тип покрытия'] !== finish) return false;
       if (color && properties['Domeo_Цвет'] !== color) return false;
       if (type && properties['Тип конструкции'] !== type) return false;
       if (width && properties['Ширина/мм'] !== width) return false;
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
               edge: edgeValue,
               style: properties['Domeo_Стиль Web'],
               model: properties['Domeo_Название модели для Web'],
-              finish: properties['Общее_Тип покрытия'],
+              finish: properties['Тип покрытия'],
               color: properties['Domeo_Цвет']
             };
           }

@@ -120,14 +120,14 @@ export async function POST(req: NextRequest) {
 
       // Сначала ищем по стилю и модели
       const styleMatch = !selection.style || properties['Domeo_Стиль Web'] === selection.style;
-      const modelMatch = !selection.model || properties['Domeo_Название модели для Web']?.includes(selection.model);
+      const modelMatch = !selection.model || properties['Артикул поставщика'] === selection.model;
       
       if (!styleMatch || !modelMatch) {
         return false;
       }
 
       // Затем по остальным параметрам
-      const finishMatch = !selection.finish || properties['Общее_Тип покрытия'] === selection.finish;
+      const finishMatch = !selection.finish || properties['Тип покрытия'] === selection.finish;
       const colorMatch = !selection.color || properties['Domeo_Цвет'] === selection.color;
       const typeMatch = !selection.type || properties['Тип конструкции'] === selection.type;
       const widthMatch = !selection.width || properties['Ширина/мм'] == selection.width;
@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
         widthMatch,
         heightMatch,
         requestedFinish: selection.finish,
-        actualFinish: properties['Общее_Тип покрытия'],
+        actualFinish: properties['Тип покрытия'],
         requestedColor: selection.color,
         actualColor: properties['Domeo_Цвет'],
         requestedWidth: selection.width,

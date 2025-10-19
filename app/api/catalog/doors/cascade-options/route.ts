@@ -36,8 +36,8 @@ export async function GET(req: NextRequest) {
 
       // Применяем фильтры по порядку
       if (style && properties['Domeo_Стиль Web'] !== style) return false;
-      if (model && !properties['Domeo_Название модели для Web']?.includes(model)) return false;
-      if (finish && properties['Общее_Тип покрытия'] !== finish) return false;
+      if (model && properties['Артикул поставщика'] !== model) return false;
+      if (finish && properties['Тип покрытия'] !== finish) return false;
       if (color && properties['Domeo_Цвет'] !== color) return false;
       if (type && properties['Тип конструкции'] !== type) return false;
       if (width && properties['Ширина/мм'] !== width) return false;
@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
         (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
 
       // Добавляем опции, которые еще не выбраны, ИЛИ уже выбраны (чтобы они отображались в селекте)
-      if (properties['Общее_Тип покрытия']) availableOptions.finish.add(properties['Общее_Тип покрытия']);
+      if (properties['Тип покрытия']) availableOptions.finish.add(properties['Тип покрытия']);
       if (properties['Domeo_Цвет']) availableOptions.color.add(properties['Domeo_Цвет']);
       if (properties['Тип конструкции']) availableOptions.type.add(properties['Тип конструкции']);
       if (properties['Ширина/мм']) availableOptions.width.add(Number(properties['Ширина/мм']));
