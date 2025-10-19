@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
     });
 
     // Фильтруем товары по выбранным параметрам
+    // НЕ фильтруем по width и height - они нужны для показа всех доступных опций
     const filteredProducts = products.filter(product => {
       const properties = product.properties_data ?
         (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
@@ -42,8 +43,7 @@ export async function GET(req: NextRequest) {
       if (finish && properties['Тип покрытия'] !== finish) return false;
       if (color && properties['Domeo_Цвет'] !== color) return false;
       if (type && properties['Тип конструкции'] !== type) return false;
-      if (width && properties['Ширина/мм'] !== width) return false;
-      if (height && properties['Высота/мм'] !== height) return false;
+      // НЕ фильтруем по width и height - они нужны для каскадной фильтрации
       
             // Фильтрация по кромке с новой логикой
             if (edge) {

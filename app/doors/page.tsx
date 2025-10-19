@@ -186,11 +186,11 @@ const resetDependentParams = (currentSel: Partial<BasicState>, changedParam: key
       
     case 'width':
     case 'height':
-      // При смене размеров сбрасываем кромку и фурнитуру
+      // При смене размеров НЕ сбрасываем фурнитуру - она не зависит от размеров
       // newSel.edge = undefined;
       // newSel.edge_note = undefined;
-      newSel.hardware_kit = undefined;
-      newSel.handle = undefined;
+      // newSel.hardware_kit = undefined;
+      // newSel.handle = undefined;
       break;
       
     // case 'edge':
@@ -444,8 +444,7 @@ const mockApi = {
       // if (it.edge === "да") parts.push(`Кромка${it.edge_note ? `: ${it.edge_note}` : ""}`);
       
       // Находим правильное название модели
-      const modelCard = Array.isArray(models) ? models.find((m) => m.model === it.model) : null;
-      const modelName = modelCard ? formatModelNameForCard(modelCard.model) : it.model;
+      const modelName = it.model ? formatModelNameForCard(it.model) : 'Неизвестная модель';
       
       const nameCore = `${modelName}${parts.length ? ` (${parts.join(", ")})` : ""}`;
       const sum = it.unitPrice * it.qty;
@@ -489,8 +488,7 @@ const mockApi = {
     const rows = cart.items
       .flatMap((i, idx) => {
         // Находим правильное название модели
-        const modelCard = Array.isArray(models) ? models.find((m) => m.model === i.model) : null;
-        const modelName = modelCard ? formatModelNameForCard(modelCard.model) : i.model;
+        const modelName = i.model ? formatModelNameForCard(i.model) : 'Неизвестная модель';
         
         const baseRow = `<tr>
         <td class="num">${idx + 1}</td>
@@ -574,8 +572,7 @@ const mockApi = {
       const sumRetail = retail * i.qty;
 
       // Находим правильное название модели
-      const modelCard = Array.isArray(models) ? models.find((m) => m.model === i.model) : null;
-      const modelName = modelCard ? formatModelNameForCard(modelCard.model) : i.model;
+      const modelName = i.model ? formatModelNameForCard(i.model) : 'Неизвестная модель';
       
       lines.push(
         [
@@ -778,6 +775,7 @@ export default function DoorsPage() {
   const [clients, setClients] = useState<any[]>([]);
   const [clientsLoading, setClientsLoading] = useState(false);
   const [showCreateClientForm, setShowCreateClientForm] = useState(false);
+  const [isLoadingOptions, setIsLoadingOptions] = useState(false);
   const [newClientData, setNewClientData] = useState({
     firstName: '',
     lastName: '',
@@ -1028,32 +1026,36 @@ export default function DoorsPage() {
     let c = false;
     (async () => {
       try {
+        setIsLoadingOptions(true);
         const query = new URLSearchParams();
         if (sel.style) query.set('style', sel.style);
         if (sel.model) query.set('model', sel.model);
-        // НЕ передаем finish, чтобы всегда показывать все доступные покрытия
+        if (sel.finish) query.set('finish', sel.finish);
         if (sel.color) query.set('color', sel.color);
         if (sel.type) query.set('type', sel.type);
         if (sel.width) query.set('width', sel.width.toString());
         if (sel.height) query.set('height', sel.height.toString());
         // if (sel.edge) query.set('edge', sel.edge);
 
-
         const response = await fetch(`/api/catalog/doors/cascade-options?${query.toString()}`);
         const data = await response.json();
         
-        if (!c) {
+        
+        if (!c && data.availableOptions) {
+          // Обновляем только если получили новые данные
           setDomain(data.availableOptions);
         }
       } catch (e: any) {
         console.error('❌ Ошибка каскадной загрузки:', e);
         if (!c) setErr(e?.message ?? "Ошибка каскадной загрузки");
+      } finally {
+        if (!c) setIsLoadingOptions(false);
       }
     })();
     return () => {
       c = true;
     };
-  }, [sel.model, sel.style, sel.color, sel.type, sel.width, sel.height]);
+  }, [sel.model, sel.style, sel.finish, sel.color, sel.type, sel.width, sel.height]);
 
   // Загрузка стоимости кромки при изменении параметров (временно отключено)
   // useEffect(() => {
@@ -1972,9 +1974,10 @@ export default function DoorsPage() {
                       newSel.width = Number(v);
                       return newSel;
                     })}
-                    options={sel.color ? ((domain?.width || []) as number[]).map(String) : []}
+                    options={domain?.width ? ((domain.width) as number[]).map(String) : []}
                     allowEmpty={true}
                     disabled={!sel.color}
+                    isLoading={isLoadingOptions}
                   />
                   <Select
                     label="Высота"
@@ -1984,9 +1987,10 @@ export default function DoorsPage() {
                       newSel.height = Number(v);
                       return newSel;
                     })}
-                    options={sel.width ? ((domain?.height || []) as number[]).map(String) : []}
+                    options={domain?.height ? ((domain.height) as number[]).map(String) : []}
                     allowEmpty={true}
                     disabled={!sel.width}
+                    isLoading={isLoadingOptions}
                   />
                   </div>
                 </div>
@@ -3542,7 +3546,7 @@ function DoorCard({
           setIsLoading(true);
           console.log('🔄 Загружаем фото для карточки модели:', item.modelKey);
 
-          const response = await fetch(`/api/catalog/doors/photos?model=${encodeURIComponent(item.modelKey)}`);
+          const response = await fetch(`/api/catalog/doors/photos?model=${encodeURIComponent(item.modelKey || '')}`);
 
           if (response.ok) {
             const data = await response.json();
@@ -3717,6 +3721,7 @@ function Select({
   options,
   allowEmpty = false,
   disabled = false,
+  isLoading = false,
 }: {
   label: string;
   value: string;
@@ -3724,18 +3729,25 @@ function Select({
   options: string[];
   allowEmpty?: boolean;
   disabled?: boolean;
+  isLoading?: boolean;
 }) {
+  // Стабилизируем опции - показываем текущие даже если массив пустой
+  const stableOptions = options.length > 0 ? options : (value ? [value] : []);
+  
   return (
     <label className="text-sm space-y-1">
-      <div className={`text-gray-600 ${disabled ? 'opacity-50' : ''}`}>{label}</div>
+      <div className={`text-gray-600 ${disabled ? 'opacity-50' : ''}`}>
+        {label}
+        {isLoading && <span className="ml-2 text-xs text-blue-600">⏳</span>}
+      </div>
       <select
         value={value}
         onChange={(e) => onChange((e.target as HTMLSelectElement).value)}
-        disabled={disabled}
-        className={`w-full border border-black/20 px-3 py-2 text-black ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
+        disabled={disabled || isLoading}
+        className={`w-full border border-black/20 px-3 py-2 text-black ${disabled || isLoading ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
       >
         {allowEmpty && <option value="">—</option>}
-        {options.map((o) => (
+        {stableOptions.map((o) => (
           <option key={o} value={o}>
             {o}
           </option>

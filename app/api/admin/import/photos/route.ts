@@ -24,11 +24,11 @@ export async function DELETE(request: NextRequest) {
     }
 
     let deletedCount = 0;
-    
+
     if (propertyName) {
       // Удаляем фото для конкретного свойства
       const result = await prisma.propertyPhoto.deleteMany({
-        where: {
+      where: {
           categoryId: category,
           propertyName: propertyName
         }
@@ -52,7 +52,7 @@ export async function DELETE(request: NextRequest) {
       await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/catalog/doors/complete-data`, {
         method: 'DELETE'
       });
-    } catch (error) {
+      } catch (error) {
       console.warn('Ошибка очистки кэша:', error);
     }
 
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
         uploadErrors.push(`Ошибка при загрузке ${photo.name}: ${error.message}`);
       }
     }
-
+    
     // Привязываем фото к товарам или свойствам
     let linkedPhotos = 0;
     const linkedDetails: any[] = [];
@@ -197,16 +197,16 @@ export async function POST(request: NextRequest) {
             linkedPhotos++;
             
             // Находим товары с этим значением свойства для статистики
-            const products = await prisma.product.findMany({
-              where: {
+        const products = await prisma.product.findMany({
+          where: {
                 catalog_category_id: category,
                 properties_data: {
                   contains: `"${mappingProperty}":"${photoInfo.baseName}"`
                 }
-              },
-              select: {
-                id: true,
-                sku: true,
+          },
+          select: {
+            id: true,
+            sku: true,
                 name: true
               }
             });
@@ -229,7 +229,7 @@ export async function POST(request: NextRequest) {
         }
       } else {
         console.log('Привязка фото к товарам (properties_data)...');
-        
+
         for (const photo of uploadedPhotos) {
           const { photoInfo } = photo;
           
@@ -262,10 +262,10 @@ export async function POST(request: NextRequest) {
               
               // Добавляем фото к товару
               properties.photos.push(photo.filePath);
-              
-              await prisma.product.update({
-                where: { id: product.id },
-                data: {
+                
+                await prisma.product.update({
+                  where: { id: product.id },
+                  data: {
                   properties_data: JSON.stringify(properties)
                 }
               });
@@ -277,7 +277,7 @@ export async function POST(request: NextRequest) {
           }
 
           if (productsUpdated > 0) {
-            linkedPhotos++;
+                linkedPhotos++;
             linkedDetails.push({
               fileName: photo.originalName,
               message: `Привязано к ${productsUpdated} товарам`,
@@ -320,12 +320,12 @@ export async function POST(request: NextRequest) {
       mapping_property: mappingProperty
     };
 
-    console.log('=== РЕЗУЛЬТАТ ЗАГРУЗКИ ===');
+        console.log('=== РЕЗУЛЬТАТ ЗАГРУЗКИ ===');
     console.log(`Загружено файлов: ${result.uploaded}`);
     console.log(`Привязано к ${uploadType === 'property' ? 'свойствам' : 'товарам'}: ${result.linked}`);
     console.log(`Ошибок: ${result.errors}`);
 
-    return NextResponse.json(result);
+        return NextResponse.json(result);
 
   } catch (error) {
     console.error('Критическая ошибка загрузки фото:', error);

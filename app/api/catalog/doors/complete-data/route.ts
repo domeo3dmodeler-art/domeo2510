@@ -66,11 +66,11 @@ export async function GET(req: NextRequest) {
 
     // Сначала собираем все товары по моделям
     const modelMap = new Map<string, any>();
-    
-        products.forEach(product => {
-          try {
-            const properties = product.properties_data ?
-              (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
+
+    products.forEach(product => {
+      try {
+        const properties = product.properties_data ?
+          (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
 
             // Используем "Артикул поставщика" как ключ для группировки, но "Domeo_Название модели для Web" как название модели
             const supplierSku = properties['Артикул поставщика'];
@@ -83,14 +83,14 @@ export async function GET(req: NextRequest) {
             const styleString = typeof productStyle === 'string' ? productStyle : String(productStyle || 'Классика');
 
             if (modelKey && modelKey.trim() !== '') {
-              // Фильтруем по стилю если указан
+          // Фильтруем по стилю если указан
               if (style && styleString !== style) {
-                return;
-              }
+            return;
+          }
 
               styles.add(styleString);
 
-              // Проверяем, есть ли уже такая модель
+          // Проверяем, есть ли уже такая модель
               if (!modelMap.has(modelKey)) {
                 modelMap.set(modelKey, {
                   model: displayName, // Используем название модели для отображения
@@ -145,13 +145,13 @@ export async function GET(req: NextRequest) {
             photos: photoStructure,      // Полная структура для центрального отображения
             hasGallery: hasGallery,      // Флаг наличия галереи
             products: modelData.products, // Добавляем массив товаров
-            options: {
-              finishes: [],
-              colors: [],
-              types: [],
-              widths: [],
-              heights: []
-            }
+              options: {
+                finishes: [],
+                colors: [],
+                types: [],
+                widths: [],
+                heights: []
+              }
           };
           
           console.log(`📤 Возвращаем данные для ${modelData.model}:`, {
