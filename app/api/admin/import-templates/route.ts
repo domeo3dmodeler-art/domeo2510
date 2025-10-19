@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { fixAllEncoding, fixFieldsEncoding } from '@/lib/encoding-utils';
 
 const prisma = new PrismaClient();
 
@@ -7,6 +8,9 @@ const prisma = new PrismaClient();
 
 export async function POST(req: NextRequest) {
   try {
+    const rawData = await req.json();
+    
+    // Исправляем кодировку входящих данных
     const { 
       name, 
       description, 
@@ -17,7 +21,7 @@ export async function POST(req: NextRequest) {
       calculator_fields,
       export_fields,
       validation_rules
-    } = await req.json();
+    } = fixAllEncoding(rawData);
 
     if (!name || !catalog_category_id) {
       return NextResponse.json(

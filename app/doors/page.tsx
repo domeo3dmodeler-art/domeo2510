@@ -208,18 +208,22 @@ const resetDependentParams = (currentSel: Partial<BasicState>, changedParam: key
   return newSel;
 };
 
-// Функция для форматирования названия модели под карточкой (убираем префикс DomeoDoors_ или Domeodoors_)
+// Функция для форматирования названия модели под карточкой (убираем префикс DomeoDoors)
 const formatModelNameForCard = (modelName: string): string => {
   return modelName
-    .replace(/^DomeoDoors_/i, '') // Убираем префикс DomeoDoors_ (регистронезависимо)
-    .replace(/^Domeodoors_/i, '') // Убираем префикс Domeodoors_ (регистронезависимо)
+    .replace(/^DomeoDoors\s*/i, '') // Убираем префикс DomeoDoors с любыми пробелами после него
+    .replace(/^Domeodoors\s*/i, '') // Убираем префикс Domeodoors с любыми пробелами после него
     .replace(/_/g, ' ') // Заменяем подчеркивания на пробелы
     .trim(); // Убираем лишние пробелы
 };
 
-// Функция для форматирования названия модели над большим фото (заменяем только подчеркивания)
+// Функция для форматирования названия модели над большим фото (убираем префикс DomeoDoors)
 const formatModelNameForPreview = (modelName: string): string => {
-  return modelName.replace(/_/g, ' '); // Заменяем подчеркивания на пробелы
+  return modelName
+    .replace(/^DomeoDoors\s*/i, '') // Убираем префикс DomeoDoors с любыми пробелами после него
+    .replace(/^Domeodoors\s*/i, '') // Убираем префикс Domeodoors с любыми пробелами после него
+    .replace(/_/g, ' ') // Заменяем подчеркивания на пробелы
+    .trim(); // Убираем лишние пробелы
 };
 
 const imageCandidates = (obj: ProductLike): string[] => {
@@ -438,7 +442,12 @@ const mockApi = {
       if (it.width && it.height) parts.push(`${it.width}×${it.height}`);
       if (it.color) parts.push(it.color);
       // if (it.edge === "да") parts.push(`Кромка${it.edge_note ? `: ${it.edge_note}` : ""}`);
-      const nameCore = `${it.model}${parts.length ? ` (${parts.join(", ")})` : ""}`;
+      
+      // Находим правильное название модели
+      const modelCard = Array.isArray(models) ? models.find((m) => m.model === it.model) : null;
+      const modelName = modelCard ? formatModelNameForCard(modelCard.model) : it.model;
+      
+      const nameCore = `${modelName}${parts.length ? ` (${parts.join(", ")})` : ""}`;
       const sum = it.unitPrice * it.qty;
       rows.push(
         `<tr><td>${n}</td><td>${nameCore}</td><td class="num">${fmtInt(
@@ -479,10 +488,14 @@ const mockApi = {
     const total = cart.items.reduce((s, i) => s + i.unitPrice * i.qty, 0);
     const rows = cart.items
       .flatMap((i, idx) => {
+        // Находим правильное название модели
+        const modelCard = Array.isArray(models) ? models.find((m) => m.model === i.model) : null;
+        const modelName = modelCard ? formatModelNameForCard(modelCard.model) : i.model;
+        
         const baseRow = `<tr>
         <td class="num">${idx + 1}</td>
         <td>${i.sku_1c || "—"}</td>
-        <td>${i.model} (${i.width}×${i.height}${i.color ? `, ${i.color}` : ""})</td>
+        <td>${modelName} (${i.width}×${i.height}${i.color ? `, ${i.color}` : ""})</td>
         <td class="num">${fmtInt(i.unitPrice)}</td>
         <td class="num">${i.qty}</td>
         <td class="num">${fmtInt(i.unitPrice * i.qty)}</td>
@@ -560,12 +573,16 @@ const mockApi = {
       const sumOpt = opt * i.qty;
       const sumRetail = retail * i.qty;
 
+      // Находим правильное название модели
+      const modelCard = Array.isArray(models) ? models.find((m) => m.model === i.model) : null;
+      const modelName = modelCard ? formatModelNameForCard(modelCard.model) : i.model;
+      
       lines.push(
         [
           String(n),
           (prod && (prod as any).supplier) || "",
           (prod && (prod as any).collection) || "",
-          (prod && ((prod as any).supplier_item_name || prod.model)) || "",
+          (prod && ((prod as any).supplier_item_name || modelName)) || "",
           (prod && (prod as any).supplier_color_finish) || "",
           String(i.width || ""),
           String(i.height || ""),
@@ -738,7 +755,7 @@ export default function DoorsPage() {
   // Состояние конфигуратора
   const [sel, setSel] = useState<Partial<BasicState>>({});
   const [domain, setDomain] = useState<Domain>(null);
-  const [models, setModels] = useState<{ model: string; style: string; photo?: string | null; photos?: { cover: string | null; gallery: string[] }; hasGallery?: boolean }[]>([]);
+  const [models, setModels] = useState<{ model: string; modelKey?: string; style: string; photo?: string | null; photos?: { cover: string | null; gallery: string[] }; hasGallery?: boolean }[]>([]);
   const [price, setPrice] = useState<any>(null);
   const [hardwareKits, setHardwareKits] = useState<HardwareKit[]>([]);
   const [handles, setHandles] = useState<Record<string, Handle[]>>({});
@@ -903,13 +920,35 @@ export default function DoorsPage() {
 
   const selectedModelCard = useMemo(
     () => {
-      const found = Array.isArray(models) ? models.find((m) => m.model === sel.model) || null : null;
-      console.log('🔍 selectedModelCard:', { 
+      console.log('🔍 selectedModelCard debug:', { 
+        selModel: sel.model, 
+        modelsCount: models?.length,
+        modelsSample: models?.slice(0, 3).map(m => ({ model: m.model, modelKey: m.modelKey, photo: m.photo }))
+      });
+      
+      const found = Array.isArray(models) ? models.find((m) => (m.modelKey || m.model) === sel.model) || null : null;
+      console.log('🔍 selectedModelCard result:', { 
         selModel: sel.model, 
         modelsCount: models?.length, 
         found: !!found,
-        foundModel: found?.model 
+        foundModel: found?.model,
+        foundModelKey: found?.modelKey,
+        foundPhoto: found?.photo,
+        foundPhotos: found?.photos
       });
+      
+      // Дополнительное логирование для отладки
+      if (found) {
+        console.log('🔍 Детали найденной модели:', {
+          model: found.model,
+          modelKey: found.modelKey,
+          photo: found.photo,
+          photos: found.photos,
+          hasGallery: found.hasGallery,
+          style: found.style
+        });
+      }
+      
       return found;
     },
     [models, sel.model]
@@ -1869,10 +1908,10 @@ export default function DoorsPage() {
                       <DoorCard
                         key={m.model}
                         item={m}
-                        selected={sel.model === m.model}
+                        selected={sel.model === m.modelKey}
                           onSelect={() => setSel((v) => {
                             const newSel = resetDependentParams(v, 'model');
-                            newSel.model = m.model;
+                            newSel.model = m.modelKey || m.model; // Используем modelKey для поиска, но сохраняем название для отображения
                             newSel.style = m.style;
                             return newSel;
                           })}
@@ -2003,7 +2042,7 @@ export default function DoorsPage() {
                         <div className="flex justify-between">
                           <span>
                             {sel.style && sel.model && sel.finish && sel.color && sel.width && sel.height && sel.hardware_kit?.id
-                              ? `Дверь ${sel.model.replace(/DomeoDoors_/g, '').replace(/_/g, ' ')} + комплект фурнитуры ${hardwareKits.find((k: HardwareKit) => k.id === sel.hardware_kit!.id)?.name.replace('Комплект фурнитуры — ', '') || 'Базовый'}`
+                              ? `Дверь ${selectedModelCard ? formatModelNameForCard(selectedModelCard.model) : formatModelNameForCard(sel.model)} + комплект фурнитуры ${hardwareKits.find((k: HardwareKit) => k.id === sel.hardware_kit!.id)?.name.replace('Комплект фурнитуры — ', '') || 'Базовый'}`
                               : "Дверь"}
                           </span>
                           <span>
@@ -2074,7 +2113,7 @@ export default function DoorsPage() {
                 <div className="transition-all duration-500 ease-in-out">
                   <div className="text-center mb-4">
                     <h3 className="text-lg font-semibold text-black">
-                      {selectedModelCard ? formatModelNameForPreview(selectedModelCard.model) : "Выберите модель"}
+                      {selectedModelCard ? selectedModelCard.model.replace(/_/g, ' ') : "Выберите модель"}
                     </h3>
                   </div>
                   {/* Профессиональная галерея с увеличенным размером */}
@@ -3483,7 +3522,7 @@ function DoorCard({
   selected,
   onSelect,
 }: {
-  item: { model: string; style?: string; photo?: string | null; photos?: { cover: string | null; gallery: string[] }; hasGallery?: boolean };
+  item: { model: string; modelKey?: string; style?: string; photo?: string | null; photos?: { cover: string | null; gallery: string[] }; hasGallery?: boolean };
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -3496,18 +3535,48 @@ function DoorCard({
       const imageUrl = item.photo.startsWith('/uploads') ? `/api${item.photo}` : `/api/uploads${item.photo}`;
       setImageSrc(imageUrl);
       setIsLoading(false);
+    } else if (item.modelKey) {
+      // Fallback: загружаем фото через старый API используя modelKey
+      const loadPhoto = async () => {
+        try {
+          setIsLoading(true);
+          console.log('🔄 Загружаем фото для карточки модели:', item.modelKey);
+
+          const response = await fetch(`/api/catalog/doors/photos?model=${encodeURIComponent(item.modelKey)}`);
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.photos && data.photos.length > 0) {
+              const photoPath = data.photos[0];
+              const imageUrl = photoPath.startsWith('/uploads') ? `/api${photoPath}` : `/api/uploads${photoPath}`;
+              setImageSrc(imageUrl);
+            } else {
+              setImageSrc(null);
+            }
+          } else {
+            setImageSrc(null);
+          }
+        } catch (error) {
+          console.error('❌ Ошибка загрузки фото для карточки:', error);
+          setImageSrc(null);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      loadPhoto();
     } else {
       // Если фото нет, показываем placeholder
       setImageSrc(null);
       setIsLoading(false);
     }
-  }, [item.model, item.photo]);
+  }, [item.model, item.modelKey, item.photo]);
 
   return (
     <div className="flex flex-col">
     <button
       onClick={onSelect}
-      aria-label={`Выбрать модель ${item.model}`}
+      aria-label={`Выбрать модель ${formatModelNameForCard(item.model)}`}
       className={[
           "group w-full text-left bg-white overflow-hidden",
         "hover:shadow-md transition",
@@ -3524,7 +3593,7 @@ function DoorCard({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={imageSrc}
-                alt={item.model}
+                alt={formatModelNameForCard(item.model)}
                 className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
                 onError={() => {
                   console.log('❌ Ошибка загрузки изображения:', imageSrc);
@@ -3560,7 +3629,7 @@ function DoorCard({
   );
 }
 
-function StickyPreview({ item }: { item: { model: string; sku_1c?: any; photo?: string | null } | null }) {
+function StickyPreview({ item }: { item: { model: string; modelKey?: string; sku_1c?: any; photo?: string | null } | null }) {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -3583,9 +3652,9 @@ function StickyPreview({ item }: { item: { model: string; sku_1c?: any; photo?: 
     const loadPhoto = async () => {
       try {
         setIsLoading(true);
-        console.log('🔄 Загружаем фото для превью:', item.model);
+        console.log('🔄 Загружаем фото для превью:', item.modelKey || item.model);
 
-        const response = await fetch(`/api/catalog/doors/photos?model=${encodeURIComponent(item.model)}`);
+        const response = await fetch(`/api/catalog/doors/photos?model=${encodeURIComponent(item.modelKey || item.model)}`);
 
         if (response.ok) {
           const data = await response.json();
@@ -3608,7 +3677,7 @@ function StickyPreview({ item }: { item: { model: string; sku_1c?: any; photo?: 
     };
 
     loadPhoto();
-  }, [item?.model, item?.photo]);
+  }, [item?.model, item?.modelKey, item?.photo]);
 
   if (!item) return null;
   return (
@@ -3621,7 +3690,7 @@ function StickyPreview({ item }: { item: { model: string; sku_1c?: any; photo?: 
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={imageSrc}
-            alt={item.model}
+            alt={formatModelNameForCard(item.model)}
             className="h-full w-full object-contain"
             onError={() => {
               console.log('❌ Ошибка загрузки изображения для превью:', imageSrc);
@@ -3632,7 +3701,7 @@ function StickyPreview({ item }: { item: { model: string; sku_1c?: any; photo?: 
           <div className="h-full w-full flex items-center justify-center text-gray-400">
             <div className="text-center">
               <div className="text-sm">Нет фото</div>
-              <div className="text-xs">{item.model}</div>
+              <div className="text-xs">{formatModelNameForCard(item.model)}</div>
             </div>
           </div>
         )}

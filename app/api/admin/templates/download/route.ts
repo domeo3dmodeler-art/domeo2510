@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import * as XLSX from 'xlsx';
-import { fixFieldsEncoding } from '@/lib/encoding-utils';
+import { fixFieldsEncoding, fixAllEncoding } from '@/lib/encoding-utils';
 
 const prisma = new PrismaClient();
 

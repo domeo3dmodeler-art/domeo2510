@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import * as XLSX from 'xlsx';
 import { apiErrorHandler } from '@/lib/api-error-handler';
 import { apiValidator } from '@/lib/api-validator';
+import { fixAllEncoding } from '@/lib/encoding-utils';
 
 const prisma = new PrismaClient();
 
@@ -45,12 +46,48 @@ export async function GET(req: NextRequest) {
 
     console.log(`📦 Найдено товаров для экспорта: ${products.length}`);
 
-    // Создаем заголовки для Excel
-    const headers = [
-      '№', 'SKU', 'Название', 'Артикул поставщика', 'Ширина/мм', 'Высота/мм', 
-      'Толщина/мм', 'Цвет', 'Стиль', 'Тип конструкции', 'Тип открывания', 
-      'Поставщик', 'Цена ррц', 'Цена опт', 'Цена базовая', 'Остаток'
-    ];
+    // Получаем шаблон для fallback
+    const template = await prisma.importTemplate.findUnique({
+      where: { catalog_category_id: catalogCategoryId }
+    });
+
+    // Получаем настройки экспорта
+    const exportConfigResponse = await fetch(`${req.url.split('/api')[0]}/api/admin/export/config?catalogCategoryId=${catalogCategoryId}&exportType=price_list`);
+    let exportConfig = null;
+    
+    if (exportConfigResponse.ok) {
+      const configData = await exportConfigResponse.json();
+      if (configData.success) {
+        exportConfig = configData.config;
+      }
+    }
+
+    // Собираем все уникальные поля свойств из всех товаров
+    const allPropertyFields = new Set<string>();
+    
+    products.forEach(product => {
+      if (product.properties_data) {
+        try {
+          const properties = typeof product.properties_data === 'string' 
+            ? JSON.parse(product.properties_data) 
+            : product.properties_data;
+          
+          Object.keys(properties).forEach(key => {
+            if (key && key.trim() !== '') {
+              allPropertyFields.add(key);
+            }
+          });
+        } catch (e) {
+          console.warn(`Ошибка парсинга свойств для товара ${product.id}:`, e);
+        }
+      }
+    });
+
+    // Сортируем поля для консистентности
+    const sortedPropertyFields = Array.from(allPropertyFields).sort();
+    
+    // Создаем заголовки: SKU внутреннее + все поля свойств
+    const headers = ['SKU внутреннее', ...sortedPropertyFields];
     
     const data = [];
 
@@ -58,41 +95,38 @@ export async function GET(req: NextRequest) {
     products.forEach((product, index) => {
       const row = [];
       
-      // Номер строки
-      row.push(index + 1);
-      
-      // SKU и название
+      // SKU внутреннее (первая колонка)
       row.push(product.sku || '');
-      row.push(product.name || 'Без названия');
 
-      // Парсим свойства товара
+      // Парсим свойства товара с исправлением кодировки
       let properties = {};
       if (product.properties_data) {
         try {
-          properties = typeof product.properties_data === 'string' 
+          const rawProperties = typeof product.properties_data === 'string' 
             ? JSON.parse(product.properties_data) 
             : product.properties_data;
+          properties = fixAllEncoding(rawProperties);
         } catch (e) {
           console.error(`Ошибка парсинга свойств для товара ${product.id}:`, e);
         }
       }
 
-      // Добавляем основные поля
-      row.push(properties['Артикул поставщика'] || '');
-      row.push(properties['Ширина/мм'] || '');
-      row.push(properties['Высота/мм'] || '');
-      row.push(properties['Толщина/мм'] || '');
-      row.push(properties['Domeo_Цвет'] || '');
-      row.push(properties['Domeo_Стиль Web'] || '');
-      row.push(properties['Тип конструкции'] || '');
-      row.push(properties['Тип открывания'] || '');
-      row.push(properties['Поставщик'] || '');
-      row.push(properties['Цена РРЦ'] || '');
-      row.push(properties['Цена опт'] || '');
-
-      // Добавляем базовую цену и остаток
-      row.push(product.base_price || 0);
-      row.push(product.stock_quantity || 0);
+      // Добавляем все поля свойств в том же порядке, что и заголовки
+      sortedPropertyFields.forEach(field => {
+        const value = properties[field];
+        
+        // Обрабатываем пустые значения
+        if (value === undefined || value === null || value === '') {
+          row.push('-');
+        } else {
+          // Проверяем, является ли значение числом
+          if (typeof value === 'number' || !isNaN(Number(value))) {
+            row.push(Number(value));
+          } else {
+            row.push(String(value));
+          }
+        }
+      });
 
       data.push(row);
     });

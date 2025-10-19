@@ -91,28 +91,37 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
         )}
         
         <div className="h-full w-full flex items-center justify-center">
-          <img
-            src={allPhotos[currentIndex].startsWith('/uploads') ? `/api${allPhotos[currentIndex]}` : `/api/uploads${allPhotos[currentIndex]}`}
-            alt={`${productName} - фото ${currentIndex + 1}`}
-            className="max-h-full max-w-full object-contain transition-all duration-300 hover:scale-105 cursor-pointer"
-            onClick={toggleZoom}
-            onError={() => {
-              console.log('❌ Ошибка загрузки изображения:', allPhotos[currentIndex]);
-            }}
-          />
+          {allPhotos[currentIndex] ? (
+            <img
+              src={allPhotos[currentIndex].startsWith('/uploads') ? `/api${allPhotos[currentIndex]}` : `/api/uploads${allPhotos[currentIndex]}`}
+              alt={`${productName} - фото ${currentIndex + 1}`}
+              className="max-h-full max-w-full object-contain transition-all duration-300 hover:scale-105 cursor-pointer"
+              onClick={toggleZoom}
+              onError={() => {
+                console.log('❌ Ошибка загрузки изображения:', allPhotos[currentIndex]);
+              }}
+            />
+          ) : (
+            <div className="text-gray-400 text-center">
+              <div className="text-sm">Нет фото</div>
+              <div className="text-xs">{productName}</div>
+            </div>
+          )}
         </div>
 
         {/* Кнопка зума */}
-        <button
-          onClick={toggleZoom}
-          className="absolute top-4 right-4 bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
-          aria-label={isZoomed ? "Уменьшить" : "Увеличить"}
-        >
+        {allPhotos[currentIndex] && (
+          <button
+            onClick={toggleZoom}
+            className="absolute top-4 right-4 bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
+            aria-label={isZoomed ? "Уменьшить" : "Увеличить"}
+          >
           <MagnifyingGlassIcon className="w-5 h-5 text-gray-700" />
         </button>
+        )}
 
         {/* Навигационные стрелки (только для галереи) */}
-        {showThumbnails && (
+        {showThumbnails && allPhotos.length > 1 && allPhotos[currentIndex] && (
           <>
             <button
               onClick={prevPhoto}
@@ -133,7 +142,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
         )}
 
         {/* Индикатор текущего фото */}
-        {showThumbnails && (
+        {showThumbnails && allPhotos.length > 1 && allPhotos[currentIndex] && (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             {currentIndex + 1} / {allPhotos.length}
           </div>
@@ -141,36 +150,38 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
       </div>
 
       {/* Миниатюры под изображением (только для галереи) */}
-      {showThumbnails && (
+      {showThumbnails && allPhotos.length > 1 && (
         <div className="absolute -bottom-20 left-0 right-0 bg-white p-4 rounded-b-xl shadow-lg">
           <div className="flex justify-center space-x-2 overflow-x-auto">
             {allPhotos.map((photo, index) => (
-              <button
-                key={index}
-                onClick={() => goToPhoto(index)}
-                className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
-                  index === currentIndex 
-                    ? 'border-blue-500 shadow-lg scale-110' 
-                    : 'border-gray-200 hover:border-gray-400 hover:scale-105'
-                }`}
-                aria-label={`Перейти к фото ${index + 1}`}
-              >
-                <img
-                  src={photo.startsWith('/uploads') ? `/api${photo}` : `/api/uploads${photo}`}
-                  alt={`Миниатюра ${index + 1}`}
-                  className="w-full h-full object-cover"
-                  onError={() => {
-                    console.log('❌ Ошибка загрузки миниатюры:', photo);
-                  }}
-                />
-              </button>
+              photo ? (
+                <button
+                  key={index}
+                  onClick={() => goToPhoto(index)}
+                  className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+                    index === currentIndex 
+                      ? 'border-blue-500 shadow-lg scale-110' 
+                      : 'border-gray-200 hover:border-gray-400 hover:scale-105'
+                  }`}
+                  aria-label={`Перейти к фото ${index + 1}`}
+                >
+                  <img
+                    src={photo.startsWith('/uploads') ? `/api${photo}` : `/api/uploads${photo}`}
+                    alt={`Миниатюра ${index + 1}`}
+                    className="w-full h-full object-cover"
+                    onError={() => {
+                      console.log('❌ Ошибка загрузки миниатюры:', photo);
+                    }}
+                  />
+                </button>
+              ) : null
             ))}
           </div>
         </div>
       )}
 
       {/* Полноэкранный режим при зуме */}
-      {isZoomed && (
+      {isZoomed && allPhotos[currentIndex] && (
         <div 
           className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
           onClick={() => {
@@ -191,7 +202,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
               />
               
               {/* Навигационные стрелки */}
-              {showThumbnails && (
+              {showThumbnails && allPhotos.length > 1 && (
                 <>
                   <button
                     onClick={(e) => {
@@ -219,32 +230,34 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
             </div>
             
             {/* Миниатюры внизу */}
-            {showThumbnails && (
+            {showThumbnails && allPhotos.length > 1 && (
               <div className="bg-black/50 p-4">
                 <div className="flex justify-center space-x-3 overflow-x-auto">
                   {allPhotos.map((photo, index) => (
-                    <button
-                      key={index}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        goToPhoto(index);
-                      }}
-                      className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
-                        index === currentIndex 
-                          ? 'border-white shadow-lg scale-110' 
-                          : 'border-white/50 hover:border-white/80 hover:scale-105'
-                      }`}
-                      aria-label={`Перейти к фото ${index + 1}`}
-                    >
-                      <img
-                        src={photo.startsWith('/uploads') ? `/api${photo}` : `/api/uploads${photo}`}
-                        alt={`Миниатюра ${index + 1}`}
-                        className="w-full h-full object-cover"
-                        onError={() => {
-                          console.log('❌ Ошибка загрузки миниатюры:', photo);
+                    photo ? (
+                      <button
+                        key={index}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          goToPhoto(index);
                         }}
-                      />
-                    </button>
+                        className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+                          index === currentIndex 
+                            ? 'border-white shadow-lg scale-110' 
+                            : 'border-white/50 hover:border-white/80 hover:scale-105'
+                        }`}
+                        aria-label={`Перейти к фото ${index + 1}`}
+                      >
+                        <img
+                          src={photo.startsWith('/uploads') ? `/api${photo}` : `/api/uploads${photo}`}
+                          alt={`Миниатюра ${index + 1}`}
+                          className="w-full h-full object-cover"
+                          onError={() => {
+                            console.log('❌ Ошибка загрузки миниатюры:', photo);
+                          }}
+                        />
+                      </button>
+                    ) : null
                   ))}
                 </div>
               </div>

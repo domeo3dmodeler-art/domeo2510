@@ -8,6 +8,7 @@ import TemplateManager from '../../../components/admin/TemplateManager';
 import PriceListExporter from '../../../components/admin/PriceListExporter';
 import BulkEditDialog from '../../../components/admin/BulkEditDialog';
 import ProductFilters from '../../../components/admin/ProductFilters';
+import ImportInstructionsDialog from '../../../components/admin/ImportInstructionsDialog';
 import { fixFieldsEncoding } from '@/lib/encoding-utils';
 
 interface Product {
@@ -339,8 +340,11 @@ export default function CatalogPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [categoryToEdit, setCategoryToEdit] = useState<CatalogCategory | null>(null);
-  const [categoryToDelete, setCategoryToDelete] = useState<CatalogCategory | null>(null);
+  const [editProductDialogOpen, setEditProductDialogOpen] = useState(false);
+  const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [newCategoryParent, setNewCategoryParent] = useState<string | undefined>();
+  const [categoryToDelete, setCategoryToDelete] = useState<CatalogCategory | null>(null);
+  const [instructionsDialogOpen, setInstructionsDialogOpen] = useState(false);
 
   useEffect(() => {
     loadCategories();
@@ -631,6 +635,72 @@ export default function CatalogPage() {
     }
   };
 
+  // Функции для работы с товарами
+  const handleEditProduct = (product: Product) => {
+    setProductToEdit(product);
+    setEditProductDialogOpen(true);
+  };
+
+  const handleDeleteProduct = async (product: Product) => {
+    if (!confirm(`Удалить товар "${product.name}"?`)) return;
+
+    try {
+      const response = await fetch(`/api/admin/products/${product.id}`, {
+        method: 'DELETE'
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert(`✅ Товар "${product.name}" успешно удален`);
+        
+        // Перезагружаем товары
+        if (selectedCategory) {
+          await loadCategoryProducts(selectedCategory.id);
+        }
+        
+        // Обновляем счетчики категорий
+        await loadCategories();
+      } else {
+        alert(`❌ Ошибка при удалении товара: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Ошибка при удалении товара:', error);
+      alert('Ошибка при удалении товара');
+    }
+  };
+
+  const handleUpdateProduct = async (productData: Partial<Product>) => {
+    if (!productToEdit) return;
+
+    try {
+      const response = await fetch(`/api/admin/products/${productToEdit.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(productData)
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert(`✅ Товар "${productToEdit.name}" успешно обновлен`);
+        
+        // Перезагружаем товары
+        if (selectedCategory) {
+          await loadCategoryProducts(selectedCategory.id);
+        }
+        
+        setEditProductDialogOpen(false);
+        setProductToEdit(null);
+      } else {
+        alert(`❌ Ошибка при обновлении товара: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Ошибка при обновлении товара:', error);
+      alert('Ошибка при обновлении товара');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -676,6 +746,15 @@ export default function CatalogPage() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
+                    <Button
+                      onClick={() => setInstructionsDialogOpen(true)}
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center space-x-1 text-blue-600 border-blue-300 hover:bg-blue-100"
+                    >
+                      <Settings className="h-3 w-3" />
+                      <span>Инструкция</span>
+                    </Button>
                     <TemplateManager
                       catalogCategoryId={selectedCategory?.id || null}
                       catalogCategoryName={selectedCategory?.name}
@@ -770,14 +849,13 @@ export default function CatalogPage() {
                         </Button>
                       </div>
                       
-                      {/* Таблица товаров в стиле Excel */}
+                      {/* Улучшенная таблица товаров */}
                       <div className="relative">
-                        <div className="overflow-x-auto max-w-full border border-gray-200 rounded-lg shadow-sm">
-                          <table className="min-w-full border-separate border-spacing-0" style={{ minWidth: '1200px' }}>
-                          {/* Заголовки таблицы - только динамические поля из шаблона */}
+                        <div className="overflow-x-auto max-w-full border border-gray-200 rounded-lg shadow-sm bg-white">
+                          <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
                             <tr>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 <input
                                   type="checkbox"
                                   checked={selectedProducts.size === filteredProducts.length && filteredProducts.length > 0}
@@ -785,78 +863,34 @@ export default function CatalogPage() {
                                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                 />
                               </th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 #
                               </th>
-                              {/* Динамические заголовки из requiredFields шаблона */}
-                              {(() => {
-                                
-                                if (selectedTemplate?.requiredFields) {
-                                  try {
-                                    let requiredFields = selectedTemplate.requiredFields; // Уже парсится в API
-                                    
-                                    // Проверяем, что requiredFields является массивом
-                                    if (typeof requiredFields === 'string') {
-                                      requiredFields = JSON.parse(requiredFields);
-                                    }
-                                    
-                                    if (Array.isArray(requiredFields) && requiredFields.length > 0) {
-                                      // Исправляем кодировку полей
-                                      const fixedFields = fixFieldsEncoding(requiredFields);
-                                      
-                                      // Фильтруем поля, исключая нежелательные и пустые
-                                      const filteredFields = fixedFields.filter((field: string) => {
-                                        // Проверяем, что поле валидно
-                                        const isValidField = field && 
-                                                           typeof field === 'string' &&
-                                                           field.trim() !== '' && 
-                                                           field !== '_' &&
-                                                           !field.includes('№') && 
-                                                           !field.includes('Domeo_Ссылка на фото двери') &&
-                                                           !field.includes('DOMEO_ССЫЛКА НА ФОТО ДВЕРИ');
-                                                                   
-                                        return isValidField;
-                                      });
-                                      
-                                      return filteredFields.map((field: string, index: number) => (
-                                        <th key={index} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                                          {field}
-                                        </th>
-                                      ));
-                                    }
-                                  } catch (error) {
-                                    console.error('Ошибка при обработке requiredFields шаблона:', error);
-                                  }
-                                }
-                                
-                                // Fallback: показываем базовые поля товаров
-                                return (
-                                  <>
-                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                       Название
                                     </th>
-                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                                      Артикул
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Артикул поставщика
                                     </th>
-                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                                      Цена
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Размеры
                                     </th>
-                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                                      Остаток
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Цена РРЦ
                                     </th>
-                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                                      Бренд
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Цена опт
                                     </th>
-                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                                      Модель
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Поставщик
                                     </th>
-                                  </>
-                                );
-                              })()}
-                              <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                                Есть фото
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Цвет
                               </th>
-                              <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Фото
+                                </th>
+                                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Действия
                               </th>
                             </tr>
@@ -864,9 +898,29 @@ export default function CatalogPage() {
                           
                           {/* Тело таблицы */}
                           <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredProducts.map((product: Product, index: number) => (
+                              {filteredProducts.map((product: Product, index: number) => {
+                                // Парсим свойства товара
+                                const properties = product.properties_data ? 
+                                  (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
+                                
+                                // Извлекаем основные поля
+                                const modelName = properties['Domeo_Название модели для Web'] || product.name || 'Без названия';
+                                const supplierSku = properties['Артикул поставщика'] || product.sku || '-';
+                                const width = properties['Ширина/мм'] || '-';
+                                const height = properties['Высота/мм'] || '-';
+                                const thickness = properties['Толщина/мм'] || '-';
+                                const dimensions = [width, height, thickness].filter(d => d !== '-').join(' × ') || '-';
+                                const priceRrc = properties['Цена РРЦ'] || properties['Цена ррц (включая цену полотна, короба, наличников, доборов)'] || '-';
+                                const priceOpt = properties['Цена опт'] || '-';
+                                const supplier = properties['Поставщик'] || '-';
+                                const color = properties['Domeo_Цвет'] || '-';
+                                
+                                // Проверяем наличие фото
+                                const hasPhotos = properties.photos && Array.isArray(properties.photos) && properties.photos.length > 0;
+                                
+                                return (
                               <tr key={product.id} className="hover:bg-gray-50 transition-colors">
-                                <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-500 border-r border-gray-200">
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-500">
                                   <input
                                     type="checkbox"
                                     checked={selectedProducts.has(product.id)}
@@ -874,103 +928,46 @@ export default function CatalogPage() {
                                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                   />
                                 </td>
-                                <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-500 border-r border-gray-200">
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-500">
                                   {index + 1}
                                 </td>
-                                {/* Динамические ячейки свойств из requiredFields шаблона */}
-                                {(() => {
-                                  if (selectedTemplate?.requiredFields) {
-                                    try {
-                                      let requiredFields = selectedTemplate.requiredFields; // Уже парсится в API
-                                      
-                                      // Проверяем, что requiredFields является массивом
-                                      if (typeof requiredFields === 'string') {
-                                        requiredFields = JSON.parse(requiredFields);
-                                      }
-                                      
-                                      const specifications = product.properties_data ? 
-                                        (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
-                                      
-                                      
-                                      if (Array.isArray(requiredFields) && requiredFields.length > 0) {
-                                        // Исправляем кодировку полей
-                                        const fixedFields = fixFieldsEncoding(requiredFields);
-                                        
-                                        // Фильтруем поля, исключая нежелательные и пустые
-                                        const filteredFields = fixedFields.filter((field: string) => {
-                                          return field && 
-                                                 typeof field === 'string' &&
-                                                 field.trim() !== '' && 
-                                                 field !== '_' &&
-                                                 !field.includes('№') && 
-                                                 !field.includes('Domeo_Ссылка на фото двери') &&
-                                                 !field.includes('DOMEO_ССЫЛКА НА ФОТО ДВЕРИ');
-                                        });
-                                        
-                                        return filteredFields.map((field: string, fieldIndex: number) => {
-                                          // Пробуем разные варианты названий полей для поиска значения
-                                          let value = specifications[field] || '-';
-                                          
-                                          // Если значение не найдено, пробуем найти по частичному совпадению
-                                          if (value === '-') {
-                                            const keys = Object.keys(specifications);
-                                            
-                                            const matchingKey = keys.find(key => 
-                                              key.toLowerCase().includes(field.toLowerCase()) ||
-                                              field.toLowerCase().includes(key.toLowerCase())
-                                            );
-                                            
-                                            if (matchingKey) {
-                                              value = specifications[matchingKey];
-                                            }
-                                          }
-                                          
-                                          return (
-                                            <td key={fieldIndex} className="px-3 py-2 whitespace-nowrap text-sm text-gray-600 border-r border-gray-200">
-                                              <div className="max-w-xs truncate" title={String(value)}>
-                                                {value}
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                      <div className="max-w-xs truncate font-medium" title={modelName}>
+                                        {modelName}
                                               </div>
                                             </td>
-                                          );
-                                        });
-                                      }
-                                    } catch (error) {
-                                      console.error('Ошибка при отображении полей товара:', error);
-                                    }
-                                  }
-                                  
-                                  // Fallback: показываем базовые поля товаров
-                                  const properties = product.properties_data ? 
-                                    (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
-                                  // Показываем реальные свойства из properties_data
-                                  const fallbackValues = [
-                                    properties['Domeo_Название модели для Web'] || properties['Название'] || product.name || '-',
-                                    properties['Артикул поставщика'] || properties['Артикул'] || product.sku || '-',
-                                    properties['Цена ррц (включая цену полотна, короба, наличников, доборов)'] || properties['Цена'] || (product.base_price ? `${product.base_price} ₽` : '-'),
-                                    properties['Склад/заказ'] || properties['Остаток'] || product.stock_quantity || 0,
-                                    properties['Поставщик'] || properties['Бренд'] || product.brand || '-',
-                                    properties['Модель поставщика'] || properties['Модель'] || product.model || '-'
-                                  ];
-                                  
-                                  return (
-                                    <>
-                                      {fallbackValues.map((value, index) => (
-                                        <td key={index} className="px-3 py-2 whitespace-nowrap text-sm text-gray-600 border-r border-gray-200">
-                                          <div className="max-w-xs truncate" title={String(value)}>
-                                            {value}
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                      <div className="max-w-xs truncate" title={supplierSku}>
+                                        {supplierSku}
                                           </div>
                                         </td>
-                                      ))}
-                                    </>
-                                  );
-                                })()}
-                                {/* Ячейка "Есть фото" */}
-                                <td className="px-3 py-2 whitespace-nowrap text-center border-r border-gray-200">
-                                  {(() => {
-                                    const specifications = product.properties_data ? 
-                                      (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
-                                    const hasPhotos = specifications.photos && Array.isArray(specifications.photos) && specifications.photos.length > 0;
-                                    return hasPhotos ? (
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                      <div className="max-w-xs truncate" title={dimensions}>
+                                        {dimensions}
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                      <div className="max-w-xs truncate" title={priceRrc}>
+                                        {priceRrc}
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                      <div className="max-w-xs truncate" title={priceOpt}>
+                                        {priceOpt}
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                      <div className="max-w-xs truncate" title={supplier}>
+                                        {supplier}
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                      <div className="max-w-xs truncate" title={color}>
+                                        {color}
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-center">
+                                      {hasPhotos ? (
                                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                         ✅ Есть
                                       </span>
@@ -978,18 +975,15 @@ export default function CatalogPage() {
                                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                                         ❌ Нет
                                       </span>
-                                    );
-                                  })()}
+                                      )}
                                 </td>
-                                <td className="px-3 py-2 whitespace-nowrap text-center">
+                                    <td className="px-4 py-3 whitespace-nowrap text-center">
                                   <div className="flex items-center justify-center space-x-2">
                                     <Button
                                       variant="outline"
                                       size="sm"
                                       className="text-xs"
-                                      onClick={() => {
-                                        // Редактировать товар
-                                      }}
+                                          onClick={() => handleEditProduct(product)}
                                     >
                                       Редактировать
                                     </Button>
@@ -997,33 +991,43 @@ export default function CatalogPage() {
                                       variant="outline"
                                       size="sm"
                                       className="text-xs text-red-600 hover:text-red-700"
-                                      onClick={() => {
-                                        // Удалить товар
-                                      }}
+                                          onClick={() => handleDeleteProduct(product)}
                                     >
                                       Удалить
                                     </Button>
                                   </div>
                                 </td>
                               </tr>
-                            ))}
+                                );
+                              })}
                           </tbody>
                         </table>
                         </div>
                         
-                        {/* Улучшенный скроллбар */}
-                        <div className="mt-2 bg-gray-100 rounded-lg p-2">
-                          <div className="flex items-center justify-between text-xs text-gray-600">
-                            <div className="flex items-center space-x-4">
-                              <span>📊 Всего: {totalProductsCount} товаров</span>
-                              <span>👁️ Показано: {currentLoadedCount}</span>
-                              <span>📄 Страница: {Math.ceil(currentLoadedCount / itemsPerPage)} из {Math.ceil(totalProductsCount / itemsPerPage)}</span>
+                        {/* Информационная панель */}
+                        <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-6 text-sm text-blue-800">
+                              <div className="flex items-center space-x-2">
+                                <span className="font-medium">📊 Всего товаров:</span>
+                                <span className="font-bold text-blue-900">{totalProductsCount}</span>
                             </div>
                             <div className="flex items-center space-x-2">
-                              <span>Горизонтальная прокрутка:</span>
+                                <span className="font-medium">👁️ Показано:</span>
+                                <span className="font-bold text-blue-900">{currentLoadedCount}</span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <span className="font-medium">📄 Страница:</span>
+                                <span className="font-bold text-blue-900">
+                                  {Math.ceil(currentLoadedCount / itemsPerPage)} из {Math.ceil(totalProductsCount / itemsPerPage)}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm text-blue-700">Горизонтальная прокрутка:</span>
                               <div className="flex space-x-1">
                                 <button 
-                                  className="px-2 py-1 bg-white border border-gray-300 rounded text-xs hover:bg-gray-50"
+                                  className="px-3 py-1 bg-white border border-blue-300 rounded text-xs hover:bg-blue-50 text-blue-700"
                                   onClick={() => {
                                     const table = document.querySelector('.overflow-x-auto');
                                     if (table) table.scrollLeft -= 200;
@@ -1032,7 +1036,7 @@ export default function CatalogPage() {
                                   ←
                                 </button>
                                 <button 
-                                  className="px-2 py-1 bg-white border border-gray-300 rounded text-xs hover:bg-gray-50"
+                                  className="px-3 py-1 bg-white border border-blue-300 rounded text-xs hover:bg-blue-50 text-blue-700"
                                   onClick={() => {
                                     const table = document.querySelector('.overflow-x-auto');
                                     if (table) table.scrollLeft += 200;
@@ -1161,6 +1165,20 @@ export default function CatalogPage() {
           filteredProducts.find(p => p.id === id)!
         ).filter(Boolean)}
         onSave={handleBulkEdit}
+      />
+
+      {/* Диалог редактирования товара */}
+      <EditProductDialog
+        open={editProductDialogOpen}
+        onOpenChange={setEditProductDialogOpen}
+        onSubmit={handleUpdateProduct}
+        product={productToEdit}
+      />
+
+      {/* Диалог инструкций по импорту */}
+      <ImportInstructionsDialog
+        open={instructionsDialogOpen}
+        onOpenChange={setInstructionsDialogOpen}
       />
 
     </div>
@@ -1372,5 +1390,140 @@ function BulkEditDialogWrapper({
       products={products}
       onSave={onSave}
     />
+  );
+}
+
+// Диалог редактирования товара
+function EditProductDialog({ 
+  open, 
+  onOpenChange, 
+  onSubmit, 
+  product 
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (data: Partial<Product>) => void;
+  product: Product | null;
+}) {
+  const [formData, setFormData] = useState({
+    name: '',
+    sku: '',
+    base_price: 0,
+    stock_quantity: 0,
+    is_active: true,
+    sort_order: 0,
+  });
+
+  const [propertiesData, setPropertiesData] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    if (product) {
+      setFormData({
+        name: product.name || '',
+        sku: product.sku || '',
+        base_price: product.base_price || 0,
+        stock_quantity: product.stock_quantity || 0,
+        is_active: true,
+        sort_order: 0,
+      });
+
+      // Парсим свойства товара
+      const properties = product.properties_data ? 
+        (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
+      setPropertiesData(properties);
+    }
+  }, [product]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({
+      ...formData,
+      properties_data: propertiesData,
+    });
+  };
+
+  const handlePropertyChange = (key: string, value: any) => {
+    setPropertiesData(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  if (!product) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Редактировать товар: {product.name}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Основные поля */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Название</label>
+              <Input
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Название товара"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">SKU</label>
+              <Input
+                value={formData.sku}
+                onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                placeholder="Артикул товара"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Базовая цена</label>
+              <Input
+                type="number"
+                value={formData.base_price}
+                onChange={(e) => setFormData({ ...formData, base_price: parseFloat(e.target.value) || 0 })}
+                placeholder="0"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Остаток</label>
+              <Input
+                type="number"
+                value={formData.stock_quantity}
+                onChange={(e) => setFormData({ ...formData, stock_quantity: parseInt(e.target.value) || 0 })}
+                placeholder="0"
+              />
+            </div>
+          </div>
+
+          {/* Свойства товара */}
+          <div>
+            <h3 className="text-lg font-medium mb-3">Свойства товара</h3>
+            <div className="space-y-3">
+              {Object.entries(propertiesData).map(([key, value]) => (
+                <div key={key} className="flex items-center space-x-2">
+                  <label className="w-48 text-sm font-medium truncate" title={key}>
+                    {key}:
+                  </label>
+                  <Input
+                    value={String(value)}
+                    onChange={(e) => handlePropertyChange(key, e.target.value)}
+                    className="flex-1"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Отмена
+            </Button>
+            <Button type="submit">Сохранить</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { fixFieldsEncoding, validateAndFixData, fixFieldEncoding } from '@/lib/encoding-utils';
+import { fixFieldsEncoding, validateAndFixData, fixFieldEncoding, fixAllEncoding, fixJSONEncoding } from '@/lib/encoding-utils';
 import { apiErrorHandler } from '@/lib/api-error-handler';
 import { apiValidator } from '@/lib/api-validator';
 
@@ -38,12 +38,15 @@ export async function GET(req: NextRequest) {
 
     // Парсим поля шаблона с исправлением кодировки
     let requiredFields = JSON.parse(template.required_fields || '[]');
-    const calculatorFields = JSON.parse(template.calculator_fields || '[]');
-    const exportFields = JSON.parse(template.export_fields || '[]');
-    const templateConfig = JSON.parse(template.template_config || '{}');
+    let calculatorFields = JSON.parse(template.calculator_fields || '[]');
+    let exportFields = JSON.parse(template.export_fields || '[]');
+    let templateConfig = JSON.parse(template.template_config || '{}');
     
     // ИСПРАВЛЯЕМ КОДИРОВКУ - Prisma возвращает поврежденные данные
     requiredFields = fixFieldsEncoding(requiredFields);
+    calculatorFields = fixFieldsEncoding(calculatorFields);
+    exportFields = fixFieldsEncoding(exportFields);
+    templateConfig = fixAllEncoding(templateConfig);
     
     // Исправляем название и описание шаблона
     const fixedName = fixFieldEncoding(template.name);
@@ -115,7 +118,7 @@ export async function PUT(req: NextRequest) {
     };
 
     // Валидируем и исправляем данные перед сохранением
-    const validatedData = validateAndFixData({
+    const validatedData = fixAllEncoding({
       name: name || existingTemplate.name,
       description: description || existingTemplate.description,
       requiredFields: fixFieldsEncoding(requiredFields),

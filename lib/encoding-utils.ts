@@ -4,6 +4,8 @@
 
 // Маппинг поврежденных полей на правильные
 export const CORRUPTED_FIELD_MAPPINGS: Record<string, string> = {
+  'SKU Ð²Ð½Ñ\x83Ñ\x82Ñ\x80ÐµÐ½Ð½ÐµÐµ': 'SKU внутреннее',
+  'Domeo_Ð\x9DÐ°Ð·Ð²Ð°Ð½Ð¸Ðµ Ð¼Ð¾Ð´ÐµÐ»Ð¸ Ð´Ð»Ñ\x8F Web': 'Domeo_Название модели для Web',
   '??????? ??????????': 'Артикул поставщика',
   'Domeo_???????? ?????? ??? Web': 'Domeo_Название модели для Web',
   '??????/??': 'Ширина/мм',  // Первое вхождение - Ширина
@@ -34,6 +36,11 @@ export const CORRUPTED_FIELD_MAPPINGS: Record<string, string> = {
 export function fixFieldEncoding(field: string): string {
   if (typeof field !== 'string') {
     return field;
+  }
+  
+  // Сначала проверяем точные маппинги
+  if (CORRUPTED_FIELD_MAPPINGS[field]) {
+    return CORRUPTED_FIELD_MAPPINGS[field];
   }
   
   // Если поле содержит знаки вопроса, заменяем на правильные символы
@@ -147,4 +154,45 @@ export function validateAndFixData(data: any): any {
   }
   
   return data;
+}
+
+/**
+ * Исправляет кодировку во всех текстовых полях объекта
+ */
+export function fixAllEncoding(data: any): any {
+  if (typeof data === 'string') {
+    return fixFieldEncoding(data);
+  }
+  
+  if (Array.isArray(data)) {
+    return data.map(fixAllEncoding);
+  }
+  
+  if (typeof data === 'object' && data !== null) {
+    const result: any = {};
+    for (const [key, value] of Object.entries(data)) {
+      result[fixFieldEncoding(key)] = fixAllEncoding(value);
+    }
+    return result;
+  }
+  
+  return data;
+}
+
+/**
+ * Исправляет кодировку в JSON строках
+ */
+export function fixJSONEncoding(jsonString: string): string {
+  if (typeof jsonString !== 'string') {
+    return jsonString;
+  }
+  
+  try {
+    const parsed = JSON.parse(jsonString);
+    const fixed = fixAllEncoding(parsed);
+    return JSON.stringify(fixed);
+  } catch (error) {
+    console.warn('Ошибка парсинга JSON для исправления кодировки:', error);
+    return jsonString;
+  }
 }

@@ -1151,6 +1151,7 @@ export async function POST(req: NextRequest) {
       if (!hasErrors) {
         products.push({
           ...product,
+          properties_data: specifications, // Добавляем properties_data
           row_number: index + 2,
           category: category
         });
@@ -1234,7 +1235,7 @@ export async function POST(req: NextRequest) {
         const product = products[i];
         try {
           // Минимальная валидация - только проверяем что товар не пустой
-          if (!product.specifications || Object.keys(product.specifications).length === 0) {
+          if (!product.properties_data || Object.keys(product.properties_data).length === 0) {
             throw new Error('Товар не содержит данных');
           }
           
@@ -1298,8 +1299,8 @@ export async function POST(req: NextRequest) {
                 brand: product.brand || '',
                 model: product.model || '',
                 description: product.description || '',
-                specifications: JSON.stringify(product.specifications || {}),
-                properties_data: JSON.stringify(product.specifications || {}),
+                specifications: JSON.stringify(product.properties_data || {}),
+                properties_data: JSON.stringify(product.properties_data || {}),
                 is_active: true,
                 updated_at: new Date()
               }
@@ -1317,8 +1318,8 @@ export async function POST(req: NextRequest) {
                 brand: product.brand || '',
                 model: product.model || '',
                 description: product.description || '',
-                specifications: JSON.stringify(product.specifications || {}),
-                properties_data: JSON.stringify(product.specifications || {}),
+                specifications: JSON.stringify(product.properties_data || {}),
+                properties_data: JSON.stringify(product.properties_data || {}),
                 is_active: true
               }
             });

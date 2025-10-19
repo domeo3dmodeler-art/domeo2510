@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 import { useImportTemplate, useFileAnalysis } from '../../../../hooks/useImportTemplate';
 import CatalogTree from '../../../../components/admin/CatalogTree';
 import TemplateManager from '../../../../components/admin/TemplateManager';
+import TemplateEditor from '../../../../components/admin/TemplateEditor';
 
 interface ImportHistoryItem {
   id: string;
@@ -69,6 +70,10 @@ export default function CatalogImportPage() {
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [progressMessage, setProgressMessage] = useState('');
   
+  // Состояния для редактирования шаблонов
+  const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
+  const [templateToEdit, setTemplateToEdit] = useState<any>(null);
+  
   // Новые состояния для маппинга
   const [fileHeaders, setFileHeaders] = useState<any[]>([]);
   const [fieldMappings, setFieldMappings] = useState<any[]>([]);
@@ -84,7 +89,8 @@ export default function CatalogImportPage() {
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
   const [photoCategorySearchTerm, setPhotoCategorySearchTerm] = useState('');
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
-  const [photoMappingProperty, setPhotoMappingProperty] = useState<string>('Артикул поставщика');
+  const [photoMappingProperty, setPhotoMappingProperty] = useState<string>('Артикул товаров');
+  const [photoUploadType, setPhotoUploadType] = useState<'product' | 'property'>('property'); // Новое состояние
   const [existingProductProperties, setExistingProductProperties] = useState<string[]>([]);
   const [loadingProperties, setLoadingProperties] = useState(false);
   const [selectedFields, setSelectedFields] = useState<Set<string>>(new Set());
@@ -294,6 +300,7 @@ export default function CatalogImportPage() {
       
       formData.append('category', selectedPhotoCategoryId);
       formData.append('mapping_property', photoMappingProperty);
+      formData.append('upload_type', photoUploadType); // Добавляем тип загрузки
 
       console.log('Отправка фотографий...', photoFiles.length, 'файлов');
       
@@ -309,18 +316,21 @@ export default function CatalogImportPage() {
       const result = await response.json();
       console.log('Фотографии загружены:', result);
       
-      // Создаем детальный отчет
-      let reportMessage = `📸 ЗАГРУЗКА ФОТО ЗАВЕРШЕНА!\n\n`;
-      reportMessage += `📁 Загружено файлов: ${result.uploaded || 0}\n`;
-      reportMessage += `🔗 Привязано к товарам: ${result.linked || 0}\n`;
-      reportMessage += `❌ Ошибок: ${result.errors || 0}\n\n`;
+          // Создаем детальный отчет
+          let reportMessage = `📸 ЗАГРУЗКА ФОТО ЗАВЕРШЕНА!\n\n`;
+          reportMessage += `📁 Загружено файлов: ${result.uploaded || 0}\n`;
+          reportMessage += `🔗 Привязано к ${photoUploadType === 'property' ? 'свойствам' : 'товарам'}: ${result.linked || 0}\n`;
+          reportMessage += `❌ Ошибок: ${result.errors || 0}\n\n`;
+          reportMessage += `⚙️ Настройки:\n`;
+          reportMessage += `   • Привязка по: ${photoMappingProperty}\n`;
+          reportMessage += `   • Тип загрузки: ${photoUploadType === 'property' ? 'Фото свойств (property_photos)' : 'Фото товаров (properties_data)'}\n\n`;
       
       if (result.uploaded > 0) {
         reportMessage += `✅ Успешно обработано ${result.uploaded} фотографий\n`;
       }
       
       if (result.linked > 0) {
-        reportMessage += `🎯 ${result.linked} товаров получили новые фото\n`;
+        reportMessage += `🎯 ${result.linked} ${photoUploadType === 'property' ? 'свойств получили новые фото' : 'товаров получили новые фото'}\n`;
       }
       
       if (result.errors > 0) {
@@ -403,6 +413,28 @@ export default function CatalogImportPage() {
     } else if (activeTab === 'photos') {
       return renderPhotoStepContent();
     } else if (activeTab === 'templates') {
+      // Если редактируем шаблон
+      if (editingTemplate) {
+        return (
+          <TemplateEditor
+            templateId={editingTemplate}
+            catalogCategoryId={selectedCatalogCategoryId}
+            onSave={(template) => {
+              setTemplateToEdit(template);
+              setEditingTemplate(null);
+              // Обновляем шаблон в состоянии
+              if (template) {
+                setTemplate(template);
+              }
+            }}
+            onCancel={() => {
+              setEditingTemplate(null);
+              setTemplateToEdit(null);
+            }}
+          />
+        );
+      }
+
       return (
         <div className="space-y-6">
           <div className="bg-gray-50 p-4 rounded-lg">
@@ -411,14 +443,105 @@ export default function CatalogImportPage() {
               Создание, редактирование и управление шаблонами импорта для различных категорий
             </p>
           </div>
-          
-          <div className="text-center py-8">
-            <div className="text-4xl mb-4">📋</div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Функция в разработке</h3>
-            <p className="text-gray-600">
-              Управление шаблонами будет доступно в следующих версиях
-            </p>
+
+          {/* Выбор категории */}
+          <div className="bg-white p-4 rounded-lg border">
+            <h5 className="font-medium text-gray-900 mb-3">Выберите категорию</h5>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {catalogCategories.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => setSelectedCatalogCategoryId(category.id)}
+                  className={`p-3 text-left rounded-lg border transition-colors ${
+                    selectedCatalogCategoryId === category.id
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="font-medium">{category.displayName}</div>
+                  <div className="text-sm text-gray-500">
+                    {category.product_count} товаров
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
+
+          {/* Управление шаблоном */}
+          {selectedCatalogCategoryId && (
+            <div className="bg-white p-4 rounded-lg border">
+              <div className="flex items-center justify-between mb-4">
+                <h5 className="font-medium text-gray-900">
+                  Шаблон для категории: {catalogCategories.find(c => c.id === selectedCatalogCategoryId)?.displayName}
+                </h5>
+                <div className="flex space-x-2">
+                  <TemplateManager 
+                    catalogCategoryId={selectedCatalogCategoryId}
+                    catalogCategoryName={catalogCategories.find(c => c.id === selectedCatalogCategoryId)?.displayName}
+                  />
+                  <Button
+                    onClick={() => setEditingTemplate('edit')}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    Редактировать
+                  </Button>
+                </div>
+              </div>
+
+              {/* Информация о шаблоне */}
+              {template && (
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <div className="text-sm font-medium text-gray-700">Обязательные поля</div>
+                      <div className="text-lg font-semibold text-gray-900">
+                        {template.requiredFields?.length || 0}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-gray-700">Поля для калькулятора</div>
+                      <div className="text-lg font-semibold text-gray-900">
+                        {template.calculatorFields?.length || 0}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-gray-700">Поля для экспорта</div>
+                      <div className="text-lg font-semibold text-gray-900">
+                        {template.exportFields?.length || 0}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Список полей */}
+                  {template.requiredFields && template.requiredFields.length > 0 && (
+                    <div className="mt-4">
+                      <div className="text-sm font-medium text-gray-700 mb-2">Поля шаблона:</div>
+                      <div className="flex flex-wrap gap-2">
+                        {template.requiredFields.map((field: string, index: number) => (
+                          <span
+                            key={index}
+                            className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
+                          >
+                            {field}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!template && (
+                <div className="text-center py-8 text-gray-500">
+                  <Settings className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p>Шаблон не найден</p>
+                  <p className="text-sm">Создайте шаблон для этой категории</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       );
     }
@@ -615,16 +738,54 @@ export default function CatalogImportPage() {
               </p>
             </div>
 
-            {/* Здесь будет логика импорта */}
+            {/* Логика импорта товаров */}
             <div className="text-center py-8">
               <Button
-                onClick={() => {
-                  setCompletedSteps(prev => [...prev, 'import']);
-                  setCurrentStep('complete');
+                onClick={async () => {
+                  if (!priceListData || !selectedCatalogCategoryId) {
+                    alert('Не выбрана категория или нет данных для импорта');
+                    return;
+                  }
+                  
+                  try {
+                    setIsProcessing(true);
+                    
+                    // Создаем CSV из данных
+                    const csvContent = createCSVFromPriceListData(priceListData.rows, priceListData.headers);
+                    
+                     // Отправляем на импорт через унифицированный API
+                     const formData = new FormData();
+                     formData.append('file', new Blob([csvContent], { type: 'text/csv' }), 'import.csv');
+                     formData.append('category', selectedCatalogCategoryId);
+                     formData.append('mode', 'import');
+                     
+                     const response = await fetch('/api/admin/import/unified', {
+                       method: 'POST',
+                       body: formData
+                     });
+                    
+                    if (!response.ok) {
+                      throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    console.log('Результат импорта:', result);
+                    
+                    alert(`Импорт завершен! Загружено: ${result.imported || 0} товаров`);
+                    
+                    setCompletedSteps(prev => [...prev, 'import']);
+                    setCurrentStep('complete');
+                  } catch (error) {
+                    console.error('Ошибка импорта:', error);
+                    alert('Ошибка при импорте товаров: ' + (error as Error).message);
+                  } finally {
+                    setIsProcessing(false);
+                  }
                 }}
                 className="bg-black hover:bg-gray-800"
+                disabled={isProcessing}
               >
-                Загрузить товары
+                {isProcessing ? 'Загрузка...' : 'Загрузить товары'}
                 <Upload className="w-4 h-4 ml-2" />
               </Button>
             </div>
@@ -749,7 +910,7 @@ export default function CatalogImportPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Свойство для привязки фото
+                  Свойство для привязки фото к товарам
                 </label>
                 <select
                   value={photoMappingProperty}
@@ -764,6 +925,41 @@ export default function CatalogImportPage() {
                 <p className="text-xs text-gray-500 mt-1">
                   Название файла должно совпадать со значением выбранного свойства
                 </p>
+              </div>
+
+              {/* Выбор типа загрузки */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Тип загрузки фото
+                </label>
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      value="property"
+                      checked={photoUploadType === 'property'}
+                      onChange={(e) => setPhotoUploadType(e.target.value as 'product' | 'property')}
+                      className="mr-2"
+                    />
+                    <div>
+                      <div className="font-medium">Фото свойств товаров (property_photos)</div>
+                      <div className="text-xs text-gray-500">Одно фото для всех товаров с одинаковым значением свойства</div>
+                    </div>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      value="product"
+                      checked={photoUploadType === 'product'}
+                      onChange={(e) => setPhotoUploadType(e.target.value as 'product' | 'property')}
+                      className="mr-2"
+                    />
+                    <div>
+                      <div className="font-medium">Фото товаров (properties_data)</div>
+                      <div className="text-xs text-gray-500">Индивидуальные фото для каждого товара</div>
+                    </div>
+                  </label>
+                </div>
               </div>
 
               {/* Кнопка продолжения */}
@@ -790,7 +986,7 @@ export default function CatalogImportPage() {
             <div className="bg-gray-50 p-4 rounded-lg">
               <h4 className="font-medium text-gray-900 mb-2">Загрузка фотографий</h4>
               <p className="text-gray-700 text-sm">
-                Загрузите фотографии товаров и настройте их привязку по {photoMappingProperty}
+                Загрузите фотографии товаров. Фото будут привязаны по свойству "{photoMappingProperty}" и сохранены в {photoUploadType === 'property' ? 'архитектуру property_photos' : 'свойства товаров'}
               </p>
             </div>
 
@@ -817,6 +1013,9 @@ export default function CatalogImportPage() {
                 </div>
                 <div className="text-sm text-gray-500">
                   Поддерживаются форматы: JPG, PNG, GIF, WebP
+                </div>
+                <div className="text-xs text-gray-400 mt-2">
+                  Примеры имен: d5.png, d5_1.png, d5_2.png (где d5 - значение свойства "{photoMappingProperty}")
                 </div>
               </label>
             </div>
