@@ -926,7 +926,7 @@ export default function DoorsPage() {
         modelsSample: models?.slice(0, 3).map(m => ({ model: m.model, modelKey: m.modelKey, photo: m.photo }))
       });
       
-      const found = Array.isArray(models) ? models.find((m) => (m.modelKey || m.model) === sel.model) || null : null;
+      const found = Array.isArray(models) ? models.find((m) => m.model === sel.model) || null : null;
       console.log('🔍 selectedModelCard result:', { 
         selModel: sel.model, 
         modelsCount: models?.length, 
@@ -1908,10 +1908,10 @@ export default function DoorsPage() {
                       <DoorCard
                         key={m.model}
                         item={m}
-                        selected={sel.model === m.modelKey}
+                        selected={sel.model === m.model}
                           onSelect={() => setSel((v) => {
                             const newSel = resetDependentParams(v, 'model');
-                            newSel.model = m.modelKey || m.model; // Используем modelKey для поиска, но сохраняем название для отображения
+                            newSel.model = m.model; // Используем полное название модели
                             newSel.style = m.style;
                             return newSel;
                           })}

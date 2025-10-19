@@ -36,7 +36,9 @@ export async function GET(req: NextRequest) {
 
       // Применяем фильтры по порядку
       if (style && properties['Domeo_Стиль Web'] !== style) return false;
-      if (model && properties['Артикул поставщика'] !== model) return false;
+      
+      // Ищем по полному названию модели (как в калькуляторе)
+      if (model && properties['Domeo_Название модели для Web'] !== model) return false;
       if (finish && properties['Тип покрытия'] !== finish) return false;
       if (color && properties['Domeo_Цвет'] !== color) return false;
       if (type && properties['Тип конструкции'] !== type) return false;
@@ -69,6 +71,17 @@ export async function GET(req: NextRequest) {
     });
 
     console.log(`📦 Отфильтровано товаров: ${filteredProducts.length} из ${products.length}`);
+    
+    // Отладочная информация
+    if (filteredProducts.length === 0 && model) {
+      console.log('🔍 Отладка: проверяем соответствие модели');
+      const sampleProducts = products.slice(0, 5);
+      sampleProducts.forEach((product, index) => {
+        const properties = product.properties_data ?
+          (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
+        console.log(`   Товар ${index + 1}: модель="${properties['Domeo_Название модели для Web']}", стиль="${properties['Domeo_Стиль Web']}"`);
+      });
+    }
 
     // Собираем доступные опции для следующего уровня
     const availableOptions = {

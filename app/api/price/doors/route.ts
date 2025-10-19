@@ -120,7 +120,9 @@ export async function POST(req: NextRequest) {
 
       // Сначала ищем по стилю и модели
       const styleMatch = !selection.style || properties['Domeo_Стиль Web'] === selection.style;
-      const modelMatch = !selection.model || properties['Артикул поставщика'] === selection.model;
+      
+      // Ищем по полному названию модели (как в калькуляторе)
+      const modelMatch = !selection.model || properties['Domeo_Название модели для Web'] === selection.model;
       
       if (!styleMatch || !modelMatch) {
         return false;
@@ -142,6 +144,9 @@ export async function POST(req: NextRequest) {
         typeMatch,
         widthMatch,
         heightMatch,
+        requestedModel: selection.model,
+        actualModelName: properties['Domeo_Название модели для Web'],
+        actualSupplierSku: properties['Артикул поставщика'],
         requestedFinish: selection.finish,
         actualFinish: properties['Тип покрытия'],
         requestedColor: selection.color,
