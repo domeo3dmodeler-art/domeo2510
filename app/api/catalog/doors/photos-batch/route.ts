@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from '@prisma/client';
+import { getPropertyPhotos, structurePropertyPhotos } from '@/lib/property-photos';
 
 const prisma = new PrismaClient();
 
@@ -63,45 +64,36 @@ export async function POST(req: NextRequest) {
       });
 
       // Получаем фотографии из PropertyPhoto для каждой модели
-      const photosByModel = new Map<string, any[]>();
+      const photosByModel = new Map<string, any>();
       
       for (const [modelName, supplierSku] of modelToSupplierSku.entries()) {
         // Получаем фотографии для этой модели из PropertyPhoto
-        const propertyPhotos = await prisma.propertyPhoto.findMany({
-          where: {
-            categoryId: 'cmg50xcgs001cv7mn0tdyk1wo', // ID категории "Межкомнатные двери"
-            propertyName: 'Артикул поставщика',
-            propertyValue: supplierSku
-          },
-          orderBy: {
-            photoType: 'asc'
-          }
-        });
+        const propertyPhotos = await getPropertyPhotos(
+          'cmg50xcgs001cv7mn0tdyk1wo', // ID категории "Межкомнатные двери"
+          'Артикул поставщика',
+          supplierSku
+        );
 
-        if (propertyPhotos.length > 0) {
-          photosByModel.set(modelName, propertyPhotos.map(photo => ({
-            photoType: photo.photoType,
-            photoPath: photo.photoPath,
-            propertyValue: supplierSku
-          })));
-        } else {
-          // Если фото не найдены, добавляем пустой массив
-          photosByModel.set(modelName, []);
-        }
+        // Структурируем фотографии в обложку и галерею
+        const photoStructure = structurePropertyPhotos(propertyPhotos);
+        
+        photosByModel.set(modelName, {
+          modelKey: supplierSku,
+          photo: photoStructure.cover,
+          photos: photoStructure,
+          hasGallery: photoStructure.gallery.length > 0
+        });
       }
 
       // Формируем результаты и сохраняем в кэш
       for (const model of uncachedModels) {
-        const photos = photosByModel.get(model) || [];
+        const modelData = photosByModel.get(model);
         const result = {
           model,
-          modelKey: photos[0]?.propertyValue || '',
-          photo: photos[0]?.photoPath || null,
-          photos: {
-            cover: photos[0]?.photoPath || null,
-            gallery: photos.slice(1).map(p => p.photoPath)
-          },
-          hasGallery: photos.length > 1
+          modelKey: modelData?.modelKey || '',
+          photo: modelData?.photo || null,
+          photos: modelData?.photos || { cover: null, gallery: [] },
+          hasGallery: modelData?.hasGallery || false
         };
         
         results[model] = result;
