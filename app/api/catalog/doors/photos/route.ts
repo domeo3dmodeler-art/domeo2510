@@ -72,9 +72,6 @@ export async function GET(req: NextRequest) {
         where: {
           catalog_category: {
             name: "Межкомнатные двери"
-          },
-          properties_data: {
-            isNot: null
           }
         },
         select: {
