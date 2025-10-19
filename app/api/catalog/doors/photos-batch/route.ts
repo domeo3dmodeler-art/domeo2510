@@ -36,14 +36,11 @@ export async function POST(req: NextRequest) {
 
     // Загружаем только не кэшированные модели
     if (uncachedModels.length > 0) {
+      // Получаем все товары и фильтруем в коде, так как Prisma не поддерживает path для JSON
       const products = await prisma.product.findMany({
         where: {
           catalog_category: {
             name: "Межкомнатные двери"
-          },
-          properties_data: {
-            path: ['Domeo_Название модели для Web'],
-            in: uncachedModels
           }
         },
         select: {
@@ -61,7 +58,8 @@ export async function POST(req: NextRequest) {
         const modelName = properties['Domeo_Название модели для Web'];
         const supplierSku = properties['Артикул поставщика'];
         
-        if (modelName && supplierSku) {
+        // Фильтруем только нужные модели
+        if (modelName && supplierSku && uncachedModels.includes(modelName)) {
           if (!photosByModel.has(modelName)) {
             photosByModel.set(modelName, []);
           }
