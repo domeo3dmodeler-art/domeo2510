@@ -64,12 +64,30 @@ export async function POST(req: NextRequest) {
             photosByModel.set(modelName, []);
           }
           
-          // Добавляем информацию о фото
-          photosByModel.get(modelName)!.push({
-            photoType: 'cover',
-            photoPath: `/uploads/products/cmg50xcgs001cv7mn0tdyk1wo/1760819074001_0ws9nv_${supplierSku}.png`, // Примерный путь
-            propertyValue: supplierSku
-          });
+          // Ищем фотографии в properties_data
+          const photoKeys = Object.keys(properties).filter(key => 
+            key.includes('фото') || key.includes('photo') || key.includes('изображение')
+          );
+          
+          if (photoKeys.length > 0) {
+            photoKeys.forEach(photoKey => {
+              const photoPath = properties[photoKey];
+              if (photoPath && typeof photoPath === 'string' && photoPath.startsWith('/uploads/')) {
+                photosByModel.get(modelName)!.push({
+                  photoType: photoKey.includes('обложка') || photoKey.includes('cover') ? 'cover' : 'gallery',
+                  photoPath: photoPath,
+                  propertyValue: supplierSku
+                });
+              }
+            });
+          } else {
+            // Если фото не найдены, добавляем заглушку
+            photosByModel.get(modelName)!.push({
+              photoType: 'cover',
+              photoPath: null, // Нет фото
+              propertyValue: supplierSku
+            });
+          }
         }
       });
 
