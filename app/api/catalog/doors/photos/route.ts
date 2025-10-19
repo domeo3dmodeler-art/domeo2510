@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
             name: "Межкомнатные двери"
           },
           properties_data: {
-            not: null
+            isNot: null
           }
         },
         select: {
