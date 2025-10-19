@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     // Загружаем только не кэшированные модели
     if (uncachedModels.length > 0) {
-      // Получаем все товары и фильтруем в коде, так как Prisma не поддерживает path для JSON
+      // Получаем все товары для определения артикулов поставщика для каждой модели
       const products = await prisma.product.findMany({
         where: {
           catalog_category: {
@@ -48,9 +48,8 @@ export async function POST(req: NextRequest) {
         }
       });
 
-      // Группируем фото по моделям
-      const photosByModel = new Map<string, any[]>();
-      
+      // Создаем мапу модель -> артикул поставщика
+      const modelToSupplierSku = new Map<string, string>();
       products.forEach(product => {
         const properties = product.properties_data ?
           (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
@@ -58,38 +57,38 @@ export async function POST(req: NextRequest) {
         const modelName = properties['Domeo_Название модели для Web'];
         const supplierSku = properties['Артикул поставщика'];
         
-        // Фильтруем только нужные модели
         if (modelName && supplierSku && uncachedModels.includes(modelName)) {
-          if (!photosByModel.has(modelName)) {
-            photosByModel.set(modelName, []);
-          }
-          
-          // Ищем фотографии в properties_data
-          const photoKeys = Object.keys(properties).filter(key => 
-            key.includes('фото') || key.includes('photo') || key.includes('изображение')
-          );
-          
-          if (photoKeys.length > 0) {
-            photoKeys.forEach(photoKey => {
-              const photoPath = properties[photoKey];
-              if (photoPath && typeof photoPath === 'string' && photoPath.startsWith('/uploads/')) {
-                photosByModel.get(modelName)!.push({
-                  photoType: photoKey.includes('обложка') || photoKey.includes('cover') ? 'cover' : 'gallery',
-                  photoPath: photoPath,
-                  propertyValue: supplierSku
-                });
-              }
-            });
-          } else {
-            // Если фото не найдены, добавляем заглушку
-            photosByModel.get(modelName)!.push({
-              photoType: 'cover',
-              photoPath: null, // Нет фото
-              propertyValue: supplierSku
-            });
-          }
+          modelToSupplierSku.set(modelName, supplierSku);
         }
       });
+
+      // Получаем фотографии из PropertyPhoto для каждой модели
+      const photosByModel = new Map<string, any[]>();
+      
+      for (const [modelName, supplierSku] of modelToSupplierSku.entries()) {
+        // Получаем фотографии для этой модели из PropertyPhoto
+        const propertyPhotos = await prisma.propertyPhoto.findMany({
+          where: {
+            categoryId: 'cmg50xcgs001cv7mn0tdyk1wo', // ID категории "Межкомнатные двери"
+            propertyName: 'Артикул поставщика',
+            propertyValue: supplierSku
+          },
+          orderBy: {
+            photoType: 'asc'
+          }
+        });
+
+        if (propertyPhotos.length > 0) {
+          photosByModel.set(modelName, propertyPhotos.map(photo => ({
+            photoType: photo.photoType,
+            photoPath: photo.photoPath,
+            propertyValue: supplierSku
+          })));
+        } else {
+          // Если фото не найдены, добавляем пустой массив
+          photosByModel.set(modelName, []);
+        }
+      }
 
       // Формируем результаты и сохраняем в кэш
       for (const model of uncachedModels) {
