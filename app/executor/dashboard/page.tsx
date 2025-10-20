@@ -926,16 +926,19 @@ export default function ExecutorDashboard() {
                 </div>
               </div>
               <div className="flex justify-end space-x-3 mt-6">
-                <Button
+                <button
                   type="button"
-                  variant="outline"
+                  className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                   onClick={() => setShowCreateModal(false)}
                 >
                   Отмена
-                </Button>
-                <Button type="submit">
+                </button>
+                <button 
+                  type="submit"
+                  className="px-4 py-2 text-sm bg-black text-white rounded-md hover:bg-gray-800 transition-colors"
+                >
                   Создать
-                </Button>
+                </button>
               </div>
             </form>
           </div>
