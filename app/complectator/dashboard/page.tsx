@@ -16,7 +16,10 @@ import {
   BadgeCheck,
   ShoppingCart,
   Package,
-  Plus
+  Plus,
+  MoreVertical,
+  FileText as FileTextIcon,
+  Receipt
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import DocumentWorkflowIntegration from '../../components/documents/DocumentWorkflowIntegration';
@@ -63,11 +66,29 @@ export default function ComplectatorDashboard() {
     address: '',
     objectId: ''
   });
+  
+  // Состояния для меню действий документов
+  const [showQuoteActions, setShowQuoteActions] = useState<string | null>(null);
+  const [showInvoiceActions, setShowInvoiceActions] = useState<string | null>(null);
   const [statusDropdown, setStatusDropdown] = useState<{type: 'quote'|'invoice', id: string, x: number, y: number} | null>(null);
 
   useEffect(() => {
     fetchStats();
     fetchClients();
+  }, []);
+
+  // Закрытие меню действий при клике вне
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-actions-menu]') && !target.closest('button[class*="MoreVertical"]')) {
+        setShowQuoteActions(null);
+        setShowInvoiceActions(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   // Закрытие выпадающего меню при клике вне его
@@ -242,6 +263,150 @@ export default function ComplectatorDashboard() {
     }
     // invoice
     return doc.status === 'Исполнен' || doc.status === 'Отменен';
+  };
+
+  // Функции для меню действий документов
+  const toggleQuoteActions = (quoteId: string) => {
+    setShowQuoteActions(showQuoteActions === quoteId ? null : quoteId);
+    setShowInvoiceActions(null); // Закрываем другое меню
+  };
+
+  const toggleInvoiceActions = (invoiceId: string) => {
+    setShowInvoiceActions(showInvoiceActions === invoiceId ? null : invoiceId);
+    setShowQuoteActions(null); // Закрываем другое меню
+  };
+
+  const handleQuoteAction = async (action: string, quoteId: string) => {
+    console.log(`🎯 Quote action: ${action} for quote ${quoteId}`);
+    
+    try {
+      if (action === 'regenerate') {
+        // Получаем данные корзины из КП
+        const response = await fetch(`/api/documents/${quoteId}/cart-data?type=quote`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.cartData) {
+            // Восстанавливаем корзину и генерируем новый КП
+            await regenerateDocument('quote', quoteId, data.cartData);
+          } else {
+            alert('Нет данных корзины для перегенерации');
+          }
+        } else {
+          alert('Ошибка при получении данных корзины');
+        }
+      } else if (action === 'create_invoice') {
+        // Создаем счет на основе КП
+        await createInvoiceFromQuote(quoteId);
+      }
+    } catch (error) {
+      console.error('Error handling quote action:', error);
+      alert('Ошибка при выполнении действия');
+    }
+    
+    setShowQuoteActions(null);
+  };
+
+  const handleInvoiceAction = async (action: string, invoiceId: string) => {
+    console.log(`🎯 Invoice action: ${action} for invoice ${invoiceId}`);
+    
+    try {
+      if (action === 'regenerate') {
+        // Получаем данные корзины из Счета
+        const response = await fetch(`/api/documents/${invoiceId}/cart-data?type=invoice`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.cartData) {
+            // Восстанавливаем корзину и генерируем новый Счет
+            await regenerateDocument('invoice', invoiceId, data.cartData);
+          } else {
+            alert('Нет данных корзины для перегенерации');
+          }
+        } else {
+          alert('Ошибка при получении данных корзины');
+        }
+      }
+    } catch (error) {
+      console.error('Error handling invoice action:', error);
+      alert('Ошибка при выполнении действия');
+    }
+    
+    setShowInvoiceActions(null);
+  };
+
+  const regenerateDocument = async (type: string, documentId: string, cartData: any) => {
+    try {
+      console.log(`🔄 Regenerating ${type} document:`, { documentId, cartData });
+      
+      // Генерируем новый документ с теми же данными
+      const response = await fetch('/api/export/fast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: type,
+          format: 'pdf',
+          clientId: cartData.clientId,
+          items: cartData.items,
+          totalAmount: cartData.totalAmount
+        })
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${type === 'quote' ? 'КП' : 'Счет'}-${Date.now()}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        alert(`${type === 'quote' ? 'КП' : 'Счет'} успешно перегенерирован!`);
+        
+        // Обновляем данные клиента
+        if (selectedClient) {
+          fetchClientDocuments(selectedClient);
+        }
+      } else {
+        alert('Ошибка при перегенерации документа');
+      }
+    } catch (error) {
+      console.error('Error regenerating document:', error);
+      alert('Ошибка при перегенерации документа');
+    }
+  };
+
+  const createInvoiceFromQuote = async (quoteId: string) => {
+    try {
+      console.log(`📄 Creating invoice from quote: ${quoteId}`);
+      
+      const response = await fetch('/api/documents/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sourceDocumentId: quoteId,
+          sourceDocumentType: 'quote',
+          targetDocumentType: 'invoice'
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Invoice created:', result);
+        alert('Счет успешно создан на основе КП!');
+        
+        // Обновляем данные клиента
+        if (selectedClient) {
+          fetchClientDocuments(selectedClient);
+        }
+      } else {
+        const error = await response.json();
+        alert(`Ошибка: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error creating invoice from quote:', error);
+      alert('Ошибка при создании счета');
+    }
   };
 
   // Создание нового клиента
@@ -615,8 +780,49 @@ export default function ComplectatorDashboard() {
                                 </button>
                               </div>
                             </div>
-                            <div className="text-right ml-4">
-                              <div className="font-semibold text-black">{q.total.toLocaleString('ru-RU')} ₽</div>
+                            <div className="flex items-center space-x-3">
+                              <div className="text-right">
+                                <div className="font-semibold text-black">{q.total.toLocaleString('ru-RU')} ₽</div>
+                              </div>
+                              <div className="relative">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleQuoteActions(q.id);
+                                  }}
+                                  className="p-1 hover:bg-gray-100 rounded"
+                                >
+                                  <MoreVertical className="h-4 w-4 text-gray-600" />
+                                </button>
+                                
+                                {showQuoteActions === q.id && (
+                                  <div 
+                                    className="absolute right-0 top-8 bg-white border border-gray-300 rounded-lg shadow-lg py-1 z-50 min-w-[180px]"
+                                    data-actions-menu
+                                  >
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleQuoteAction('regenerate', q.id);
+                                      }}
+                                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center"
+                                    >
+                                      <FileTextIcon className="h-4 w-4 mr-2" />
+                                      Перегенерировать КП
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleQuoteAction('create_invoice', q.id);
+                                      }}
+                                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center"
+                                    >
+                                      <Receipt className="h-4 w-4 mr-2" />
+                                      Создать счет
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                           <div className="mt-2 flex items-center justify-between">
@@ -624,8 +830,8 @@ export default function ComplectatorDashboard() {
                               <button className="hover:text-black flex items-center"><StickyNote className="h-3.5 w-3.5 mr-1"/>Комментарии</button>
                               <button className="hover:text-black flex items-center"><History className="h-3.5 w-3.5 mr-1"/>История</button>
                             </div>
-            </div>
-          </div>
+                          </div>
+                        </div>
                       ))}
                       {quotes.filter(q => quotesFilter==='all' || q.status===quotesFilter).length===0 && (
                         <div className="text-sm text-gray-500">Нет КП по выбранному фильтру</div>
@@ -647,7 +853,7 @@ export default function ComplectatorDashboard() {
                     <div className="space-y-2">
                       {invoices.filter(i => invoicesFilter==='all' || i.status===invoicesFilter).map(i => (
                         <div key={i.id} className="border border-gray-200 p-3 hover:border-black transition-colors">
-              <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between">
                             <div className="flex-1">
                               <div className="flex items-center space-x-3">
                                 <div className="font-medium text-black">{i.number}</div>
@@ -660,8 +866,39 @@ export default function ComplectatorDashboard() {
                                 </button>
                               </div>
                             </div>
-                            <div className="text-right ml-4">
-                              <div className="font-semibold text-black">{i.total.toLocaleString('ru-RU')} ₽</div>
+                            <div className="flex items-center space-x-3">
+                              <div className="text-right">
+                                <div className="font-semibold text-black">{i.total.toLocaleString('ru-RU')} ₽</div>
+                              </div>
+                              <div className="relative">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleInvoiceActions(i.id);
+                                  }}
+                                  className="p-1 hover:bg-gray-100 rounded"
+                                >
+                                  <MoreVertical className="h-4 w-4 text-gray-600" />
+                                </button>
+                                
+                                {showInvoiceActions === i.id && (
+                                  <div 
+                                    className="absolute right-0 top-8 bg-white border border-gray-300 rounded-lg shadow-lg py-1 z-50 min-w-[180px]"
+                                    data-actions-menu
+                                  >
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleInvoiceAction('regenerate', i.id);
+                                      }}
+                                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center"
+                                    >
+                                      <Receipt className="h-4 w-4 mr-2" />
+                                      Перегенерировать счет
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                           <div className="mt-2 flex items-center justify-between">
@@ -670,7 +907,7 @@ export default function ComplectatorDashboard() {
                               <button className="hover:text-black flex items-center"><History className="h-3.5 w-3.5 mr-1"/>История</button>
                             </div>
                           </div>
-                </div>
+                        </div>
                       ))}
                       {invoices.filter(i => invoicesFilter==='all' || i.status===invoicesFilter).length===0 && (
                         <div className="text-sm text-gray-500">Нет счетов по выбранному фильтру</div>

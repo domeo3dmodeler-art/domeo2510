@@ -404,19 +404,81 @@ export default function ExecutorDashboard() {
   }, []);
 
   // Обработка действий над счетами
-  const handleInvoiceAction = (invoiceId: string, action: 'create_invoice' | 'create_supplier_order') => {
+  const handleInvoiceAction = async (invoiceId: string, action: 'create_invoice' | 'create_supplier_order' | 'regenerate') => {
     console.log('Invoice action:', { invoiceId, action });
     
-    if (action === 'create_invoice') {
-      // Создание нового счета на основе существующего
-      alert('Создание счета на основе существующего - функция в разработке');
-    } else if (action === 'create_supplier_order') {
-      // Создание заказа у поставщика на основе счета
-      createSupplierOrderFromInvoice(invoiceId);
+    try {
+      if (action === 'regenerate') {
+        // Получаем данные корзины из Счета
+        const response = await fetch(`/api/documents/${invoiceId}/cart-data?type=invoice`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.cartData) {
+            // Восстанавливаем корзину и генерируем новый Счет
+            await regenerateDocument('invoice', invoiceId, data.cartData);
+          } else {
+            alert('Нет данных корзины для перегенерации');
+          }
+        } else {
+          alert('Ошибка при получении данных корзины');
+        }
+      } else if (action === 'create_invoice') {
+        // Создание нового счета на основе существующего
+        alert('Создание счета на основе существующего - функция в разработке');
+      } else if (action === 'create_supplier_order') {
+        // Создание заказа у поставщика на основе счета
+        createSupplierOrderFromInvoice(invoiceId);
+      }
+    } catch (error) {
+      console.error('Error handling invoice action:', error);
+      alert('Ошибка при выполнении действия');
     }
     
     // Закрываем меню
     setShowInvoiceActions(prev => ({ ...prev, [invoiceId]: false }));
+  };
+
+  const regenerateDocument = async (type: string, documentId: string, cartData: any) => {
+    try {
+      console.log(`🔄 Regenerating ${type} document:`, { documentId, cartData });
+      
+      // Генерируем новый документ с теми же данными
+      const response = await fetch('/api/export/fast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: type,
+          format: 'pdf',
+          clientId: cartData.clientId,
+          items: cartData.items,
+          totalAmount: cartData.totalAmount
+        })
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${type === 'invoice' ? 'Счет' : 'Заказ'}-${Date.now()}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        alert(`${type === 'invoice' ? 'Счет' : 'Заказ'} успешно перегенерирован!`);
+        
+        // Обновляем данные клиента
+        if (selectedClient) {
+          fetchClientDocuments(selectedClient);
+        }
+      } else {
+        alert('Ошибка при перегенерации документа');
+      }
+    } catch (error) {
+      console.error('Error regenerating document:', error);
+      alert('Ошибка при перегенерации документа');
+    }
   };
 
   const createSupplierOrderFromInvoice = async (invoiceId: string) => {
@@ -710,6 +772,13 @@ export default function ExecutorDashboard() {
                                             <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[200px]">
                                               <div className="py-1">
                                                 <button
+                                                  onClick={() => handleInvoiceAction(invoice.id, 'regenerate')}
+                                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                                >
+                                                  <FileText className="h-4 w-4" />
+                                                  <span>Перегенерировать счет</span>
+                                                </button>
+                                                <button
                                                   onClick={() => handleInvoiceAction(invoice.id, 'create_invoice')}
                                                   className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
                                                 >
@@ -723,8 +792,8 @@ export default function ExecutorDashboard() {
                                                   <Factory className="h-4 w-4" />
                                                   <span>Заказ у поставщика</span>
                                                 </button>
-          </div>
-        </div>
+                                              </div>
+                                            </div>
                                           )}
                                         </div>
                                       </div>
