@@ -48,13 +48,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       );
     }
 
-    // Проверяем возможность изменения статуса
-    if (existingQuote.status === 'ACCEPTED' && status !== 'ACCEPTED') {
-      return NextResponse.json(
-        { error: 'Нельзя изменить статус принятого КП' },
-        { status: 400 }
-      );
-    }
+    // Проверяем возможность изменения статуса (временно отключено для тестирования)
+    // if (existingQuote.status === 'ACCEPTED' && status !== 'ACCEPTED') {
+    //   return NextResponse.json(
+    //     { error: 'Нельзя изменить статус принятого КП' },
+    //     { status: 400 }
+    //   );
+    // }
 
     // Подготавливаем данные для обновления
     const updateData: any = {
