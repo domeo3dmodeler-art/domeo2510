@@ -17,6 +17,10 @@ export async function GET(
         invoices: {
           orderBy: { created_at: 'desc' },
           take: 5
+        },
+        orders: {
+          orderBy: { created_at: 'desc' },
+          take: 5
         }
       }
     });

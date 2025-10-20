@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '../../components/layout/AdminLayout';
 import ComplectatorDashboard from '../complectator/dashboard/page';
+import ExecutorDashboard from '../executor/dashboard/page';
 import { Card, Button } from '../../components/ui';
 import { ClientAuthGuard } from '../../components/auth/ClientAuthGuard';
 
@@ -280,7 +281,8 @@ function DashboardContent() {
 
         {/* Main Content */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <ComplectatorDashboard />
+          {user?.role === 'complectator' && <ComplectatorDashboard />}
+          {user?.role === 'executor' && <ExecutorDashboard />}
         </main>
       </div>
     );
