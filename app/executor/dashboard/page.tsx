@@ -480,34 +480,6 @@ export default function ExecutorDashboard() {
     }));
   };
 
-  // Создание клиента
-  const createClient = async (clientData: any) => {
-    try {
-      console.log('🔄 Creating client:', clientData);
-      const response = await fetch('/api/clients', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(clientData)
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        console.log('✅ Client created:', result);
-        setShowCreateModal(false);
-        fetchClients(); // Обновляем список клиентов
-        return result.client;
-      } else {
-        const errorData = await response.json();
-        console.error('❌ Failed to create client:', errorData);
-        throw new Error(errorData.error || 'Ошибка при создании клиента');
-      }
-    } catch (error) {
-      console.error('❌ Error creating client:', error);
-      alert(`Ошибка при создании клиента: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
-      throw error;
-    }
-  };
-
   // Фильтрация клиентов
   const filteredClients = clients.filter(client => {
     const matchesSearch = !search || 
@@ -583,7 +555,7 @@ export default function ExecutorDashboard() {
                       В работе
                     </button>
                   </div>
-                </div>
+      </div>
 
                 {/* Поиск */}
                 <div className="relative mb-4">
@@ -594,8 +566,8 @@ export default function ExecutorDashboard() {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
+          />
+        </div>
 
                 {/* Список клиентов */}
                 <div className="space-y-2 max-h-96 overflow-y-auto">
@@ -623,7 +595,7 @@ export default function ExecutorDashboard() {
                     </div>
                   ))}
                 </div>
-              </div>
+      </div>
             </Card>
           </div>
 
@@ -653,10 +625,10 @@ export default function ExecutorDashboard() {
                               <div className="flex items-center">
                                 <Package className="h-4 w-4 mr-2" />
                                 {client.address}
-                              </div>
+                  </div>
                             )}
-                          </div>
-                        </div>
+                  </div>
+                </div>
 
                         {/* Вкладки документов */}
                         <div className="mb-6">
@@ -681,8 +653,8 @@ export default function ExecutorDashboard() {
                             >
                               Заказ у поставщика
                             </button>
-                          </div>
-                        </div>
+                  </div>
+                </div>
 
                         {/* Содержимое вкладок */}
                         <div className="space-y-4">
@@ -697,8 +669,8 @@ export default function ExecutorDashboard() {
                                         <div>
                                           <div className="font-medium text-gray-900">{invoice.number}</div>
                                           <div className="text-sm text-gray-500">{invoice.date}</div>
-                                        </div>
-                                      </div>
+                </div>
+              </div>
                                       <div className="flex items-center space-x-2">
                                         <span className="text-sm font-medium text-gray-900">
                                           {invoice.total.toLocaleString('ru-RU')} ₽
@@ -746,8 +718,8 @@ export default function ExecutorDashboard() {
                                                   <Factory className="h-4 w-4" />
                                                   <span>Заказ у поставщика</span>
                                                 </button>
-                                              </div>
-                                            </div>
+          </div>
+        </div>
                                           )}
                                         </div>
                                       </div>
@@ -774,7 +746,7 @@ export default function ExecutorDashboard() {
                                     <div className="flex items-center justify-between mb-2">
                                       <div className="flex items-center space-x-3">
                                         <Factory className="h-5 w-5 text-orange-600" />
-                                        <div>
+                <div>
                                           <div className="font-medium text-gray-900">{order.number}</div>
                                           <div className="text-sm text-gray-500">{order.date}</div>
                                           <div className="text-xs text-gray-400">{order.supplier}</div>
@@ -824,7 +796,7 @@ export default function ExecutorDashboard() {
                 <div className="p-6 text-center">
                   <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                   <p className="text-gray-500">Выберите клиента для просмотра документов</p>
-                </div>
+              </div>
               </Card>
             )}
           </div>
