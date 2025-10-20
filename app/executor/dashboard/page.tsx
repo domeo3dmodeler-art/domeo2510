@@ -412,6 +412,83 @@ export default function ExecutorDashboard() {
     }
   };
 
+  // Создание нового счета из существующего счета
+  const createInvoiceFromInvoice = async (invoiceId: string) => {
+    try {
+      // Получаем данные счета
+      const invoice = invoices.find(inv => inv.id === invoiceId);
+      if (!invoice) {
+        alert('Счет не найден');
+        return;
+      }
+
+      // Получаем полные данные счета из API
+      const invoiceResponse = await fetch(`/api/invoices/${invoiceId}`);
+      if (!invoiceResponse.ok) {
+        alert('Ошибка при получении данных счета');
+        return;
+      }
+      
+      const invoiceData = await invoiceResponse.json();
+      
+      if (!invoiceData.invoice.cart_data) {
+        alert('Нет данных корзины для создания нового счета');
+        return;
+      }
+
+      const cartData = JSON.parse(invoiceData.invoice.cart_data);
+      
+      // Создаем новый счет через API
+      const response = await fetch('/api/export/fast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'invoice',
+          format: 'pdf',
+          clientId: invoiceData.invoice.client_id,
+          items: cartData,
+          totalAmount: invoice.total
+        })
+      });
+
+      if (response.ok) {
+        // Получаем PDF файл и скачиваем его
+        const pdfBlob = await response.blob();
+        const url = window.URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Получаем имя файла из заголовков ответа
+        const contentDisposition = response.headers.get('content-disposition');
+        let filename = 'invoice.pdf';
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+          if (filenameMatch) {
+            filename = filenameMatch[1];
+          }
+        }
+        
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        // Обновляем данные клиента
+        if (selectedClient) {
+          fetchClientDocuments(selectedClient);
+        }
+        alert('Счет создан и скачан успешно');
+      } else {
+        const error = await response.json();
+        alert(`Ошибка: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error creating invoice from invoice:', error);
+      alert('Ошибка при создании счета');
+    }
+  };
+
   // Создание заказа у поставщика из счета
   const createSupplierOrderFromInvoice = async (invoiceId: string) => {
     try {
@@ -724,7 +801,7 @@ export default function ExecutorDashboard() {
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        // Здесь можно добавить логику создания нового счета
+                                        createInvoiceFromInvoice(i.id);
                                         setShowInvoiceActions(null);
                                       }}
                                       className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"

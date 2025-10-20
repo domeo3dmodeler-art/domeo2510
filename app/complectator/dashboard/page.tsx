@@ -523,11 +523,33 @@ export default function ComplectatorDashboard() {
       });
 
       if (response.ok) {
+        // Получаем PDF файл и скачиваем его
+        const pdfBlob = await response.blob();
+        const url = window.URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Получаем имя файла из заголовков ответа
+        const contentDisposition = response.headers.get('content-disposition');
+        let filename = 'invoice.pdf';
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+          if (filenameMatch) {
+            filename = filenameMatch[1];
+          }
+        }
+        
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
         // Обновляем данные клиента
         if (selectedClient) {
           fetchClientDocuments(selectedClient);
         }
-        alert('Счет создан успешно');
+        alert('Счет создан и скачан успешно');
       } else {
         const error = await response.json();
         alert(`Ошибка: ${error.error}`);
@@ -578,7 +600,29 @@ export default function ComplectatorDashboard() {
       });
 
       if (response.ok) {
-        alert('КП перегенерировано успешно');
+        // Получаем PDF файл и скачиваем его
+        const pdfBlob = await response.blob();
+        const url = window.URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Получаем имя файла из заголовков ответа
+        const contentDisposition = response.headers.get('content-disposition');
+        let filename = 'quote.pdf';
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+          if (filenameMatch) {
+            filename = filenameMatch[1];
+          }
+        }
+        
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        alert('КП перегенерировано и скачано успешно');
       } else {
         const error = await response.json();
         alert(`Ошибка: ${error.error}`);
@@ -629,7 +673,29 @@ export default function ComplectatorDashboard() {
       });
 
       if (response.ok) {
-        alert('Счет перегенерирован успешно');
+        // Получаем PDF файл и скачиваем его
+        const pdfBlob = await response.blob();
+        const url = window.URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Получаем имя файла из заголовков ответа
+        const contentDisposition = response.headers.get('content-disposition');
+        let filename = 'invoice.pdf';
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+          if (filenameMatch) {
+            filename = filenameMatch[1];
+          }
+        }
+        
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        alert('Счет перегенерирован и скачан успешно');
       } else {
         const error = await response.json();
         alert(`Ошибка: ${error.error}`);
