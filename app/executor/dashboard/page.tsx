@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Button, Card } from '../../../components/ui';
+import { Card } from '../../../components/ui';
 import StatCard from '../../../components/ui/StatCard';
 import { 
   FileText, 
@@ -14,16 +14,12 @@ import {
   History,
   StickyNote,
   BadgeCheck,
-  ShoppingCart,
   Package,
-  Plus,
   Factory,
   ChevronDown,
   MoreVertical
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
-import DocumentWorkflowIntegration from '../../components/documents/DocumentWorkflowIntegration';
-import SimpleWorkflowIntegration from '../../components/documents/SimpleWorkflowIntegration';
 
 interface ExecutorStats {
   totalOrders: number;
@@ -516,25 +512,20 @@ export default function ExecutorDashboard() {
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">Клиенты</h3>
                   <div className="flex space-x-2">
-                    <SimpleWorkflowIntegration 
-                      selectedClientId={selectedClient}
-                      userRole="executor"
-                    />
-                    <Button
-                      variant={showInWorkOnly ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setShowInWorkOnly(!showInWorkOnly)}
+                    <button
+                      onClick={() => setShowCreateModal(true)}
+                      className="px-3 py-1 text-sm border border-gray-300 hover:border-black transition-all duration-200"
+                      title="Создать нового клиента"
+                    >
+                      Создать
+                    </button>
+                    <button
+                      onClick={() => setShowInWorkOnly(v => !v)}
+                      className={`px-3 py-1 text-sm border transition-all duration-200 ${showInWorkOnly ? 'border-black bg-black text-white' : 'border-gray-300 hover:border-black'}`}
+                      title="Показать клиентов с незавершенными документами"
                     >
                       В работе
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowCreateModal(true)}
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Создать
-                    </Button>
+                    </button>
                   </div>
                 </div>
 
