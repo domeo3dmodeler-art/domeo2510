@@ -20,6 +20,7 @@ import {
   Factory
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
+import DocumentWorkflowIntegration from '../../components/documents/DocumentWorkflowIntegration';
 
 interface ExecutorStats {
   totalOrders: number;
@@ -419,6 +420,10 @@ export default function ExecutorDashboard() {
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">Клиенты</h3>
                   <div className="flex space-x-2">
+                    <DocumentWorkflowIntegration 
+                      selectedClientId={selectedClient}
+                      userRole="executor"
+                    />
                     <Button
                       variant={showInWorkOnly ? "default" : "outline"}
                       size="sm"
