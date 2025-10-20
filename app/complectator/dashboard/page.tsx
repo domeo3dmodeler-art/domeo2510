@@ -21,7 +21,6 @@ import {
 import { useAuth } from '../../../hooks/useAuth';
 import DocumentWorkflowIntegration from '../../components/documents/DocumentWorkflowIntegration';
 import SimpleWorkflowIntegration from '../../components/documents/SimpleWorkflowIntegration';
-import DocumentGenerationIntegration from '../../components/documents/DocumentGenerationIntegration';
 // Убраны корзина/генераторы документов для режима работы с клиентами
 
 interface ComplectatorStats {
@@ -478,7 +477,7 @@ export default function ComplectatorDashboard() {
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-black flex items-center"><Users className="h-5 w-5 mr-2"/>Клиенты</h3>
               <div className="flex items-center gap-2">
-                <DocumentGenerationIntegration 
+                <SimpleWorkflowIntegration 
                   selectedClientId={selectedClient}
                   userRole="complectator"
                 />

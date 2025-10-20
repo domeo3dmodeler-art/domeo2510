@@ -17,12 +17,13 @@ import {
   ShoppingCart,
   Package,
   Plus,
-  Factory
+  Factory,
+  ChevronDown,
+  MoreVertical
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import DocumentWorkflowIntegration from '../../components/documents/DocumentWorkflowIntegration';
 import SimpleWorkflowIntegration from '../../components/documents/SimpleWorkflowIntegration';
-import DocumentGenerationIntegration from '../../components/documents/DocumentGenerationIntegration';
 
 interface ExecutorStats {
   totalOrders: number;
@@ -67,6 +68,7 @@ export default function ExecutorDashboard() {
   }>>([]);
   const [showInWorkOnly, setShowInWorkOnly] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showInvoiceActions, setShowInvoiceActions] = useState<{ [key: string]: boolean }>({});
   const [statusDropdown, setStatusDropdown] = useState<{type: 'invoice'|'supplier_order', id: string, x: number, y: number} | null>(null);
 
   // Загрузка клиентов
@@ -334,6 +336,98 @@ export default function ExecutorDashboard() {
     }
   }, [statusDropdown]);
 
+  // Обработка клика вне меню действий счетов
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-invoice-actions]')) {
+        setShowInvoiceActions({});
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Обработка действий над счетами
+  const handleInvoiceAction = (invoiceId: string, action: 'create_invoice' | 'create_supplier_order') => {
+    console.log('Invoice action:', { invoiceId, action });
+    
+    if (action === 'create_invoice') {
+      // Создание нового счета на основе существующего
+      alert('Создание счета на основе существующего - функция в разработке');
+    } else if (action === 'create_supplier_order') {
+      // Создание заказа у поставщика на основе счета
+      createSupplierOrderFromInvoice(invoiceId);
+    }
+    
+    // Закрываем меню
+    setShowInvoiceActions(prev => ({ ...prev, [invoiceId]: false }));
+  };
+
+  const createSupplierOrderFromInvoice = async (invoiceId: string) => {
+    try {
+      // Получаем данные счета
+      const invoice = invoices.find(inv => inv.id === invoiceId);
+      if (!invoice) {
+        alert('Счет не найден');
+        return;
+      }
+
+      // Используем механизм генерации заказа из корзины
+      const response = await fetch('/api/export/fast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'supplier_order',
+          format: 'pdf',
+          clientId: selectedClient,
+          items: [], // TODO: Получить товары из счета
+          sourceInvoiceId: invoiceId
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Supplier Order created:', result);
+        
+        // Скачиваем файл
+        const blob = new Blob([result.buffer], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `supplier-order-${Date.now()}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        alert('Заказ у поставщика успешно создан и скачан!');
+        
+        // Обновляем данные клиента
+        if (selectedClient) {
+          fetchClientDocuments(selectedClient);
+        }
+      } else {
+        const error = await response.json();
+        alert(`Ошибка: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error creating supplier order:', error);
+      alert('Ошибка при создании заказа у поставщика');
+    }
+  };
+
+  const toggleInvoiceActions = (invoiceId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setShowInvoiceActions(prev => ({
+      ...prev,
+      [invoiceId]: !prev[invoiceId]
+    }));
+  };
+
   // Создание клиента
   const createClient = async (clientData: any) => {
     try {
@@ -422,7 +516,7 @@ export default function ExecutorDashboard() {
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">Клиенты</h3>
                   <div className="flex space-x-2">
-                    <DocumentGenerationIntegration 
+                    <SimpleWorkflowIntegration 
                       selectedClientId={selectedClient}
                       userRole="executor"
                     />
@@ -576,6 +670,39 @@ export default function ExecutorDashboard() {
                                         >
                                           {invoice.status}
                                         </button>
+                                        
+                                        {/* Кнопка действий */}
+                                        <div className="relative" data-invoice-actions>
+                                          <button
+                                            onClick={(e) => toggleInvoiceActions(invoice.id, e)}
+                                            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                                            title="Действия"
+                                          >
+                                            <MoreVertical className="h-4 w-4 text-gray-500" />
+                                          </button>
+                                          
+                                          {/* Выпадающее меню действий */}
+                                          {showInvoiceActions[invoice.id] && (
+                                            <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[200px]">
+                                              <div className="py-1">
+                                                <button
+                                                  onClick={() => handleInvoiceAction(invoice.id, 'create_invoice')}
+                                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                                >
+                                                  <FileText className="h-4 w-4" />
+                                                  <span>Создать счет</span>
+                                                </button>
+                                                <button
+                                                  onClick={() => handleInvoiceAction(invoice.id, 'create_supplier_order')}
+                                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                                >
+                                                  <Factory className="h-4 w-4" />
+                                                  <span>Заказ у поставщика</span>
+                                                </button>
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
                                       </div>
                                     </div>
                                     <div className="text-sm text-gray-600">
