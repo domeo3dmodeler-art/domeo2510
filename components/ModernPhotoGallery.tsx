@@ -183,7 +183,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
       {/* Полноэкранный режим при зуме */}
       {isZoomed && allPhotos[currentIndex] && (
         <div 
-          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 overflow-auto"
           onClick={() => {
             setIsZoomed(false);
             if (onToggleSidePanels) {
@@ -191,13 +191,13 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
             }
           }}
         >
-          <div className="relative max-w-7xl max-h-full w-full h-full flex flex-col">
+          <div className="relative max-w-7xl w-full max-h-[90vh] flex flex-col">
             {/* Основное изображение */}
-            <div className="flex-1 flex items-center justify-center relative">
+            <div className="flex items-center justify-center relative flex-none max-h-[80vh]">
               <img
                 src={allPhotos[currentIndex].startsWith('/uploads') ? `/api${allPhotos[currentIndex]}` : `/api/uploads${allPhotos[currentIndex]}`}
                 alt={`${productName} - увеличенное фото ${currentIndex + 1}`}
-                className="max-w-full max-h-full object-contain"
+                className="max-w-full max-h-[80vh] object-contain"
                 onClick={(e) => e.stopPropagation()}
               />
               
@@ -231,7 +231,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
             
             {/* Миниатюры внизу */}
             {showThumbnails && allPhotos.length > 1 && (
-              <div className="bg-black/50 p-4">
+              <div className="bg-black/50 p-4 flex-none">
                 <div className="flex justify-center space-x-3 overflow-x-auto">
                   {allPhotos.map((photo, index) => (
                     photo ? (

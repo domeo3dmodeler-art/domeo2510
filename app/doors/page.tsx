@@ -6,8 +6,6 @@ if (typeof window !== "undefined") {
 }
 
 import Link from "next/link";
-import ExportButtons from "../components/ExportButtons"; // ПУТЬ ОТНОСИТЕЛЬНО /doors/page.tsx
-import UnifiedExportButtons from "../../components/UnifiedExportButtons"; // Новый унифицированный компонент
 import React, { useEffect, useMemo, useState } from "react";
 import { PhotoGallery } from "../../components/PhotoGallery";
 import { ModernPhotoGallery } from "../../components/ModernPhotoGallery";
@@ -775,14 +773,32 @@ export default function DoorsPage() {
   const [clients, setClients] = useState<any[]>([]);
   const [clientsLoading, setClientsLoading] = useState(false);
   const [showCreateClientForm, setShowCreateClientForm] = useState(false);
+  const [clientSearchInput, setClientSearchInput] = useState('');
+  const [clientSearch, setClientSearch] = useState('');
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
   const [newClientData, setNewClientData] = useState({
     firstName: '',
     lastName: '',
     middleName: '',
     phone: '',
-    address: ''
+    address: '',
+    objectId: ''
   });
+
+  // Debounce search input
+  useEffect(() => {
+    const t = setTimeout(() => setClientSearch(clientSearchInput.trim()), 300);
+    return () => clearTimeout(t);
+  }, [clientSearchInput]);
+
+  const formatPhone = (raw?: string) => {
+    if (!raw) return '—';
+    const digits = raw.replace(/\D/g, '');
+    // Expect 11 digits for Russia starting with 7 or 8
+    const d = digits.length === 11 ? digits.slice(-10) : digits.slice(-10);
+    if (d.length < 10) return raw;
+    return `+7 (${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6,8)}-${d.slice(8,10)}`;
+  };
 
   // Сохранение корзины в localStorage
   useEffect(() => {
@@ -1716,16 +1732,16 @@ export default function DoorsPage() {
   return (
     <div className="min-h-screen bg-white">
       <header className="bg-white border-b border-black/10">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-baseline space-x-3">
+        <div className="max-w-[1600px] mx-auto px-6 py-4">
+          <div className="flex items-center">
+            <div className="flex items-baseline space-x-3 flex-1 min-w-0">
               <Link href="/" className="text-2xl font-bold text-black">
                 Domeo
               </Link>
               <span className="text-black text-lg font-bold">•</span>
               <span className="text-lg font-semibold text-black">Doors</span>
             </div>
-            <nav className="flex items-center space-x-4">
+            <nav className="flex items-center space-x-4 justify-end flex-shrink-0 ml-auto">
               <Link 
                 href="/" 
                 className="px-3 py-1 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 text-sm"
@@ -2355,28 +2371,7 @@ export default function DoorsPage() {
                         </div>
                 )}
 
-                {/* Кнопки экспорта в корзине */}
-                <div className="mt-4 pt-3 border-t border-black/10">
-                  <div className="flex flex-wrap gap-2">
-                  <UnifiedExportButtons
-                    getCart={() => cart.map(item => ({
-                      productId: parseInt(item.sku_1c?.toString() || '0'),
-                      qty: item.qty,
-                      kitId: item.hardwareKitId,
-                      handleId: item.handleId,
-                      model: item.model,
-                      width: item.width,
-                      height: item.height,
-                      color: item.color,
-                      finish: item.finish,
-                      type: item.type
-                    }))}
-                    acceptedKPId={selectedClient}
-                    compact={true}
-                    className="flex space-x-2"
-                  />
-                  </div>
-                </div>
+                {/* Блок кнопок экспорта временно удален по запросу */}
               </div>
             </div>
           </aside>
@@ -2725,7 +2720,7 @@ export default function DoorsPage() {
       {/* Менеджер заказчиков */}
       {showClientManager && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden">
+          <div className="bg-white rounded-lg w-full max-w-5xl max-h-[96vh] overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-2xl font-bold text-black">Менеджер заказчиков</h2>
@@ -2737,142 +2732,69 @@ export default function DoorsPage() {
               </button>
             </div>
 
-            {/* Content */}
+            {/* Content: только поиск + кнопка "+" для создания */}
             <div className="p-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Поиск и список клиентов */}
-                <div>
-                  <h3 className="text-lg font-semibold text-black mb-4">Поиск клиента</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-black">Поиск</h3>
+                <button
+                  onClick={() => setShowCreateClientForm(true)}
+                  className="px-3 py-2 text-sm border border-black text-black hover:bg-black hover:text-white rounded transition-all duration-200"
+                >
+                  + Новый заказчик
+                </button>
+              </div>
+
                   <div className="space-y-4">
                     <input
                       type="text"
-                      placeholder="Поиск по ФИО, телефону, адресу..."
+                  placeholder="Поиск по ФИО, телефону, адресу, ID объекта..."
+                  value={clientSearchInput}
+                  onChange={(e) => setClientSearchInput(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
                       {clientsLoading ? (
-                        <div className="p-4 text-center text-gray-500">
-                          Загрузка клиентов...
-                        </div>
+                    <div className="p-4 text-center text-gray-500">Загрузка клиентов...</div>
                       ) : clients.length === 0 ? (
-                        <div className="p-4 text-center text-gray-500">
-                          Клиенты не найдены
-                        </div>
-                      ) : (
-                        clients.map((client) => (
+                    <div className="p-4 text-center text-gray-500">Клиенты не найдены</div>
+                  ) : (
+                    clients
+                      .filter((c) => {
+                        if (!clientSearch) return true;
+                        const hay = `${c.lastName} ${c.firstName} ${c.middleName ?? ''} ${c.phone ?? ''} ${c.address ?? ''} ${(c as any).objectId ?? ''}`.toLowerCase();
+                        return hay.includes(clientSearch.toLowerCase());
+                      })
+                      .map((client) => (
                           <div 
                             key={client.id}
-                            className={`p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
-                              selectedClient === client.id ? 'bg-blue-50 border-blue-200' : ''
-                            }`}
+                        className={`p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${selectedClient === client.id ? 'bg-blue-50 border-blue-200' : ''}`}
                             onClick={() => {
                               setSelectedClient(client.id);
                               setSelectedClientName(`${client.firstName} ${client.lastName}`);
                             }}
                           >
-                            <div className="font-medium">{client.firstName} {client.lastName}</div>
-                            <div className="text-sm text-gray-600">{client.phone}</div>
-                            <div className="text-sm text-gray-600">{client.address}</div>
+                        <div className="grid items-center gap-3" style={{gridTemplateColumns: '5fr 3fr 7fr 120px'}}>
+                          <div className="font-medium truncate">
+                            {client.lastName} {client.firstName}{client.middleName ? ` ${client.middleName}` : ''}
+                          </div>
+                          <div className="text-sm text-gray-600 truncate">{formatPhone(client.phone as any)}</div>
+                          <div className="text-sm text-gray-600 overflow-hidden" style={{display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical'}}>
+                            {client.address || '—'}
+                          </div>
+                          <div className="text-sm text-gray-600 text-right" style={{minWidth:120, maxWidth:120, whiteSpace:'nowrap'}}>{(client as any).objectId || '—'}</div>
+                        </div>
                           </div>
                         ))
                       )}
                     </div>
                   </div>
-                </div>
 
-                {/* Создание нового клиента */}
-                <div>
-                  <h3 className="text-lg font-semibold text-black mb-4">Создать нового клиента</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Фамилия *</label>
-                      <input
-                        type="text"
-                        value={newClientData.lastName}
-                        onChange={(e) => setNewClientData(prev => ({ ...prev, lastName: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Имя *</label>
-                      <input
-                        type="text"
-                        value={newClientData.firstName}
-                        onChange={(e) => setNewClientData(prev => ({ ...prev, firstName: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Отчество</label>
-                      <input
-                        type="text"
-                        value={newClientData.middleName}
-                        onChange={(e) => setNewClientData(prev => ({ ...prev, middleName: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Телефон *</label>
-                      <input
-                        type="tel"
-                        value={newClientData.phone}
-                        onChange={(e) => setNewClientData(prev => ({ ...prev, phone: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Адрес</label>
-                      <textarea
-                        rows={3}
-                        value={newClientData.address}
-                        onChange={(e) => setNewClientData(prev => ({ ...prev, address: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <button
-                      onClick={async () => {
-                        if (!newClientData.firstName || !newClientData.lastName || !newClientData.phone) {
-                          alert('Пожалуйста, заполните обязательные поля');
-                          return;
-                        }
-                        try {
-                          const client = await createClient(newClientData);
-                          setSelectedClient(client.id);
-                          setSelectedClientName(`${client.firstName} ${client.lastName}`);
-                          setNewClientData({ firstName: '', lastName: '', middleName: '', phone: '', address: '' });
-                          setShowClientManager(false);
-                        } catch (error) {
-                          alert('Ошибка при создании клиента');
-                        }
-                      }}
-                      className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200"
-                    >
-                      Создать клиента
-                    </button>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">ID объекта</label>
-                      <input
-                        type="text"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Кнопки действий */}
               <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
                 <button
                   onClick={() => setShowClientManager(false)}
                   className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-200"
                 >
                   Отмена
-                </button>
-                <button
-                  onClick={() => setShowCreateClientForm(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200"
-                >
-                  Создать клиента
                 </button>
                 <button
                   onClick={() => {
@@ -2887,8 +2809,95 @@ export default function DoorsPage() {
                 >
                   Выбрать клиента
                 </button>
-              </div>
-            </div>
+                  </div>
+                </div>
+
+            {/* Модалка создания клиента */}
+            {showCreateClientForm && (
+              <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
+                <div className="bg-white rounded-lg w-full max-w-4xl p-6 shadow-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-black">Новый заказчик</h3>
+                  <button
+                    onClick={() => setShowCreateClientForm(false)}
+                    className="px-3 py-2 text-sm border border-black text-black hover:bg-black hover:text-white rounded"
+                  >
+                    Закрыть
+                  </button>
+                </div>
+
+                {/* Одна строка с полями разной ширины */}
+                <div className="grid grid-cols-12 gap-3">
+                      <input
+                        type="text"
+                    placeholder="Фамилия"
+                        value={newClientData.lastName}
+                        onChange={(e) => setNewClientData(prev => ({ ...prev, lastName: e.target.value }))}
+                    className="col-span-3 px-3 py-2 border border-gray-300 rounded"
+                      />
+                      <input
+                        type="text"
+                    placeholder="Имя"
+                        value={newClientData.firstName}
+                        onChange={(e) => setNewClientData(prev => ({ ...prev, firstName: e.target.value }))}
+                    className="col-span-2 px-3 py-2 border border-gray-300 rounded"
+                      />
+                      <input
+                        type="text"
+                    placeholder="Отчество"
+                        value={newClientData.middleName}
+                        onChange={(e) => setNewClientData(prev => ({ ...prev, middleName: e.target.value }))}
+                    className="col-span-2 px-3 py-2 border border-gray-300 rounded"
+                      />
+                      <input
+                        type="tel"
+                    placeholder="Телефон"
+                        value={newClientData.phone}
+                        onChange={(e) => setNewClientData(prev => ({ ...prev, phone: e.target.value }))}
+                    className="col-span-2 px-3 py-2 border border-gray-300 rounded"
+                  />
+                  <input
+                    type="text"
+                    placeholder="ID объекта"
+                    value={newClientData.objectId}
+                    onChange={(e) => setNewClientData(prev => ({ ...prev, objectId: e.target.value }))}
+                    className="col-span-3 md:col-span-3 px-3 py-2 border border-gray-300 rounded"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Адрес"
+                        value={newClientData.address}
+                        onChange={(e) => setNewClientData(prev => ({ ...prev, address: e.target.value }))}
+                    className="col-span-12 px-3 py-2 border border-gray-300 rounded"
+                      />
+                    </div>
+
+                <div className="flex justify-end gap-3 mt-4">
+                  <button
+                    onClick={() => setShowCreateClientForm(false)}
+                    className="px-3 py-2 border border-gray-300 rounded hover:bg-gray-100"
+                  >
+                    Отмена
+                  </button>
+                    <button
+                      onClick={async () => {
+                        if (!newClientData.firstName || !newClientData.lastName || !newClientData.phone) {
+                        alert('Заполните ФИО и телефон');
+                          return;
+                        }
+                          const client = await createClient(newClientData);
+                          setSelectedClient(client.id);
+                          setSelectedClientName(`${client.firstName} ${client.lastName}`);
+                      setShowCreateClientForm(false);
+                    }}
+                    className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
+                    >
+                      Создать клиента
+                    </button>
+                    </div>
+                  </div>
+                </div>
+            )}
           </div>
         </div>
       )}
