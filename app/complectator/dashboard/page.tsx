@@ -369,27 +369,81 @@ export default function ComplectatorDashboard() {
     }
   };
 
-  // Изменение статуса Счета (заглушка)
+  // Изменение статуса Счета
   const updateInvoiceStatus = async (invoiceId: string, newStatus: string) => {
     try {
-      // TODO: Реализовать API для изменения статуса счета
-      console.log(`Updating invoice ${invoiceId} status to ${newStatus}`);
+      console.log('🚀 updateInvoiceStatus called with:', { invoiceId, newStatus });
       
-      // Пока просто обновляем локальное состояние
-      setInvoices(prev => prev.map(inv => 
-        inv.id === invoiceId ? { ...inv, status: newStatus as any } : inv
-      ));
+      // Маппинг русских статусов на английские для API
+      const statusMap: Record<string, string> = {
+        'Черновик': 'DRAFT',
+        'Отправлен': 'SENT',
+        'Оплачен/Заказ': 'PAID',
+        'Отменен': 'CANCELLED',
+        'В производстве': 'IN_PRODUCTION',
+        'Получен от поставщика': 'RECEIVED_FROM_SUPPLIER',
+        'Исполнен': 'COMPLETED'
+      };
       
-      // Обновляем данные клиента
-      if (selectedClient) {
-        fetchClientDocuments(selectedClient);
+      const apiStatus = statusMap[newStatus] || newStatus;
+      console.log('📤 Sending to API:', { apiStatus });
+      
+      const response = await fetch(`/api/invoices/${invoiceId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: apiStatus })
+      });
+
+      console.log('📥 API Response status:', response.status);
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ API Response data:', result);
+        
+        // Маппинг обратно на русские статусы
+        const reverseStatusMap: Record<string, string> = {
+          'DRAFT': 'Черновик',
+          'SENT': 'Отправлен',
+          'PAID': 'Оплачен/Заказ',
+          'CANCELLED': 'Отменен',
+          'IN_PRODUCTION': 'В производстве',
+          'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
+          'COMPLETED': 'Исполнен'
+        };
+        
+        const russianStatus = reverseStatusMap[result.invoice.status] || result.invoice.status;
+        console.log('🔄 Mapped status:', { apiStatus: result.invoice.status, russianStatus });
+        
+        // Обновляем список Счетов
+        setInvoices(prev => prev.map(inv => 
+          inv.id === invoiceId ? { 
+            ...inv, 
+            status: russianStatus as any
+          } : inv
+        ));
+        
+        // Обновляем данные клиента
+        if (selectedClient) {
+          console.log('🔄 Refreshing client data...');
+          fetchClientDocuments(selectedClient);
+        }
+        
+        hideStatusDropdown();
+        console.log('✅ Invoice status update completed successfully');
+        return result.invoice;
+      } else {
+        const errorData = await response.json();
+        console.error('❌ API Error:', errorData);
+        console.error('❌ Response status:', response.status);
+        console.error('❌ Response headers:', Object.fromEntries(response.headers.entries()));
+        throw new Error(errorData.error || 'Ошибка при изменении статуса счета');
       }
-      
-      hideStatusDropdown();
-      alert(`Статус счета изменен на "${newStatus}" (заглушка)`);
     } catch (error) {
-      console.error('Error updating invoice status:', error);
-      alert('Ошибка при изменении статуса счета');
+      console.error('❌ Error updating invoice status:', error);
+      alert(`Ошибка при изменении статуса счета: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+      throw error;
     }
   };
 
