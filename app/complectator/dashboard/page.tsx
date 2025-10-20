@@ -134,6 +134,7 @@ export default function ComplectatorDashboard() {
         setQuotes(formattedQuotes);
         
         // Преобразуем Счета
+        console.log('💰 Raw invoices from API:', client.invoices);
         const formattedInvoices = client.invoices.map((invoice: any) => ({
           id: invoice.id,
           number: invoice.number ? invoice.number.replace('INVOICE-', 'СЧ-') : `СЧ-${invoice.id.slice(-6)}`,
@@ -142,6 +143,7 @@ export default function ComplectatorDashboard() {
           total: Number(invoice.total_amount) || 0,
           dueAt: invoice.due_date ? new Date(invoice.due_date).toISOString().split('T')[0] : undefined
         }));
+        console.log('💰 Formatted invoices:', formattedInvoices);
         setInvoices(formattedInvoices);
       } else {
         console.error('Failed to fetch client documents');
@@ -165,6 +167,14 @@ export default function ComplectatorDashboard() {
   // Маппинг статусов Счетов из API в русские
   const mapInvoiceStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'В производстве'|'Получен от поставщика'|'Исполнен' => {
     const statusMap: Record<string, 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'В производстве'|'Получен от поставщика'|'Исполнен'> = {
+      'DRAFT': 'Черновик',
+      'SENT': 'Отправлен',
+      'PAID': 'Оплачен/Заказ',
+      'CANCELLED': 'Отменен',
+      'IN_PRODUCTION': 'В производстве',
+      'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
+      'COMPLETED': 'Исполнен',
+      // Поддержка старых строчных статусов
       'draft': 'Черновик',
       'sent': 'Отправлен',
       'paid': 'Оплачен/Заказ',
