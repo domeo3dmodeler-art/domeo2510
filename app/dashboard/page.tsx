@@ -132,16 +132,6 @@ function DashboardContent() {
     setIsLoading(false);
   }, [router]);
 
-  // Редиректим с /dashboard на ролевые дашборды (кроме админа)
-  useEffect(() => {
-    if (!user) return;
-    if (user.role === 'complectator') {
-      router.replace('/complectator/dashboard');
-    } else if (user.role === 'executor') {
-      router.replace('/executor/dashboard');
-    }
-  }, [user, router]);
-
   const fetchStats = useCallback(async () => {
     try {
       const promises = [
