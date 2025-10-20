@@ -17,13 +17,9 @@ import {
   ShoppingCart,
   Package,
   Plus,
-  MoreVertical,
-  FileText as FileTextIcon,
-  Receipt
+  MoreVertical
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
-import DocumentWorkflowIntegration from '../../components/documents/DocumentWorkflowIntegration';
-import SimpleWorkflowIntegration from '../../components/documents/SimpleWorkflowIntegration';
 // Убраны корзина/генераторы документов для режима работы с клиентами
 
 interface ComplectatorStats {
@@ -66,32 +62,16 @@ export default function ComplectatorDashboard() {
     address: '',
     objectId: ''
   });
-  
-  // Состояния для меню действий документов
+  const [statusDropdown, setStatusDropdown] = useState<{type: 'quote'|'invoice', id: string, x: number, y: number} | null>(null);
   const [showQuoteActions, setShowQuoteActions] = useState<string | null>(null);
   const [showInvoiceActions, setShowInvoiceActions] = useState<string | null>(null);
-  const [statusDropdown, setStatusDropdown] = useState<{type: 'quote'|'invoice', id: string, x: number, y: number} | null>(null);
 
   useEffect(() => {
     fetchStats();
     fetchClients();
   }, []);
 
-  // Закрытие меню действий при клике вне
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest('[data-actions-menu]') && !target.closest('button[class*="MoreVertical"]')) {
-        setShowQuoteActions(null);
-        setShowInvoiceActions(null);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Закрытие выпадающего меню при клике вне его
+  // Закрытие выпадающих меню при клике вне их
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (statusDropdown) {
@@ -101,16 +81,22 @@ export default function ComplectatorDashboard() {
           hideStatusDropdown();
         }
       }
+      
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-quote-actions]') && !target.closest('[data-invoice-actions]')) {
+        setShowQuoteActions(null);
+        setShowInvoiceActions(null);
+      }
     };
 
-    if (statusDropdown) {
+    if (statusDropdown || showQuoteActions || showInvoiceActions) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [statusDropdown]);
+  }, [statusDropdown, showQuoteActions, showInvoiceActions]);
 
-  // Загрузка списка клиентов
-  const fetchClients = async () => {
+  // Загрузка списка клиентов (оптимизированная)
+  const fetchClients = useCallback(async () => {
     try {
       const response = await fetch('/api/clients');
       if (response.ok) {
@@ -134,18 +120,21 @@ export default function ComplectatorDashboard() {
     } catch (error) {
       console.error('Error fetching clients:', error);
     }
-  };
+  }, []);
 
-  // Загрузка документов клиента
-  const fetchClientDocuments = async (clientId: string) => {
+  // Загрузка документов клиента (оптимизированная с мемоизацией)
+  const fetchClientDocuments = useCallback(async (clientId: string) => {
     try {
+      // Показываем индикатор загрузки
+      setQuotes([]);
+      setInvoices([]);
+      
       const response = await fetch(`/api/clients/${clientId}`);
       if (response.ok) {
         const data = await response.json();
         const client = data.client;
         
-        // Преобразуем КП
-        console.log('📋 Raw quotes from API:', client.quotes);
+        // Преобразуем КП (только нужные поля)
         const formattedQuotes = client.quotes.map((quote: any) => ({
           id: quote.id,
           number: quote.number ? quote.number.replace('QUOTE-', 'КП-') : `КП-${quote.id.slice(-6)}`,
@@ -153,11 +142,9 @@ export default function ComplectatorDashboard() {
           status: mapQuoteStatus(quote.status),
           total: Number(quote.total_amount) || 0
         }));
-        console.log('📋 Formatted quotes:', formattedQuotes);
         setQuotes(formattedQuotes);
         
-        // Преобразуем Счета
-        console.log('💰 Raw invoices from API:', client.invoices);
+        // Преобразуем Счета (только нужные поля)
         const formattedInvoices = client.invoices.map((invoice: any) => ({
           id: invoice.id,
           number: invoice.number ? invoice.number.replace('INVOICE-', 'СЧ-') : `СЧ-${invoice.id.slice(-6)}`,
@@ -166,7 +153,6 @@ export default function ComplectatorDashboard() {
           total: Number(invoice.total_amount) || 0,
           dueAt: invoice.due_date ? new Date(invoice.due_date).toISOString().split('T')[0] : undefined
         }));
-        console.log('💰 Formatted invoices:', formattedInvoices);
         setInvoices(formattedInvoices);
       } else {
         console.error('Failed to fetch client documents');
@@ -174,7 +160,24 @@ export default function ComplectatorDashboard() {
     } catch (error) {
       console.error('Error fetching client documents:', error);
     }
-  };
+  }, []);
+
+  // Оптимизированная фильтрация клиентов с мемоизацией
+  const filteredClients = useMemo(() => {
+    return clients
+      .filter(c => !showInWorkOnly || !isTerminalDoc(c.lastDoc))
+      .filter(c => {
+        const q = search.trim().toLowerCase();
+        if (!q) return true;
+        const fio = `${c.lastName} ${c.firstName} ${c.middleName || ''}`.toLowerCase();
+        return fio.includes(q) || (c.phone||'').toLowerCase().includes(q) || (c.address||'').toLowerCase().includes(q);
+      })
+      .sort((a,b) => {
+        const ta = a.lastActivityAt ? new Date(a.lastActivityAt).getTime() : 0;
+        const tb = b.lastActivityAt ? new Date(b.lastActivityAt).getTime() : 0;
+        return tb - ta;
+      });
+  }, [clients, search, showInWorkOnly]);
 
   // Маппинг статусов КП из API в русские
   const mapQuoteStatus = (apiStatus: string): 'Черновик'|'Отправлено'|'Согласовано'|'Отказ' => {
@@ -263,150 +266,6 @@ export default function ComplectatorDashboard() {
     }
     // invoice
     return doc.status === 'Исполнен' || doc.status === 'Отменен';
-  };
-
-  // Функции для меню действий документов
-  const toggleQuoteActions = (quoteId: string) => {
-    setShowQuoteActions(showQuoteActions === quoteId ? null : quoteId);
-    setShowInvoiceActions(null); // Закрываем другое меню
-  };
-
-  const toggleInvoiceActions = (invoiceId: string) => {
-    setShowInvoiceActions(showInvoiceActions === invoiceId ? null : invoiceId);
-    setShowQuoteActions(null); // Закрываем другое меню
-  };
-
-  const handleQuoteAction = async (action: string, quoteId: string) => {
-    console.log(`🎯 Quote action: ${action} for quote ${quoteId}`);
-    
-    try {
-      if (action === 'regenerate') {
-        // Получаем данные корзины из КП
-        const response = await fetch(`/api/documents/${quoteId}/cart-data?type=quote`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.cartData) {
-            // Восстанавливаем корзину и генерируем новый КП
-            await regenerateDocument('quote', quoteId, data.cartData);
-          } else {
-            alert('Нет данных корзины для перегенерации');
-          }
-        } else {
-          alert('Ошибка при получении данных корзины');
-        }
-      } else if (action === 'create_invoice') {
-        // Создаем счет на основе КП
-        await createInvoiceFromQuote(quoteId);
-      }
-    } catch (error) {
-      console.error('Error handling quote action:', error);
-      alert('Ошибка при выполнении действия');
-    }
-    
-    setShowQuoteActions(null);
-  };
-
-  const handleInvoiceAction = async (action: string, invoiceId: string) => {
-    console.log(`🎯 Invoice action: ${action} for invoice ${invoiceId}`);
-    
-    try {
-      if (action === 'regenerate') {
-        // Получаем данные корзины из Счета
-        const response = await fetch(`/api/documents/${invoiceId}/cart-data?type=invoice`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.cartData) {
-            // Восстанавливаем корзину и генерируем новый Счет
-            await regenerateDocument('invoice', invoiceId, data.cartData);
-          } else {
-            alert('Нет данных корзины для перегенерации');
-          }
-        } else {
-          alert('Ошибка при получении данных корзины');
-        }
-      }
-    } catch (error) {
-      console.error('Error handling invoice action:', error);
-      alert('Ошибка при выполнении действия');
-    }
-    
-    setShowInvoiceActions(null);
-  };
-
-  const regenerateDocument = async (type: string, documentId: string, cartData: any) => {
-    try {
-      console.log(`🔄 Regenerating ${type} document:`, { documentId, cartData });
-      
-      // Генерируем новый документ с теми же данными
-      const response = await fetch('/api/export/fast', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: type,
-          format: 'pdf',
-          clientId: cartData.clientId,
-          items: cartData.items,
-          totalAmount: cartData.totalAmount
-        })
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${type === 'quote' ? 'КП' : 'Счет'}-${Date.now()}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        
-        alert(`${type === 'quote' ? 'КП' : 'Счет'} успешно перегенерирован!`);
-        
-        // Обновляем данные клиента
-        if (selectedClient) {
-          fetchClientDocuments(selectedClient);
-        }
-      } else {
-        alert('Ошибка при перегенерации документа');
-      }
-    } catch (error) {
-      console.error('Error regenerating document:', error);
-      alert('Ошибка при перегенерации документа');
-    }
-  };
-
-  const createInvoiceFromQuote = async (quoteId: string) => {
-    try {
-      console.log(`📄 Creating invoice from quote: ${quoteId}`);
-      
-      const response = await fetch('/api/documents/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sourceDocumentId: quoteId,
-          sourceDocumentType: 'quote',
-          targetDocumentType: 'invoice'
-        })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('✅ Invoice created:', result);
-        alert('Счет успешно создан на основе КП!');
-        
-        // Обновляем данные клиента
-        if (selectedClient) {
-          fetchClientDocuments(selectedClient);
-        }
-      } else {
-        const error = await response.json();
-        alert(`Ошибка: ${error.error}`);
-      }
-    } catch (error) {
-      console.error('Error creating invoice from quote:', error);
-      alert('Ошибка при создании счета');
-    }
   };
 
   // Создание нового клиента
@@ -624,6 +483,207 @@ export default function ComplectatorDashboard() {
     }
   };
 
+  // Создание нового счета из КП
+  const createInvoiceFromQuote = async (quoteId: string) => {
+    try {
+      // Получаем данные КП
+      const quote = quotes.find(q => q.id === quoteId);
+      if (!quote) {
+        alert('КП не найдено');
+        return;
+      }
+
+      // Получаем полные данные КП из API
+      const quoteResponse = await fetch(`/api/quotes/${quoteId}`);
+      if (!quoteResponse.ok) {
+        alert('Ошибка при получении данных КП');
+        return;
+      }
+      
+      const quoteData = await quoteResponse.json();
+      
+      if (!quoteData.quote.cart_data) {
+        alert('Нет данных корзины для перегенерации');
+        return;
+      }
+
+      const cartData = JSON.parse(quoteData.quote.cart_data);
+      
+      // Создаем счет через API
+      const response = await fetch('/api/export/fast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'invoice',
+          format: 'pdf',
+          clientId: quoteData.quote.client_id,
+          items: cartData,
+          totalAmount: quote.total
+        })
+      });
+
+      if (response.ok) {
+        // Обновляем данные клиента
+        if (selectedClient) {
+          fetchClientDocuments(selectedClient);
+        }
+        alert('Счет создан успешно');
+      } else {
+        const error = await response.json();
+        alert(`Ошибка: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error creating invoice from quote:', error);
+      alert('Ошибка при создании счета');
+    }
+  };
+
+  // Перегенерация КП
+  const regenerateQuote = async (quoteId: string) => {
+    try {
+      // Получаем данные КП
+      const quote = quotes.find(q => q.id === quoteId);
+      if (!quote) {
+        alert('КП не найдено');
+        return;
+      }
+
+      // Получаем полные данные КП из API
+      const quoteResponse = await fetch(`/api/quotes/${quoteId}`);
+      if (!quoteResponse.ok) {
+        alert('Ошибка при получении данных КП');
+        return;
+      }
+      
+      const quoteData = await quoteResponse.json();
+      
+      if (!quoteData.quote.cart_data) {
+        alert('Нет данных корзины для перегенерации');
+        return;
+      }
+
+      const cartData = JSON.parse(quoteData.quote.cart_data);
+      
+      // Перегенерируем КП через API
+      const response = await fetch('/api/export/fast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'quote',
+          format: 'pdf',
+          clientId: quoteData.quote.client_id,
+          items: cartData,
+          totalAmount: quote.total
+        })
+      });
+
+      if (response.ok) {
+        alert('КП перегенерировано успешно');
+      } else {
+        const error = await response.json();
+        alert(`Ошибка: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error regenerating quote:', error);
+      alert('Ошибка при перегенерации КП');
+    }
+  };
+
+  // Перегенерация счета
+  const regenerateInvoice = async (invoiceId: string) => {
+    try {
+      // Получаем данные счета
+      const invoice = invoices.find(i => i.id === invoiceId);
+      if (!invoice) {
+        alert('Счет не найден');
+        return;
+      }
+
+      // Получаем полные данные счета из API
+      const invoiceResponse = await fetch(`/api/invoices/${invoiceId}`);
+      if (!invoiceResponse.ok) {
+        alert('Ошибка при получении данных счета');
+        return;
+      }
+      
+      const invoiceData = await invoiceResponse.json();
+      
+      if (!invoiceData.invoice.cart_data) {
+        alert('Нет данных корзины для перегенерации');
+        return;
+      }
+
+      const cartData = JSON.parse(invoiceData.invoice.cart_data);
+      
+      // Перегенерируем счет через API
+      const response = await fetch('/api/export/fast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'invoice',
+          format: 'pdf',
+          clientId: invoiceData.invoice.client_id,
+          items: cartData,
+          totalAmount: invoice.total
+        })
+      });
+
+      if (response.ok) {
+        alert('Счет перегенерирован успешно');
+      } else {
+        const error = await response.json();
+        alert(`Ошибка: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error regenerating invoice:', error);
+      alert('Ошибка при перегенерации счета');
+    }
+  };
+
+  // Удаление КП
+  const deleteQuote = async (quoteId: string) => {
+    if (!confirm('Вы уверены, что хотите удалить это КП?')) return;
+
+    try {
+      const response = await fetch(`/api/quotes/${quoteId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        setQuotes(prev => prev.filter(q => q.id !== quoteId));
+        alert('КП удалено успешно');
+      } else {
+        const error = await response.json();
+        alert(`Ошибка: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error deleting quote:', error);
+      alert('Ошибка при удалении КП');
+    }
+  };
+
+  // Удаление счета
+  const deleteInvoice = async (invoiceId: string) => {
+    if (!confirm('Вы уверены, что хотите удалить этот счет?')) return;
+
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        setInvoices(prev => prev.filter(i => i.id !== invoiceId));
+        alert('Счет удален успешно');
+      } else {
+        const error = await response.json();
+        alert(`Ошибка: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error deleting invoice:', error);
+      alert('Ошибка при удалении счета');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -642,10 +702,6 @@ export default function ComplectatorDashboard() {
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-black flex items-center"><Users className="h-5 w-5 mr-2"/>Клиенты</h3>
               <div className="flex items-center gap-2">
-                <SimpleWorkflowIntegration 
-                  selectedClientId={selectedClient}
-                  userRole="complectator"
-                />
                 <button
                   onClick={() => setShowCreateClientForm(true)}
                   className="px-3 py-1 text-sm border border-gray-300 hover:border-black transition-all duration-200"
@@ -675,20 +731,7 @@ export default function ComplectatorDashboard() {
             </div>
             <div className="p-0">
               <div className="divide-y">
-                {clients
-                  .filter(c => !showInWorkOnly || !isTerminalDoc(c.lastDoc))
-                  .filter(c => {
-                    const q = search.trim().toLowerCase();
-                    if (!q) return true;
-                    const fio = `${c.lastName} ${c.firstName} ${c.middleName || ''}`.toLowerCase();
-                    return fio.includes(q) || (c.phone||'').toLowerCase().includes(q) || (c.address||'').toLowerCase().includes(q);
-                  })
-                  .sort((a,b) => {
-                    const ta = a.lastActivityAt ? new Date(a.lastActivityAt).getTime() : 0;
-                    const tb = b.lastActivityAt ? new Date(b.lastActivityAt).getTime() : 0;
-                    return tb - ta;
-                  })
-                  .map(c => (
+                {filteredClients.map(c => (
                   <button
                     key={c.id}
                     onClick={() => setSelectedClient(c.id)}
@@ -710,7 +753,7 @@ export default function ComplectatorDashboard() {
               </div>
             </div>
           </Card>
-        </div>
+      </div>
 
         <div className="md:col-span-1">
           <Card variant="base">
@@ -729,7 +772,7 @@ export default function ComplectatorDashboard() {
                       </>
                     );
                   })()}
-                </div>
+        </div>
               ) : (
                 <div className="text-gray-600">Выберите клиента слева</div>
               )}
@@ -779,46 +822,52 @@ export default function ComplectatorDashboard() {
                                   {q.status}
                                 </button>
                               </div>
-                            </div>
-                            <div className="flex items-center space-x-3">
-                              <div className="text-right">
-                                <div className="font-semibold text-black">{q.total.toLocaleString('ru-RU')} ₽</div>
-                              </div>
-                              <div className="relative">
+        </div>
+                            <div className="text-right ml-4 flex items-center space-x-2">
+                              <div className="font-semibold text-black">{q.total.toLocaleString('ru-RU')} ₽</div>
+                              <div className="relative" data-quote-actions>
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    toggleQuoteActions(q.id);
+                                    setShowQuoteActions(showQuoteActions === q.id ? null : q.id);
                                   }}
                                   className="p-1 hover:bg-gray-100 rounded"
                                 >
-                                  <MoreVertical className="h-4 w-4 text-gray-600" />
+                                  <MoreVertical className="h-4 w-4 text-gray-400" />
                                 </button>
                                 
                                 {showQuoteActions === q.id && (
-                                  <div 
-                                    className="absolute right-0 top-8 bg-white border border-gray-300 rounded-lg shadow-lg py-1 z-50 min-w-[180px]"
-                                    data-actions-menu
-                                  >
+                                  <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-48">
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleQuoteAction('regenerate', q.id);
+                                        regenerateQuote(q.id);
+                                        setShowQuoteActions(null);
                                       }}
-                                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center"
+                                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
                                     >
-                                      <FileTextIcon className="h-4 w-4 mr-2" />
-                                      Перегенерировать КП
+                Создать КП
                                     </button>
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleQuoteAction('create_invoice', q.id);
+                                        createInvoiceFromQuote(q.id);
+                                        setShowQuoteActions(null);
                                       }}
-                                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center"
+                                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
                                     >
-                                      <Receipt className="h-4 w-4 mr-2" />
-                                      Создать счет
+                Создать счет
+                                    </button>
+                                    <hr className="my-1" />
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteQuote(q.id);
+                                        setShowQuoteActions(null);
+                                      }}
+                                      className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                                    >
+                                      Удалить
                                     </button>
                                   </div>
                                 )}
@@ -829,9 +878,9 @@ export default function ComplectatorDashboard() {
                             <div className="flex items-center space-x-3 text-xs text-gray-500">
                               <button className="hover:text-black flex items-center"><StickyNote className="h-3.5 w-3.5 mr-1"/>Комментарии</button>
                               <button className="hover:text-black flex items-center"><History className="h-3.5 w-3.5 mr-1"/>История</button>
-                            </div>
-                          </div>
-                        </div>
+            </div>
+          </div>
+        </div>
                       ))}
                       {quotes.filter(q => quotesFilter==='all' || q.status===quotesFilter).length===0 && (
                         <div className="text-sm text-gray-500">Нет КП по выбранному фильтру</div>
@@ -853,7 +902,7 @@ export default function ComplectatorDashboard() {
                     <div className="space-y-2">
                       {invoices.filter(i => invoicesFilter==='all' || i.status===invoicesFilter).map(i => (
                         <div key={i.id} className="border border-gray-200 p-3 hover:border-black transition-colors">
-                          <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between">
                             <div className="flex-1">
                               <div className="flex items-center space-x-3">
                                 <div className="font-medium text-black">{i.number}</div>
@@ -865,49 +914,55 @@ export default function ComplectatorDashboard() {
                                   {i.status}
                                 </button>
                               </div>
-                            </div>
-                            <div className="flex items-center space-x-3">
-                              <div className="text-right">
-                                <div className="font-semibold text-black">{i.total.toLocaleString('ru-RU')} ₽</div>
-                              </div>
-                              <div className="relative">
+          </div>
+                            <div className="text-right ml-4 flex items-center space-x-2">
+                              <div className="font-semibold text-black">{i.total.toLocaleString('ru-RU')} ₽</div>
+                              <div className="relative" data-invoice-actions>
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    toggleInvoiceActions(i.id);
+                                    setShowInvoiceActions(showInvoiceActions === i.id ? null : i.id);
                                   }}
                                   className="p-1 hover:bg-gray-100 rounded"
                                 >
-                                  <MoreVertical className="h-4 w-4 text-gray-600" />
+                                  <MoreVertical className="h-4 w-4 text-gray-400" />
                                 </button>
                                 
                                 {showInvoiceActions === i.id && (
-                                  <div 
-                                    className="absolute right-0 top-8 bg-white border border-gray-300 rounded-lg shadow-lg py-1 z-50 min-w-[180px]"
-                                    data-actions-menu
-                                  >
+                                  <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-48">
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleInvoiceAction('regenerate', i.id);
+                                        regenerateInvoice(i.id);
+                                        setShowInvoiceActions(null);
                                       }}
-                                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center"
+                                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
                                     >
-                                      <Receipt className="h-4 w-4 mr-2" />
-                                      Перегенерировать счет
+                                      Создать счет
                                     </button>
-                                  </div>
+                                    <hr className="my-1" />
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteInvoice(i.id);
+                                        setShowInvoiceActions(null);
+                                      }}
+                                      className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                                    >
+                                      Удалить
+                                    </button>
+                </div>
                                 )}
-                              </div>
-                            </div>
-                          </div>
+                </div>
+              </div>
+            </div>
                           <div className="mt-2 flex items-center justify-between">
                             <div className="flex items-center space-x-3 text-xs text-gray-500">
                               <button className="hover:text-black flex items-center"><StickyNote className="h-3.5 w-3.5 mr-1"/>Комментарии</button>
                               <button className="hover:text-black flex items-center"><History className="h-3.5 w-3.5 mr-1"/>История</button>
-                            </div>
-                          </div>
-                        </div>
+                </div>
+              </div>
+            </div>
                       ))}
                       {invoices.filter(i => invoicesFilter==='all' || i.status===invoicesFilter).length===0 && (
                         <div className="text-sm text-gray-500">Нет счетов по выбранному фильтру</div>
@@ -915,11 +970,11 @@ export default function ComplectatorDashboard() {
                 </div>
                   </>
                 )}
-              </div>
+                </div>
             )}
           </Card>
-        </div>
-      </div>
+                </div>
+              </div>
 
       {/* Модальное окно создания клиента */}
       {showCreateClientForm && (

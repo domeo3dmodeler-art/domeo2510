@@ -838,7 +838,8 @@ async function createDocumentRecordsSimple(
         subtotal: totalAmount,
         total_amount: totalAmount,
         currency: 'RUB',
-        notes: 'Сгенерировано из конфигуратора дверей'
+        notes: 'Сгенерировано из конфигуратора дверей',
+        cart_data: JSON.stringify(items) // Сохраняем данные корзины
       }
     });
 
@@ -888,7 +889,8 @@ async function createDocumentRecordsSimple(
         subtotal: totalAmount,
         total_amount: totalAmount,
         currency: 'RUB',
-        notes: 'Сгенерировано из конфигуратора дверей'
+        notes: 'Сгенерировано из конфигуратора дверей',
+        cart_data: JSON.stringify(items) // Сохраняем данные корзины
       }
     });
 
@@ -938,7 +940,8 @@ async function createDocumentRecordsSimple(
         subtotal: totalAmount,
         total_amount: totalAmount,
         currency: 'RUB',
-        notes: 'Сгенерировано из конфигуратора дверей'
+        notes: 'Сгенерировано из конфигуратора дверей',
+        cart_data: JSON.stringify(items) // Сохраняем данные корзины
       }
     });
 

@@ -28,16 +28,7 @@ export default function SimpleWorkflowIntegration({
 
   return (
     <>
-      {/* Простая кнопка корзины */}
-      <Button
-        onClick={openCart}
-        variant="outline"
-        size="sm"
-        className="flex items-center space-x-1"
-      >
-        <ShoppingCart className="h-4 w-4" />
-        <span>Корзина</span>
-      </Button>
+      {/* Кнопка корзины убрана по требованию пользователя */}
 
       {/* Упрощенная корзина */}
       <QuickCartSidebar

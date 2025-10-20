@@ -5,22 +5,47 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 // GET /api/quotes/[id] - Получить КП по ID
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const quote = await prisma.quote.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: {
         id: true,
-        title: true,
+        number: true,
+        client_id: true,
+        created_by: true,
         status: true,
-        items: true,
-        total: true,
+        valid_until: true,
+        subtotal: true,
+        tax_amount: true,
+        total_amount: true,
         currency: true,
-        clientInfo: true,
         notes: true,
-        createdAt: true,
-        updatedAt: true,
-        acceptedAt: true
+        terms: true,
+        cart_data: true,
+        created_at: true,
+        updated_at: true,
+        client: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            middleName: true,
+            phone: true,
+            address: true
+          }
+        },
+        quote_items: {
+          select: {
+            id: true,
+            product_id: true,
+            quantity: true,
+            unit_price: true,
+            total_price: true,
+            notes: true
+          }
+        }
       }
     });
 
@@ -32,10 +57,25 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     return NextResponse.json({
-      ...quote,
-      total: Number(quote.total),
-      items: JSON.parse(JSON.stringify(quote.items)),
-      clientInfo: quote.clientInfo ? JSON.parse(JSON.stringify(quote.clientInfo)) : null
+      quote: {
+        id: quote.id,
+        number: quote.number,
+        client_id: quote.client_id,
+        created_by: quote.created_by,
+        status: quote.status,
+        valid_until: quote.valid_until,
+        subtotal: quote.subtotal,
+        tax_amount: quote.tax_amount,
+        total_amount: quote.total_amount,
+        currency: quote.currency,
+        notes: quote.notes,
+        terms: quote.terms,
+        cart_data: quote.cart_data,
+        created_at: quote.created_at,
+        updated_at: quote.updated_at,
+        client: quote.client,
+        quote_items: quote.quote_items
+      }
     });
 
   } catch (error: any) {
@@ -48,13 +88,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // PUT /api/quotes/[id] - Обновить КП
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const body = await req.json();
     
     // Проверяем существование КП
     const existingQuote = await prisma.quote.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: { id: true, status: true }
     });
 
@@ -68,45 +109,36 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     // Подготавливаем данные для обновления
     const updateData: any = {};
     
-    if (body.title !== undefined) updateData.title = body.title;
     if (body.status !== undefined) updateData.status = body.status;
-    if (body.items !== undefined) updateData.items = body.items;
-    if (body.total !== undefined) updateData.total = body.total;
-    if (body.currency !== undefined) updateData.currency = body.currency;
-    if (body.clientInfo !== undefined) updateData.clientInfo = body.clientInfo;
     if (body.notes !== undefined) updateData.notes = body.notes;
-
-    // Если статус меняется на "accepted", устанавливаем acceptedAt
-    if (body.status === 'accepted' && existingQuote.status !== 'accepted') {
-      updateData.acceptedAt = new Date();
-    }
+    if (body.terms !== undefined) updateData.terms = body.terms;
+    if (body.cart_data !== undefined) updateData.cart_data = body.cart_data;
 
     const updatedQuote = await prisma.quote.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       select: {
         id: true,
-        title: true,
+        number: true,
+        client_id: true,
+        created_by: true,
         status: true,
-        items: true,
-        total: true,
+        valid_until: true,
+        subtotal: true,
+        tax_amount: true,
+        total_amount: true,
         currency: true,
-        clientInfo: true,
         notes: true,
-        createdAt: true,
-        updatedAt: true,
-        acceptedAt: true
+        terms: true,
+        cart_data: true,
+        created_at: true,
+        updated_at: true
       }
     });
 
     return NextResponse.json({
       success: true,
-      quote: {
-        ...updatedQuote,
-        total: Number(updatedQuote.total),
-        items: JSON.parse(JSON.stringify(updatedQuote.items)),
-        clientInfo: updatedQuote.clientInfo ? JSON.parse(JSON.stringify(updatedQuote.clientInfo)) : null
-      }
+      quote: updatedQuote
     });
 
   } catch (error: any) {
@@ -119,11 +151,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 // DELETE /api/quotes/[id] - Удалить КП
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
+    
     // Проверяем существование КП
     const existingQuote = await prisma.quote.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: { id: true, status: true }
     });
 
@@ -135,7 +169,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     }
 
     // Нельзя удалять принятые КП
-    if (existingQuote.status === 'accepted') {
+    if (existingQuote.status === 'ACCEPTED') {
       return NextResponse.json(
         { error: 'Нельзя удалить принятый КП' },
         { status: 400 }
@@ -143,7 +177,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     }
 
     await prisma.quote.delete({
-      where: { id: params.id }
+      where: { id }
     });
 
     return NextResponse.json({

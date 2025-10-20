@@ -7,21 +7,22 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    
+    // Оптимизированный запрос - загружаем только основные данные клиента
     const client = await prisma.client.findUnique({
       where: { id },
-      include: {
-        quotes: {
-          orderBy: { created_at: 'desc' },
-          take: 5
-        },
-        invoices: {
-          orderBy: { created_at: 'desc' },
-          take: 5
-        },
-        orders: {
-          orderBy: { created_at: 'desc' },
-          take: 5
-        }
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        middleName: true,
+        phone: true,
+        address: true,
+        objectId: true,
+        customFields: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true
       }
     });
 
@@ -32,11 +33,42 @@ export async function GET(
       );
     }
 
+    // Загружаем документы отдельными оптимизированными запросами
+    const [quotes, invoices] = await Promise.all([
+      prisma.quote.findMany({
+        where: { client_id: id },
+        select: {
+          id: true,
+          number: true,
+          status: true,
+          total_amount: true,
+          created_at: true
+        },
+        orderBy: { created_at: 'desc' },
+        take: 10
+      }),
+      prisma.invoice.findMany({
+        where: { client_id: id },
+        select: {
+          id: true,
+          number: true,
+          status: true,
+          total_amount: true,
+          created_at: true,
+          due_date: true
+        },
+        orderBy: { created_at: 'desc' },
+        take: 10
+      })
+    ]);
+
     return NextResponse.json({
       success: true,
       client: {
         ...client,
-        customFields: JSON.parse(client.customFields || '{}')
+        customFields: JSON.parse(client.customFields || '{}'),
+        quotes,
+        invoices
       }
     });
 
