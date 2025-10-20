@@ -496,7 +496,7 @@ export default function ComplectatorDashboard() {
                           className={`px-3 py-1 text-sm border ${quotesFilter===s?'border-black bg-black text-white':'border-gray-300 hover:border-black'}`}
                         >{s==='all'?'Все':s}</button>
                       ))}
-                    </div>
+        </div>
                     <div className="space-y-2">
                       {quotes.filter(q => quotesFilter==='all' || q.status===quotesFilter).map(q => (
                         <div key={q.id} className="border border-gray-200 p-3 hover:border-black transition-colors">
@@ -522,7 +522,7 @@ export default function ComplectatorDashboard() {
                               <button className="hover:text-black flex items-center"><StickyNote className="h-3.5 w-3.5 mr-1"/>Комментарии</button>
                               <button className="hover:text-black flex items-center"><History className="h-3.5 w-3.5 mr-1"/>История</button>
                             </div>
-                          </div>
+            </div>
           </div>
                       ))}
                       {quotes.filter(q => quotesFilter==='all' || q.status===quotesFilter).length===0 && (
@@ -545,7 +545,7 @@ export default function ComplectatorDashboard() {
                     <div className="space-y-2">
                       {invoices.filter(i => invoicesFilter==='all' || i.status===invoicesFilter).map(i => (
                         <div key={i.id} className="border border-gray-200 p-3 hover:border-black transition-colors">
-                          <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between">
                             <div className="flex-1">
                               <div className="flex items-center space-x-3">
                                 <div className="font-medium text-black">{i.number}</div>
@@ -640,7 +640,7 @@ export default function ComplectatorDashboard() {
                 onChange={(e) => setNewClientData(prev => ({ ...prev, address: e.target.value }))}
                 className="col-span-12 px-3 py-2 border border-gray-300 rounded"
               />
-            </div>
+                </div>
 
             <div className="flex justify-end gap-3 mt-4">
               <button
@@ -673,7 +673,7 @@ export default function ComplectatorDashboard() {
       {/* Выпадающее меню статуса */}
       {statusDropdown && (
         <div 
-          className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[120px]"
+          className="fixed z-50 bg-white border border-gray-300 rounded-xl shadow-xl py-2 min-w-[160px] backdrop-blur-sm"
           style={{ 
             left: statusDropdown.x, 
             top: statusDropdown.y 
@@ -685,28 +685,38 @@ export default function ComplectatorDashboard() {
                 const quote = quotes.find(q => q.id === statusDropdown!.id);
                 if (!quote) return null;
                 
-                const getNextStatuses = (currentStatus: string) => {
-                  switch (currentStatus) {
-                    case 'Черновик': return ['Отправлено'];
-                    case 'Отправлено': return ['Согласовано', 'Отказ'];
-                    default: return [];
-                  }
+                const getAllStatuses = () => {
+                  return ['Черновик', 'Отправлено', 'Согласовано', 'Отказ'];
                 };
                 
-                const nextStatuses = getNextStatuses(quote.status);
+                const allStatuses = getAllStatuses();
                 
-                return nextStatuses.map(status => (
-                  <button
-                    key={status}
-                    onClick={() => {
-                      if (status === 'Отправлено') updateQuoteStatus(quote.id, 'SENT');
-                      else if (status === 'Согласовано') updateQuoteStatus(quote.id, 'ACCEPTED');
-                      else if (status === 'Отказ') updateQuoteStatus(quote.id, 'REJECTED');
-                    }}
-                    className="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 transition-colors"
-                  >
-                    {status}
-                  </button>
+                return allStatuses.map((status, index) => (
+                  <div key={status}>
+                    <button
+                      onClick={() => {
+                        if (status === 'Черновик') updateQuoteStatus(quote.id, 'DRAFT');
+                        else if (status === 'Отправлено') updateQuoteStatus(quote.id, 'SENT');
+                        else if (status === 'Согласовано') updateQuoteStatus(quote.id, 'ACCEPTED');
+                        else if (status === 'Отказ') updateQuoteStatus(quote.id, 'REJECTED');
+                      }}
+                      className={`w-full px-4 py-2.5 text-sm text-left transition-all duration-200 ${
+                        quote.status === status 
+                          ? 'bg-blue-50 text-blue-700 font-medium' 
+                          : 'hover:bg-gray-50 hover:text-gray-900'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span>{status}</span>
+                        {quote.status === status && (
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        )}
+                      </div>
+                    </button>
+                    {index < allStatuses.length - 1 && (
+                      <div className="mx-4 border-t border-gray-100"></div>
+                    )}
+                  </div>
                 ));
               })()}
             </>
@@ -718,27 +728,33 @@ export default function ComplectatorDashboard() {
                 const invoice = invoices.find(i => i.id === statusDropdown!.id);
                 if (!invoice) return null;
                 
-                const getNextStatuses = (currentStatus: string) => {
-                  switch (currentStatus) {
-                    case 'Черновик': return ['Отправлен'];
-                    case 'Отправлен': return ['Оплачен/Заказ'];
-                    case 'Оплачен/Заказ': return ['В производстве'];
-                    case 'В производстве': return ['Получен от поставщика'];
-                    case 'Получен от поставщика': return ['Исполнен'];
-                    default: return [];
-                  }
+                const getAllStatuses = () => {
+                  return ['Черновик', 'Отправлен', 'Оплачен/Заказ', 'Отменен'];
                 };
                 
-                const nextStatuses = getNextStatuses(invoice.status);
+                const allStatuses = getAllStatuses();
                 
-                return nextStatuses.map(status => (
-                  <button
-                    key={status}
-                    onClick={() => updateInvoiceStatus(invoice.id, status)}
-                    className="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 transition-colors"
-                  >
-                    {status}
-                  </button>
+                return allStatuses.map((status, index) => (
+                  <div key={status}>
+                    <button
+                      onClick={() => updateInvoiceStatus(invoice.id, status)}
+                      className={`w-full px-4 py-2.5 text-sm text-left transition-all duration-200 ${
+                        invoice.status === status 
+                          ? 'bg-blue-50 text-blue-700 font-medium' 
+                          : 'hover:bg-gray-50 hover:text-gray-900'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span>{status}</span>
+                        {invoice.status === status && (
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        )}
+                      </div>
+                    </button>
+                    {index < allStatuses.length - 1 && (
+                      <div className="mx-4 border-t border-gray-100"></div>
+                    )}
+                  </div>
                 ));
               })()}
             </>
