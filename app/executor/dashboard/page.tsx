@@ -64,6 +64,14 @@ export default function ExecutorDashboard() {
   }>>([]);
   const [showInWorkOnly, setShowInWorkOnly] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newClientData, setNewClientData] = useState({
+    firstName: '',
+    lastName: '',
+    middleName: '',
+    phone: '',
+    address: '',
+    objectId: ''
+  });
   const [showInvoiceActions, setShowInvoiceActions] = useState<{ [key: string]: boolean }>({});
   const [statusDropdown, setStatusDropdown] = useState<{type: 'invoice'|'supplier_order', id: string, x: number, y: number} | null>(null);
 
@@ -173,6 +181,54 @@ export default function ExecutorDashboard() {
       'cancelled': 'Отменен'
     };
     return statusMap[apiStatus] || 'Ожидает';
+  };
+
+  // Создание нового клиента
+  const createClient = async (clientData: any) => {
+    try {
+      const response = await fetch('/api/clients', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(clientData)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Обновляем список клиентов
+        const newClient = {
+          id: data.client.id,
+          firstName: data.client.firstName,
+          lastName: data.client.lastName,
+          middleName: data.client.middleName,
+          phone: data.client.phone,
+          address: data.client.address,
+          objectId: data.client.objectId,
+          lastActivityAt: data.client.createdAt,
+          lastDoc: undefined
+        };
+        setClients(prev => [...prev, newClient]);
+        setSelectedClient(data.client.id);
+        setShowCreateModal(false);
+        setNewClientData({
+          firstName: '',
+          lastName: '',
+          middleName: '',
+          phone: '',
+          address: '',
+          objectId: ''
+        });
+        // Загружаем документы нового клиента
+        fetchClientDocuments(data.client.id);
+      } else {
+        console.error('Failed to create client:', response.status);
+        alert('Ошибка при создании клиента');
+      }
+    } catch (error) {
+      console.error('Error creating client:', error);
+      alert('Ошибка при создании клиента');
+    }
   };
 
   // Обновление статуса счета
@@ -866,81 +922,88 @@ export default function ExecutorDashboard() {
 
       {/* Модальное окно создания клиента */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Создать клиента</h3>
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              const formData = new FormData(e.currentTarget);
-              const clientData = {
-                firstName: formData.get('firstName'),
-                lastName: formData.get('lastName'),
-                middleName: formData.get('middleName'),
-                phone: formData.get('phone'),
-                address: formData.get('address')
-              };
-              createClient(clientData);
-            }}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Фамилия</label>
-                  <input
-                    type="text"
-                    name="lastName"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Имя</label>
-                  <input
-                    type="text"
-                    name="firstName"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Отчество</label>
-                  <input
-                    type="text"
-                    name="middleName"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Адрес</label>
-                  <textarea
-                    name="address"
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  type="button"
-                  className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                  onClick={() => setShowCreateModal(false)}
-                >
-                  Отмена
-                </button>
-                <button 
-                  type="submit"
-                  className="px-4 py-2 text-sm bg-black text-white rounded-md hover:bg-gray-800 transition-colors"
-                >
-                  Создать
-                </button>
-              </div>
-            </form>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-lg w-full max-w-4xl p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-black">Новый заказчик</h3>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="px-3 py-2 text-sm border border-black text-black hover:bg-black hover:text-white rounded"
+              >
+                Закрыть
+              </button>
+            </div>
+
+            {/* Одна строка с полями разной ширины */}
+            <div className="grid grid-cols-12 gap-3">
+              <input
+                type="text"
+                placeholder="Фамилия"
+                value={newClientData.lastName}
+                onChange={(e) => setNewClientData(prev => ({ ...prev, lastName: e.target.value }))}
+                className="col-span-3 px-3 py-2 border border-gray-300 rounded"
+              />
+              <input
+                type="text"
+                placeholder="Имя"
+                value={newClientData.firstName}
+                onChange={(e) => setNewClientData(prev => ({ ...prev, firstName: e.target.value }))}
+                className="col-span-2 px-3 py-2 border border-gray-300 rounded"
+              />
+              <input
+                type="text"
+                placeholder="Отчество"
+                value={newClientData.middleName}
+                onChange={(e) => setNewClientData(prev => ({ ...prev, middleName: e.target.value }))}
+                className="col-span-2 px-3 py-2 border border-gray-300 rounded"
+              />
+              <input
+                type="tel"
+                placeholder="Телефон"
+                value={newClientData.phone}
+                onChange={(e) => setNewClientData(prev => ({ ...prev, phone: e.target.value }))}
+                className="col-span-2 px-3 py-2 border border-gray-300 rounded"
+              />
+              <input
+                type="text"
+                placeholder="ID объекта"
+                value={newClientData.objectId}
+                onChange={(e) => setNewClientData(prev => ({ ...prev, objectId: e.target.value }))}
+                className="col-span-3 px-3 py-2 border border-gray-300 rounded"
+              />
+              <input
+                type="text"
+                placeholder="Адрес"
+                value={newClientData.address}
+                onChange={(e) => setNewClientData(prev => ({ ...prev, address: e.target.value }))}
+                className="col-span-12 px-3 py-2 border border-gray-300 rounded"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="px-3 py-2 border border-gray-300 rounded hover:bg-gray-100"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={async () => {
+                  if (!newClientData.firstName || !newClientData.lastName || !newClientData.phone) {
+                    alert('Заполните ФИО и телефон');
+                    return;
+                  }
+                  try {
+                    await createClient(newClientData);
+                  } catch (error) {
+                    console.error('Error creating client:', error);
+                  }
+                }}
+                className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
+              >
+                Создать клиента
+              </button>
+            </div>
           </div>
         </div>
       )}
