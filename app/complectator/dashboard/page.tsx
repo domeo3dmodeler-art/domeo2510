@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button, Card } from '../../../components/ui';
 import StatCard from '../../../components/ui/StatCard';
 import { 
