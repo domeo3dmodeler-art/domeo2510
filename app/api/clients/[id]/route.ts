@@ -3,11 +3,12 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const client = await prisma.client.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         quotes: {
           orderBy: { created_at: 'desc' },
@@ -16,22 +17,6 @@ export async function GET(
         invoices: {
           orderBy: { created_at: 'desc' },
           take: 5
-        },
-        orders: {
-          orderBy: { created_at: 'desc' },
-          take: 5
-        },
-        documents: {
-          orderBy: { created_at: 'desc' },
-          take: 10
-        },
-        _count: {
-          select: {
-            quotes: true,
-            invoices: true,
-            orders: true,
-            documents: true
-          }
         }
       }
     });
@@ -62,14 +47,15 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const data = await request.json();
     const { firstName, lastName, middleName, phone, address, objectId, customFields, isActive } = data;
 
     const client = await prisma.client.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         firstName,
         lastName,
@@ -101,11 +87,12 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await prisma.client.delete({
-      where: { id: params.id }
+      where: { id }
     });
 
     return NextResponse.json({

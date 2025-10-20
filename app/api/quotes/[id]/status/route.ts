@@ -4,11 +4,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-const VALID_STATUSES = ['draft', 'sent', 'accepted', 'rejected'];
+const VALID_STATUSES = ['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED'];
 
 // PUT /api/quotes/[id]/status - Изменить статус КП
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const body = await req.json();
     const { status, notes } = body;
 
@@ -28,19 +29,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
     // Проверяем существование КП
     const existingQuote = await prisma.quote.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: { 
         id: true, 
-        status: true, 
-        title: true,
-        items: true,
-        total: true,
-        currency: true,
-        clientInfo: true,
-        notes: true,
-        createdAt: true,
-        updatedAt: true,
-        acceptedAt: true
+        status: true
       }
     });
 
@@ -52,7 +44,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     // Проверяем возможность изменения статуса
-    if (existingQuote.status === 'accepted' && status !== 'accepted') {
+    if (existingQuote.status === 'ACCEPTED' && status !== 'ACCEPTED') {
       return NextResponse.json(
         { error: 'Нельзя изменить статус принятого КП' },
         { status: 400 }
@@ -61,51 +53,20 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
     // Подготавливаем данные для обновления
     const updateData: any = {
-      status,
-      updatedAt: new Date()
+      status
     };
 
-    // Если статус меняется на "accepted", устанавливаем acceptedAt
-    if (status === 'accepted' && existingQuote.status !== 'accepted') {
-      updateData.acceptedAt = new Date();
-    }
-
-    // Если статус меняется с "accepted", сбрасываем acceptedAt
-    if (status !== 'accepted' && existingQuote.status === 'accepted') {
-      updateData.acceptedAt = null;
-    }
-
-    // Обновляем примечания, если они переданы
-    if (notes !== undefined) {
-      updateData.notes = notes;
-    }
-
     const updatedQuote = await prisma.quote.update({
-      where: { id: params.id },
-      data: updateData,
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        items: true,
-        total: true,
-        currency: true,
-        clientInfo: true,
-        notes: true,
-        createdAt: true,
-        updatedAt: true,
-        acceptedAt: true
-      }
+      where: { id },
+      data: updateData
     });
 
     return NextResponse.json({
       success: true,
       message: `Статус КП изменен на "${status}"`,
       quote: {
-        ...updatedQuote,
-        total: Number(updatedQuote.total),
-        items: JSON.parse(JSON.stringify(updatedQuote.items)),
-        clientInfo: updatedQuote.clientInfo ? JSON.parse(JSON.stringify(updatedQuote.clientInfo)) : null
+        id: updatedQuote.id,
+        status: updatedQuote.status
       }
     });
 
@@ -119,16 +80,16 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 // GET /api/quotes/[id]/status - Получить текущий статус КП
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const quote = await prisma.quote.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: { 
         id: true, 
         status: true, 
-        title: true,
-        updatedAt: true,
-        acceptedAt: true
+        number: true,
+        updated_at: true
       }
     });
 
@@ -141,11 +102,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     return NextResponse.json({
       id: quote.id,
-      title: quote.title,
+      number: quote.number,
       status: quote.status,
-      updatedAt: quote.updatedAt,
-      acceptedAt: quote.acceptedAt,
-      canExport: quote.status === 'accepted'
+      updated_at: quote.updated_at,
+      canExport: quote.status === 'ACCEPTED'
     });
 
   } catch (error: any) {
