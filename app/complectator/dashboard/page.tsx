@@ -329,6 +329,12 @@ export default function ComplectatorDashboard() {
             status: russianStatus as any
           } : q
         ));
+        
+        // Обновляем данные клиента
+        if (selectedClient) {
+          fetchClientDocuments(selectedClient);
+        }
+        
         hideStatusDropdown();
         return result.quote;
       } else {
@@ -352,6 +358,11 @@ export default function ComplectatorDashboard() {
       setInvoices(prev => prev.map(inv => 
         inv.id === invoiceId ? { ...inv, status: newStatus as any } : inv
       ));
+      
+      // Обновляем данные клиента
+      if (selectedClient) {
+        fetchClientDocuments(selectedClient);
+      }
       
       hideStatusDropdown();
       alert(`Статус счета изменен на "${newStatus}" (заглушка)`);

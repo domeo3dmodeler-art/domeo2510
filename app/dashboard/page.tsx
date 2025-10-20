@@ -265,7 +265,7 @@ function DashboardContent() {
               </div>
               <div className="flex items-center space-x-4">
                 <div className="text-sm text-gray-700">
-                  {user.lastName} {user.firstName}{user.middleName ? ` ${user.middleName}` : ''} ({getRoleText(user.role)})
+                  {user.lastName} {user.firstName.charAt(0)}.{user.middleName ? user.middleName.charAt(0) + '.' : ''} ({getRoleText(user.role)})
                 </div>
                 <button
                   onClick={() => router.back()}
