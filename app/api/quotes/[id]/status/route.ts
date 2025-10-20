@@ -12,6 +12,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const body = await req.json();
     const { status, notes } = body;
+    
+    console.log('🔄 API: Updating quote status:', { id, status, body });
 
     // Валидация статуса
     if (!status || !VALID_STATUSES.includes(status)) {
@@ -36,7 +38,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       }
     });
 
+    console.log('🔍 API: Found quote:', existingQuote);
+
     if (!existingQuote) {
+      console.log('❌ API: Quote not found:', id);
       return NextResponse.json(
         { error: 'КП не найден' },
         { status: 404 }
@@ -56,10 +61,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       status
     };
 
+    console.log('💾 API: Updating quote with data:', updateData);
+
     const updatedQuote = await prisma.quote.update({
       where: { id },
       data: updateData
     });
+
+    console.log('✅ API: Quote updated successfully:', updatedQuote);
 
     return NextResponse.json({
       success: true,
@@ -71,7 +80,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     });
 
   } catch (error: any) {
-    console.error('Error updating quote status:', error);
+    console.error('❌ API: Error updating quote status:', error);
+    console.error('❌ API: Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     return NextResponse.json(
       { error: 'Ошибка при изменении статуса КП' },
       { status: 500 }

@@ -122,6 +122,7 @@ export default function ComplectatorDashboard() {
         const client = data.client;
         
         // Преобразуем КП
+        console.log('📋 Raw quotes from API:', client.quotes);
         const formattedQuotes = client.quotes.map((quote: any) => ({
           id: quote.id,
           number: quote.number ? quote.number.replace('QUOTE-', 'КП-') : `КП-${quote.id.slice(-6)}`,
@@ -129,6 +130,7 @@ export default function ComplectatorDashboard() {
           status: mapQuoteStatus(quote.status),
           total: Number(quote.total_amount) || 0
         }));
+        console.log('📋 Formatted quotes:', formattedQuotes);
         setQuotes(formattedQuotes);
         
         // Преобразуем Счета
@@ -356,6 +358,8 @@ export default function ComplectatorDashboard() {
       } else {
         const errorData = await response.json();
         console.error('❌ API Error:', errorData);
+        console.error('❌ Response status:', response.status);
+        console.error('❌ Response headers:', Object.fromEntries(response.headers.entries()));
         throw new Error(errorData.error || 'Ошибка при изменении статуса КП');
       }
     } catch (error) {
