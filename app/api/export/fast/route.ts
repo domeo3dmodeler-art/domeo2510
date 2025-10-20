@@ -3,6 +3,7 @@ import {
   exportDocumentWithPDF, 
   cleanupExportResources 
 } from '@/lib/export/puppeteer-generator';
+import { prisma } from '@/lib/prisma';
 
 // POST /api/export/fast - Быстрый экспорт документов
 export async function POST(request: NextRequest) {
@@ -61,6 +62,50 @@ export async function POST(request: NextRequest) {
       items,
       totalAmount
     );
+
+    // Сохраняем данные корзины в документ
+    if (result.documentId) {
+      try {
+        const cartData = {
+          items: items,
+          totalAmount: totalAmount,
+          clientId: clientId,
+          generatedAt: new Date().toISOString(),
+          format: format,
+          type: type
+        };
+
+        const cartDataString = JSON.stringify(cartData);
+
+        switch (type) {
+          case 'quote':
+            await prisma.quote.update({
+              where: { id: result.documentId },
+              data: { cart_data: cartDataString }
+            });
+            break;
+          
+          case 'invoice':
+            await prisma.invoice.update({
+              where: { id: result.documentId },
+              data: { cart_data: cartDataString }
+            });
+            break;
+          
+          case 'order':
+            await prisma.order.update({
+              where: { id: result.documentId },
+              data: { cart_data: cartDataString }
+            });
+            break;
+        }
+
+        console.log('✅ Cart data saved to document:', result.documentId);
+      } catch (error) {
+        console.error('❌ Error saving cart data:', error);
+        // Не прерываем процесс, если не удалось сохранить данные корзины
+      }
+    }
 
     // Возвращаем файл с информацией о документе
     return new NextResponse(result.buffer, {

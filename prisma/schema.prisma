@@ -261,6 +261,7 @@ model Quote {
   currency     String    @default("RUB")
   notes        String?
   terms        String?
+  cart_data    String?   // Данные корзины для перегенерации (JSON строка)
   created_at   DateTime  @default(now())
   updated_at   DateTime  @updatedAt
   
@@ -300,6 +301,7 @@ model Order {
   total_amount  Float     @default(0)
   currency      String    @default("RUB")
   notes         String?
+  cart_data     String?   // Данные корзины для перегенерации (JSON строка)
   created_at    DateTime  @default(now())
   updated_at    DateTime  @updatedAt
   
@@ -339,6 +341,7 @@ model Invoice {
   total_amount Float     @default(0)
   currency     String    @default("RUB")
   notes        String?
+  cart_data    String?   // Данные корзины для перегенерации (JSON строка)
   created_at   DateTime  @default(now())
   updated_at   DateTime  @updatedAt
   
@@ -375,6 +378,7 @@ model SupplierOrder {
   order_date     DateTime  @default(now())
   expected_date  DateTime?
   notes          String?
+  cart_data      String?   // Данные корзины для перегенерации (JSON строка)
   created_at     DateTime  @default(now())
   updated_at     DateTime  @updatedAt
 

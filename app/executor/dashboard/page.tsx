@@ -428,36 +428,41 @@ export default function ExecutorDashboard() {
         return;
       }
 
-      // Используем механизм генерации заказа из корзины
-      const response = await fetch('/api/export/fast', {
+      // Получаем полные данные счета из API, чтобы получить order_id
+      const invoiceResponse = await fetch(`/api/invoices/${invoiceId}`);
+      if (!invoiceResponse.ok) {
+        alert('Ошибка при получении данных счета');
+        return;
+      }
+      
+      const invoiceData = await invoiceResponse.json();
+      const orderId = invoiceData.invoice.order_id;
+      
+      if (!orderId) {
+        alert('У этого счета нет связанного заказа. Сначала создайте заказ.');
+        return;
+      }
+
+      // Создаем заказ у поставщика через API
+      const response = await fetch('/api/supplier-orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: 'supplier_order',
-          format: 'pdf',
-          clientId: selectedClient,
-          items: [], // TODO: Получить товары из счета
-          sourceInvoiceId: invoiceId
+          orderId: orderId,
+          supplierName: 'Поставщик по умолчанию',
+          supplierEmail: '',
+          supplierPhone: '',
+          expectedDate: null,
+          notes: `Создан на основе счета ${invoice.number}`
         })
       });
 
       if (response.ok) {
         const result = await response.json();
         console.log('✅ Supplier Order created:', result);
-        
-        // Скачиваем файл
-        const blob = new Blob([result.buffer], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `supplier-order-${Date.now()}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
 
-        alert('Заказ у поставщика успешно создан и скачан!');
-        
+        alert('Заказ у поставщика успешно создан!');
+
         // Обновляем данные клиента
         if (selectedClient) {
           fetchClientDocuments(selectedClient);
