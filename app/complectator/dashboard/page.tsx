@@ -275,6 +275,7 @@ export default function ComplectatorDashboard() {
 
   // Показать выпадающее меню статуса
   const showStatusDropdown = (type: 'quote'|'invoice', id: string, event: React.MouseEvent) => {
+    console.log('🎯 Showing status dropdown:', { type, id });
     const rect = event.currentTarget.getBoundingClientRect();
     setStatusDropdown({
       type,
@@ -292,6 +293,8 @@ export default function ComplectatorDashboard() {
   // Изменение статуса КП
   const updateQuoteStatus = async (quoteId: string, newStatus: string) => {
     try {
+      console.log('🔄 Updating quote status:', { quoteId, newStatus });
+      
       // Маппинг русских статусов на английские для API
       const statusMap: Record<string, string> = {
         'Черновик': 'DRAFT',
@@ -301,6 +304,7 @@ export default function ComplectatorDashboard() {
       };
       
       const apiStatus = statusMap[newStatus] || newStatus;
+      console.log('📤 Sending to API:', { apiStatus });
       
       const response = await fetch(`/api/quotes/${quoteId}/status`, {
         method: 'PUT',
@@ -310,8 +314,12 @@ export default function ComplectatorDashboard() {
         body: JSON.stringify({ status: apiStatus })
       });
 
+      console.log('📥 API Response status:', response.status);
+
       if (response.ok) {
         const result = await response.json();
+        console.log('✅ API Response data:', result);
+        
         // Маппинг обратно на русские статусы
         const reverseStatusMap: Record<string, string> = {
           'DRAFT': 'Черновик',
@@ -321,6 +329,7 @@ export default function ComplectatorDashboard() {
         };
         
         const russianStatus = reverseStatusMap[result.quote.status] || result.quote.status;
+        console.log('🔄 Mapped status:', { apiStatus: result.quote.status, russianStatus });
         
         // Обновляем список КП
         setQuotes(prev => prev.map(q => 
@@ -332,18 +341,21 @@ export default function ComplectatorDashboard() {
         
         // Обновляем данные клиента
         if (selectedClient) {
+          console.log('🔄 Refreshing client data...');
           fetchClientDocuments(selectedClient);
         }
         
         hideStatusDropdown();
+        console.log('✅ Status update completed successfully');
         return result.quote;
       } else {
         const errorData = await response.json();
+        console.error('❌ API Error:', errorData);
         throw new Error(errorData.error || 'Ошибка при изменении статуса КП');
       }
     } catch (error) {
-      console.error('Error updating quote status:', error);
-      alert('Ошибка при изменении статуса КП');
+      console.error('❌ Error updating quote status:', error);
+      alert(`Ошибка при изменении статуса КП: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
       throw error;
     }
   };
@@ -706,10 +718,8 @@ export default function ComplectatorDashboard() {
                   <div key={status}>
                     <button
                       onClick={() => {
-                        if (status === 'Черновик') updateQuoteStatus(quote.id, 'DRAFT');
-                        else if (status === 'Отправлено') updateQuoteStatus(quote.id, 'SENT');
-                        else if (status === 'Согласовано') updateQuoteStatus(quote.id, 'ACCEPTED');
-                        else if (status === 'Отказ') updateQuoteStatus(quote.id, 'REJECTED');
+                        console.log('🎯 Status clicked:', { quoteId: quote.id, status });
+                        updateQuoteStatus(quote.id, status);
                       }}
                       className={`w-full px-4 py-2.5 text-sm text-left transition-all duration-200 ${
                         quote.status === status 
