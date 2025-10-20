@@ -410,25 +410,6 @@ export default function ExecutorDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Заголовок */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold text-gray-900">Domeo</h1>
-            <div className="h-6 w-px bg-gray-300"></div>
-            <h2 className="text-xl font-semibold text-gray-700">Личный кабинет</h2>
-          </div>
-          <div className="flex items-center space-x-4">
-            <div className="text-sm text-gray-700">
-              {user?.lastName} {user?.firstName.charAt(0)}.{user?.middleName ? user.middleName.charAt(0) + '.' : ''} (Исполнитель)
-            </div>
-            <Button variant="outline" size="sm">
-              Назад
-            </Button>
-          </div>
-        </div>
-      </div>
-
       <div className="p-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Левая панель - Список клиентов */}
