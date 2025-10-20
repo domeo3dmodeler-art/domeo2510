@@ -72,7 +72,11 @@ export default function ComplectatorDashboard() {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (statusDropdown) {
-        hideStatusDropdown();
+        const target = event.target as HTMLElement;
+        // Проверяем, что клик не по выпадающему меню и не по кнопке статуса
+        if (!target.closest('[data-status-dropdown]') && !target.closest('button[class*="rounded-full"]')) {
+          hideStatusDropdown();
+        }
       }
     };
 
@@ -292,6 +296,7 @@ export default function ComplectatorDashboard() {
 
   // Изменение статуса КП
   const updateQuoteStatus = async (quoteId: string, newStatus: string) => {
+    console.log('🚀 updateQuoteStatus called with:', { quoteId, newStatus });
     try {
       console.log('🔄 Updating quote status:', { quoteId, newStatus });
       
@@ -701,6 +706,7 @@ export default function ComplectatorDashboard() {
             left: statusDropdown.x, 
             top: statusDropdown.y 
           }}
+          data-status-dropdown
         >
           {statusDropdown.type === 'quote' && (
             <>
@@ -717,7 +723,8 @@ export default function ComplectatorDashboard() {
                 return allStatuses.map((status, index) => (
                   <div key={status}>
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         console.log('🎯 Status clicked:', { quoteId: quote.id, status });
                         updateQuoteStatus(quote.id, status);
                       }}
@@ -758,7 +765,10 @@ export default function ComplectatorDashboard() {
                 return allStatuses.map((status, index) => (
                   <div key={status}>
                     <button
-                      onClick={() => updateInvoiceStatus(invoice.id, status)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateInvoiceStatus(invoice.id, status);
+                      }}
                       className={`w-full px-4 py-2.5 text-sm text-left transition-all duration-200 ${
                         invoice.status === status 
                           ? 'bg-blue-50 text-blue-700 font-medium' 
