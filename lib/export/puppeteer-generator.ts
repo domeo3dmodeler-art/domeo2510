@@ -145,8 +145,8 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
 
     console.log('🌐 Запускаем Puppeteer браузер...');
     
-    // Временно отключаем кэширование для стабильности
-    console.log('🆕 Создаем новый браузер (кэширование отключено)...');
+    // Используем минимальные флаги для стабильности
+    console.log('🆕 Создаем новый браузер (минимальные флаги)...');
     const browser = await puppeteer.launch({
       headless: true,
       args: [
@@ -154,32 +154,19 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
-        '--disable-web-security',
-        '--disable-extensions',
-        '--disable-plugins',
-        '--disable-default-apps',
-        '--disable-sync',
-        '--disable-translate',
-        '--hide-scrollbars',
-        '--mute-audio',
-        '--no-default-browser-check',
-        '--no-pings',
-        '--password-store=basic',
-        '--use-mock-keychain',
-        '--single-process', // Ускоряет запуск
-        '--no-zygote' // Ускоряет запуск на Linux/Windows
+        '--disable-web-security'
       ],
-      timeout: 10000 // Уменьшаем таймаут
+      timeout: 30000 // Увеличиваем таймаут для стабильности
     });
 
     console.log('📄 Создаем новую страницу...');
     const page = await browser.newPage();
     
     console.log('📝 Устанавливаем HTML контент...');
-    // Устанавливаем контент страницы с быстрым ожиданием
+    // Устанавливаем контент страницы с надежным ожиданием
     await page.setContent(htmlContent, { 
-      waitUntil: 'domcontentloaded', // Быстрее чем networkidle0
-      timeout: 10000 
+      waitUntil: 'networkidle0', // Возвращаем надежное ожидание
+      timeout: 30000 
     });
 
     console.log('🖨️ Генерируем PDF...');
@@ -193,7 +180,7 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
         bottom: '20mm',
         left: '20mm'
       },
-      timeout: 10000 // Уменьшаем таймаут
+      timeout: 30000 // Увеличиваем таймаут для стабильности
     });
 
     console.log('🔒 Закрываем браузер...');
