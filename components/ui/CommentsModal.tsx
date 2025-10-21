@@ -9,9 +9,9 @@ interface Comment {
   text: string;
   created_at: string;
   user: {
-    firstName: string;
-    lastName: string;
-    middleName?: string;
+    first_name: string;
+    last_name: string;
+    middle_name?: string;
     role: string;
   };
 }
@@ -24,9 +24,9 @@ interface HistoryEntry {
   details?: string;
   created_at: string;
   user: {
-    firstName: string;
-    lastName: string;
-    middleName?: string;
+    first_name: string;
+    last_name: string;
+    middle_name?: string;
     role: string;
   };
 }
@@ -65,10 +65,28 @@ export default function CommentsModal({
 
   const fetchCurrentUser = async () => {
     try {
-      const response = await fetch('/api/users/me');
+      // Получаем токен из cookies
+      const token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('auth-token='))
+        ?.split('=')[1];
+
+      if (!token) {
+        console.warn('No auth token found');
+        return;
+      }
+
+      const response = await fetch('/api/users/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
       if (response.ok) {
         const user = await response.json();
         setCurrentUser(user);
+      } else {
+        console.warn('Failed to fetch current user:', response.status);
       }
     } catch (error) {
       console.error('Error fetching current user:', error);
@@ -214,9 +232,9 @@ export default function CommentsModal({
   };
 
   const formatUserName = (user: Comment['user']) => {
-    const lastName = user.lastName;
-    const firstName = user.firstName.charAt(0) + '.';
-    const middleName = user.middleName ? user.middleName.charAt(0) + '.' : '';
+    const lastName = user.last_name;
+    const firstName = user.first_name.charAt(0) + '.';
+    const middleName = user.middle_name ? user.middle_name.charAt(0) + '.' : '';
     return `${lastName} ${firstName}${middleName}`;
   };
 

@@ -11,9 +11,9 @@ interface HistoryEntry {
   details?: string;
   created_at: string;
   user: {
-    firstName: string;
-    lastName: string;
-    middleName?: string;
+    first_name: string;
+    last_name: string;
+    middle_name?: string;
     role: string;
   };
 }
@@ -58,9 +58,9 @@ export default function HistoryModal({
   };
 
   const formatUserName = (user: HistoryEntry['user']) => {
-    const lastName = user.lastName;
-    const firstName = user.firstName.charAt(0) + '.';
-    const middleName = user.middleName ? user.middleName.charAt(0) + '.' : '';
+    const lastName = user.last_name;
+    const firstName = user.first_name.charAt(0) + '.';
+    const middleName = user.middle_name ? user.middle_name.charAt(0) + '.' : '';
     return `${lastName} ${firstName}${middleName}`;
   };
 
