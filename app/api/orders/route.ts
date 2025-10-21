@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 // GET /api/orders - Получить все заказы
 export async function GET(request: NextRequest) {
@@ -109,7 +107,8 @@ export async function POST(request: NextRequest) {
       total_amount, 
       currency, 
       notes, 
-      items 
+      items,
+      cart_data
     } = body;
 
     if (!client_id || !status || !total_amount || !items || !Array.isArray(items)) {
@@ -127,10 +126,12 @@ export async function POST(request: NextRequest) {
       data: {
         number: orderNumber,
         client_id,
+        created_by: 'system', // Добавляем обязательное поле
         status: status || 'PENDING',
         total_amount: parseFloat(total_amount),
         currency: currency || 'RUB',
         notes,
+        cart_data: cart_data ? JSON.stringify(cart_data) : null,
         order_items: {
           create: items.map((item: any) => ({
             product_id: item.productId || 'unknown',

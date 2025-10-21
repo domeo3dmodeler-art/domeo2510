@@ -513,15 +513,24 @@ export default function ExecutorDashboard() {
       if (!orderId) {
         console.log('🔄 Creating Order for Invoice:', invoiceId);
         
+        const cartData = invoiceData.invoice.cart_data ? JSON.parse(invoiceData.invoice.cart_data) : null;
+        
         const orderResponse = await fetch('/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            clientId: invoiceData.invoice.client_id,
-            createdBy: 'executor', // Или актуальный ID пользователя
+            client_id: invoiceData.invoice.client_id,
             status: 'PENDING',
+            total_amount: invoiceData.invoice.total_amount,
+            currency: invoiceData.invoice.currency || 'RUB',
             notes: `Автоматически создан из счета ${invoice.number} для Заказа у поставщика`,
-            cartData: invoiceData.invoice.cart_data ? JSON.parse(invoiceData.invoice.cart_data) : null
+            cart_data: cartData,
+            items: cartData && cartData.items ? cartData.items.map((item: any) => ({
+              productId: item.id || 'unknown',
+              quantity: item.quantity || item.qty || 1,
+              price: item.unitPrice || item.price || 0,
+              notes: item.name || item.model || ''
+            })) : []
           })
         });
 
@@ -553,7 +562,7 @@ export default function ExecutorDashboard() {
           supplierPhone: '',
           expectedDate: null,
           notes: `Создан на основе счета ${invoice.number}`,
-          cartData: invoiceData.invoice.cart_data ? JSON.parse(invoiceData.invoice.cart_data) : null
+          cartData: invoiceData.invoice.cart_data ? JSON.parse(invoiceData.invoice.cart_data) : { items: [] }
         })
       });
 

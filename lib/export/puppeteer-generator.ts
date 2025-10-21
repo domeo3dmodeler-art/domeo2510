@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import ExcelJS from 'exceljs';
 import puppeteer from 'puppeteer';
-
-const prisma = new PrismaClient();
 
 // Генерация PDF с Puppeteer
 export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
