@@ -269,7 +269,7 @@ async function generateExcel(data: any): Promise<Buffer> {
         });
         
         // Цветовое выделение и выравнивание: строка из корзины - белый фон
-        for (let col = 1; col <= allHeaders.length; col++) {
+        for (let col = 1; col <= worksheet.columnCount; col++) {
           row.getCell(col).fill = {
             type: 'pattern',
             pattern: 'solid',
@@ -281,12 +281,10 @@ async function generateExcel(data: any): Promise<Buffer> {
             horizontal: 'center' 
           };
           
-          // Границы для первых 5 ячеек (как в оригинале!)
-          if (col <= 5) {
-            row.getCell(col).border = {
-              bottom: { style: 'thin', color: { argb: 'FF000000' } }
-            };
-          }
+          // Границы для всех ячеек (включая данные из шаблона!)
+          row.getCell(col).border = {
+            bottom: { style: 'thin', color: { argb: 'FF000000' } }
+          };
         }
         
         rowIndex++;
@@ -381,7 +379,7 @@ async function generateExcel(data: any): Promise<Buffer> {
           }
           
           // Цветовое выделение и выравнивание: строка из БД - светло-серый фон (как в оригинале!)
-          for (let col = 1; col <= allHeaders.length; col++) {
+          for (let col = 1; col <= worksheet.columnCount; col++) {
             currentRow.getCell(col).fill = {
               type: 'pattern',
               pattern: 'solid',
@@ -393,12 +391,10 @@ async function generateExcel(data: any): Promise<Buffer> {
               horizontal: 'center' 
             };
             
-            // Границы для первых 5 ячеек (как в оригинале!)
-            if (col <= 5) {
-              currentRow.getCell(col).border = {
-                bottom: { style: 'thin', color: { argb: 'FF000000' } }
-              };
-            }
+            // Границы для всех ячеек (включая данные из шаблона!)
+            currentRow.getCell(col).border = {
+              bottom: { style: 'thin', color: { argb: 'FF000000' } }
+            };
           }
           
           currentRowIndex++;
