@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Card, Button, Select } from '../ui';
+import { Card, Button, Select, Progress } from '../ui';
 
 interface PhotoMapping {
   mappingType: 'by_sku' | 'by_order' | 'by_name';
@@ -31,6 +31,8 @@ export default function PhotoUploader({
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewLimit, setPreviewLimit] = useState(20); // Лимит товаров в предпросмотре
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -181,6 +183,78 @@ export default function PhotoUploader({
     return linkedProducts.slice(0, previewCount);
   };
 
+  const handleBulkUpload = async () => {
+    if (mapping.photoFiles.length === 0) return;
+    
+    setIsUploading(true);
+    setUploadProgress(0);
+    
+    try {
+      const formData = new FormData();
+      
+      // Добавляем все файлы
+      mapping.photoFiles.forEach(file => {
+        formData.append('photos', file);
+      });
+      
+      // Добавляем параметры
+      formData.append('category', 'default'); // Можно сделать настраиваемым
+      formData.append('mapping_property', mapping.skuField || 'Артикул поставщика');
+      formData.append('auto_link', 'true');
+      
+      const xhr = new XMLHttpRequest();
+      
+      // Отслеживаем прогресс
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const progress = Math.round((e.loaded / e.total) * 100);
+          setUploadProgress(progress);
+        }
+      });
+      
+      xhr.addEventListener('load', () => {
+        if (xhr.status === 200) {
+          const result = JSON.parse(xhr.responseText);
+          console.log('Результат массовой загрузки:', result);
+          
+          // Обновляем маппинг с результатами
+          const newMappedPhotos = { ...mapping.mappedPhotos };
+          result.linkingResults?.forEach((link: any) => {
+            if (link.status === 'linked') {
+              newMappedPhotos[link.product] = link.photo;
+            }
+          });
+          
+          setMapping(prev => ({
+            ...prev,
+            mappedPhotos: newMappedPhotos
+          }));
+          
+          alert(`Массовая загрузка завершена!\nЗагружено: ${result.stats.uploadedPhotos}\nПривязано: ${result.stats.linkedPhotos}`);
+        } else {
+          alert('Ошибка при массовой загрузке');
+        }
+        setIsUploading(false);
+        setUploadProgress(0);
+      });
+      
+      xhr.addEventListener('error', () => {
+        alert('Ошибка сети при загрузке');
+        setIsUploading(false);
+        setUploadProgress(0);
+      });
+      
+      xhr.open('POST', '/api/admin/import/photos-bulk');
+      xhr.send(formData);
+      
+    } catch (error) {
+      console.error('Ошибка при массовой загрузке:', error);
+      alert('Ошибка при массовой загрузке');
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Заголовок */}
@@ -238,7 +312,29 @@ export default function PhotoUploader({
             </div>
             
             {mapping.photoFiles.length > 0 && (
-              <div className="grid grid-cols-4 gap-2">
+              <div className="space-y-4">
+                {/* Прогресс-бар для массовой загрузки */}
+                {isUploading && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">Загрузка фото...</span>
+                      <span className="text-sm text-gray-500">{uploadProgress}%</span>
+                    </div>
+                    <Progress value={uploadProgress} className="h-2" />
+                  </div>
+                )}
+                
+                {/* Кнопка массовой загрузки */}
+                <Button
+                  onClick={handleBulkUpload}
+                  disabled={isUploading || mapping.photoFiles.length === 0}
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                >
+                  {isUploading ? 'Загружаем...' : `📤 Массовая загрузка (${mapping.photoFiles.length} файлов)`}
+                </Button>
+                
+                {/* Превью фото */}
+                <div className="grid grid-cols-4 gap-2">
                 {mapping.photoFiles.slice(0, 8).map((file, index) => (
                   <div key={index} className="relative">
                     <img
@@ -256,6 +352,7 @@ export default function PhotoUploader({
                     +{mapping.photoFiles.length - 8} еще
                   </div>
                 )}
+                </div>
               </div>
             )}
           </div>

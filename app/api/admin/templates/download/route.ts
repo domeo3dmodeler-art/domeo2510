@@ -36,9 +36,11 @@ export async function GET(req: NextRequest) {
     
     // Исправляем кодировку полей
     requiredFields = fixFieldsEncoding(requiredFields);
+    const fixedExportFields = fixFieldsEncoding(exportFields);
 
-    // Создаем заголовки для Excel файла
-    const headers = Array.isArray(requiredFields) ? requiredFields : 
+    // Создаем заголовки для Excel файла - используем все поля для экспорта
+    const headers = Array.isArray(fixedExportFields) && fixedExportFields.length > 0 ? fixedExportFields : 
+                   Array.isArray(requiredFields) ? requiredFields : 
                    ['Артикул поставщика', 'Domeo_Название модели для Web'];
     
     // Создаем примеры данных для каждого поля
@@ -108,6 +110,31 @@ export async function GET(req: NextRequest) {
           return 'шт';
         case 'Склад/заказ':
           return 'В наличии';
+        // Поля для ручек
+        case 'SKU внутреннее':
+          return 'SKU_1760026930363_mfr6sjeo5';
+        case 'Domeo_наименование для Web':
+          return 'MIRA_BL';
+        case 'Domeo_наименование ручки_1С':
+          return 'MIRA_BL';
+        case 'Domeo_цена группы Web':
+          return 2500;
+        case 'Бренд':
+          return 'Morelli';
+        case 'Группа':
+          return 'Базовый';
+        case 'Наличие в шоуруме':
+          return 'да';
+        case 'Поставщик':
+          return 'Morelli';
+        case 'Фабрика_артикул':
+          return '9013946';
+        case 'Фабрика_наименование':
+          return 'MIRA MH-54-S6 BL';
+        case 'Цена опт':
+          return 1319;
+        case 'Цена розница':
+          return 2175;
         default:
           return 'Пример';
       }

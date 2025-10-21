@@ -66,7 +66,7 @@ export default function ConfiguratorImportPage() {
   const loadImportHistory = async () => {
     try {
       setLoadingHistory(true);
-      const response = await fetch('/api/catalog/products/import');
+      const response = await fetch('/api/admin/import/history');
       const data = await response.json();
       setImportHistory(data.history || []);
     } catch (error) {
@@ -79,7 +79,7 @@ export default function ConfiguratorImportPage() {
   const downloadTemplate = async () => {
     try {
       const categoryId = selectedCatalogCategory || selectedFrontendCategory;
-      const response = await fetch(`/api/catalog/products/import?template=true&category=${categoryId}`);
+      const response = await fetch(`/api/admin/templates/download?catalogCategoryId=${categoryId}`);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -133,10 +133,9 @@ export default function ConfiguratorImportPage() {
       setUploading(true);
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('category_type', selectedFrontendCategory ? 'frontend' : 'catalog');
-      formData.append('category_id', selectedFrontendCategory || selectedCatalogCategory);
+      formData.append('catalogCategoryId', selectedCatalogCategory || selectedFrontendCategory);
 
-      const response = await fetch('/api/catalog/products/import', {
+      const response = await fetch('/api/admin/import/unified', {
         method: 'POST',
         body: formData
       });

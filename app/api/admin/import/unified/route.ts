@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
     
     console.log('🔧 Заголовки после исправления кодировки:', fixedHeaders);
 
-    // Валидируем заголовки - проверяем только обязательные поля, которые есть в файле
+    // Валидируем заголовки - проверяем точное совпадение с шаблоном
     const availableRequiredFields = requiredFields.filter(field => fixedHeaders.includes(field));
     const missingFields = requiredFields.filter(field => !fixedHeaders.includes(field));
     
@@ -121,13 +121,18 @@ export async function POST(req: NextRequest) {
       availableFields: fixedHeaders
     });
 
-    // Если нет ни одного обязательного поля - ошибка
+    // Если нет ни одного обязательного поля из шаблона - ошибка
     if (availableRequiredFields.length === 0) {
       return NextResponse.json({
-        error: "Отсутствуют обязательные поля",
-        missingFields,
-        availableFields: fixedHeaders,
-        message: "Файл должен содержать хотя бы одно обязательное поле из шаблона"
+        error: "Файл не соответствует шаблону категории",
+        details: {
+          category: template.catalog_category?.name || 'Неизвестная категория',
+          missingFields: missingFields,
+          availableFields: fixedHeaders,
+          templateRequiredFields: requiredFields,
+          suggestion: "Скачайте актуальный шаблон для этой категории и используйте его структуру"
+        },
+        message: `Отсутствуют обязательные поля: ${missingFields.join(', ')}. Скачайте шаблон для категории "${template.catalog_category?.name || 'неизвестной'}" и используйте его структуру.`
       }, { status: 400 });
     }
 
@@ -145,7 +150,7 @@ export async function POST(req: NextRequest) {
           row_number: i + 2
         };
 
-        // Заполняем свойства товара - только для доступных полей
+        // Заполняем свойства товара - используем только доступные обязательные поля из шаблона
         const properties: any = {};
         availableRequiredFields.forEach(field => {
           const headerIndex = fixedHeaders.indexOf(field);
@@ -167,19 +172,29 @@ export async function POST(req: NextRequest) {
           product.sku = `SKU_${Date.now()}_${supplierSku}`;
         }
 
-        // Определяем название
-        product.name = properties['Domeo_Название модели для Web'] || 'Без названия';
+        // Определяем название - ищем поле с названием в доступных полях
+        const nameField = availableRequiredFields.find(field => 
+          field.toLowerCase().includes('название') || 
+          field.toLowerCase().includes('наименование') ||
+          field.toLowerCase().includes('имя')
+        );
+        
+        if (nameField) {
+          product.name = properties[nameField] || 'Без названия';
+        } else {
+          product.name = 'Без названия';
+        }
 
         // Валидация обязательных полей для нового товара
         if (!internalSku || internalSku.trim() === '') {
-          // Если SKU внутреннее пустое, проверяем только доступные обязательные поля
+          // Если SKU внутреннее пустое, проверяем только доступные обязательные поля из шаблона
           const missingRequiredFields = availableRequiredFields.filter(field => {
             const value = properties[field];
             return !value || value.toString().trim() === '' || value === '-';
           });
 
           if (missingRequiredFields.length > 0) {
-            throw new Error(`Отсутствуют обязательные поля: ${missingRequiredFields.join(', ')}`);
+            throw new Error(`Отсутствуют обязательные поля из шаблона: ${missingRequiredFields.join(', ')}`);
           }
         } else {
           // Если SKU внутреннее заполнено, проверяем только название

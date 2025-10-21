@@ -8,6 +8,7 @@ import { useImportTemplate, useFileAnalysis } from '../../../../hooks/useImportT
 import CatalogTree from '../../../../components/admin/CatalogTree';
 import TemplateManager from '../../../../components/admin/TemplateManager';
 import TemplateEditor from '../../../../components/admin/TemplateEditor';
+import { checkAndFixFileEncoding, checkFileEncoding } from '../../../../lib/file-encoding-fixer';
 
 interface ImportHistoryItem {
   id: string;
@@ -62,6 +63,8 @@ export default function CatalogImportPage() {
   const [photoData, setPhotoData] = useState<PhotoData | null>(null);
   const [propertyMappings, setPropertyMappings] = useState<PropertyMapping[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [encodingCheckResult, setEncodingCheckResult] = useState<any>(null);
+  const [showEncodingDetails, setShowEncodingDetails] = useState(false);
   const [selectedCatalogCategoryId, setSelectedCatalogCategoryId] = useState<string>('');
   const [selectedPhotoCategoryId, setSelectedPhotoCategoryId] = useState<string>('');
   const [requiredFields, setRequiredFields] = useState<any[]>([]);
@@ -246,6 +249,54 @@ export default function CatalogImportPage() {
 
   const handleFileUpload = async (file: File) => {
     setIsProcessing(true);
+    setEncodingCheckResult(null);
+    
+    try {
+      console.log('📁 Начинаем обработку файла:', file.name);
+      
+      // Сначала проверяем кодировку файла
+      console.log('🔍 Проверяем кодировку файла...');
+      const encodingResult = await checkFileEncoding(file);
+      setEncodingCheckResult(encodingResult);
+      
+      if (encodingResult.hasEncodingIssues) {
+        console.log('⚠️ Обнаружены проблемы с кодировкой:', {
+          issuesCount: encodingResult.encodingIssues.length,
+          sampleIssues: encodingResult.encodingIssues.slice(0, 3)
+        });
+        
+        // Показываем предупреждение пользователю
+        const shouldFix = confirm(
+          `Обнаружены проблемы с кодировкой в файле (${encodingResult.encodingIssues.length} полей).\n\n` +
+          `Примеры проблем:\n${encodingResult.encodingIssues.slice(0, 3).join('\n')}\n\n` +
+          `Хотите автоматически исправить кодировку?`
+        );
+        
+        if (shouldFix) {
+          console.log('🛠️ Исправляем кодировку файла...');
+          const { fixedFile } = await checkAndFixFileEncoding(file);
+          console.log('✅ Файл исправлен, продолжаем обработку...');
+          
+          // Используем исправленный файл для дальнейшей обработки
+          await processFile(fixedFile);
+        } else {
+          console.log('⚠️ Пользователь отказался от исправления, продолжаем с оригинальным файлом');
+          await processFile(file);
+        }
+      } else {
+        console.log('✅ Проблем с кодировкой не обнаружено');
+        await processFile(file);
+      }
+      
+    } catch (error) {
+      console.error('❌ Ошибка при обработке файла:', error);
+      alert(`Ошибка при обработке файла: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const processFile = async (file: File) => {
     try {
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: 'array' });
@@ -261,6 +312,13 @@ export default function CatalogImportPage() {
       const headers = jsonData[0] as string[];
       const rows = jsonData.slice(1) as any[][];
 
+      console.log('📊 Данные файла обработаны:', {
+        filename: file.name,
+        headers: headers.length,
+        rows: rows.length,
+        sampleHeaders: headers.slice(0, 5)
+      });
+
       setPriceListData({
         headers,
         rows,
@@ -270,10 +328,8 @@ export default function CatalogImportPage() {
       setCompletedSteps(prev => [...prev, 'upload']);
       setCurrentStep('validation');
     } catch (error) {
-      console.error('Ошибка обработки файла:', error);
-      alert('Ошибка при обработке файла');
-    } finally {
-      setIsProcessing(false);
+      console.error('❌ Ошибка при обработке файла:', error);
+      throw error;
     }
   };
 
@@ -689,26 +745,65 @@ export default function CatalogImportPage() {
               </p>
             </div>
 
-            {/* Здесь будет логика сравнения полей файла с шаблоном */}
-            <div className="space-y-4">
-              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                  <span className="text-sm font-medium text-green-900">
-                    Файл успешно загружен: {priceListData.totalRows} строк
-                  </span>
+            {/* Информация о проверке кодировки */}
+            {encodingCheckResult && (
+              <div className={`p-4 rounded-lg border ${
+                encodingCheckResult.hasEncodingIssues 
+                  ? 'bg-yellow-50 border-yellow-200' 
+                  : 'bg-green-50 border-green-200'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    {encodingCheckResult.hasEncodingIssues ? (
+                      <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                    ) : (
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                    )}
+                    <span className={`text-sm font-medium ${
+                      encodingCheckResult.hasEncodingIssues 
+                        ? 'text-yellow-900' 
+                        : 'text-green-900'
+                    }`}>
+                      {encodingCheckResult.hasEncodingIssues 
+                        ? `Обнаружены проблемы с кодировкой (${encodingCheckResult.encodingIssues.length} полей)`
+                        : 'Проблем с кодировкой не обнаружено'
+                      }
+                    </span>
+                  </div>
+                  
+                  {encodingCheckResult.hasEncodingIssues && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowEncodingDetails(!showEncodingDetails)}
+                      className="text-xs"
+                    >
+                      {showEncodingDetails ? 'Скрыть' : 'Показать'} детали
+                    </Button>
+                  )}
                 </div>
+                
+                {showEncodingDetails && encodingCheckResult.hasEncodingIssues && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs text-yellow-800">
+                      Примеры проблем с кодировкой:
+                    </p>
+                    <div className="bg-white p-3 rounded border max-h-32 overflow-y-auto">
+                      {encodingCheckResult.encodingIssues.slice(0, 10).map((issue: string, index: number) => (
+                        <div key={index} className="text-xs text-gray-700 font-mono">
+                          {issue}
+                        </div>
+                      ))}
+                    </div>
+                    {encodingCheckResult.encodingIssues.length > 10 && (
+                      <p className="text-xs text-yellow-700">
+                        ... и еще {encodingCheckResult.encodingIssues.length - 10} проблем
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
-              
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <div className="flex items-center space-x-2">
-                  <AlertTriangle className="h-5 w-5 text-blue-500" />
-                  <span className="text-sm font-medium text-blue-900">
-                    Проверка соответствия полей...
-                  </span>
-                </div>
-              </div>
-            </div>
+            )}
 
             {/* Кнопка продолжения */}
             <div className="flex justify-end">

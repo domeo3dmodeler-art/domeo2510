@@ -74,12 +74,6 @@ export async function POST(request: NextRequest) {
           continue;
         }
         
-        // Проверяем размер файла (должен быть больше 10KB)
-        if (photo.size < 10 * 1024) {
-          uploadErrors.push(`Файл ${photo.name} слишком маленький (${photo.size} байт). Возможно, файл поврежден.`);
-          continue;
-        }
-        
         const bytes = await photo.arrayBuffer();
         const buffer = Buffer.from(bytes);
         

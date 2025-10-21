@@ -98,7 +98,7 @@ export default function ProductsPage() {
 
   const handleDownloadTemplate = async (categoryId: string) => {
     try {
-      const response = await fetch(`/api/catalog/products/import/template?catalogCategoryId=${categoryId}`);
+      const response = await fetch(`/api/admin/templates/download?catalogCategoryId=${categoryId}`);
       
       if (response.ok) {
         const blob = await response.blob();
@@ -122,7 +122,7 @@ export default function ProductsPage() {
       formData.append('file', file);
       formData.append('catalogCategoryId', categoryId);
 
-      const response = await fetch('/api/catalog/products/import', {
+      const response = await fetch('/api/admin/import/unified', {
         method: 'POST',
         body: formData
       });
