@@ -42,17 +42,18 @@ export async function GET(req: NextRequest) {
     let exportFields = JSON.parse(template.export_fields || '[]');
     let templateConfig = JSON.parse(template.template_config || '{}');
     
-    // ИСПРАВЛЯЕМ КОДИРОВКУ - Prisma возвращает поврежденные данные
-    requiredFields = fixFieldsEncoding(requiredFields);
-    calculatorFields = fixFieldsEncoding(calculatorFields);
-    exportFields = fixFieldsEncoding(exportFields);
-    templateConfig = fixAllEncoding(templateConfig);
+                // ИСПРАВЛЯЕМ КОДИРОВКУ - Prisma возвращает поврежденные данные
+                requiredFields = fixFieldsEncoding(requiredFields);
+                calculatorFields = fixFieldsEncoding(calculatorFields);
+                exportFields = fixFieldsEncoding(exportFields);
+                templateConfig = fixAllEncoding(templateConfig);
     
     // Исправляем название и описание шаблона
     const fixedName = fixFieldEncoding(template.name);
     const fixedDescription = fixFieldEncoding(template.description || '');
     
-    console.log('🔍 Поля после исправления кодировки:', requiredFields.slice(0, 3));
+    console.log('🔍 Поля после исправления кодировки:', requiredFields);
+    console.log('🔍 Количество полей:', requiredFields.length);
     console.log('🔍 Название после исправления:', fixedName);
     console.log('🔍 Описание после исправления:', fixedDescription);
 

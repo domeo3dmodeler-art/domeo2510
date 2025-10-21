@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     const photos = formData.getAll('photos') as File[];
     const category = formData.get('category') as string;
     const mappingProperty = formData.get('mapping_property') as string;
-    const autoLink = formData.get('auto_link') === 'true'; // Автоматическая привязка
+    const autoLink = formData.get('auto_link') === 'true';
 
     console.log('=== МАССОВАЯ ЗАГРУЗКА ФОТО ===');
     console.log('Количество фото:', photos.length);
@@ -175,12 +175,36 @@ export async function POST(request: NextRequest) {
                 currentProperties.photos = [];
               }
               
-              // Проверяем, нет ли уже такого фото
-              const photoAlreadyExists = currentProperties.photos.some((existingPhoto: string) => 
-                existingPhoto.includes(photo.fileName)
-              );
+              // Извлекаем точное имя файла без расширения
+              const exactFileName = photo.originalName.replace(/\.[^/.]+$/, ""); // Убираем расширение
               
-              if (!photoAlreadyExists) {
+              // Ищем существующее фото с таким же именем (включая суффиксы)
+              const existingPhotoIndex = currentProperties.photos.findIndex((existingPhoto: string) => {
+                const existingFileName = existingPhoto.split('/').pop()?.replace(/\.[^/.]+$/, "") || '';
+                return existingFileName === exactFileName;
+              });
+              
+              if (existingPhotoIndex !== -1) {
+                // Заменяем существующее фото
+                currentProperties.photos[existingPhotoIndex] = photo.filePath;
+                
+                await prisma.product.update({
+                  where: { id: product.id },
+                  data: {
+                    properties_data: JSON.stringify(currentProperties)
+                  }
+                });
+                
+                linkedPhotos++;
+                console.log(`🔄 Фото ${photo.originalName} заменено для товара ${product.sku}`);
+                
+                linkingResults.push({
+                  photo: photo.originalName,
+                  product: product.sku,
+                  status: 'replaced'
+                });
+              } else {
+                // Добавляем новое фото в галерею
                 currentProperties.photos.push(photo.filePath);
                 
                 await prisma.product.update({
@@ -191,20 +215,12 @@ export async function POST(request: NextRequest) {
                 });
                 
                 linkedPhotos++;
-                console.log(`✅ Фото ${photo.originalName} привязано к товару ${product.sku}`);
+                console.log(`✅ Фото ${photo.originalName} добавлено в галерею товара ${product.sku}`);
                 
                 linkingResults.push({
                   photo: photo.originalName,
                   product: product.sku,
                   status: 'linked'
-                });
-              } else {
-                console.log(`⚠️ Фото ${photo.originalName} уже привязано к товару ${product.sku}`);
-                
-                linkingResults.push({
-                  photo: photo.originalName,
-                  product: product.sku,
-                  status: 'already_exists'
                 });
               }
             } catch (error) {

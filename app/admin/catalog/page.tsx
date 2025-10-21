@@ -9,29 +9,30 @@ import PriceListExporter from '../../../components/admin/PriceListExporter';
 import BulkEditDialog from '../../../components/admin/BulkEditDialog';
 import ProductFilters from '../../../components/admin/ProductFilters';
 import ImportInstructionsDialog from '../../../components/admin/ImportInstructionsDialog';
+import InstructionsModal from '../../../components/admin/InstructionsModal';
 import { fixFieldsEncoding } from '@/lib/encoding-utils';
 
-// Функция анализа свойств группы товаров
-const analyzeGroupProperties = (products: Product[]) => {
-  const allKeys = new Set<string>();
-  
-  products.forEach(product => {
-    if (product.properties_data) {
-      const props = typeof product.properties_data === 'string' 
-        ? JSON.parse(product.properties_data) 
-        : product.properties_data;
-      
-      Object.keys(props).forEach(key => {
-        // Исключаем системные поля
-        if (!['photos', 'images', 'id', 'created_at', 'updated_at'].includes(key)) {
-          allKeys.add(key);
-        }
-      });
-    }
-  });
-  
-  return Array.from(allKeys).sort();
-};
+  // Функция анализа свойств группы товаров
+  const analyzeGroupProperties = (products: Product[]) => {
+    const allKeys = new Set<string>();
+    
+    products.forEach((product) => {
+      if (product.properties_data) {
+        const props = typeof product.properties_data === 'string' 
+          ? JSON.parse(product.properties_data) 
+          : product.properties_data;
+        
+        Object.keys(props).forEach(key => {
+          // Исключаем системные поля
+          if (!['photos', 'images', 'id', 'created_at', 'updated_at'].includes(key)) {
+            allKeys.add(key);
+          }
+        });
+      }
+    });
+    
+    return Array.from(allKeys).sort();
+  };
 
 // Маппинг ключей на читаемые названия
 const getDisplayName = (key: string): string => {
@@ -722,6 +723,56 @@ export default function CatalogPage() {
     }
   };
 
+  const handleDeleteProductPhotos = async (product: Product) => {
+    if (!confirm(`Удалить все фотографии товара "${product.name}"?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/catalog/products/${product.id}/photos`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Обновляем список товаров
+        if (selectedCategory) {
+          await loadCategoryProducts(selectedCategory.id);
+        }
+        alert('Фотографии успешно удалены');
+      } else {
+        alert(`Ошибка: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Ошибка при удалении фотографий:', error);
+      alert('Ошибка при удалении фотографий');
+    }
+  };
+
+  const handleDeleteAllPhotos = async (categoryId: string) => {
+    try {
+      const response = await fetch(`/api/catalog/categories/${categoryId}/photos`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Обновляем список товаров
+        if (selectedCategory) {
+          await loadCategoryProducts(selectedCategory.id);
+        }
+        alert(`✅ Успешно удалено фотографий: ${result.deletedCount}`);
+      } else {
+        alert(`❌ Ошибка: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Ошибка при удалении всех фотографий:', error);
+      alert('❌ Ошибка при удалении всех фотографий');
+    }
+  };
+
   const handleUpdateProduct = async (productData: Partial<Product>) => {
     if (!productToEdit) return;
 
@@ -885,20 +936,36 @@ export default function CatalogPage() {
                             <span className="text-sm text-gray-500">товаров</span>
                           </div>
                         </div>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          className="flex items-center space-x-1"
-                          onClick={() => {
-                            const totalProductsCount = selectedCategory.products_count || 0;
-                            if (confirm(`Вы уверены, что хотите удалить все товары (${totalProductsCount} шт.) из категории "${selectedCategory.name}"? Это действие нельзя отменить.`)) {
-                              handleDeleteAllProducts(selectedCategory.id);
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span>Удалить все товары</span>
-                        </Button>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center space-x-1 text-orange-600 border-orange-300 hover:bg-orange-50"
+                            onClick={() => {
+                              const totalProductsCount = selectedCategory.products_count || 0;
+                              if (confirm(`Вы уверены, что хотите удалить все фотографии из категории "${selectedCategory.name}" (${totalProductsCount} товаров)? Это действие нельзя отменить.`)) {
+                                handleDeleteAllPhotos(selectedCategory.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span>Удалить все фото</span>
+                          </Button>
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            className="flex items-center space-x-1"
+                            onClick={() => {
+                              const totalProductsCount = selectedCategory.products_count || 0;
+                              if (confirm(`Вы уверены, что хотите удалить все товары (${totalProductsCount} шт.) из категории "${selectedCategory.name}"? Это действие нельзя отменить.`)) {
+                                handleDeleteAllProducts(selectedCategory.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span>Удалить все товары</span>
+                          </Button>
+                        </div>
                       </div>
                       
                       {/* Улучшенная таблица товаров */}
@@ -963,13 +1030,16 @@ export default function CatalogPage() {
                                   {index + 1}
                                 </td>
                                 {/* Динамические ячейки данных на основе реальных свойств товаров */}
-                                {groupProperties.map(key => (
-                                  <td key={key} className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                                    <div className="max-w-xs truncate" title={String(properties[key] || '-')}>
-                                      {properties[key] || '-'}
-                                    </div>
-                                  </td>
-                                ))}
+                                {(() => {
+                                  const groupProperties = analyzeGroupProperties(filteredProducts);
+                                  return groupProperties.map(key => (
+                                    <td key={key} className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                      <div className="max-w-xs truncate" title={String(properties[key] || '-')}>
+                                        {properties[key] || '-'}
+                                      </div>
+                                    </td>
+                                  ));
+                                })()}
                                     <td className="px-4 py-3 whitespace-nowrap text-center">
                                       {hasPhotos ? (
                                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -991,6 +1061,17 @@ export default function CatalogPage() {
                                     >
                                       Редактировать
                                     </Button>
+                                    {hasPhotos && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs text-orange-600 hover:text-orange-700"
+                                        onClick={() => handleDeleteProductPhotos(product)}
+                                        title="Удалить все фотографии"
+                                      >
+                                        🗑️ Фото
+                                      </Button>
+                                    )}
                                     <Button
                                       variant="outline"
                                       size="sm"
@@ -1183,6 +1264,12 @@ export default function CatalogPage() {
       <ImportInstructionsDialog
         open={instructionsDialogOpen}
         onOpenChange={setInstructionsDialogOpen}
+      />
+      
+      {/* Подробная инструкция */}
+      <InstructionsModal
+        isOpen={instructionsDialogOpen}
+        onClose={() => setInstructionsDialogOpen(false)}
       />
 
     </div>

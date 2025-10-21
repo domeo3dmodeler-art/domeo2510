@@ -68,16 +68,23 @@ export async function GET(request: NextRequest) {
           props = {};
         }
         
+        // Получаем фотографии из properties_data
+        let photos = [];
+        if (props.photos && Array.isArray(props.photos)) {
+          photos = props.photos;
+        }
+        
         return {
           id: handle.id,
-          name: props['Domeo_наименование ручки_1С'] || props['Domeo_наименование для Web'] || handle.name,
-          group: props['Группа'] || '',
+          name: props['Domeo_наименование для Web'] || props['Domeo_наименование ручки_1С'] || handle.name,
+          group: props['Группа'] || 'Без группы',
           price: parseFloat(props['Domeo_цена группы Web'] || '0'),
           isBasic: props['Группа'] === 'Базовый',
           showroom: props['Наличие в шоуруме'] === 'да' || props['Наличие в шоуруме'] === 'Да',
           supplier: props['Поставщик'] || '',
           article: props['Фабрика_артикул'] || '',
           factoryName: props['Фабрика_наименование'] || '',
+          photos: photos,
         };
       });
 

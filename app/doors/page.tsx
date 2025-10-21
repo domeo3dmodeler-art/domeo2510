@@ -13,6 +13,7 @@ import { priceRecalculationService } from "@/lib/cart/price-recalculation-servic
 import { getCurrentUser } from "@/lib/auth/token-interceptor";
 import GlobalHeader from "../../components/layout/GlobalHeader";
 import NotificationBell from "../../components/ui/NotificationBell";
+import HandleSelectionModal from "../../components/HandleSelectionModal";
 
 // ===================== Типы =====================
 type BasicState = {
@@ -95,6 +96,7 @@ type Handle = {
   supplier?: string;
   article?: string;
   factoryName?: string;
+  photos?: string[];
 };
 
 type Domain =
@@ -759,6 +761,7 @@ export default function DoorsPage() {
   const [handles, setHandles] = useState<Record<string, Handle[]>>({});
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showQuantityModal, setShowQuantityModal] = useState(false);
+  const [showHandleModal, setShowHandleModal] = useState(false);
   const [hideSidePanels, setHideSidePanels] = useState(false);
   const [quantity, setQuantity] = useState(1);
   
@@ -2082,17 +2085,21 @@ export default function DoorsPage() {
                       allowEmpty={true}
                       disabled={!sel.width || !sel.height}
                     />
-                    <HandleSelect
-                        label="Ручка"
-                      value={sel.handle?.id || ""}
-                      onChange={(v: string) => setSel((s) => ({ 
-                        ...s, 
-                        handle: v ? { id: v } : undefined
-                      }))}
-                      handles={sel.hardware_kit ? handles : {}}
-                      allowEmpty={true}
-                      disabled={!sel.hardware_kit}
-                      />
+                    <div className="text-sm space-y-1">
+                      <div className="text-gray-600">Ручка</div>
+                      <button
+                        onClick={() => setShowHandleModal(true)}
+                        disabled={!sel.hardware_kit}
+                        className={`w-full border border-black/20 px-3 py-2 text-left text-black ${
+                          !sel.hardware_kit ? 'opacity-50 cursor-not-allowed bg-gray-100' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        {sel.handle?.id ? 
+                          Object.values(handles).flat().find(h => h.id === sel.handle?.id)?.name || 'Выберите ручку' :
+                          'Выберите ручку'
+                        }
+                      </button>
+                    </div>
                     </div>
                   </div>
 
@@ -2914,6 +2921,22 @@ export default function DoorsPage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Модальное окно выбора ручек */}
+      {showHandleModal && (
+        <HandleSelectionModal
+          handles={handles}
+          selectedHandleId={sel.handle?.id}
+          onSelect={(handleId: string) => {
+            setSel((s) => ({ 
+              ...s, 
+              handle: handleId ? { id: handleId } : undefined
+            }));
+            setShowHandleModal(false);
+          }}
+          onClose={() => setShowHandleModal(false)}
+        />
       )}
     </div>
   );

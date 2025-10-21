@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Button } from '../../../components/ui';
-import { FileSpreadsheet, Terminal } from 'lucide-react';
+import { FileSpreadsheet } from 'lucide-react';
 
 interface PriceListExporterProps {
   catalogCategoryId: string | null;
@@ -11,7 +11,6 @@ interface PriceListExporterProps {
 
 export default function PriceListExporter({ catalogCategoryId, catalogCategoryName }: PriceListExporterProps) {
   const [exporting, setExporting] = useState(false);
-  const [showInstructions, setShowInstructions] = useState(false);
 
   const downloadPriceList = async () => {
     if (!catalogCategoryId) {
@@ -61,33 +60,6 @@ export default function PriceListExporter({ catalogCategoryId, catalogCategoryNa
         <FileSpreadsheet className="h-4 w-4 mr-2" />
         {exporting ? 'Экспорт...' : 'Скачать прайс'}
       </button>
-
-      <button
-        onClick={() => setShowInstructions(!showInstructions)}
-        className="flex items-center px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
-        title="Показать инструкции"
-      >
-        <Terminal className="h-4 w-4 mr-2" />
-        Инструкции
-      </button>
-
-      {showInstructions && (
-        <div className="absolute top-full left-0 mt-2 p-4 bg-white border rounded-lg shadow-lg z-10 max-w-md">
-          <h3 className="font-semibold mb-2">Инструкции по экспорту прайса:</h3>
-          <ol className="text-sm space-y-1">
-            <li>1. Выберите категорию в дереве каталога</li>
-            <li>2. Нажмите кнопку "Скачать прайс"</li>
-            <li>3. Файл Excel (.xlsx) будет скачан с ВСЕМИ товарами</li>
-            <li>4. Откройте файл в Microsoft Excel или LibreOffice</li>
-          </ol>
-          <p className="text-xs text-gray-500 mt-2">
-            Категория: {catalogCategoryName || 'Не выбрана'}
-          </p>
-          <p className="text-xs text-green-600 mt-1">
-            ✅ Экспортируются ВСЕ товары без ограничений
-          </p>
-        </div>
-      )}
     </div>
   );
 }

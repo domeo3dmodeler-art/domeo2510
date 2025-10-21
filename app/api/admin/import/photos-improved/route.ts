@@ -163,12 +163,30 @@ export async function POST(request: NextRequest) {
                 currentProperties.photos = [];
               }
               
-              // Проверяем, нет ли уже такого фото
-              const photoAlreadyExists = currentProperties.photos.some((existingPhoto: string) => 
-                existingPhoto.includes(photo.fileName)
-              );
+              // Извлекаем точное имя файла без расширения
+              const exactFileName = photo.originalName.replace(/\.[^/.]+$/, ""); // Убираем расширение
               
-              if (!photoAlreadyExists) {
+              // Ищем существующее фото с таким же именем (включая суффиксы)
+              const existingPhotoIndex = currentProperties.photos.findIndex((existingPhoto: string) => {
+                const existingFileName = existingPhoto.split('/').pop()?.replace(/\.[^/.]+$/, "") || '';
+                return existingFileName === exactFileName;
+              });
+              
+              if (existingPhotoIndex !== -1) {
+                // Заменяем существующее фото
+                currentProperties.photos[existingPhotoIndex] = photo.filePath;
+                
+                await prisma.product.update({
+                  where: { id: product.id },
+                  data: {
+                    properties_data: JSON.stringify(currentProperties)
+                  }
+                });
+                
+                linkedPhotos++;
+                console.log(`🔄 Фото ${photo.originalName} заменено для товара ${product.sku}`);
+              } else {
+                // Добавляем новое фото в галерею
                 currentProperties.photos.push(photo.filePath);
                 
                 await prisma.product.update({
@@ -179,9 +197,7 @@ export async function POST(request: NextRequest) {
                 });
                 
                 linkedPhotos++;
-                console.log(`✅ Фото ${photo.originalName} привязано к товару ${product.sku}`);
-              } else {
-                console.log(`⚠️ Фото ${photo.originalName} уже привязано к товару ${product.sku}`);
+                console.log(`✅ Фото ${photo.originalName} добавлено в галерею товара ${product.sku}`);
               }
             } catch (error) {
               console.error(`Ошибка при привязке фото к товару ${product.sku}:`, error);

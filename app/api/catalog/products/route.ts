@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { fixAllEncoding } from '@/lib/encoding-utils';
 
 const prisma = new PrismaClient();
 
@@ -72,17 +73,28 @@ export async function GET(request: NextRequest) {
       prisma.product.count({ where })
     ]);
 
-    // Парсим JSON поля для каждого товара
-    const processedProducts = products.map(product => ({
-      ...product,
-      specifications: product.properties_data ? 
-        (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {},
-      properties_data: product.properties_data ? 
-        (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {},
-      dimensions: product.dimensions ? JSON.parse(product.dimensions) : {},
-      tags: product.tags ? JSON.parse(product.tags) : [],
-      images: product.images || []
-    }));
+    // Парсим JSON поля для каждого товара с исправлением кодировки
+    const processedProducts = products.map(product => {
+      let propertiesData = {};
+      let specifications = {};
+      
+      if (product.properties_data) {
+        const parsed = typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data;
+        // Исправляем кодировку в свойствах товара
+        propertiesData = fixAllEncoding(parsed);
+        
+        specifications = propertiesData;
+      }
+      
+      return {
+        ...product,
+        specifications,
+        properties_data: propertiesData,
+        dimensions: product.dimensions ? JSON.parse(product.dimensions) : {},
+        tags: product.tags ? JSON.parse(product.tags) : [],
+        images: product.images || []
+      };
+    });
 
     return NextResponse.json({
       success: true,
