@@ -19,6 +19,10 @@ model User {
   last_login    DateTime?
   created_at    DateTime  @default(now())
   updated_at    DateTime  @updatedAt
+  
+  // Связи
+  document_comments DocumentComment[]
+  document_history  DocumentHistory[]
 
   @@map("users")
 }
@@ -490,4 +494,43 @@ model PropertyPhoto {
   @@index([propertyValue])
   @@index([categoryId, propertyName, propertyValue])
   @@index([photoType])
+}
+
+// Комментарии к документам
+model DocumentComment {
+  id          String   @id @default(cuid())
+  document_id String   // ID документа (quote, invoice, supplier_order)
+  user_id     String   // ID пользователя, оставившего комментарий
+  text        String   // Текст комментария
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  // Связи
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@map("document_comments")
+  @@index([document_id])
+  @@index([user_id])
+  @@index([created_at])
+}
+
+// История изменений документов
+model DocumentHistory {
+  id          String   @id @default(cuid())
+  document_id String   // ID документа (quote, invoice, supplier_order)
+  user_id     String   // ID пользователя, совершившего действие
+  action      String   // Тип действия (status_change, created, updated, etc.)
+  old_value   String?  // Старое значение
+  new_value   String?  // Новое значение
+  details     String?  // Дополнительные детали (JSON)
+  created_at  DateTime @default(now())
+  
+  // Связи
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@map("document_history")
+  @@index([document_id])
+  @@index([user_id])
+  @@index([action])
+  @@index([created_at])
 }

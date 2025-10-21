@@ -56,6 +56,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     //   );
     // }
 
+    // Получаем старый статус для истории
+    const oldQuote = await prisma.quote.findUnique({
+      where: { id },
+      select: { status: true }
+    });
+
     // Подготавливаем данные для обновления
     const updateData: any = {
       status
@@ -67,6 +73,29 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       where: { id },
       data: updateData
     });
+
+    // Добавляем запись в историю изменений
+    if (oldQuote && oldQuote.status !== status) {
+      try {
+        await prisma.documentHistory.create({
+          data: {
+            document_id: id,
+            user_id: 'system', // Временно используем 'system', позже можно получить из токена
+            action: 'status_change',
+            old_value: oldQuote.status,
+            new_value: status,
+            details: JSON.stringify({ 
+              document_type: 'quote',
+              notes: notes || null 
+            }),
+            created_at: new Date()
+          }
+        });
+      } catch (historyError) {
+        console.warn('⚠️ Не удалось создать запись в истории:', historyError);
+        // Не прерываем выполнение, если не удалось записать историю
+      }
+    }
 
     console.log('✅ API: Quote updated successfully:', updatedQuote);
 
