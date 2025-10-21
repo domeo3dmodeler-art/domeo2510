@@ -796,7 +796,7 @@ export default function DoorsPage() {
   useEffect(() => {
     const user = getCurrentUser();
     if (user) {
-      setUserRole(user.role);
+      setUserRole(user.role || 'complectator');
     }
   }, []);
 
@@ -1746,7 +1746,7 @@ export default function DoorsPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <header className="bg-white border-b border-black/10">
+      <header className="bg-white border-b-2 border-gray-300">
         <div className="max-w-[1600px] mx-auto px-6 py-4">
           <div className="flex items-center">
             <div className="flex items-baseline space-x-3 flex-1 min-w-0">
@@ -2001,7 +2001,7 @@ export default function DoorsPage() {
               <section className="space-y-6">
 
                 {/* Материалы и отделка */}
-                <div>
+                <div className="border-t border-gray-200 pt-6">
                   <h3 className="text-sm font-medium text-gray-700 mb-3">Материалы и отделка</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <Select
@@ -2031,7 +2031,7 @@ export default function DoorsPage() {
                 </div>
 
                 {/* Размеры */}
-                <div>
+                <div className="border-t border-gray-200 pt-6">
                   <h3 className="text-sm font-medium text-gray-700 mb-3">Размеры</h3>
                   <div className="grid grid-cols-2 gap-3">
                   <Select
@@ -2066,7 +2066,7 @@ export default function DoorsPage() {
                 {/* Дополнительные элементы (временно отключено) */}
 
                 {/* Фурнитура */}
-                    <div>
+                    <div className="border-t border-gray-200 pt-6">
                   <h3 className="text-sm font-medium text-gray-700 mb-3">Фурнитура</h3>
                   <div className="space-y-4">
                     <HardwareSelect
@@ -2130,7 +2130,7 @@ export default function DoorsPage() {
 
                 {/* Общая стоимость конфигурации */}
                 {price && (
-                  <div className="bg-gray-50 border border-gray-200 rounded p-4">
+                  <div className="bg-gray-50 border border-gray-200 rounded p-4 border-t-2 border-t-gray-300">
                     <div className="flex justify-between items-center mb-3">
                       <h3 className="text-base font-medium text-gray-700">Стоимость конфигурации</h3>
                       <div className="text-xl font-bold text-gray-900">
@@ -2281,7 +2281,7 @@ export default function DoorsPage() {
             <div className="sticky top-6 space-y-6">
               {/* Блок параметров - показывает выбранные параметры */}
               {(sel.style || sel.model || sel.finish || sel.color || sel.width || sel.height) && (
-              <div className="bg-white border border-black/10 p-6">
+              <div className="bg-white border border-black/10 p-6 border-b-2 border-b-gray-300">
                 <h2 className="text-xl font-semibold text-black mb-4">Параметры</h2>
                 <div className="text-sm space-y-2">
                   <div className="flex justify-between">
