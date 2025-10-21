@@ -10,6 +10,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { PhotoGallery } from "../../components/PhotoGallery";
 import { ModernPhotoGallery } from "../../components/ModernPhotoGallery";
 import { priceRecalculationService } from "@/lib/cart/price-recalculation-service";
+import { getCurrentUser } from "@/lib/auth/token-interceptor";
 
 // ===================== Типы =====================
 type BasicState = {
@@ -771,6 +772,7 @@ export default function DoorsPage() {
   const [selectedClient, setSelectedClient] = useState<string>('');
   const [selectedClientName, setSelectedClientName] = useState<string>('');
   const [clients, setClients] = useState<any[]>([]);
+  const [userRole, setUserRole] = useState<string>('');
   const [clientsLoading, setClientsLoading] = useState(false);
   const [showCreateClientForm, setShowCreateClientForm] = useState(false);
   const [clientSearchInput, setClientSearchInput] = useState('');
@@ -784,6 +786,14 @@ export default function DoorsPage() {
     address: '',
     objectId: ''
   });
+
+  // Получаем роль пользователя
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (user) {
+      setUserRole(user.role);
+    }
+  }, []);
 
   // Debounce search input
   useEffect(() => {
@@ -2713,6 +2723,7 @@ export default function DoorsPage() {
           selectedClientName={selectedClientName}
           setSelectedClient={setSelectedClient}
           setSelectedClientName={setSelectedClientName}
+          userRole={userRole}
           onClose={() => setShowCartManager(false)}
         />
       )}
@@ -2943,6 +2954,7 @@ function CartManager({
   selectedClientName: string;
   setSelectedClient: React.Dispatch<React.SetStateAction<string>>;
   setSelectedClientName: React.Dispatch<React.SetStateAction<string>>;
+  userRole: string;
   onClose: () => void;
 }) {
   const [editingItem, setEditingItem] = useState<string | null>(null);
@@ -3240,6 +3252,11 @@ function CartManager({
 
   const totalPrice = cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
 
+  // Проверки разрешений по ролям
+  const canCreateQuote = userRole === 'admin' || userRole === 'complectator' || userRole === 'executor';
+  const canCreateInvoice = userRole === 'admin' || userRole === 'complectator' || userRole === 'executor';
+  const canCreateOrder = userRole === 'admin' || userRole === 'executor';
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden">
@@ -3256,27 +3273,33 @@ function CartManager({
               <span>👤</span>
               <span>{selectedClientName || 'Заказчик'}</span>
             </button>
-            <button
-              onClick={() => generateDocumentFast('quote', 'pdf')}
-              className="flex items-center space-x-1 px-3 py-1 text-sm border border-blue-500 text-blue-600 hover:bg-blue-50 transition-all duration-200"
-            >
-              <span>📄</span>
-              <span>КП</span>
-            </button>
-            <button
-              onClick={() => generateDocumentFast('invoice', 'pdf')}
-              className="flex items-center space-x-1 px-3 py-1 text-sm border border-green-500 text-green-600 hover:bg-green-50 transition-all duration-200"
-            >
-              <span>📄</span>
-              <span>Счет</span>
-            </button>
-            <button
-              onClick={() => generateDocumentFast('order', 'excel')}
-              className="flex items-center space-x-1 px-3 py-1 text-sm border border-orange-500 text-orange-600 hover:bg-orange-50 transition-all duration-200"
-            >
-              <span>📊</span>
-              <span>Заказ</span>
-            </button>
+            {canCreateQuote && (
+              <button
+                onClick={() => generateDocumentFast('quote', 'pdf')}
+                className="flex items-center space-x-1 px-3 py-1 text-sm border border-blue-500 text-blue-600 hover:bg-blue-50 transition-all duration-200"
+              >
+                <span>📄</span>
+                <span>КП</span>
+              </button>
+            )}
+            {canCreateInvoice && (
+              <button
+                onClick={() => generateDocumentFast('invoice', 'pdf')}
+                className="flex items-center space-x-1 px-3 py-1 text-sm border border-green-500 text-green-600 hover:bg-green-50 transition-all duration-200"
+              >
+                <span>📄</span>
+                <span>Счет</span>
+              </button>
+            )}
+            {canCreateOrder && (
+              <button
+                onClick={() => generateDocumentFast('order', 'excel')}
+                className="flex items-center space-x-1 px-3 py-1 text-sm border border-orange-500 text-orange-600 hover:bg-orange-50 transition-all duration-200"
+              >
+                <span>📊</span>
+                <span>Заказ</span>
+              </button>
+            )}
           </div>
           
           <button

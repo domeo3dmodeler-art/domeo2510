@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { getCurrentUser } from '@/lib/auth/token-interceptor';
 
 interface CartItem {
   id: string;
@@ -22,6 +23,15 @@ export function Cart({ element, onUpdate }: CartProps) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [userRole, setUserRole] = useState<string>('');
+
+  // Получаем роль пользователя
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (user) {
+      setUserRole(user.role);
+    }
+  }, []);
 
   // Загрузка корзины из localStorage или API
   useEffect(() => {
@@ -224,24 +234,31 @@ export function Cart({ element, onUpdate }: CartProps) {
 
           {/* Export Buttons */}
           <div className="space-y-2">
-            <button
-              onClick={() => exportCart('quote')}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-            >
-              Создать коммерческое предложение
-            </button>
-            <button
-              onClick={() => exportCart('invoice')}
-              className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
-            >
-              Создать счет
-            </button>
-            <button
-              onClick={() => exportCart('supplier')}
-              className="w-full px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm"
-            >
-              Заказ поставщику
-            </button>
+            {/* Проверки разрешений по ролям */}
+            {(userRole === 'admin' || userRole === 'complectator' || userRole === 'executor') && (
+              <button
+                onClick={() => exportCart('quote')}
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+              >
+                Создать коммерческое предложение
+              </button>
+            )}
+            {(userRole === 'admin' || userRole === 'complectator' || userRole === 'executor') && (
+              <button
+                onClick={() => exportCart('invoice')}
+                className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+              >
+                Создать счет
+              </button>
+            )}
+            {(userRole === 'admin' || userRole === 'executor') && (
+              <button
+                onClick={() => exportCart('supplier')}
+                className="w-full px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm"
+              >
+                Заказ поставщику
+              </button>
+            )}
           </div>
 
           {/* Clear Cart */}
