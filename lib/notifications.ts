@@ -38,7 +38,7 @@ export async function notifyUsersByRole(role: string, data: Omit<NotificationDat
     // Получаем всех пользователей с указанной ролью
     const users = await prisma.user.findMany({
       where: { 
-        role: role,
+        role: role.toUpperCase(),
         is_active: true
       },
       select: { id: true }

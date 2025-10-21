@@ -36,7 +36,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       where: { id },
       select: { 
         id: true, 
-        status: true
+        status: true,
+        client_id: true,
+        number: true
       }
     });
 

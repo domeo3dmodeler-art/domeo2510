@@ -6,16 +6,32 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const { id } = await params;
 
-    // Получаем user_id из токена
+    // Получаем user_id из токена (поддерживаем и Authorization header и Cookie)
+    let token = null;
+    let userId = null;
+
+    // Сначала пробуем Authorization header
     const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    } else {
+      // Если нет Authorization header, пробуем Cookie
+      const cookies = req.headers.get('cookie');
+      if (cookies) {
+        const authTokenMatch = cookies.match(/auth-token=([^;]+)/);
+        if (authTokenMatch) {
+          token = authTokenMatch[1];
+        }
+      }
+    }
+
+    if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const token = authHeader.substring(7);
     const jwt = require('jsonwebtoken');
     const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "your-super-secret-jwt-key-change-this-in-production-min-32-chars");
-    const userId = decoded.userId;
+    userId = decoded.userId;
 
     // Обновляем уведомление
     const notification = await prisma.notification.updateMany({

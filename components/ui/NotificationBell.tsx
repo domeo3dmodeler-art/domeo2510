@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, ChevronDown, FileText, CreditCard, Package } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface Notification {
   id: string;
@@ -24,6 +25,7 @@ interface NotificationBellProps {
 }
 
 export default function NotificationBell({ userRole }: NotificationBellProps) {
+  const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -41,11 +43,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
 
       if (!token) return;
 
-      const response = await fetch('/api/notifications', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await fetch('/api/notifications');
 
       if (response.ok) {
         const data = await response.json();
@@ -70,10 +68,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
       if (!token) return;
 
       await fetch(`/api/notifications/${notificationId}/read`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        method: 'PUT'
       });
 
       // Обновляем локальное состояние
@@ -127,18 +122,8 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
 
     // Переходим к соответствующему документу в ЛК
     if (notification.document_id) {
-      // Определяем тип документа по типу уведомления
-      let dashboardPath = '';
-      if (userRole === 'complectator') {
-        dashboardPath = '/complectator/dashboard';
-      } else if (userRole === 'executor') {
-        dashboardPath = '/executor/dashboard';
-      } else {
-        dashboardPath = '/dashboard';
-      }
-
-      // Переходим в ЛК с фокусом на документ
-      window.location.href = `${dashboardPath}?focus=${notification.document_id}`;
+      // Всегда переходим через главную страницу дашборда для правильного отображения шапки
+      router.push(`/dashboard?focus=${notification.document_id}`);
     }
   };
 
@@ -252,19 +237,17 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
           </div>
 
           {/* Подвал */}
-          {notifications.length > 0 && (
-            <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  // Здесь можно добавить переход к полному списку уведомлений
-                }}
-                className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-              >
-                Показать все уведомления
-              </button>
-            </div>
-          )}
+          <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                // Здесь можно добавить переход к полному списку уведомлений
+              }}
+              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Показать все уведомления
+            </button>
+          </div>
         </div>
       )}
     </div>

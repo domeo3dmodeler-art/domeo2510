@@ -4,16 +4,32 @@ import { prisma } from '@/lib/prisma';
 // GET /api/notifications - Получить уведомления пользователя
 export async function GET(req: NextRequest) {
   try {
-    // Получаем user_id из токена
+    // Получаем user_id из токена (поддерживаем и Authorization header и Cookie)
+    let token = null;
+    let userId = null;
+
+    // Сначала пробуем Authorization header
     const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    } else {
+      // Если нет Authorization header, пробуем Cookie
+      const cookies = req.headers.get('cookie');
+      if (cookies) {
+        const authTokenMatch = cookies.match(/auth-token=([^;]+)/);
+        if (authTokenMatch) {
+          token = authTokenMatch[1];
+        }
+      }
+    }
+
+    if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const token = authHeader.substring(7);
     const jwt = require('jsonwebtoken');
     const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "your-super-secret-jwt-key-change-this-in-production-min-32-chars");
-    const userId = decoded.userId;
+    userId = decoded.userId;
 
     // Получаем уведомления пользователя
     const notifications = await prisma.notification.findMany({
@@ -32,7 +48,11 @@ export async function GET(req: NextRequest) {
       take: 50 // Ограничиваем количество
     });
 
-    return NextResponse.json({ notifications });
+    return NextResponse.json({ notifications }, {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8'
+      }
+    });
   } catch (error) {
     console.error('Error fetching notifications:', error);
     return NextResponse.json({ error: 'Failed to fetch notifications' }, { status: 500 });
@@ -42,7 +62,8 @@ export async function GET(req: NextRequest) {
 // POST /api/notifications - Создать уведомление
 export async function POST(req: NextRequest) {
   try {
-    const { userId, clientId, documentId, type, title, message } = await req.json();
+    const body = await req.json();
+    const { userId, clientId, documentId, type, title, message } = body;
 
     if (!userId || !type || !title || !message) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -56,11 +77,17 @@ export async function POST(req: NextRequest) {
         type,
         title,
         message,
+        is_read: false,
         created_at: new Date()
       }
     });
 
-    return NextResponse.json({ notification }, { status: 201 });
+    return NextResponse.json({ notification }, { 
+      status: 201,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8'
+      }
+    });
   } catch (error) {
     console.error('Error creating notification:', error);
     return NextResponse.json({ error: 'Failed to create notification' }, { status: 500 });

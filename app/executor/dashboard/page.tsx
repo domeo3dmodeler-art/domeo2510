@@ -88,6 +88,17 @@ export default function ExecutorDashboard() {
   // Состояние для количества комментариев по документам
   const [commentsCount, setCommentsCount] = useState<Record<string, number>>({});
 
+  // Функции для открытия модальных окон
+  const openCommentsModal = (documentId: string, documentType: 'invoice' | 'supplier_order', documentNumber: string) => {
+    setSelectedDocument({ id: documentId, type: documentType, number: documentNumber });
+    setShowCommentsModal(true);
+  };
+
+  const openHistoryModal = (documentId: string, documentType: 'invoice' | 'supplier_order', documentNumber: string) => {
+    setSelectedDocument({ id: documentId, type: documentType, number: documentNumber });
+    setShowHistoryModal(true);
+  };
+
   useEffect(() => {
     fetchStats();
     fetchClients();
@@ -213,6 +224,16 @@ export default function ExecutorDashboard() {
     await Promise.all(promises);
   }, [fetchCommentsCount]);
 
+  // Функция для определения терминального статуса документа
+  const isTerminalDoc = (doc?: { type: 'invoice'|'supplier_order'; status: string }) => {
+    if (!doc) return false;
+    if (doc.type === 'invoice') {
+      return doc.status === 'Исполнен' || doc.status === 'Отменен';
+    }
+    // supplier_order
+    return doc.status === 'Исполнен';
+  };
+
   // Оптимизированная фильтрация клиентов с мемоизацией
   const filteredClients = useMemo(() => {
     return clients
@@ -316,15 +337,6 @@ export default function ExecutorDashboard() {
       case 'Получен от поставщика': return 'border-purple-300 text-purple-700';
       case 'Исполнен': return 'border-emerald-300 text-emerald-700';
     }
-  };
-
-  const isTerminalDoc = (doc?: { type: 'invoice'|'supplier_order'; status: string }) => {
-    if (!doc) return false;
-    if (doc.type === 'invoice') {
-      return doc.status === 'Исполнен' || doc.status === 'Отменен';
-    }
-    // supplier_order
-    return doc.status === 'Исполнен';
   };
 
   // Создание нового клиента
@@ -759,12 +771,6 @@ export default function ExecutorDashboard() {
       console.error('❌ Error deleting supplier order:', error);
       alert('Ошибка при удалении заказа у поставщика');
     }
-  };
-
-  // Функции для открытия модальных окон комментариев и истории
-  const openCommentsModal = (documentId: string, documentType: 'invoice' | 'supplier_order', documentNumber: string) => {
-    setSelectedDocument({ id: documentId, type: documentType, number: documentNumber });
-    setShowCommentsModal(true);
   };
 
   const closeCommentsModal = () => {

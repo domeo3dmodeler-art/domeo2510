@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./database/dev.db"
+  url      = "file:./database/dev.db?mode=rwc&cache=shared&_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=cache_size(1000)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(268435456)&_pragma=encoding(UTF8)"
 }
 
 model User {
