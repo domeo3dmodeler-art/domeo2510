@@ -2087,18 +2087,43 @@ export default function DoorsPage() {
                     />
                     <div className="text-sm space-y-1">
                       <div className="text-gray-600">Ручка</div>
-                      <button
-                        onClick={() => setShowHandleModal(true)}
-                        disabled={!sel.hardware_kit}
-                        className={`w-full border border-black/20 px-3 py-2 text-left text-black ${
-                          !sel.hardware_kit ? 'opacity-50 cursor-not-allowed bg-gray-100' : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        {sel.handle?.id ? 
-                          Object.values(handles).flat().find(h => h.id === sel.handle?.id)?.name || 'Выберите ручку' :
-                          'Выберите ручку'
-                        }
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => setShowHandleModal(true)}
+                          disabled={!sel.hardware_kit}
+                          className={`flex-1 border border-black/20 px-3 py-2 text-left text-black ${
+                            !sel.hardware_kit ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''
+                          }`}
+                        >
+                          {sel.handle?.id ? 
+                            Object.values(handles).flat().find(h => h.id === sel.handle?.id)?.name || 'Выберите ручку' :
+                            'Выберите ручку'
+                          }
+                        </button>
+                        {sel.handle?.id && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                // TODO: Добавить функциональность информации о ручке
+                                alert('Информация о ручке');
+                              }}
+                              className="text-gray-500 hover:text-gray-700 transition-colors"
+                              title="Показать описание"
+                            >
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                            <div className="text-sm font-medium text-gray-900 min-w-[80px] text-right">
+                              {Object.values(handles).flat().find(h => h.id === sel.handle?.id)?.price ? 
+                                `${fmtInt(Object.values(handles).flat().find(h => h.id === sel.handle?.id)!.price)} ₽` : 
+                                ''
+                              }
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     </div>
                   </div>
@@ -3969,7 +3994,7 @@ function HardwareSelect({
               </button>
             )}
             <div className="text-sm font-medium text-gray-900 min-w-[80px] text-right">
-              {selectedOption.price ? `${selectedOption.price} ₽` : ''}
+              {selectedOption.price ? `${fmtInt(selectedOption.price)} ₽` : ''}
             </div>
           </div>
         )}
