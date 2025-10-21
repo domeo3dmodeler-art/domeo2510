@@ -20,9 +20,9 @@ import {
   MoreVertical
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
-import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import CommentsModal from '@/components/ui/CommentsModal';
 import HistoryModal from '@/components/ui/HistoryModal';
+import NotificationBell from '@/components/ui/NotificationBell';
 // Убраны корзина/генераторы документов для режима работы с клиентами
 
 interface ComplectatorStats {
@@ -52,9 +52,9 @@ export default function ComplectatorDashboard() {
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [clientTab, setClientTab] = useState<'quotes'|'invoices'>('quotes');
   const [quotes, setQuotes] = useState<Array<{ id: string; number: string; date: string; status: 'Черновик'|'Отправлено'|'Согласовано'|'Отказ'; total: number }>>([]);
-  const [invoices, setInvoices] = useState<Array<{ id: string; number: string; date: string; status: 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'В производстве'|'Получен от поставщика'|'Исполнен'; total: number; dueAt?: string }>>([]);
+  const [invoices, setInvoices] = useState<Array<{ id: string; number: string; date: string; status: 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'; total: number; dueAt?: string }>>([]);
   const [quotesFilter, setQuotesFilter] = useState<'all'|'Черновик'|'Отправлено'|'Согласовано'|'Отказ'>('all');
-  const [invoicesFilter, setInvoicesFilter] = useState<'all'|'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'В производстве'|'Получен от поставщика'|'Исполнен'>('all');
+  const [invoicesFilter, setInvoicesFilter] = useState<'all'|'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'>('all');
   const [showInWorkOnly, setShowInWorkOnly] = useState(false);
   const [showCreateClientForm, setShowCreateClientForm] = useState(false);
   const [newClientData, setNewClientData] = useState({
@@ -73,6 +73,9 @@ export default function ComplectatorDashboard() {
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<{id: string, type: 'quote' | 'invoice', number: string} | null>(null);
+  
+  // Состояние для количества комментариев по документам
+  const [commentsCount, setCommentsCount] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetchStats();
@@ -162,6 +165,9 @@ export default function ComplectatorDashboard() {
           dueAt: invoice.due_date ? new Date(invoice.due_date).toISOString().split('T')[0] : undefined
         }));
         setInvoices(formattedInvoices);
+        
+        // Загружаем количество комментариев для всех документов
+        await fetchAllCommentsCount(formattedQuotes, formattedInvoices);
       } else {
         console.error('Failed to fetch client documents');
       }
@@ -169,6 +175,29 @@ export default function ComplectatorDashboard() {
       console.error('Error fetching client documents:', error);
     }
   }, []);
+
+  // Функция для загрузки количества комментариев для документа
+  const fetchCommentsCount = useCallback(async (documentId: string) => {
+    try {
+      const response = await fetch(`/api/documents/${documentId}/comments/count`);
+      if (response.ok) {
+        const data = await response.json();
+        setCommentsCount(prev => ({
+          ...prev,
+          [documentId]: data.count
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching comments count:', error);
+    }
+  }, []);
+
+  // Функция для загрузки количества комментариев для всех документов клиента
+  const fetchAllCommentsCount = useCallback(async (quotes: any[], invoices: any[]) => {
+    const allDocuments = [...quotes, ...invoices];
+    const promises = allDocuments.map(doc => fetchCommentsCount(doc.id));
+    await Promise.all(promises);
+  }, [fetchCommentsCount]);
 
   // Оптимизированная фильтрация клиентов с мемоизацией
   const filteredClients = useMemo(() => {
@@ -199,13 +228,13 @@ export default function ComplectatorDashboard() {
   };
 
   // Маппинг статусов Счетов из API в русские
-  const mapInvoiceStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'В производстве'|'Получен от поставщика'|'Исполнен' => {
-    const statusMap: Record<string, 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'В производстве'|'Получен от поставщика'|'Исполнен'> = {
+  const mapInvoiceStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен' => {
+    const statusMap: Record<string, 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'> = {
       'DRAFT': 'Черновик',
       'SENT': 'Отправлен',
       'PAID': 'Оплачен/Заказ',
       'CANCELLED': 'Отменен',
-      'IN_PRODUCTION': 'В производстве',
+      'IN_PRODUCTION': 'Заказ размещен',
       'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
       'COMPLETED': 'Исполнен',
       // Поддержка старых строчных статусов
@@ -213,7 +242,7 @@ export default function ComplectatorDashboard() {
       'sent': 'Отправлен',
       'paid': 'Оплачен/Заказ',
       'cancelled': 'Отменен',
-      'in_production': 'В производстве',
+      'in_production': 'Заказ размещен',
       'received': 'Получен от поставщика',
       'completed': 'Исполнен'
     };
@@ -361,6 +390,7 @@ export default function ComplectatorDashboard() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${document.cookie.split('; ').find(row => row.startsWith('auth-token='))?.split('=')[1]}`
         },
         body: JSON.stringify({ status: apiStatus })
       });
@@ -764,10 +794,42 @@ export default function ComplectatorDashboard() {
     setShowCommentsModal(true);
   };
 
-  const openHistoryModal = (documentId: string, documentType: 'quote' | 'invoice', documentNumber: string) => {
-    setSelectedDocument({ id: documentId, type: documentType, number: documentNumber });
-    setShowHistoryModal(true);
+  const closeCommentsModal = () => {
+    setShowCommentsModal(false);
+    // Обновляем количество комментариев после закрытия модального окна
+    if (selectedDocument) {
+      fetchCommentsCount(selectedDocument.id);
+    }
   };
+
+  // Функция для фокуса на документ при переходе из уведомления
+  const focusOnDocument = (documentId: string) => {
+    // Находим клиента, у которого есть этот документ
+    const clientWithDocument = clients.find(client => {
+      return quotes.some(q => q.id === documentId) || invoices.some(i => i.id === documentId);
+    });
+    
+    if (clientWithDocument) {
+      setSelectedClient(clientWithDocument.id);
+      // Переключаемся на соответствующую вкладку
+      if (quotes.some(q => q.id === documentId)) {
+        setClientTab('quotes');
+      } else if (invoices.some(i => i.id === documentId)) {
+        setClientTab('invoices');
+      }
+    }
+  };
+
+  // Обработка фокуса из URL параметров
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const focusDocumentId = urlParams.get('focus');
+    if (focusDocumentId) {
+      focusOnDocument(focusDocumentId);
+      // Очищаем URL параметр
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [clients, quotes, invoices]);
 
   if (loading) {
     return (
@@ -779,7 +841,6 @@ export default function ComplectatorDashboard() {
 
   return (
     <div className="space-y-6">
-
       {/* Клиенты и детали клиента */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:[grid-template-columns:1.3fr_2fr]">
         <div className="md:col-span-1 space-y-4">
@@ -811,8 +872,8 @@ export default function ComplectatorDashboard() {
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Поиск по ФИО, телефону, адресу..."
                   className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-black/50"
-                />
-              </div>
+          />
+        </div>
             </div>
             <div className="p-0">
               <div className="divide-y">
@@ -965,7 +1026,10 @@ export default function ComplectatorDashboard() {
                                 onClick={() => openCommentsModal(q.id, 'quote', q.number)}
                                 className="hover:text-blue-600 hover:bg-blue-50 px-2 py-1 rounded transition-colors flex items-center"
                               >
-                                <StickyNote className="h-3.5 w-3.5 mr-1"/>Комментарии
+                                <div className={`h-3.5 w-3.5 mr-1 rounded flex items-center justify-center ${commentsCount[q.id] > 0 ? 'bg-green-500 text-white' : 'text-gray-500'}`}>
+                                  <StickyNote className="h-2.5 w-2.5"/>
+                                </div>
+                                Комментарии
                               </button>
                               <button 
                                 onClick={() => openHistoryModal(q.id, 'quote', q.number)}
@@ -1057,7 +1121,10 @@ export default function ComplectatorDashboard() {
                                 onClick={() => openCommentsModal(i.id, 'invoice', i.number)}
                                 className="hover:text-blue-600 hover:bg-blue-50 px-2 py-1 rounded transition-colors flex items-center"
                               >
-                                <StickyNote className="h-3.5 w-3.5 mr-1"/>Комментарии
+                                <div className={`h-3.5 w-3.5 mr-1 rounded flex items-center justify-center ${commentsCount[i.id] > 0 ? 'bg-green-500 text-white' : 'text-gray-500'}`}>
+                                  <StickyNote className="h-2.5 w-2.5"/>
+                </div>
+                                Комментарии
                               </button>
                               <button 
                                 onClick={() => openHistoryModal(i.id, 'invoice', i.number)}
@@ -1267,7 +1334,7 @@ export default function ComplectatorDashboard() {
       {/* Модальное окно комментариев */}
       <CommentsModal
         isOpen={showCommentsModal}
-        onClose={() => setShowCommentsModal(false)}
+        onClose={closeCommentsModal}
         documentId={selectedDocument?.id || ''}
         documentType={selectedDocument?.type || 'quote'}
         documentNumber={selectedDocument?.number || ''}

@@ -7,6 +7,7 @@ import ComplectatorDashboard from '../complectator/dashboard/page';
 import ExecutorDashboard from '../executor/dashboard/page';
 import { Card, Button } from '../../components/ui';
 import { ClientAuthGuard } from '../../components/auth/ClientAuthGuard';
+import NotificationBell from '../../components/ui/NotificationBell';
 
 interface User {
   id: string;
@@ -265,6 +266,7 @@ function DashboardContent() {
                 </div>
               </div>
               <div className="flex items-center space-x-4">
+                <NotificationBell userRole={user.role} />
                 <div className="text-sm text-gray-700">
                   {user.lastName} {user.firstName.charAt(0)}.{user.middleName ? user.middleName.charAt(0) + '.' : ''} ({getRoleText(user.role)})
                 </div>
@@ -305,6 +307,7 @@ function DashboardContent() {
                 </div>
               </div>
               <div className="flex items-center space-x-4">
+                <NotificationBell userRole={user.role} />
                 <div className="text-sm text-gray-700">
                   {user.lastName} {user.firstName.charAt(0)}.{user.middleName ? user.middleName.charAt(0) + '.' : ''} ({getRoleText(user.role)})
                 </div>

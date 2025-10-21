@@ -11,6 +11,8 @@ import { PhotoGallery } from "../../components/PhotoGallery";
 import { ModernPhotoGallery } from "../../components/ModernPhotoGallery";
 import { priceRecalculationService } from "@/lib/cart/price-recalculation-service";
 import { getCurrentUser } from "@/lib/auth/token-interceptor";
+import GlobalHeader from "../../components/layout/GlobalHeader";
+import NotificationBell from "../../components/ui/NotificationBell";
 
 // ===================== Типы =====================
 type BasicState = {
@@ -1752,6 +1754,7 @@ export default function DoorsPage() {
               <span className="text-lg font-semibold text-black">Doors</span>
             </div>
             <nav className="flex items-center space-x-4 justify-end flex-shrink-0 ml-auto">
+              <NotificationBell userRole="executor" />
               <Link 
                 href="/" 
                 className="px-3 py-1 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 text-sm"

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button, Card } from '../../../components/ui';
 import StatCard from '../../../components/ui/StatCard';
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
+import NotificationBell from '@/components/ui/NotificationBell';
 import CommentsModal from '@/components/ui/CommentsModal';
 import HistoryModal from '@/components/ui/HistoryModal';
 import { 
@@ -50,10 +51,10 @@ export default function ExecutorDashboard() {
   }>>([]);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [clientTab, setClientTab] = useState<'invoices'|'supplier_orders'>('invoices');
-  const [invoices, setInvoices] = useState<Array<{ id: string; number: string; date: string; status: 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'В производстве'|'Получен от поставщика'|'Исполнен'; total: number; dueAt?: string }>>([]);
-  const [supplierOrders, setSupplierOrders] = useState<Array<{ id: string; number: string; date: string; status: 'Черновик'|'Отправлен'|'В производстве'|'Получен от поставщика'|'Исполнен'; total: number; supplierName?: string }>>([]);
-  const [invoicesFilter, setInvoicesFilter] = useState<'all'|'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'В производстве'|'Получен от поставщика'|'Исполнен'>('all');
-  const [supplierOrdersFilter, setSupplierOrdersFilter] = useState<'all'|'Черновик'|'Отправлен'|'В производстве'|'Получен от поставщика'|'Исполнен'>('all');
+  const [invoices, setInvoices] = useState<Array<{ id: string; number: string; date: string; status: 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'; total: number; dueAt?: string }>>([]);
+  const [supplierOrders, setSupplierOrders] = useState<Array<{ id: string; number: string; date: string; status: 'Черновик'|'Отправлен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'; total: number; supplierName?: string }>>([]);
+  const [invoicesFilter, setInvoicesFilter] = useState<'all'|'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'>('all');
+  const [supplierOrdersFilter, setSupplierOrdersFilter] = useState<'all'|'Черновик'|'Отправлен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'>('all');
   const [showInWorkOnly, setShowInWorkOnly] = useState(false);
   const [showCreateClientForm, setShowCreateClientForm] = useState(false);
   const [deleteModal, setDeleteModal] = useState<{
@@ -83,6 +84,9 @@ export default function ExecutorDashboard() {
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<{id: string, type: 'invoice' | 'supplier_order', number: string} | null>(null);
+  
+  // Состояние для количества комментариев по документам
+  const [commentsCount, setCommentsCount] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetchStats();
@@ -175,6 +179,9 @@ export default function ExecutorDashboard() {
         })) || [];
         console.log('📦 Форматированные заказы у поставщика:', formattedSupplierOrders.length);
         setSupplierOrders(formattedSupplierOrders);
+        
+        // Загружаем количество комментариев для всех документов
+        await fetchAllCommentsCount(formattedInvoices, formattedSupplierOrders);
       } else {
         console.error('Failed to fetch client documents');
       }
@@ -182,6 +189,29 @@ export default function ExecutorDashboard() {
       console.error('Error fetching client documents:', error);
     }
   }, []);
+
+  // Функция для загрузки количества комментариев для документа
+  const fetchCommentsCount = useCallback(async (documentId: string) => {
+    try {
+      const response = await fetch(`/api/documents/${documentId}/comments/count`);
+      if (response.ok) {
+        const data = await response.json();
+        setCommentsCount(prev => ({
+          ...prev,
+          [documentId]: data.count
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching comments count:', error);
+    }
+  }, []);
+
+  // Функция для загрузки количества комментариев для всех документов клиента
+  const fetchAllCommentsCount = useCallback(async (invoices: any[], supplierOrders: any[]) => {
+    const allDocuments = [...invoices, ...supplierOrders];
+    const promises = allDocuments.map(doc => fetchCommentsCount(doc.id));
+    await Promise.all(promises);
+  }, [fetchCommentsCount]);
 
   // Оптимизированная фильтрация клиентов с мемоизацией
   const filteredClients = useMemo(() => {
@@ -201,13 +231,13 @@ export default function ExecutorDashboard() {
   }, [clients, search, showInWorkOnly]);
 
   // Маппинг статусов Счетов из API в русские
-  const mapInvoiceStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'В производстве'|'Получен от поставщика'|'Исполнен' => {
-    const statusMap: Record<string, 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'В производстве'|'Получен от поставщика'|'Исполнен'> = {
+  const mapInvoiceStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен' => {
+    const statusMap: Record<string, 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'> = {
       'DRAFT': 'Черновик',
       'SENT': 'Отправлен',
       'PAID': 'Оплачен/Заказ',
       'CANCELLED': 'Отменен',
-      'IN_PRODUCTION': 'В производстве',
+      'IN_PRODUCTION': 'Заказ размещен',
       'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
       'COMPLETED': 'Исполнен',
       // Поддержка старых строчных статусов
@@ -215,7 +245,7 @@ export default function ExecutorDashboard() {
       'sent': 'Отправлен',
       'paid': 'Оплачен/Заказ',
       'cancelled': 'Отменен',
-      'in_production': 'В производстве',
+      'in_production': 'Заказ размещен',
       'received': 'Получен от поставщика',
       'completed': 'Исполнен'
     };
@@ -223,17 +253,17 @@ export default function ExecutorDashboard() {
   };
 
   // Маппинг статусов Заказов у поставщика из API в русские
-  const mapSupplierOrderStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'В производстве'|'Получен от поставщика'|'Исполнен' => {
-    const statusMap: Record<string, 'Черновик'|'Отправлен'|'В производстве'|'Получен от поставщика'|'Исполнен'> = {
+  const mapSupplierOrderStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен' => {
+    const statusMap: Record<string, 'Черновик'|'Отправлен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'> = {
       'PENDING': 'Черновик',
       'SENT': 'Отправлен',
-      'IN_PRODUCTION': 'В производстве',
+      'IN_PRODUCTION': 'Заказ размещен',
       'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
       'COMPLETED': 'Исполнен',
       // Поддержка старых строчных статусов
       'pending': 'Черновик',
       'sent': 'Отправлен',
-      'in_production': 'В производстве',
+      'in_production': 'Заказ размещен',
       'received_from_supplier': 'Получен от поставщика',
       'completed': 'Исполнен'
     };
@@ -266,23 +296,23 @@ export default function ExecutorDashboard() {
     return `+7 (${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6,8)}-${d.slice(8,10)}`;
   };
 
-  const badgeByInvoiceStatus = (s: 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'В производстве'|'Получен от поставщика'|'Исполнен') => {
+  const badgeByInvoiceStatus = (s: 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен') => {
     switch (s) {
       case 'Черновик': return 'border-gray-300 text-gray-700';
       case 'Отправлен': return 'border-blue-300 text-blue-700';
       case 'Оплачен/Заказ': return 'border-green-300 text-green-700';
       case 'Отменен': return 'border-red-300 text-red-700';
-      case 'В производстве': return 'border-yellow-300 text-yellow-800';
+      case 'Заказ размещен': return 'border-yellow-300 text-yellow-800';
       case 'Получен от поставщика': return 'border-purple-300 text-purple-700';
       case 'Исполнен': return 'border-emerald-300 text-emerald-700';
     }
   };
 
-  const badgeBySupplierOrderStatus = (s: 'Черновик'|'Отправлен'|'В производстве'|'Получен от поставщика'|'Исполнен') => {
+  const badgeBySupplierOrderStatus = (s: 'Черновик'|'Отправлен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен') => {
     switch (s) {
       case 'Черновик': return 'border-gray-300 text-gray-700';
       case 'Отправлен': return 'border-blue-300 text-blue-700';
-      case 'В производстве': return 'border-yellow-300 text-yellow-800';
+      case 'Заказ размещен': return 'border-yellow-300 text-yellow-800';
       case 'Получен от поставщика': return 'border-purple-300 text-purple-700';
       case 'Исполнен': return 'border-emerald-300 text-emerald-700';
     }
@@ -737,10 +767,42 @@ export default function ExecutorDashboard() {
     setShowCommentsModal(true);
   };
 
-  const openHistoryModal = (documentId: string, documentType: 'invoice' | 'supplier_order', documentNumber: string) => {
-    setSelectedDocument({ id: documentId, type: documentType, number: documentNumber });
-    setShowHistoryModal(true);
+  const closeCommentsModal = () => {
+    setShowCommentsModal(false);
+    // Обновляем количество комментариев после закрытия модального окна
+    if (selectedDocument) {
+      fetchCommentsCount(selectedDocument.id);
+    }
   };
+
+  // Функция для фокуса на документ при переходе из уведомления
+  const focusOnDocument = (documentId: string) => {
+    // Находим клиента, у которого есть этот документ
+    const clientWithDocument = clients.find(client => {
+      return invoices.some(i => i.id === documentId) || supplierOrders.some(so => so.id === documentId);
+    });
+    
+    if (clientWithDocument) {
+      setSelectedClient(clientWithDocument.id);
+      // Переключаемся на соответствующую вкладку
+      if (invoices.some(i => i.id === documentId)) {
+        setClientTab('invoices');
+      } else if (supplierOrders.some(so => so.id === documentId)) {
+        setClientTab('supplier_orders');
+      }
+    }
+  };
+
+  // Обработка фокуса из URL параметров
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const focusDocumentId = urlParams.get('focus');
+    if (focusDocumentId) {
+      focusOnDocument(focusDocumentId);
+      // Очищаем URL параметр
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [clients, invoices, supplierOrders]);
 
   // Показать диалог удаления заказа у поставщика
   const showDeleteSupplierOrderModal = (supplierOrderId: string, orderNumber: string) => {
@@ -762,7 +824,6 @@ export default function ExecutorDashboard() {
 
   return (
     <div className="space-y-6">
-
       {/* Клиенты и детали клиента */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:[grid-template-columns:1.3fr_2fr]">
         <div className="md:col-span-1 space-y-4">
@@ -784,7 +845,7 @@ export default function ExecutorDashboard() {
                 >
                   В работе
                 </button>
-              </div>
+      </div>
             </div>
             <div className="p-4">
               <div className="relative">
@@ -794,8 +855,8 @@ export default function ExecutorDashboard() {
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Поиск по ФИО, телефону, адресу..."
                   className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-black/50"
-                />
-              </div>
+          />
+        </div>
             </div>
             <div className="p-0">
               <div className="divide-y">
@@ -868,7 +929,7 @@ export default function ExecutorDashboard() {
                 {clientTab==='invoices' && (
                   <>
                     <div className="mb-3 flex flex-wrap items-center gap-2">
-                      {(['all','Черновик','Отправлен','Оплачен/Заказ','Отменен','В производстве','Получен от поставщика','Исполнен'] as const).map(s => (
+                      {(['all','Черновик','Отправлен','Оплачен/Заказ','Отменен','Заказ размещен','Получен от поставщика','Исполнен'] as const).map(s => (
                         <button key={s}
                           onClick={() => setInvoicesFilter(s)}
                           className={`px-3 py-1 text-sm border ${invoicesFilter===s?'border-black bg-black text-white':'border-gray-300 hover:border-black'}`}
@@ -889,7 +950,7 @@ export default function ExecutorDashboard() {
                                 >
                                   {i.status}
                                 </button>
-                              </div>
+          </div>
           </div>
                             <div className="text-right ml-4 flex items-center space-x-2">
                               <div className="font-semibold text-black">{i.total.toLocaleString('ru-RU')} ₽</div>
@@ -938,10 +999,10 @@ export default function ExecutorDashboard() {
                                     >
                                       Удалить
                                     </button>
-                                  </div>
+                  </div>
                                 )}
-                              </div>
-                            </div>
+                  </div>
+                </div>
                   </div>
                           <div className="mt-2 flex items-center justify-between">
                             <div className="flex items-center space-x-3 text-xs text-gray-500">
@@ -949,7 +1010,10 @@ export default function ExecutorDashboard() {
                                 onClick={() => openCommentsModal(i.id, 'invoice', i.number)}
                                 className="hover:text-blue-600 hover:bg-blue-50 px-2 py-1 rounded transition-colors flex items-center"
                               >
-                                <StickyNote className="h-3.5 w-3.5 mr-1"/>Комментарии
+                                <div className={`h-3.5 w-3.5 mr-1 rounded flex items-center justify-center ${commentsCount[i.id] > 0 ? 'bg-green-500 text-white' : 'text-gray-500'}`}>
+                                  <StickyNote className="h-2.5 w-2.5"/>
+                                </div>
+                                Комментарии
                               </button>
                               <button 
                                 onClick={() => openHistoryModal(i.id, 'invoice', i.number)}
@@ -971,14 +1035,14 @@ export default function ExecutorDashboard() {
                 {clientTab==='supplier_orders' && (
                   <>
                     <div className="mb-3 flex flex-wrap items-center gap-2">
-                      {(['all','Черновик','Отправлен','В производстве','Получен от поставщика','Исполнен'] as const).map(s => (
+                      {(['all','Черновик','Отправлен','Заказ размещен','Получен от поставщика','Исполнен'] as const).map(s => (
                         <button key={s}
                           onClick={() => setSupplierOrdersFilter(s)}
                           className={`px-3 py-1 text-sm border ${supplierOrdersFilter===s?'border-black bg-black text-white':'border-gray-300 hover:border-black'}`}
                         >{s==='all'?'Все':s}</button>
                       ))}
           </div>
-                    <div className="space-y-2">
+                  <div className="space-y-2">
                       {supplierOrders.filter(so => supplierOrdersFilter==='all' || so.status===supplierOrdersFilter).map(so => (
                         <div key={so.id} className="border border-gray-200 p-3 hover:border-black transition-colors">
               <div className="flex items-center justify-between">
@@ -992,7 +1056,7 @@ export default function ExecutorDashboard() {
                                 >
                                   {so.status}
                                 </button>
-                              </div>
+                      </div>
                               <div className="text-sm text-gray-600 mt-1">
                                 {so.supplierName && <span>Поставщик: {so.supplierName}</span>}
                   </div>
@@ -1045,7 +1109,10 @@ export default function ExecutorDashboard() {
                                 onClick={() => openCommentsModal(so.id, 'supplier_order', `Заказ-${so.id.slice(-8)}`)}
                                 className="hover:text-blue-600 hover:bg-blue-50 px-2 py-1 rounded transition-colors flex items-center"
                               >
-                                <StickyNote className="h-3.5 w-3.5 mr-1"/>Комментарии
+                                <div className={`h-3.5 w-3.5 mr-1 rounded flex items-center justify-center ${commentsCount[so.id] > 0 ? 'bg-green-500 text-white' : 'text-gray-500'}`}>
+                                  <StickyNote className="h-2.5 w-2.5"/>
+                                </div>
+                                Комментарии
                               </button>
                               <button 
                                 onClick={() => openHistoryModal(so.id, 'supplier_order', `Заказ-${so.id.slice(-8)}`)}
@@ -1081,7 +1148,7 @@ export default function ExecutorDashboard() {
               >
                 Закрыть
               </button>
-            </div>
+                </div>
 
             {/* Одна строка с полями разной ширины */}
             <div className="grid grid-cols-12 gap-3">
@@ -1127,7 +1194,7 @@ export default function ExecutorDashboard() {
                 onChange={(e) => setNewClientData(prev => ({ ...prev, address: e.target.value }))}
                 className="col-span-12 px-3 py-2 border border-gray-300 rounded"
               />
-                </div>
+              </div>
 
             <div className="flex justify-end gap-3 mt-4">
               <button
@@ -1197,12 +1264,12 @@ export default function ExecutorDashboard() {
                         {invoice.status === status && (
                           <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                         )}
-                      </div>
+          </div>
                     </button>
                     {index < allStatuses.length - 1 && (
                       <div className="mx-4 border-t border-gray-100"></div>
                     )}
-                  </div>
+        </div>
                 ));
               })()}
             </>
@@ -1238,8 +1305,8 @@ export default function ExecutorDashboard() {
                         <span>{status}</span>
                         {supplierOrder.status === status && (
                           <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        )}
-                      </div>
+      )}
+    </div>
                     </button>
                     {index < allStatuses.length - 1 && (
                       <div className="mx-4 border-t border-gray-100"></div>
@@ -1284,7 +1351,7 @@ export default function ExecutorDashboard() {
       {/* Модальное окно комментариев */}
       <CommentsModal
         isOpen={showCommentsModal}
-        onClose={() => setShowCommentsModal(false)}
+        onClose={closeCommentsModal}
         documentId={selectedDocument?.id || ''}
         documentType={selectedDocument?.type === 'supplier_order' ? 'supplier_order' : 'invoice'}
         documentNumber={selectedDocument?.number || ''}

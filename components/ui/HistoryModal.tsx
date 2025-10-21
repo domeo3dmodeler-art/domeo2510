@@ -74,6 +74,33 @@ export default function HistoryModal({
     });
   };
 
+  const getRoleDisplayName = (role: string) => {
+    const roleMap: { [key: string]: string } = {
+      'admin': 'Администратор',
+      'complectator': 'Комплектатор',
+      'executor': 'Исполнитель',
+      'ADMIN': 'Администратор',
+      'COMPLECTATOR': 'Комплектатор',
+      'EXECUTOR': 'Исполнитель'
+    };
+    return roleMap[role] || 'Пользователь';
+  };
+
+  const formatDetails = (details: string) => {
+    try {
+      const parsed = JSON.parse(details);
+      if (parsed.document_type === 'quote' && !parsed.notes) {
+        return 'Изменение статуса КП';
+      }
+      if (parsed.document_type === 'quote' && parsed.notes) {
+        return `Изменение статуса КП: ${parsed.notes}`;
+      }
+      return details;
+    } catch {
+      return details;
+    }
+  };
+
   const getActionDescription = (entry: HistoryEntry) => {
     const actionMap: Record<string, string> = {
       'status_change': 'Изменение статуса',
@@ -191,7 +218,7 @@ export default function HistoryModal({
                         {formatUserName(entry.user)}
                       </span>
                       <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">
-                        {entry.user.role}
+                        {getRoleDisplayName(entry.user.role)}
                       </span>
                     </div>
 
@@ -223,7 +250,7 @@ export default function HistoryModal({
                     {/* Other details */}
                     {entry.details && !entry.details.includes('comment_text') && (
                       <div className="mt-2 text-sm text-gray-600">
-                        {entry.details}
+                        {formatDetails(entry.details)}
                       </div>
                     )}
                   </div>

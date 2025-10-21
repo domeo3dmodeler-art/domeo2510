@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import jwt from 'jsonwebtoken';
 
 const VALID_STATUSES = ['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED'];
 
@@ -12,6 +13,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const body = await req.json();
     const { status, notes } = body;
+
+    // Получаем user_id из токена
+    let userId = 'system'; // fallback
+    try {
+      const authHeader = req.headers.get('authorization');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || "your-super-secret-jwt-key-change-this-in-production-min-32-chars");
+        userId = decoded.userId;
+      }
+    } catch (tokenError) {
+      console.warn('⚠️ Не удалось получить user_id из токена:', tokenError);
+    }
     
     console.log('🔄 API: Updating quote status:', { id, status, body });
 
@@ -80,7 +94,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         await prisma.documentHistory.create({
           data: {
             document_id: id,
-            user_id: 'system', // Временно используем 'system', позже можно получить из токена
+            user_id: userId,
             action: 'status_change',
             old_value: oldQuote.status,
             new_value: status,

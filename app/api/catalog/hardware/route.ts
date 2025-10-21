@@ -22,9 +22,15 @@ export async function GET(request: NextRequest) {
       });
 
       const formattedKits = kits.map(kit => {
-        const props = typeof kit.properties_data === 'string' 
-          ? JSON.parse(kit.properties_data) 
-          : kit.properties_data;
+        let props;
+        try {
+          props = typeof kit.properties_data === 'string' 
+            ? JSON.parse(kit.properties_data) 
+            : kit.properties_data;
+        } catch (parseError) {
+          console.error('Error parsing kit properties:', parseError, 'Data:', kit.properties_data);
+          props = {};
+        }
         return {
           id: kit.id,
           name: props['Наименование для Web'] || kit.name,
@@ -52,9 +58,15 @@ export async function GET(request: NextRequest) {
       });
 
       const formattedHandles = handles.map(handle => {
-        const props = typeof handle.properties_data === 'string' 
-          ? JSON.parse(handle.properties_data) 
-          : handle.properties_data;
+        let props;
+        try {
+          props = typeof handle.properties_data === 'string' 
+            ? JSON.parse(handle.properties_data) 
+            : handle.properties_data;
+        } catch (parseError) {
+          console.error('Error parsing handle properties:', parseError, 'Data:', handle.properties_data);
+          props = {};
+        }
         
         return {
           id: handle.id,

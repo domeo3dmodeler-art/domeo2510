@@ -23,6 +23,7 @@ model User {
   // Связи
   document_comments DocumentComment[]
   document_history  DocumentHistory[]
+  notifications     Notification[]
 
   @@map("users")
 }
@@ -393,22 +394,6 @@ model SupplierOrder {
   @@map("supplier_orders")
 }
 
-model Notification {
-  id         String   @id @default(cuid())
-  user_id    String
-  type       String
-  title      String
-  message    String
-  is_read    Boolean  @default(false)
-  data       String?  @default("{}")
-  created_at DateTime @default(now())
-  
-  // Связи
-  client     Client   @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@map("notifications")
-}
-
 model ImportHistory {
   id                  String   @id @default(cuid())
   template_id         String?  // Связь с шаблоном загрузки
@@ -532,5 +517,27 @@ model DocumentHistory {
   @@index([document_id])
   @@index([user_id])
   @@index([action])
+  @@index([created_at])
+}
+
+// Система уведомлений
+model Notification {
+  id          String   @id @default(cuid())
+  user_id     String   // ID пользователя, которому отправлено уведомление
+  client_id   String?  // ID клиента (опционально)
+  document_id String?  // ID документа (опционально)
+  type        String   // Тип уведомления (invoice_paid, status_changed, etc.)
+  title       String   // Заголовок уведомления
+  message     String   // Текст уведомления
+  is_read     Boolean  @default(false)
+  created_at  DateTime @default(now())
+  
+  // Связи
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  client      Client?  @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  
+  @@map("notifications")
+  @@index([user_id])
+  @@index([is_read])
   @@index([created_at])
 }

@@ -266,7 +266,10 @@ export default function CommentsModal({
     const roleMap: { [key: string]: string } = {
       'admin': 'Администратор',
       'complectator': 'Комплектатор',
-      'executor': 'Исполнитель'
+      'executor': 'Исполнитель',
+      'ADMIN': 'Администратор',
+      'COMPLECTATOR': 'Комплектатор',
+      'EXECUTOR': 'Исполнитель'
     };
     return roleMap[role] || 'Пользователь';
   };

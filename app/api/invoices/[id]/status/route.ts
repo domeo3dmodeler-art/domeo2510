@@ -3,6 +3,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { notifyUsersByRole, notifyUser } from '@/lib/notifications';
+import jwt from 'jsonwebtoken';
 
 const VALID_STATUSES = ['DRAFT', 'SENT', 'PAID', 'CANCELLED', 'IN_PRODUCTION', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED'];
 
@@ -69,6 +71,51 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     });
 
     console.log('✅ API: Invoice updated successfully:', updatedInvoice);
+
+    // Получаем user_id из токена для истории
+    let userId = 'system';
+    try {
+      const authHeader = req.headers.get('authorization');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "your-super-secret-jwt-key-change-this-in-production-min-32-chars");
+        userId = decoded.userId;
+      }
+    } catch (tokenError) {
+      console.warn('⚠️ Не удалось получить user_id из токена:', tokenError);
+    }
+
+    // Отправляем уведомления в зависимости от статуса
+    try {
+      if (status === 'PAID') {
+        // Уведомляем всех исполнителей о том, что счет оплачен
+        await notifyUsersByRole('executor', {
+          clientId: existingInvoice.client_id,
+          documentId: id,
+          type: 'invoice_paid',
+          title: 'Счет оплачен',
+          message: `Счет ${existingInvoice.number} переведен в статус "Оплачен/Заказ". Теперь только Исполнитель может изменять статус.`
+        });
+      } else if (['IN_PRODUCTION', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED'].includes(status)) {
+        // Уведомляем комплектатора о изменении статуса исполнителем
+        const statusNames: Record<string, string> = {
+          'IN_PRODUCTION': 'Заказ размещен',
+          'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
+          'COMPLETED': 'Исполнен'
+        };
+        
+        await notifyUsersByRole('complectator', {
+          clientId: existingInvoice.client_id,
+          documentId: id,
+          type: 'status_changed',
+          title: 'Статус изменен',
+          message: `Исполнитель изменил статус счета ${existingInvoice.number} на "${statusNames[status]}".`
+        });
+      }
+    } catch (notificationError) {
+      console.warn('⚠️ Не удалось отправить уведомление:', notificationError);
+      // Не прерываем выполнение, если не удалось отправить уведомление
+    }
 
     return NextResponse.json({
       success: true,

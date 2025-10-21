@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '../ui';
 import { useAuth } from '../../hooks/useAuth';
+import NotificationBell from '../ui/NotificationBell';
 
 // Функция для получения заголовка страницы
 function getPageTitle(pathname: string): string {
@@ -371,6 +372,7 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
               </div>
             </div>
             <div className="flex items-center space-x-4">
+              <NotificationBell userRole={currentUser?.role || 'admin'} />
               <Button variant="ghost" size="sm" onClick={logout}>
                 Выйти
               </Button>

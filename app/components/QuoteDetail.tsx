@@ -118,6 +118,7 @@ export default function QuoteDetail({ quoteId, onQuoteUpdated, onClose }: Props)
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${document.cookie.split('; ').find(row => row.startsWith('auth-token='))?.split('=')[1]}`
         },
         body: JSON.stringify({ status: newStatus })
       });
