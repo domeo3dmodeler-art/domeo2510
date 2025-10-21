@@ -145,56 +145,32 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
 
     console.log('🌐 Запускаем Puppeteer браузер...');
     
-    // Используем кэшированный браузер или создаем новый
-    let browser: puppeteer.Browser;
-    let shouldCacheBrowser = false;
-    
-    if (cachedBrowser && cachedBrowser.isConnected()) {
-      try {
-        // Проверяем, что браузер действительно работает
-        const pages = await cachedBrowser.pages();
-        console.log('♻️ Используем кэшированный браузер...');
-        browser = cachedBrowser;
-        shouldCacheBrowser = true;
-      } catch (error) {
-        console.log('⚠️ Кэшированный браузер поврежден, создаем новый...');
-        cachedBrowser = null;
-        browser = await createNewBrowser();
-        shouldCacheBrowser = true;
-      }
-    } else {
-      console.log('🆕 Создаем новый браузер...');
-      browser = await createNewBrowser();
-      shouldCacheBrowser = true;
-    }
-
-    // Функция создания нового браузера
-    async function createNewBrowser(): Promise<puppeteer.Browser> {
-      return await puppeteer.launch({
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-          '--disable-web-security',
-          '--disable-extensions',
-          '--disable-plugins',
-          '--disable-default-apps',
-          '--disable-sync',
-          '--disable-translate',
-          '--hide-scrollbars',
-          '--mute-audio',
-          '--no-default-browser-check',
-          '--no-pings',
-          '--password-store=basic',
-          '--use-mock-keychain',
-          '--single-process', // Ускоряет запуск
-          '--no-zygote' // Ускоряет запуск на Linux/Windows
-        ],
-        timeout: 10000 // Уменьшаем таймаут
-      });
-    }
+    // Временно отключаем кэширование для стабильности
+    console.log('🆕 Создаем новый браузер (кэширование отключено)...');
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-web-security',
+        '--disable-extensions',
+        '--disable-plugins',
+        '--disable-default-apps',
+        '--disable-sync',
+        '--disable-translate',
+        '--hide-scrollbars',
+        '--mute-audio',
+        '--no-default-browser-check',
+        '--no-pings',
+        '--password-store=basic',
+        '--use-mock-keychain',
+        '--single-process', // Ускоряет запуск
+        '--no-zygote' // Ускоряет запуск на Linux/Windows
+      ],
+      timeout: 10000 // Уменьшаем таймаут
+    });
 
     console.log('📄 Создаем новую страницу...');
     const page = await browser.newPage();
@@ -220,17 +196,8 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
       timeout: 10000 // Уменьшаем таймаут
     });
 
-    console.log('🔒 Закрываем страницу...');
-    await page.close();
-    
-    // Обновляем кэш только если браузер новый и подключен
-    if (shouldCacheBrowser && browser.isConnected()) {
-      console.log('✅ Браузер остается активным для кэширования');
-      cachedBrowser = browser;
-    } else {
-      console.log('⚠️ Браузер отключен или не должен кэшироваться');
-      cachedBrowser = null;
-    }
+    console.log('🔒 Закрываем браузер...');
+    await browser.close();
 
     const endTime = Date.now();
     console.log(`⚡ PDF сгенерирован за ${endTime - startTime}ms`);
@@ -239,17 +206,6 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
     
   } catch (error) {
     console.error('❌ Ошибка генерации PDF:', error);
-    
-    // Очищаем кэш при ошибке
-    if (cachedBrowser) {
-      try {
-        await cachedBrowser.close();
-      } catch (closeError) {
-        console.warn('⚠️ Ошибка при закрытии кэшированного браузера:', closeError);
-      }
-      cachedBrowser = null;
-    }
-    
     throw new Error(`PDF generation failed: ${error.message}`); 
   }
 }
