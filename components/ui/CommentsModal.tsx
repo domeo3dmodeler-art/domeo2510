@@ -262,6 +262,15 @@ export default function CommentsModal({
     });
   };
 
+  const getRoleDisplayName = (role: string) => {
+    const roleMap: { [key: string]: string } = {
+      'admin': 'Администратор',
+      'complectator': 'Комплектатор',
+      'executor': 'Исполнитель'
+    };
+    return roleMap[role] || 'Пользователь';
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -329,7 +338,7 @@ export default function CommentsModal({
                           {formatDate(comment.created_at)}
                         </span>
                         <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                          {comment.user.role}
+                          {getRoleDisplayName(comment.user.role)}
                         </span>
                       </div>
                       
