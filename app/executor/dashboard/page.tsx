@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button, Card } from '../../../components/ui';
 import StatCard from '../../../components/ui/StatCard';
+import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import { 
   FileText, 
   Download, 
@@ -53,6 +54,17 @@ export default function ExecutorDashboard() {
   const [supplierOrdersFilter, setSupplierOrdersFilter] = useState<'all'|'Черновик'|'Отправлен'|'В производстве'|'Получен от поставщика'|'Исполнен'>('all');
   const [showInWorkOnly, setShowInWorkOnly] = useState(false);
   const [showCreateClientForm, setShowCreateClientForm] = useState(false);
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    type: 'invoice' | 'supplier_order' | null;
+    id: string | null;
+    name: string | null;
+  }>({
+    isOpen: false,
+    type: null,
+    id: null,
+    name: null
+  });
   const [newClientData, setNewClientData] = useState({
     firstName: '',
     lastName: '',
@@ -622,17 +634,11 @@ export default function ExecutorDashboard() {
   };
 
   // Удаление счета
+  // Удаление счета
   const deleteInvoice = async (invoiceId: string) => {
     console.log('🗑️ Удаление счета:', invoiceId);
+    console.log('🔍 Проверяем invoiceId:', typeof invoiceId, invoiceId);
     
-    const confirmed = confirm('Вы уверены, что хотите удалить этот счет?');
-    console.log('✅ Подтверждение получено:', confirmed);
-    
-    if (!confirmed) {
-      console.log('❌ Удаление отменено пользователем');
-      return;
-    }
-
     try {
       console.log('📡 Отправляем запрос на удаление счета...');
       const response = await fetch(`/api/invoices/${invoiceId}`, {
@@ -664,18 +670,20 @@ export default function ExecutorDashboard() {
     }
   };
 
+  // Показать диалог удаления счета
+  const showDeleteInvoiceModal = (invoiceId: string, invoiceNumber: string) => {
+    setDeleteModal({
+      isOpen: true,
+      type: 'invoice',
+      id: invoiceId,
+      name: invoiceNumber
+    });
+  };
+
   // Удаление заказа у поставщика
   const deleteSupplierOrder = async (supplierOrderId: string) => {
     console.log('🗑️ Удаление заказа у поставщика:', supplierOrderId);
     
-    const confirmed = confirm('Вы уверены, что хотите удалить этот заказ у поставщика?');
-    console.log('✅ Подтверждение получено:', confirmed);
-    
-    if (!confirmed) {
-      console.log('❌ Удаление отменено пользователем');
-      return;
-    }
-
     try {
       console.log('📡 Отправляем запрос на удаление заказа у поставщика...');
       const response = await fetch(`/api/supplier-orders/${supplierOrderId}`, {
@@ -705,6 +713,16 @@ export default function ExecutorDashboard() {
       console.error('❌ Error deleting supplier order:', error);
       alert('Ошибка при удалении заказа у поставщика');
     }
+  };
+
+  // Показать диалог удаления заказа у поставщика
+  const showDeleteSupplierOrderModal = (supplierOrderId: string, orderNumber: string) => {
+    setDeleteModal({
+      isOpen: true,
+      type: 'supplier_order',
+      id: supplierOrderId,
+      name: orderNumber
+    });
   };
 
   if (loading) {
@@ -886,7 +904,7 @@ export default function ExecutorDashboard() {
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         console.log('🔴 Кнопка удаления счета нажата для ID:', i.id);
-                                        deleteInvoice(i.id);
+                                        showDeleteInvoiceModal(i.id, i.number);
                                         setShowInvoiceActions(null);
                                       }}
                                       className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
@@ -972,7 +990,7 @@ export default function ExecutorDashboard() {
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         console.log('🔴 Кнопка удаления заказа у поставщика нажата для ID:', so.id);
-                                        deleteSupplierOrder(so.id);
+                                        showDeleteSupplierOrderModal(so.id, so.number);
                                         setShowSupplierOrderActions(null);
                                       }}
                                       className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
@@ -1186,6 +1204,25 @@ export default function ExecutorDashboard() {
           )}
         </div>
       )}
+
+      {/* Модальное окно подтверждения удаления */}
+      <DeleteConfirmModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={async () => {
+          if (deleteModal.type === 'invoice' && deleteModal.id) {
+            await deleteInvoice(deleteModal.id);
+          } else if (deleteModal.type === 'supplier_order' && deleteModal.id) {
+            await deleteSupplierOrder(deleteModal.id);
+          }
+        }}
+        title={deleteModal.type === 'invoice' ? 'Удаление счета' : 'Удаление заказа у поставщика'}
+        message={deleteModal.type === 'invoice' 
+          ? 'Вы уверены, что хотите удалить этот счет? Все связанные данные будут потеряны.'
+          : 'Вы уверены, что хотите удалить этот заказ у поставщика? Все связанные данные будут потеряны.'
+        }
+        itemName={deleteModal.name || undefined}
+      />
     </div>
   );
 }
