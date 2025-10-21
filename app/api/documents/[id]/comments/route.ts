@@ -45,7 +45,15 @@ export async function POST(
     const body = await request.json();
     const { text, user_id } = body;
 
+    console.log('🔍 POST /api/documents/[id]/comments:', {
+      documentId: id,
+      body,
+      text,
+      user_id
+    });
+
     if (!text || !user_id) {
+      console.log('❌ Missing required fields:', { text: !!text, user_id: !!user_id });
       return NextResponse.json(
         { error: 'Text and user_id are required' },
         { status: 400 }

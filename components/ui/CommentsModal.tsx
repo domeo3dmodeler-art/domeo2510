@@ -111,6 +111,12 @@ export default function CommentsModal({
   const addComment = async () => {
     if (!newComment.trim() || !currentUser) return;
 
+    console.log('🔍 Adding comment:', {
+      text: newComment.trim(),
+      user_id: currentUser?.id,
+      currentUser: currentUser
+    });
+
     setSubmitting(true);
     try {
       const response = await fetch(`/api/documents/${documentId}/comments`, {
@@ -123,6 +129,8 @@ export default function CommentsModal({
           user_id: currentUser.id
         })
       });
+
+      console.log('📡 Comment response:', response.status, response.statusText);
 
       if (response.ok) {
         const data = await response.json();
@@ -141,9 +149,14 @@ export default function CommentsModal({
             details: JSON.stringify({ comment_text: newComment.trim() })
           })
         });
+      } else {
+        const errorData = await response.json();
+        console.error('❌ Comment error:', errorData);
+        alert(`Ошибка при добавлении комментария: ${errorData.error}`);
       }
     } catch (error) {
       console.error('Error adding comment:', error);
+      alert('Ошибка при добавлении комментария');
     } finally {
       setSubmitting(false);
     }
