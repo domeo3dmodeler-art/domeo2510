@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Фильтруем товары по выбранным параметрам
-    const product = products.find(p => {
+    const matchingProducts = products.filter(p => {
       const properties = p.properties_data ? 
         (typeof p.properties_data === 'string' ? JSON.parse(p.properties_data) : p.properties_data) : {};
 
@@ -160,8 +160,10 @@ export async function POST(req: NextRequest) {
       return finishMatch && colorMatch && typeMatch && widthMatch && heightMatch;
     });
 
-    // Если точный поиск не дал результатов, возвращаем ошибку
-    if (!product) {
+    console.log(`📦 Найдено ${matchingProducts.length} подходящих товаров`);
+
+    // Если товары не найдены, возвращаем ошибку
+    if (matchingProducts.length === 0) {
       console.log('❌ Точный товар не найден для параметров:', {
         style: selection.style,
         model: selection.model,
@@ -176,6 +178,21 @@ export async function POST(req: NextRequest) {
         { status: 404 }
       );
     }
+
+    // Выбираем товар с МАКСИМАЛЬНОЙ ценой (временно)
+    const product = matchingProducts.reduce((maxProduct, currentProduct) => {
+      const maxProps = maxProduct.properties_data ? 
+        (typeof maxProduct.properties_data === 'string' ? JSON.parse(maxProduct.properties_data) : maxProduct.properties_data) : {};
+      const currentProps = currentProduct.properties_data ? 
+        (typeof currentProduct.properties_data === 'string' ? JSON.parse(currentProduct.properties_data) : currentProduct.properties_data) : {};
+      
+      const maxPrice = parseFloat(maxProps['Цена РРЦ']) || maxProduct.base_price || 0;
+      const currentPrice = parseFloat(currentProps['Цена РРЦ']) || currentProduct.base_price || 0;
+      
+      console.log(`💰 Сравниваем цены: ${maxProduct.sku} (${maxPrice} руб.) vs ${currentProduct.sku} (${currentPrice} руб.)`);
+      
+      return currentPrice > maxPrice ? currentProduct : maxProduct;
+    }, matchingProducts[0]);
     
     const finalProduct = product;
 
