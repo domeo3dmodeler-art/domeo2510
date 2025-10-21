@@ -1799,7 +1799,7 @@ export default function DoorsPage() {
               <span>🛒</span>
               <span>Корзина</span>
               {cart.length > 0 && (
-                <span className="bg-red-500 text-white text-xs rounded-full px-1 py-0.5 min-w-[16px] text-center">
+                <span className="border border-black text-black text-xs rounded-full w-4 h-4 flex items-center justify-center">
                   {cart.length}
                 </span>
               )}
@@ -2132,12 +2132,12 @@ export default function DoorsPage() {
                 {price && (
                   <div className="bg-gray-50 border border-gray-200 rounded p-4">
                     <div className="flex justify-between items-center mb-3">
-                      <h3 className="text-sm font-medium text-gray-700">Стоимость конфигурации</h3>
-                      <div className="text-lg font-bold text-gray-900">
+                      <h3 className="text-base font-medium text-gray-700">Стоимость конфигурации</h3>
+                      <div className="text-xl font-bold text-gray-900">
                         {fmtInt(price.total)} ₽
                       </div>
                     </div>
-                    <div className="text-xs text-gray-600">
+                    <div className="text-sm text-gray-600">
                       <div className="space-y-1">
                         {/* Дверь + комплект фурнитуры */}
                         <div className="flex justify-between">
@@ -2159,7 +2159,9 @@ export default function DoorsPage() {
                         {sel.handle?.id && (
                           <div className="flex justify-between">
                             <span>
-                              {Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)?.name || "Ручка"}
+                              {Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)?.name 
+                                ? `Ручка ${Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)!.name}` 
+                                : "Ручка"}
                             </span>
                             <span>
                               {Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)?.price 
@@ -2378,7 +2380,7 @@ export default function DoorsPage() {
                           <div key={i.id} className="border border-black/10 p-3">
                         <div className="flex items-center justify-between">
                           <div className="font-medium text-black text-sm">
-                                {handle?.name || "Ручка"}
+                                {handle?.name ? `Ручка ${handle.name}` : "Ручка"}
                           </div>
                               <div className="text-sm">
                                 <span className="text-gray-600">{i.qty}×{fmtInt(i.unitPrice)}</span>
@@ -3382,7 +3384,7 @@ function CartManager({
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-black text-sm truncate">
-                          {handle?.name || "Ручка"}
+                          {handle?.name ? `Ручка ${handle.name}` : "Ручка"}
                         </div>
                       </div>
                       <div className="flex items-center space-x-4 ml-6">
@@ -3445,7 +3447,7 @@ function CartManager({
                               >
                                 <option value="">Выберите</option>
                                 {availableParams.handles?.map((handle: {id: string, name: string, group: string}) => (
-                                  <option key={handle.id} value={handle.id}>{handle.name}</option>
+                                  <option key={handle.id} value={handle.id}>Ручка {handle.name}</option>
                                 ))}
                               </select>
                             </div>
@@ -4094,7 +4096,7 @@ function HandleSelect({
           <option value="">Выберите ручку</option>
           {currentGroupHandles.map((handle) => (
             <option key={handle.id} value={handle.id}>
-              {handle.name} {handle.showroom ? '●' : '○'}
+              Ручка {handle.name} {handle.showroom ? '●' : '○'}
             </option>
           ))}
         </select>
