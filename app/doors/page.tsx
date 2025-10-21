@@ -2936,6 +2936,7 @@ function CartManager({
   selectedClientName,
   setSelectedClient,
   setSelectedClientName,
+  userRole,
   onClose
 }: {
   cart: CartItem[];
