@@ -281,70 +281,55 @@ async function generateExcel(data: any): Promise<Buffer> {
             horizontal: 'center' 
           };
           
-          // Границы только для первых 5 колонок (как в оригинале!)
-          if (col <= 5) {
-            row.getCell(col).border = {
-              bottom: { style: 'thin', color: { argb: 'FF000000' } }
-            };
-          }
+          // Границы для всех ячеек (включая данные из шаблона!)
+          row.getCell(col).border = {
+            bottom: { style: 'thin', color: { argb: 'FF000000' } }
+          };
         }
         
         rowIndex++;
       } else {
-        // Создаем строку из корзины (как в оригинале!)
-        console.log(`📝 Создаем строку из корзины для товара "${item.name}"`);
+        // Создаем одну строку корзины с объединенными ячейками для данных из БД (как в оригинале!)
+        console.log(`📝 Создаем объединенную строку для товара из корзины с ${matchingProducts.length} вариантами из БД`);
         
-        const cartRow = worksheet.getRow(rowIndex);
+        const row = worksheet.getRow(rowIndex);
         
-        // Базовые поля из корзины
-        cartRow.getCell(1).value = globalRowNumber++; // №
-        cartRow.getCell(2).value = item.name; // Наименование из корзины
-        cartRow.getCell(3).value = item.quantity || item.qty || 1; // Количество из корзины
-        cartRow.getCell(4).value = item.unitPrice || 0; // Цена из корзины
-        cartRow.getCell(5).value = (item.quantity || item.qty || 1) * (item.unitPrice || 0); // Сумма
+        // Базовые поля (заполняем только один раз)
+        row.getCell(1).value = globalRowNumber++; // №
+        row.getCell(2).value = item.name; // Наименование из корзины
+        row.getCell(3).value = item.quantity || item.qty || 1; // Количество из корзины
+        row.getCell(4).value = item.unitPrice || 0; // Цена из корзины
+        row.getCell(5).value = (item.quantity || item.qty || 1) * (item.unitPrice || 0); // Сумма
         
-        // Форматирование чисел
-        cartRow.getCell(4).numFmt = '#,##0';
-        cartRow.getCell(5).numFmt = '#,##0';
+        // Форматирование чисел (без .00 и с разделителями групп разрядов)
+        row.getCell(4).numFmt = '#,##0';
+        row.getCell(5).numFmt = '#,##0';
         
-        // Заполняем пустыми значениями для полей из БД
-        let colIndex = 6;
-        dbFields.forEach(() => {
-          cartRow.getCell(colIndex).value = '';
-          colIndex++;
-        });
-        
-        // Цветовое выделение и выравнивание: строка из корзины - белый фон
-        for (let col = 1; col <= worksheet.columnCount; col++) {
-          cartRow.getCell(col).fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFFFFFFF' } // Белый фон для строки из корзины
-          };
-          // Выравнивание по центру
-          cartRow.getCell(col).alignment = { 
-            vertical: 'middle', 
-            horizontal: 'center' 
-          };
-          
-          // Границы только для первых 5 колонок (как в оригинале!)
-          if (col <= 5) {
-            cartRow.getCell(col).border = {
-              bottom: { style: 'thin', color: { argb: 'FF000000' } }
-            };
+        // Объединяем ячейки для базовых полей (если есть несколько товаров из БД)
+        if (matchingProducts.length > 1) {
+          // Объединяем ячейки базовых полей по вертикали
+          for (let col = 1; col <= 5; col++) {
+            const startRow = rowIndex;
+            const endRow = rowIndex + matchingProducts.length - 1;
+            if (startRow !== endRow) {
+              worksheet.mergeCells(startRow, col, endRow, col);
+              // Выравниваем по центру для объединенных ячеек
+              row.getCell(col).alignment = { 
+                vertical: 'middle', 
+                horizontal: 'center' 
+              };
+            }
           }
         }
         
-        rowIndex++;
-        
-        // Теперь создаем строки из БД
-        console.log(`📝 Создаем ${matchingProducts.length} строк из БД для товара "${item.name}"`);
+        // Заполняем поля из БД для каждого найденного товара
+        let currentRowIndex = rowIndex;
         
         for (let productIndex = 0; productIndex < matchingProducts.length; productIndex++) {
           const productData = matchingProducts[productIndex];
           console.log(`📝 Заполняем поля из БД для товара ${productData.sku} (${productIndex + 1}/${matchingProducts.length})`);
           
-          const row = worksheet.getRow(rowIndex);
+          const currentRow = worksheet.getRow(currentRowIndex);
           let colIndex = 6; // Начинаем с 6-й колонки (после базовых)
           
           if (productData.properties_data) {
@@ -361,17 +346,17 @@ async function generateExcel(data: any): Promise<Buffer> {
                   if (fieldName === 'Цена опт' || fieldName === 'Цена РРЦ') {
                     const numValue = parseFloat(String(value));
                     if (!isNaN(numValue)) {
-                      row.getCell(colIndex).value = numValue;
-                      row.getCell(colIndex).numFmt = '#,##0';
+                      currentRow.getCell(colIndex).value = numValue;
+                      currentRow.getCell(colIndex).numFmt = '#,##0';
                     } else {
-                      row.getCell(colIndex).value = '';
+                      currentRow.getCell(colIndex).value = '';
                     }
                   } else {
-                    row.getCell(colIndex).value = String(value);
+                    currentRow.getCell(colIndex).value = String(value);
                   }
                   console.log(`✅ Записано поле "${fieldName}": ${value}`);
                 } else {
-                  row.getCell(colIndex).value = '';
+                  currentRow.getCell(colIndex).value = '';
                   console.log(`❌ Пустое поле "${fieldName}"`);
                 }
                 colIndex++;
@@ -380,7 +365,7 @@ async function generateExcel(data: any): Promise<Buffer> {
               console.warn('Ошибка парсинга properties_data для товара:', e);
               // Заполняем пустыми значениями
               dbFields.forEach(() => {
-                row.getCell(colIndex).value = '';
+                currentRow.getCell(colIndex).value = '';
                 colIndex++;
               });
             }
@@ -388,34 +373,35 @@ async function generateExcel(data: any): Promise<Buffer> {
             console.log('❌ Нет properties_data для товара');
             // Заполняем пустыми значениями
             dbFields.forEach(() => {
-              row.getCell(colIndex).value = '';
+              currentRow.getCell(colIndex).value = '';
               colIndex++;
             });
           }
           
           // Цветовое выделение и выравнивание: строка из БД - светло-серый фон (как в оригинале!)
           for (let col = 1; col <= worksheet.columnCount; col++) {
-            row.getCell(col).fill = {
+            currentRow.getCell(col).fill = {
               type: 'pattern',
               pattern: 'solid',
               fgColor: { argb: 'FFF0F0F0' } // Светло-серый фон для строки из БД
             };
             // Выравнивание по центру
-            row.getCell(col).alignment = { 
+            currentRow.getCell(col).alignment = { 
               vertical: 'middle', 
               horizontal: 'center' 
             };
             
-            // Границы для первых 16 колонок (как в оригинале!)
-            if (col <= 16) {
-              row.getCell(col).border = {
-                bottom: { style: 'thin', color: { argb: 'FF000000' } }
-              };
-            }
+            // Границы для всех ячеек (включая данные из шаблона!)
+            currentRow.getCell(col).border = {
+              bottom: { style: 'thin', color: { argb: 'FF000000' } }
+            };
           }
           
-          rowIndex++;
+          currentRowIndex++;
         }
+        
+        // Обновляем rowIndex для следующего товара из корзины
+        rowIndex = currentRowIndex;
       }
     }
 

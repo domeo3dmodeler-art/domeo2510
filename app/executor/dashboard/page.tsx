@@ -643,6 +643,28 @@ export default function ExecutorDashboard() {
     }
   };
 
+  // Удаление заказа у поставщика
+  const deleteSupplierOrder = async (supplierOrderId: string) => {
+    if (!confirm('Вы уверены, что хотите удалить этот заказ у поставщика?')) return;
+
+    try {
+      const response = await fetch(`/api/supplier-orders/${supplierOrderId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        setSupplierOrders(prev => prev.filter(so => so.id !== supplierOrderId));
+        alert('Заказ у поставщика удален успешно');
+      } else {
+        const error = await response.json();
+        alert(`Ошибка: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error deleting supplier order:', error);
+      alert('Ошибка при удалении заказа у поставщика');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -906,7 +928,7 @@ export default function ExecutorDashboard() {
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        // Здесь можно добавить логику удаления заказа у поставщика
+                                        deleteSupplierOrder(so.id);
                                         setShowSupplierOrderActions(null);
                                       }}
                                       className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
