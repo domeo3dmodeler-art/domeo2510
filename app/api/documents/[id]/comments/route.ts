@@ -100,9 +100,9 @@ export async function POST(
       include: {
         user: {
           select: {
-            firstName: true,
-            lastName: true,
-            middleName: true,
+            first_name: true,
+            last_name: true,
+            middle_name: true,
             role: true
           }
         }
