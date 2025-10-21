@@ -276,10 +276,13 @@ export async function POST(req: NextRequest) {
           const newProperties = { ...existingProperties };
           
           // Обновляем только те поля, которые не пустые в файле
-          Object.keys(product.properties_data).forEach(key => {
-            const value = product.properties_data[key];
+          // Исправляем кодировку полей перед обновлением
+          const fixedKeys = fixFieldsEncoding(Object.keys(product.properties_data));
+          Object.keys(product.properties_data).forEach((originalKey, index) => {
+            const fixedKey = fixedKeys[index];
+            const value = product.properties_data[originalKey];
             if (value !== undefined && value !== null && value !== '' && value !== '-') {
-              newProperties[key] = value;
+              newProperties[fixedKey] = value;
             }
           });
 
@@ -294,13 +297,20 @@ export async function POST(req: NextRequest) {
           updatedCount++;
         } else {
           // Создаем новый товар - все обязательные поля должны быть заполнены
+          // Исправляем кодировку полей перед сохранением
+          const fixedProperties = fixFieldsEncoding(Object.keys(product.properties_data)).reduce((acc, fixedKey, index) => {
+            const originalKey = Object.keys(product.properties_data)[index];
+            acc[fixedKey] = product.properties_data[originalKey];
+            return acc;
+          }, {} as Record<string, any>);
+          
           await prisma.product.create({
             data: {
               sku: product.sku,
               name: product.name,
               catalog_category_id: categoryId,
-              properties_data: JSON.stringify(product.properties_data),
-              specifications: JSON.stringify(product.properties_data),
+              properties_data: JSON.stringify(fixedProperties),
+              specifications: JSON.stringify(fixedProperties),
               base_price: 0,
               stock_quantity: 0,
               is_active: true

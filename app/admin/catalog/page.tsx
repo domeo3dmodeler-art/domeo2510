@@ -11,6 +11,58 @@ import ProductFilters from '../../../components/admin/ProductFilters';
 import ImportInstructionsDialog from '../../../components/admin/ImportInstructionsDialog';
 import { fixFieldsEncoding } from '@/lib/encoding-utils';
 
+// Функция анализа свойств группы товаров
+const analyzeGroupProperties = (products: Product[]) => {
+  const allKeys = new Set<string>();
+  
+  products.forEach(product => {
+    if (product.properties_data) {
+      const props = typeof product.properties_data === 'string' 
+        ? JSON.parse(product.properties_data) 
+        : product.properties_data;
+      
+      Object.keys(props).forEach(key => {
+        // Исключаем системные поля
+        if (!['photos', 'images', 'id', 'created_at', 'updated_at'].includes(key)) {
+          allKeys.add(key);
+        }
+      });
+    }
+  });
+  
+  return Array.from(allKeys).sort();
+};
+
+// Маппинг ключей на читаемые названия
+const getDisplayName = (key: string): string => {
+  const mapping: Record<string, string> = {
+    'Domeo_наименование для Web': 'Название для Web',
+    'Domeo_наименование ручки_1С': 'Название ручки 1С',
+    'Domeo_цена группы Web': 'Цена группы Web',
+    'Фабрика_артикул': 'Фабрика артикул',
+    'Фабрика_наименование': 'Фабрика наименование',
+    'Цена опт': 'Цена опт',
+    'Цена розница': 'Цена розница',
+    'Поставщик': 'Поставщик',
+    'Бренд': 'Бренд',
+    'Группа': 'Группа',
+    'Наличие в шоуруме': 'Наличие в шоуруме',
+    'SKU внутреннее': 'SKU внутреннее',
+    'Domeo_Название модели для Web': 'Название модели для Web',
+    'Артикул поставщика': 'Артикул поставщика',
+    'Ширина/мм': 'Ширина (мм)',
+    'Высота/мм': 'Высота (мм)',
+    'Толщина/мм': 'Толщина (мм)',
+    'Цена РРЦ': 'Цена РРЦ',
+    'Domeo_Цвет': 'Цвет',
+    'Тип покрытия': 'Тип покрытия',
+    'Модель': 'Модель',
+    'Серия': 'Серия'
+  };
+  
+  return mapping[key] || key;
+};
+
 interface Product {
   id: string;
   sku: string;
@@ -866,27 +918,15 @@ export default function CatalogPage() {
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 #
                               </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                      Название
-                                    </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Артикул поставщика
-                                    </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Размеры
-                                    </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Цена РРЦ
-                                    </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Цена опт
-                                    </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Поставщик
-                                    </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Цвет
-                              </th>
+                              {/* Динамические заголовки на основе реальных свойств товаров */}
+                              {(() => {
+                                const groupProperties = analyzeGroupProperties(filteredProducts);
+                                return groupProperties.map(key => (
+                                  <th key={key} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    {getDisplayName(key)}
+                                  </th>
+                                ));
+                              })()}
                                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                   Фото
                                 </th>
@@ -903,17 +943,8 @@ export default function CatalogPage() {
                                 const properties = product.properties_data ? 
                                   (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
                                 
-                                // Извлекаем основные поля
-                                const modelName = properties['Domeo_Название модели для Web'] || product.name || 'Без названия';
-                                const supplierSku = properties['Артикул поставщика'] || product.sku || '-';
-                                const width = properties['Ширина/мм'] || '-';
-                                const height = properties['Высота/мм'] || '-';
-                                const thickness = properties['Толщина/мм'] || '-';
-                                const dimensions = [width, height, thickness].filter(d => d !== '-').join(' × ') || '-';
-                                const priceRrc = properties['Цена РРЦ'] || properties['Цена ррц (включая цену полотна, короба, наличников, доборов)'] || '-';
-                                const priceOpt = properties['Цена опт'] || '-';
-                                const supplier = properties['Поставщик'] || '-';
-                                const color = properties['Domeo_Цвет'] || '-';
+                                // Получаем динамические свойства группы
+                                const groupProperties = analyzeGroupProperties(filteredProducts);
                                 
                                 // Проверяем наличие фото
                                 const hasPhotos = properties.photos && Array.isArray(properties.photos) && properties.photos.length > 0;
@@ -931,41 +962,14 @@ export default function CatalogPage() {
                                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-500">
                                   {index + 1}
                                 </td>
-                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                                      <div className="max-w-xs truncate font-medium" title={modelName}>
-                                        {modelName}
-                                              </div>
-                                            </td>
-                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                                      <div className="max-w-xs truncate" title={supplierSku}>
-                                        {supplierSku}
-                                          </div>
-                                        </td>
-                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                                      <div className="max-w-xs truncate" title={dimensions}>
-                                        {dimensions}
-                                      </div>
-                                    </td>
-                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                                      <div className="max-w-xs truncate" title={priceRrc}>
-                                        {priceRrc}
-                                      </div>
-                                    </td>
-                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                                      <div className="max-w-xs truncate" title={priceOpt}>
-                                        {priceOpt}
-                                      </div>
-                                    </td>
-                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                                      <div className="max-w-xs truncate" title={supplier}>
-                                        {supplier}
-                                      </div>
-                                    </td>
-                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                                      <div className="max-w-xs truncate" title={color}>
-                                        {color}
-                                      </div>
-                                    </td>
+                                {/* Динамические ячейки данных на основе реальных свойств товаров */}
+                                {groupProperties.map(key => (
+                                  <td key={key} className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                    <div className="max-w-xs truncate" title={String(properties[key] || '-')}>
+                                      {properties[key] || '-'}
+                                    </div>
+                                  </td>
+                                ))}
                                     <td className="px-4 py-3 whitespace-nowrap text-center">
                                       {hasPhotos ? (
                                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -976,7 +980,7 @@ export default function CatalogPage() {
                                         ❌ Нет
                                       </span>
                                       )}
-                                </td>
+                                    </td>
                                     <td className="px-4 py-3 whitespace-nowrap text-center">
                                   <div className="flex items-center justify-center space-x-2">
                                     <Button
