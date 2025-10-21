@@ -2,6 +2,18 @@ import { prisma } from '@/lib/prisma';
 import ExcelJS from 'exceljs';
 import puppeteer from 'puppeteer';
 
+// Кэшированный браузер для ускорения генерации
+let cachedBrowser: puppeteer.Browser | null = null;
+
+// Функция для очистки кэшированного браузера
+export async function cleanupBrowserCache() {
+  if (cachedBrowser && cachedBrowser.isConnected()) {
+    console.log('🧹 Очищаем кэш браузера...');
+    await cachedBrowser.close();
+    cachedBrowser = null;
+  }
+}
+
 // Генерация PDF с Puppeteer
 export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
   const startTime = Date.now();
@@ -133,44 +145,48 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
 
     console.log('🌐 Запускаем Puppeteer браузер...');
     
-    // Запускаем Puppeteer с правильными настройками для Windows
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--disable-gpu',
-        '--disable-web-security',
-        '--disable-features=VizDisplayCompositor',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-        '--disable-extensions',
-        '--disable-plugins',
-        '--disable-default-apps',
-        '--disable-sync',
-        '--disable-translate',
-        '--hide-scrollbars',
-        '--mute-audio',
-        '--no-default-browser-check',
-        '--no-pings',
-        '--password-store=basic',
-        '--use-mock-keychain'
-      ],
-      timeout: 30000
-    });
+    // Используем кэшированный браузер или создаем новый
+    let browser: puppeteer.Browser;
+    if (cachedBrowser && cachedBrowser.isConnected()) {
+      console.log('♻️ Используем кэшированный браузер...');
+      browser = cachedBrowser;
+    } else {
+      console.log('🆕 Создаем новый браузер...');
+      browser = await puppeteer.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--disable-web-security',
+          '--disable-extensions',
+          '--disable-plugins',
+          '--disable-default-apps',
+          '--disable-sync',
+          '--disable-translate',
+          '--hide-scrollbars',
+          '--mute-audio',
+          '--no-default-browser-check',
+          '--no-pings',
+          '--password-store=basic',
+          '--use-mock-keychain',
+          '--single-process', // Ускоряет запуск
+          '--no-zygote' // Ускоряет запуск на Linux/Windows
+        ],
+        timeout: 10000 // Уменьшаем таймаут
+      });
+      cachedBrowser = browser;
+    }
 
     console.log('📄 Создаем новую страницу...');
     const page = await browser.newPage();
     
     console.log('📝 Устанавливаем HTML контент...');
-    // Устанавливаем контент страницы
+    // Устанавливаем контент страницы с быстрым ожиданием
     await page.setContent(htmlContent, { 
-      waitUntil: 'networkidle0',
-      timeout: 30000 
+      waitUntil: 'domcontentloaded', // Быстрее чем networkidle0
+      timeout: 10000 
     });
 
     console.log('🖨️ Генерируем PDF...');
@@ -184,11 +200,12 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
         bottom: '20mm',
         left: '20mm'
       },
-      timeout: 30000
+      timeout: 10000 // Уменьшаем таймаут
     });
 
-    console.log('🔒 Закрываем браузер...');
-    await browser.close();
+    console.log('🔒 Закрываем страницу...');
+    await page.close();
+    // НЕ закрываем браузер - оставляем для кэширования
 
     const endTime = Date.now();
     console.log(`⚡ PDF сгенерирован за ${endTime - startTime}ms`);
