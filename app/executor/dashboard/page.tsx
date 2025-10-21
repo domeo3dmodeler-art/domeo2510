@@ -623,58 +623,72 @@ export default function ExecutorDashboard() {
 
   // Удаление счета
   const deleteInvoice = async (invoiceId: string) => {
+    console.log('🗑️ Удаление счета:', invoiceId);
     if (!confirm('Вы уверены, что хотите удалить этот счет?')) return;
 
     try {
+      console.log('📡 Отправляем запрос на удаление счета...');
       const response = await fetch(`/api/invoices/${invoiceId}`, {
         method: 'DELETE'
       });
 
+      console.log('📡 Ответ сервера:', response.status, response.statusText);
+
       if (response.ok) {
+        console.log('✅ Счет удален успешно');
         // Обновляем локальный список
         setInvoices(prev => prev.filter(inv => inv.id !== invoiceId));
         
         // Обновляем данные клиента
         if (selectedClient) {
+          console.log('🔄 Обновляем данные клиента...');
           await fetchClientDocuments(selectedClient);
         }
         
         alert('Счет удален успешно');
       } else {
         const error = await response.json();
+        console.error('❌ Ошибка удаления счета:', error);
         alert(`Ошибка: ${error.error}`);
       }
     } catch (error) {
-      console.error('Error deleting invoice:', error);
+      console.error('❌ Error deleting invoice:', error);
       alert('Ошибка при удалении счета');
     }
   };
 
   // Удаление заказа у поставщика
   const deleteSupplierOrder = async (supplierOrderId: string) => {
+    console.log('🗑️ Удаление заказа у поставщика:', supplierOrderId);
     if (!confirm('Вы уверены, что хотите удалить этот заказ у поставщика?')) return;
 
     try {
+      console.log('📡 Отправляем запрос на удаление заказа у поставщика...');
       const response = await fetch(`/api/supplier-orders/${supplierOrderId}`, {
         method: 'DELETE'
       });
 
+      console.log('📡 Ответ сервера:', response.status, response.statusText);
+
       if (response.ok) {
+        console.log('✅ Заказ у поставщика удален успешно');
         // Обновляем локальный список
         setSupplierOrders(prev => prev.filter(so => so.id !== supplierOrderId));
         
         // Обновляем данные клиента
         if (selectedClient) {
+          console.log('🔄 Обновляем данные клиента...');
           await fetchClientDocuments(selectedClient);
         }
         
         alert('Заказ у поставщика удален успешно');
       } else {
         const error = await response.json();
+        console.error('❌ Ошибка удаления заказа у поставщика:', error);
         alert(`Ошибка: ${error.error}`);
       }
     } catch (error) {
-      console.error('Error deleting supplier order:', error);
+      console.error('❌ Error deleting supplier order:', error);
       alert('Ошибка при удалении заказа у поставщика');
     }
   };
@@ -857,6 +871,7 @@ export default function ExecutorDashboard() {
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        console.log('🔴 Кнопка удаления счета нажата для ID:', i.id);
                                         deleteInvoice(i.id);
                                         setShowInvoiceActions(null);
                                       }}
@@ -942,6 +957,7 @@ export default function ExecutorDashboard() {
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        console.log('🔴 Кнопка удаления заказа у поставщика нажата для ID:', so.id);
                                         deleteSupplierOrder(so.id);
                                         setShowSupplierOrderActions(null);
                                       }}
