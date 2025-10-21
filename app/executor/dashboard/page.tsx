@@ -150,7 +150,7 @@ export default function ExecutorDashboard() {
           number: `ЗП-${so.id.slice(-6)}`,
           date: new Date(so.created_at).toISOString().split('T')[0],
           status: mapSupplierOrderStatus(so.status),
-          total: 0, // Пока нет поля total_amount в SupplierOrder
+          total: so.order?.total_amount || 0,
           supplierName: so.supplier_name
         })) || [];
         setSupplierOrders(formattedSupplierOrders);

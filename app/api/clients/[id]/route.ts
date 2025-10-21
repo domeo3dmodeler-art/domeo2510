@@ -61,14 +61,21 @@ export async function GET(
         take: 10
       }),
       prisma.supplierOrder.findMany({
-        where: { client_id: id },
+        where: { 
+          order: {
+            client_id: id
+          }
+        },
         select: {
           id: true,
-          number: true,
           status: true,
-          total_amount: true,
           created_at: true,
-          supplier_name: true
+          supplier_name: true,
+          order: {
+            select: {
+              total_amount: true
+            }
+          }
         },
         orderBy: { created_at: 'desc' },
         take: 10

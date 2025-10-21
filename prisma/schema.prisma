@@ -308,6 +308,7 @@ model Order {
   // Связи
   client        Client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
   order_items   OrderItem[]
+  supplier_orders SupplierOrder[]
 
   @@map("orders")
 }
@@ -381,6 +382,9 @@ model SupplierOrder {
   cart_data      String?   // Данные корзины для перегенерации (JSON строка)
   created_at     DateTime  @default(now())
   updated_at     DateTime  @updatedAt
+
+  // Связи
+  order          Order     @relation(fields: [order_id], references: [id], onDelete: Cascade)
 
   @@map("supplier_orders")
 }
