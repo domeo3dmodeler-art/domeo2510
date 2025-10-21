@@ -654,11 +654,11 @@ export default function ExecutorDashboard() {
         // Обновляем локальный список
         setInvoices(prev => prev.filter(inv => inv.id !== invoiceId));
         
-        // Обновляем данные клиента
-        if (selectedClient) {
-          console.log('🔄 Обновляем данные клиента...');
-          await fetchClientDocuments(selectedClient);
-        }
+        // НЕ обновляем данные клиента, так как локальное состояние уже корректно
+        // if (selectedClient) {
+        //   console.log('🔄 Обновляем данные клиента...');
+        //   await fetchClientDocuments(selectedClient);
+        // }
         
         alert('Счет удален успешно');
       } else {
@@ -706,11 +706,11 @@ export default function ExecutorDashboard() {
           return filtered;
         });
         
-        // Обновляем данные клиента
-        if (selectedClient) {
-          console.log('🔄 Обновляем данные клиента...');
-          await fetchClientDocuments(selectedClient);
-        }
+        // НЕ обновляем данные клиента, так как локальное состояние уже корректно
+        // if (selectedClient) {
+        //   console.log('🔄 Обновляем данные клиента...');
+        //   await fetchClientDocuments(selectedClient);
+        // }
         
         alert('Заказ у поставщика удален успешно');
       } else {
