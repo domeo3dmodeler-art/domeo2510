@@ -76,6 +76,11 @@ export default function ExecutorDashboard() {
   const [statusDropdown, setStatusDropdown] = useState<{type: 'invoice'|'supplier_order', id: string, x: number, y: number} | null>(null);
   const [showInvoiceActions, setShowInvoiceActions] = useState<string | null>(null);
   const [showSupplierOrderActions, setShowSupplierOrderActions] = useState<string | null>(null);
+  
+  // Состояние для модальных окон комментариев и истории
+  const [showCommentsModal, setShowCommentsModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<{id: string, type: 'invoice' | 'supplier_order', number: string} | null>(null);
 
   useEffect(() => {
     fetchStats();
@@ -724,6 +729,17 @@ export default function ExecutorDashboard() {
     }
   };
 
+  // Функции для открытия модальных окон комментариев и истории
+  const openCommentsModal = (documentId: string, documentType: 'invoice' | 'supplier_order', documentNumber: string) => {
+    setSelectedDocument({ id: documentId, type: documentType, number: documentNumber });
+    setShowCommentsModal(true);
+  };
+
+  const openHistoryModal = (documentId: string, documentType: 'invoice' | 'supplier_order', documentNumber: string) => {
+    setSelectedDocument({ id: documentId, type: documentType, number: documentNumber });
+    setShowHistoryModal(true);
+  };
+
   // Показать диалог удаления заказа у поставщика
   const showDeleteSupplierOrderModal = (supplierOrderId: string, orderNumber: string) => {
     setDeleteModal({
@@ -927,8 +943,18 @@ export default function ExecutorDashboard() {
                   </div>
                           <div className="mt-2 flex items-center justify-between">
                             <div className="flex items-center space-x-3 text-xs text-gray-500">
-                              <button className="hover:text-black flex items-center"><StickyNote className="h-3.5 w-3.5 mr-1"/>Комментарии</button>
-                              <button className="hover:text-black flex items-center"><History className="h-3.5 w-3.5 mr-1"/>История</button>
+                              <button 
+                                onClick={() => openCommentsModal(i.id, 'invoice', i.number)}
+                                className="hover:text-blue-600 hover:bg-blue-50 px-2 py-1 rounded transition-colors flex items-center"
+                              >
+                                <StickyNote className="h-3.5 w-3.5 mr-1"/>Комментарии
+                              </button>
+                              <button 
+                                onClick={() => openHistoryModal(i.id, 'invoice', i.number)}
+                                className="hover:text-green-600 hover:bg-green-50 px-2 py-1 rounded transition-colors flex items-center"
+                              >
+                                <History className="h-3.5 w-3.5 mr-1"/>История
+                              </button>
                   </div>
                 </div>
                       </div>
@@ -1013,8 +1039,18 @@ export default function ExecutorDashboard() {
                           </div>
                           <div className="mt-2 flex items-center justify-between">
                             <div className="flex items-center space-x-3 text-xs text-gray-500">
-                              <button className="hover:text-black flex items-center"><StickyNote className="h-3.5 w-3.5 mr-1"/>Комментарии</button>
-                              <button className="hover:text-black flex items-center"><History className="h-3.5 w-3.5 mr-1"/>История</button>
+                              <button 
+                                onClick={() => openCommentsModal(so.id, 'supplier_order', `Заказ-${so.id.slice(-8)}`)}
+                                className="hover:text-blue-600 hover:bg-blue-50 px-2 py-1 rounded transition-colors flex items-center"
+                              >
+                                <StickyNote className="h-3.5 w-3.5 mr-1"/>Комментарии
+                              </button>
+                              <button 
+                                onClick={() => openHistoryModal(so.id, 'supplier_order', `Заказ-${so.id.slice(-8)}`)}
+                                className="hover:text-green-600 hover:bg-green-50 px-2 py-1 rounded transition-colors flex items-center"
+                              >
+                                <History className="h-3.5 w-3.5 mr-1"/>История
+                              </button>
                             </div>
                 </div>
               </div>
@@ -1242,6 +1278,64 @@ export default function ExecutorDashboard() {
         }
         itemName={deleteModal.name || undefined}
       />
+
+      {/* Модальное окно комментариев */}
+      {showCommentsModal && selectedDocument && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Комментарии - {selectedDocument.type === 'invoice' ? 'Счет' : 'Заказ у поставщика'} {selectedDocument.number}
+              </h3>
+              <button
+                onClick={() => setShowCommentsModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              <div className="space-y-4">
+                <div className="text-center text-gray-500 py-8">
+                  <StickyNote className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>Функция комментариев будет добавлена в следующей версии</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно истории */}
+      {showHistoryModal && selectedDocument && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="text-lg font-semibold text-gray-900">
+                История изменений - {selectedDocument.type === 'invoice' ? 'Счет' : 'Заказ у поставщика'} {selectedDocument.number}
+              </h3>
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              <div className="space-y-4">
+                <div className="text-center text-gray-500 py-8">
+                  <History className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>Функция истории изменений будет добавлена в следующей версии</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
