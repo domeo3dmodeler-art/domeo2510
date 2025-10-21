@@ -631,7 +631,14 @@ export default function ExecutorDashboard() {
       });
 
       if (response.ok) {
+        // Обновляем локальный список
         setInvoices(prev => prev.filter(inv => inv.id !== invoiceId));
+        
+        // Обновляем данные клиента
+        if (selectedClient) {
+          await fetchClientDocuments(selectedClient);
+        }
+        
         alert('Счет удален успешно');
       } else {
         const error = await response.json();
@@ -653,7 +660,14 @@ export default function ExecutorDashboard() {
       });
 
       if (response.ok) {
+        // Обновляем локальный список
         setSupplierOrders(prev => prev.filter(so => so.id !== supplierOrderId));
+        
+        // Обновляем данные клиента
+        if (selectedClient) {
+          await fetchClientDocuments(selectedClient);
+        }
+        
         alert('Заказ у поставщика удален успешно');
       } else {
         const error = await response.json();

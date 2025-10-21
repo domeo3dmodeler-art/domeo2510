@@ -34,7 +34,7 @@ export async function GET(
     }
 
     // Загружаем документы отдельными оптимизированными запросами
-    const [quotes, invoices] = await Promise.all([
+    const [quotes, invoices, supplierOrders] = await Promise.all([
       prisma.quote.findMany({
         where: { client_id: id },
         select: {
@@ -59,6 +59,19 @@ export async function GET(
         },
         orderBy: { created_at: 'desc' },
         take: 10
+      }),
+      prisma.supplierOrder.findMany({
+        where: { client_id: id },
+        select: {
+          id: true,
+          number: true,
+          status: true,
+          total_amount: true,
+          created_at: true,
+          supplier_name: true
+        },
+        orderBy: { created_at: 'desc' },
+        take: 10
       })
     ]);
 
@@ -68,7 +81,8 @@ export async function GET(
         ...client,
         customFields: JSON.parse(client.customFields || '{}'),
         quotes,
-        invoices
+        invoices,
+        supplierOrders
       }
     });
 
