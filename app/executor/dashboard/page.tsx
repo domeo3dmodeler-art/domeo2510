@@ -157,6 +157,7 @@ export default function ExecutorDashboard() {
         setInvoices(formattedInvoices);
         
         // Преобразуем Заказы у поставщика (только нужные поля)
+        console.log('📦 Обрабатываем заказы у поставщика:', client.supplierOrders?.length || 0);
         const formattedSupplierOrders = client.supplierOrders?.map((so: any) => ({
           id: so.id,
           number: `ЗП-${so.id.slice(-6)}`,
@@ -165,6 +166,7 @@ export default function ExecutorDashboard() {
           total: so.order?.total_amount || 0,
           supplierName: so.supplier_name
         })) || [];
+        console.log('📦 Форматированные заказы у поставщика:', formattedSupplierOrders.length);
         setSupplierOrders(formattedSupplierOrders);
       } else {
         console.error('Failed to fetch client documents');
@@ -694,8 +696,15 @@ export default function ExecutorDashboard() {
 
       if (response.ok) {
         console.log('✅ Заказ у поставщика удален успешно');
+        
         // Обновляем локальный список
-        setSupplierOrders(prev => prev.filter(so => so.id !== supplierOrderId));
+        console.log('🔄 Обновляем локальный список заказов у поставщика...');
+        console.log('📊 Текущее количество заказов:', supplierOrders.length);
+        setSupplierOrders(prev => {
+          const filtered = prev.filter(so => so.id !== supplierOrderId);
+          console.log('📊 Новое количество заказов:', filtered.length);
+          return filtered;
+        });
         
         // Обновляем данные клиента
         if (selectedClient) {
@@ -1208,12 +1217,22 @@ export default function ExecutorDashboard() {
       {/* Модальное окно подтверждения удаления */}
       <DeleteConfirmModal
         isOpen={deleteModal.isOpen}
-        onClose={() => setDeleteModal(prev => ({ ...prev, isOpen: false }))}
+        onClose={() => {
+          console.log('🔒 Закрытие модального окна удаления');
+          setDeleteModal(prev => ({ ...prev, isOpen: false }));
+        }}
         onConfirm={async () => {
-          if (deleteModal.type === 'invoice' && deleteModal.id) {
-            await deleteInvoice(deleteModal.id);
-          } else if (deleteModal.type === 'supplier_order' && deleteModal.id) {
-            await deleteSupplierOrder(deleteModal.id);
+          console.log('✅ Подтверждение удаления в модальном окне:', deleteModal.type, deleteModal.id);
+          try {
+            if (deleteModal.type === 'invoice' && deleteModal.id) {
+              await deleteInvoice(deleteModal.id);
+            } else if (deleteModal.type === 'supplier_order' && deleteModal.id) {
+              await deleteSupplierOrder(deleteModal.id);
+            }
+            console.log('✅ Удаление завершено, закрываем модальное окно');
+          } catch (error) {
+            console.error('❌ Ошибка в модальном окне:', error);
+            throw error; // Перебрасываем ошибку, чтобы модальное окно не закрылось
           }
         }}
         title={deleteModal.type === 'invoice' ? 'Удаление счета' : 'Удаление заказа у поставщика'}
