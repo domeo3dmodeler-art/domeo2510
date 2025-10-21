@@ -83,8 +83,9 @@ export default function CommentsModal({
       });
       
       if (response.ok) {
-        const user = await response.json();
-        setCurrentUser(user);
+        const data = await response.json();
+        console.log('🔍 User data from API:', data);
+        setCurrentUser({ id: data.user.id, role: data.user.role });
       } else {
         console.warn('Failed to fetch current user:', response.status);
       }
@@ -363,7 +364,7 @@ export default function CommentsModal({
                       )}
                     </div>
                     
-                    {currentUser && currentUser.id === comment.user.id && editingComment !== comment.id && (
+                    {currentUser && currentUser.id === comment.user_id && editingComment !== comment.id && (
                       <div className="flex space-x-1 ml-2">
                         <button
                           onClick={() => startEdit(comment)}
