@@ -147,12 +147,30 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
     
     // Используем кэшированный браузер или создаем новый
     let browser: puppeteer.Browser;
+    let shouldCacheBrowser = false;
+    
     if (cachedBrowser && cachedBrowser.isConnected()) {
-      console.log('♻️ Используем кэшированный браузер...');
-      browser = cachedBrowser;
+      try {
+        // Проверяем, что браузер действительно работает
+        const pages = await cachedBrowser.pages();
+        console.log('♻️ Используем кэшированный браузер...');
+        browser = cachedBrowser;
+        shouldCacheBrowser = true;
+      } catch (error) {
+        console.log('⚠️ Кэшированный браузер поврежден, создаем новый...');
+        cachedBrowser = null;
+        browser = await createNewBrowser();
+        shouldCacheBrowser = true;
+      }
     } else {
       console.log('🆕 Создаем новый браузер...');
-      browser = await puppeteer.launch({
+      browser = await createNewBrowser();
+      shouldCacheBrowser = true;
+    }
+
+    // Функция создания нового браузера
+    async function createNewBrowser(): Promise<puppeteer.Browser> {
+      return await puppeteer.launch({
         headless: true,
         args: [
           '--no-sandbox',
@@ -176,7 +194,6 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
         ],
         timeout: 10000 // Уменьшаем таймаут
       });
-      cachedBrowser = browser;
     }
 
     console.log('📄 Создаем новую страницу...');
@@ -205,7 +222,15 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
 
     console.log('🔒 Закрываем страницу...');
     await page.close();
-    // НЕ закрываем браузер - оставляем для кэширования
+    
+    // Обновляем кэш только если браузер новый и подключен
+    if (shouldCacheBrowser && browser.isConnected()) {
+      console.log('✅ Браузер остается активным для кэширования');
+      cachedBrowser = browser;
+    } else {
+      console.log('⚠️ Браузер отключен или не должен кэшироваться');
+      cachedBrowser = null;
+    }
 
     const endTime = Date.now();
     console.log(`⚡ PDF сгенерирован за ${endTime - startTime}ms`);
@@ -214,7 +239,18 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
     
   } catch (error) {
     console.error('❌ Ошибка генерации PDF:', error);
-    throw new Error(`PDF generation failed: ${error.message}`);
+    
+    // Очищаем кэш при ошибке
+    if (cachedBrowser) {
+      try {
+        await cachedBrowser.close();
+      } catch (closeError) {
+        console.warn('⚠️ Ошибка при закрытии кэшированного браузера:', closeError);
+      }
+      cachedBrowser = null;
+    }
+    
+    throw new Error(`PDF generation failed: ${error.message}`); 
   }
 }
 
