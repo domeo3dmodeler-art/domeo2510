@@ -810,7 +810,7 @@ export async function exportDocumentWithPDF(
 
   // Проверяем, есть ли уже документ с таким содержимым
   console.log(`🔍 Ищем существующий документ типа ${type} для клиента ${clientId}`);
-  const existingDocument = await findExistingDocument(type, clientId, items, totalAmount);
+  const existingDocument = await findExistingDocument(type, clientId, items, totalAmount, null);
   
   let documentNumber: string;
   let documentId: string | null = null;
@@ -949,7 +949,7 @@ export async function exportDocumentWithPDF(
   let dbResult = null;
   if (!existingDocument) {
     try {
-      dbResult = await createDocumentRecordsSimple(type, clientId, items, totalAmount, documentNumber);
+      dbResult = await createDocumentRecordsSimple(type, clientId, items, totalAmount, documentNumber, null);
       console.log(`✅ Записи в БД созданы: ${dbResult.type} #${dbResult.id}`);
     } catch (error) {
       console.error('❌ Ошибка создания записей в БД:', error);
@@ -987,23 +987,28 @@ function generateCSVSimple(data: any): string {
   return [headers.join(','), ...rows.map((row: any[]) => row.join(','))].join('\n');
 }
 
-// Поиск существующего документа по содержимому
+// Поиск существующего документа по содержимому с учетом parent_document_id
 async function findExistingDocument(
   type: 'quote' | 'invoice' | 'order',
   clientId: string,
   items: any[],
-  totalAmount: number
+  totalAmount: number,
+  parentDocumentId?: string | null
 ) {
   try {
-    console.log(`🔍 Поиск существующего документа: ${type}, клиент: ${clientId}, сумма: ${totalAmount}`);
+    console.log(`🔍 Поиск существующего документа: ${type}, клиент: ${clientId}, сумма: ${totalAmount}, родитель: ${parentDocumentId || 'нет'}`);
     
-    // Упрощенный поиск - сначала по клиенту и сумме
+    // Создаем хеш содержимого для более точного сравнения
+    const contentHash = createContentHash(clientId, items, totalAmount);
+    
     if (type === 'quote') {
       const existingQuote = await prisma.quote.findFirst({
         where: {
+          parent_document_id: parentDocumentId || null,
           client_id: clientId,
-          total_amount: totalAmount
-        },
+          total_amount: totalAmount,
+          cart_data: { contains: contentHash }
+        } as any,
         orderBy: {
           created_at: 'desc'
         }
@@ -1016,9 +1021,11 @@ async function findExistingDocument(
     } else if (type === 'invoice') {
       const existingInvoice = await prisma.invoice.findFirst({
         where: {
+          parent_document_id: parentDocumentId || null,
           client_id: clientId,
-          total_amount: totalAmount
-        },
+          total_amount: totalAmount,
+          cart_data: { contains: contentHash }
+        } as any,
         orderBy: {
           created_at: 'desc'
         }
@@ -1031,9 +1038,11 @@ async function findExistingDocument(
     } else if (type === 'order') {
       const existingOrder = await prisma.order.findFirst({
         where: {
+          parent_document_id: parentDocumentId || null,
           client_id: clientId,
-          total_amount: totalAmount
-        },
+          total_amount: totalAmount,
+          cart_data: { contains: contentHash }
+        } as any,
         orderBy: {
           created_at: 'desc'
         }
@@ -1053,13 +1062,30 @@ async function findExistingDocument(
   }
 }
 
-// Пакетное создание записей в БД
+// Создание хеша содержимого для сравнения
+function createContentHash(clientId: string, items: any[], totalAmount: number): string {
+  const content = {
+    client_id: clientId,
+    items: items.map(item => ({
+      product_id: item.product_id,
+      quantity: item.quantity,
+      price: item.price,
+      name: item.name
+    })),
+    total_amount: totalAmount
+  };
+  
+  return Buffer.from(JSON.stringify(content)).toString('base64').substring(0, 50);
+}
+
+// Пакетное создание записей в БД с поддержкой parent_document_id
 async function createDocumentRecordsSimple(
   type: 'quote' | 'invoice' | 'order',
   clientId: string,
   items: any[],
   totalAmount: number,
-  documentNumber: string
+  documentNumber: string,
+  parentDocumentId?: string | null
 ) {
   const client = await prisma.client.findUnique({
     where: { id: clientId }
@@ -1073,6 +1099,7 @@ async function createDocumentRecordsSimple(
     const quote = await prisma.quote.create({
       data: {
         number: documentNumber,
+        parent_document_id: parentDocumentId,
         client_id: clientId,
         created_by: 'system',
         status: 'DRAFT',
@@ -1130,6 +1157,7 @@ async function createDocumentRecordsSimple(
     const invoice = await prisma.invoice.create({
       data: {
         number: documentNumber,
+        parent_document_id: parentDocumentId,
         client_id: clientId,
         created_by: 'system',
         status: 'DRAFT',
@@ -1187,6 +1215,7 @@ async function createDocumentRecordsSimple(
     const order = await prisma.order.create({
       data: {
         number: documentNumber,
+        parent_document_id: parentDocumentId,
         client_id: clientId,
         created_by: 'system',
         status: 'PENDING',

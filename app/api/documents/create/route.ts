@@ -1,224 +1,306 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// API для создания документов на основе существующих
+// POST /api/documents/create - Универсальное создание документов с автоматическими связями
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { sourceType, sourceId, targetType, userId, additionalData } = body;
-    
-    console.log('🔄 Creating document from source:', { sourceType, sourceId, targetType, userId });
+    const {
+      type, // 'quote', 'invoice', 'order', 'supplier_order'
+      parent_document_id, // ID родительского документа (опционально)
+      client_id,
+      items,
+      total_amount,
+      subtotal = 0,
+      tax_amount = 0,
+      notes,
+      prevent_duplicates = true,
+      created_by = 'system'
+    } = body;
 
-    // Получаем исходный документ
-    const sourceDocument = await getSourceDocument(sourceType, sourceId);
-    if (!sourceDocument) {
-      return NextResponse.json({ error: 'Исходный документ не найден' }, { status: 404 });
+    console.log(`🆕 Создание документа типа ${type}, родитель: ${parent_document_id || 'нет'}`);
+
+    // Валидация
+    if (!type || !client_id || !items || !Array.isArray(items)) {
+      return NextResponse.json(
+        { error: 'Необходимые поля: type, client_id, items' },
+        { status: 400 }
+      );
     }
 
-    let newDocument;
-    
-    switch (targetType) {
-      case 'order':
-        newDocument = await createOrderFromQuote(sourceDocument, userId, additionalData);
-        break;
-      case 'invoice':
-        if (sourceType === 'quote') {
-          newDocument = await createInvoiceFromQuote(sourceDocument, userId, additionalData);
-        } else if (sourceType === 'order') {
-          newDocument = await createInvoiceFromOrder(sourceDocument, userId, additionalData);
-        }
-        break;
-      case 'supplier_order':
-        newDocument = await createSupplierOrderFromOrder(sourceDocument, userId, additionalData);
-        break;
-      default:
-        return NextResponse.json({ error: 'Неподдерживаемый тип документа' }, { status: 400 });
+    // Проверяем существующий документ (дедупликация)
+    let existingDocument = null;
+    if (prevent_duplicates) {
+      existingDocument = await findExistingDocument(type, parent_document_id, client_id, items, total_amount);
     }
 
-    // Записываем в историю
-    await prisma.documentHistory.create({
-      data: {
-        document_type: targetType,
-        document_id: newDocument.id,
-        action: 'created_from',
-        new_value: JSON.stringify({ sourceType, sourceId }),
-        user_id: userId,
-        notes: `Создан на основе ${sourceType} ${sourceId}`
-      }
-    });
+    let documentNumber: string;
+    let documentId: string | null = null;
+
+    if (existingDocument) {
+      documentNumber = existingDocument.number;
+      documentId = existingDocument.id;
+      console.log(`🔄 Используем существующий документ: ${documentNumber} (ID: ${documentId})`);
+    } else {
+      documentNumber = `${type.toUpperCase()}-${Date.now()}`;
+      console.log(`🆕 Создаем новый документ: ${documentNumber}`);
+    }
+
+    // Создаем или обновляем документ в БД
+    let dbResult;
+    if (!existingDocument) {
+      dbResult = await createDocumentRecord(type, {
+        number: documentNumber,
+        parent_document_id,
+        client_id,
+        items,
+        total_amount,
+        subtotal,
+        tax_amount,
+        notes,
+        created_by
+      });
+      documentId = dbResult.id;
+      console.log(`✅ Запись в БД создана: ${type} #${dbResult.id}`);
+    } else {
+      console.log(`✅ Используем существующий документ в БД: ${documentNumber}`);
+      dbResult = { id: documentId, type: type };
+    }
 
     return NextResponse.json({
       success: true,
-      document: newDocument,
-      message: `${targetType} успешно создан`
+      documentId: documentId,
+      documentNumber: documentNumber,
+      type: type,
+      parent_document_id,
+      isNew: !existingDocument,
+      message: existingDocument ? 'Использован существующий документ' : 'Создан новый документ'
     });
 
   } catch (error) {
-    console.error('❌ Error creating document:', error);
-    return NextResponse.json({ error: 'Ошибка при создании документа' }, { status: 500 });
+    console.error('❌ Ошибка создания документа:', error);
+    return NextResponse.json(
+      { error: 'Ошибка при создании документа' },
+      { status: 500 }
+    );
   }
 }
 
-// Получение исходного документа
-async function getSourceDocument(type: string, id: string) {
-  switch (type) {
-    case 'quote':
-      return await prisma.quote.findUnique({
-        where: { id },
-        include: { quote_items: true, client: true }
-      });
-    case 'order':
-      return await prisma.order.findUnique({
-        where: { id },
-        include: { order_items: true, client: true }
-      });
-    default:
-      return null;
-  }
-}
-
-// Создание заказа из КП
-async function createOrderFromQuote(quote: any, userId: string, additionalData: any) {
-  const orderNumber = `ORD-${Date.now()}`;
-  
-  const order = await prisma.order.create({
-    data: {
-      number: orderNumber,
-      quote_id: quote.id,
-      client_id: quote.client_id,
-      created_by: userId,
-      status: 'PENDING',
-      subtotal: quote.subtotal,
-      tax_amount: quote.tax_amount,
-      total_amount: quote.total_amount,
-      currency: quote.currency,
-      notes: additionalData?.notes || quote.notes,
-      order_items: {
-        create: quote.quote_items.map((item: any) => ({
-          product_id: item.product_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.total_price,
-          notes: item.notes
-        }))
-      }
-    },
-    include: { order_items: true }
-  });
-
-  return order;
-}
-
-// Создание счета из КП
-async function createInvoiceFromQuote(quote: any, userId: string, additionalData: any) {
-  const invoiceNumber = `INV-${Date.now()}`;
-  
-  const invoice = await prisma.invoice.create({
-    data: {
-      number: invoiceNumber,
-      quote_id: quote.id,
-      client_id: quote.client_id,
-      created_by: userId,
-      status: 'DRAFT',
-      subtotal: quote.subtotal,
-      tax_amount: quote.tax_amount,
-      total_amount: quote.total_amount,
-      currency: quote.currency,
-      notes: additionalData?.notes || quote.notes,
-      due_date: additionalData?.due_date,
-      invoice_items: {
-        create: quote.quote_items.map((item: any) => ({
-          product_id: item.product_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.total_price,
-          notes: item.notes
-        }))
-      }
-    },
-    include: { invoice_items: true }
-  });
-
-  return invoice;
-}
-
-// Создание счета из заказа
-async function createInvoiceFromOrder(order: any, userId: string, additionalData: any) {
-  const invoiceNumber = `INV-${Date.now()}`;
-  
-  const invoice = await prisma.invoice.create({
-    data: {
-      number: invoiceNumber,
-      order_id: order.id,
-      client_id: order.client_id,
-      created_by: userId,
-      status: 'DRAFT',
-      subtotal: order.subtotal,
-      tax_amount: order.tax_amount,
-      total_amount: order.total_amount,
-      currency: order.currency,
-      notes: additionalData?.notes || order.notes,
-      due_date: additionalData?.due_date,
-      invoice_items: {
-        create: order.order_items.map((item: any) => ({
-          product_id: item.product_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.total_price,
-          notes: item.notes
-        }))
-      }
-    },
-    include: { invoice_items: true }
-  });
-
-  return invoice;
-}
-
-// Создание заказа у поставщика из заказа
-async function createSupplierOrderFromOrder(order: any, userId: string, additionalData: any) {
-  const supplierOrder = await prisma.supplierOrder.create({
-    data: {
-      order_id: order.id,
-      executor_id: userId,
-      supplier_name: additionalData?.supplier_name || 'Поставщик',
-      supplier_email: additionalData?.supplier_email,
-      supplier_phone: additionalData?.supplier_phone,
-      status: 'PENDING',
-      expected_date: additionalData?.expected_date,
-      notes: additionalData?.notes
-    }
-  });
-
-  return supplierOrder;
-}
-
-// API для получения истории документа
-export async function GET(req: NextRequest) {
+// Поиск существующего документа
+async function findExistingDocument(
+  type: 'quote' | 'invoice' | 'order' | 'supplier_order',
+  parentDocumentId: string | null,
+  clientId: string,
+  items: any[],
+  totalAmount: number
+) {
   try {
-    const { searchParams } = new URL(req.url);
-    const documentType = searchParams.get('documentType');
-    const documentId = searchParams.get('documentId');
-    
-    if (!documentType || !documentId) {
-      return NextResponse.json({ error: 'documentType и documentId обязательны' }, { status: 400 });
+    console.log(`🔍 Поиск существующего документа: ${type}, родитель: ${parentDocumentId}, клиент: ${clientId}, сумма: ${totalAmount}`);
+
+    // Создаем хеш содержимого для сравнения
+    const contentHash = createContentHash(clientId, items, totalAmount);
+
+    if (type === 'quote') {
+      const existingQuote = await prisma.quote.findFirst({
+        where: {
+          parent_document_id: parentDocumentId,
+          client_id: clientId,
+          total_amount: totalAmount,
+          cart_data: { contains: contentHash }
+        },
+        orderBy: { created_at: 'desc' }
+      });
+      if (existingQuote) {
+        console.log(`✅ Найден существующий КП: ${existingQuote.number} (ID: ${existingQuote.id})`);
+        return existingQuote;
+      }
+    } else if (type === 'invoice') {
+      const existingInvoice = await prisma.invoice.findFirst({
+        where: {
+          parent_document_id: parentDocumentId,
+          client_id: clientId,
+          total_amount: totalAmount,
+          cart_data: { contains: contentHash }
+        },
+        orderBy: { created_at: 'desc' }
+      });
+      if (existingInvoice) {
+        console.log(`✅ Найден существующий счет: ${existingInvoice.number} (ID: ${existingInvoice.id})`);
+        return existingInvoice;
+      }
+    } else if (type === 'order') {
+      const existingOrder = await prisma.order.findFirst({
+        where: {
+          parent_document_id: parentDocumentId,
+          client_id: clientId,
+          total_amount: totalAmount,
+          cart_data: { contains: contentHash }
+        },
+        orderBy: { created_at: 'desc' }
+      });
+      if (existingOrder) {
+        console.log(`✅ Найден существующий заказ: ${existingOrder.number} (ID: ${existingOrder.id})`);
+        return existingOrder;
+      }
+    } else if (type === 'supplier_order') {
+      const existingSupplierOrder = await prisma.supplierOrder.findFirst({
+        where: {
+          parent_document_id: parentDocumentId,
+          cart_data: { contains: contentHash }
+        },
+        orderBy: { created_at: 'desc' }
+      });
+      if (existingSupplierOrder) {
+        console.log(`✅ Найден существующий заказ у поставщика: ${existingSupplierOrder.id}`);
+        return existingSupplierOrder;
+      }
     }
 
-    const history = await prisma.documentHistory.findMany({
-      where: {
-        document_type: documentType,
-        document_id: documentId
-      },
-      orderBy: { created_at: 'desc' }
-    });
-
-    return NextResponse.json({
-      success: true,
-      history
-    });
-
+    console.log(`❌ Существующий документ не найден`);
+    return null;
   } catch (error) {
-    console.error('❌ Error fetching document history:', error);
-    return NextResponse.json({ error: 'Ошибка при получении истории документа' }, { status: 500 });
+    console.error('❌ Ошибка поиска существующего документа:', error);
+    return null;
   }
+}
+
+// Создание записи документа в БД
+async function createDocumentRecord(
+  type: 'quote' | 'invoice' | 'order' | 'supplier_order',
+  data: {
+    number: string;
+    parent_document_id: string | null;
+    client_id: string;
+    items: any[];
+    total_amount: number;
+    subtotal: number;
+    tax_amount: number;
+    notes?: string;
+    created_by: string;
+  }
+) {
+  const cartData = JSON.stringify(data.items);
+  const contentHash = createContentHash(data.client_id, data.items, data.total_amount);
+
+  if (type === 'quote') {
+    const quote = await prisma.quote.create({
+      data: {
+        number: data.number,
+        parent_document_id: data.parent_document_id,
+        client_id: data.client_id,
+        created_by: data.created_by,
+        subtotal: data.subtotal,
+        tax_amount: data.tax_amount,
+        total_amount: data.total_amount,
+        notes: data.notes,
+        cart_data: cartData
+      }
+    });
+
+    // Создаем элементы КП
+    for (const item of data.items) {
+      await prisma.quoteItem.create({
+        data: {
+          quote_id: quote.id,
+          product_id: item.product_id || 'unknown',
+          quantity: item.quantity || 1,
+          unit_price: item.price || 0,
+          total_price: (item.price || 0) * (item.quantity || 1),
+          notes: item.notes
+        }
+      });
+    }
+
+    return quote;
+  } else if (type === 'invoice') {
+    const invoice = await prisma.invoice.create({
+      data: {
+        number: data.number,
+        parent_document_id: data.parent_document_id,
+        client_id: data.client_id,
+        created_by: data.created_by,
+        subtotal: data.subtotal,
+        tax_amount: data.tax_amount,
+        total_amount: data.total_amount,
+        notes: data.notes,
+        cart_data: cartData
+      }
+    });
+
+    // Создаем элементы счета
+    for (const item of data.items) {
+      await prisma.invoiceItem.create({
+        data: {
+          invoice_id: invoice.id,
+          product_id: item.product_id || 'unknown',
+          quantity: item.quantity || 1,
+          unit_price: item.price || 0,
+          total_price: (item.price || 0) * (item.quantity || 1),
+          notes: item.notes
+        }
+      });
+    }
+
+    return invoice;
+  } else if (type === 'order') {
+    const order = await prisma.order.create({
+      data: {
+        number: data.number,
+        parent_document_id: data.parent_document_id,
+        client_id: data.client_id,
+        created_by: data.created_by,
+        subtotal: data.subtotal,
+        tax_amount: data.tax_amount,
+        total_amount: data.total_amount,
+        notes: data.notes,
+        cart_data: cartData
+      }
+    });
+
+    // Создаем элементы заказа
+    for (const item of data.items) {
+      await prisma.orderItem.create({
+        data: {
+          order_id: order.id,
+          product_id: item.product_id || 'unknown',
+          quantity: item.quantity || 1,
+          unit_price: item.price || 0,
+          total_price: (item.price || 0) * (item.quantity || 1),
+          notes: item.notes
+        }
+      });
+    }
+
+    return order;
+  } else if (type === 'supplier_order') {
+    const supplierOrder = await prisma.supplierOrder.create({
+      data: {
+        parent_document_id: data.parent_document_id,
+        executor_id: data.created_by,
+        supplier_name: 'Поставщик', // Можно передавать в параметрах
+        notes: data.notes,
+        cart_data: cartData
+      }
+    });
+
+    return supplierOrder;
+  }
+
+  throw new Error(`Неизвестный тип документа: ${type}`);
+}
+
+// Создание хеша содержимого для сравнения
+function createContentHash(clientId: string, items: any[], totalAmount: number): string {
+  const content = {
+    client_id: clientId,
+    items: items.map(item => ({
+      product_id: item.product_id,
+      quantity: item.quantity,
+      price: item.price,
+      name: item.name
+    })),
+    total_amount: totalAmount
+  };
+  
+  return Buffer.from(JSON.stringify(content)).toString('base64').substring(0, 50);
 }

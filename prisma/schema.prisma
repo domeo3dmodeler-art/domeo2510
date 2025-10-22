@@ -254,21 +254,22 @@ model ProductImage {
 }
 
 model Quote {
-  id           String    @id @default(cuid())
-  number       String    @unique
-  client_id    String
-  created_by   String
-  status       String    @default("DRAFT")
-  valid_until  DateTime?
-  subtotal     Float     @default(0)
-  tax_amount   Float     @default(0)
-  total_amount Float     @default(0)
-  currency     String    @default("RUB")
-  notes        String?
-  terms        String?
-  cart_data    String?   // Данные корзины для перегенерации (JSON строка)
-  created_at   DateTime  @default(now())
-  updated_at   DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  number             String    @unique
+  parent_document_id String?   // Универсальная ссылка на родительский документ
+  client_id          String
+  created_by         String
+  status             String    @default("DRAFT")
+  valid_until        DateTime?
+  subtotal           Float     @default(0)
+  tax_amount         Float     @default(0)
+  total_amount       Float     @default(0)
+  currency           String    @default("RUB")
+  notes              String?
+  terms              String?
+  cart_data          String?   // Данные корзины для перегенерации (JSON строка)
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
   
   // Связи
   client       Client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
@@ -293,28 +294,26 @@ model QuoteItem {
 }
 
 model Order {
-  id            String    @id @default(cuid())
-  number        String    @unique
-  quote_id      String?   // Ссылка на исходную КП
-  invoice_id    String?   // Ссылка на счет
-  client_id     String
-  created_by    String
-  status        String    @default("PENDING")
-  order_date    DateTime  @default(now())
-  delivery_date DateTime?
-  subtotal      Float     @default(0)
-  tax_amount    Float     @default(0)
-  total_amount  Float     @default(0)
-  currency      String    @default("RUB")
-  notes         String?
-  cart_data     String?   // Данные корзины для перегенерации (JSON строка)
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  number             String    @unique
+  parent_document_id String?   // Универсальная ссылка на родительский документ
+  client_id          String
+  created_by         String
+  status             String    @default("PENDING")
+  order_date         DateTime  @default(now())
+  delivery_date      DateTime?
+  subtotal           Float     @default(0)
+  tax_amount         Float     @default(0)
+  total_amount       Float     @default(0)
+  currency           String    @default("RUB")
+  notes              String?
+  cart_data          String?   // Данные корзины для перегенерации (JSON строка)
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
   
   // Связи
   client        Client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
   order_items   OrderItem[]
-  supplier_orders SupplierOrder[]
 
   @@map("orders")
 }
@@ -335,23 +334,22 @@ model OrderItem {
 }
 
 model Invoice {
-  id           String    @id @default(cuid())
-  number       String    @unique
-  quote_id     String?   // Ссылка на исходную КП
-  order_id     String?   // Ссылка на внутренний заказ
-  client_id    String
-  created_by   String
-  status       String    @default("DRAFT")
-  invoice_date DateTime  @default(now())
-  due_date     DateTime?
-  subtotal     Float     @default(0)
-  tax_amount   Float     @default(0)
-  total_amount Float     @default(0)
-  currency     String    @default("RUB")
-  notes        String?
-  cart_data    String?   // Данные корзины для перегенерации (JSON строка)
-  created_at   DateTime  @default(now())
-  updated_at   DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  number             String    @unique
+  parent_document_id String?   // Универсальная ссылка на родительский документ
+  client_id          String
+  created_by         String
+  status             String    @default("DRAFT")
+  invoice_date       DateTime  @default(now())
+  due_date           DateTime?
+  subtotal           Float     @default(0)
+  tax_amount         Float     @default(0)
+  total_amount       Float     @default(0)
+  currency           String    @default("RUB")
+  notes              String?
+  cart_data          String?   // Данные корзины для перегенерации (JSON строка)
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
   
   // Связи
   client         Client      @relation(fields: [client_id], references: [id], onDelete: Cascade)
@@ -376,24 +374,21 @@ model InvoiceItem {
 }
 
 model SupplierOrder {
-  id             String    @id @default(cuid())
-  order_id       String    // Ссылка на внутренний заказ
-  invoice_id     String?   // Ссылка на счет
-  executor_id    String
-  supplier_name  String
-  supplier_email String?
-  supplier_phone String?
-  status         String    @default("PENDING")
-  order_date     DateTime  @default(now())
-  expected_date  DateTime?
-  notes          String?
-  cart_data      String?   // Данные корзины для перегенерации (JSON строка)
-  created_at     DateTime  @default(now())
-  updated_at     DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  parent_document_id String?   // Универсальная ссылка на родительский документ
+  executor_id        String
+  supplier_name      String
+  supplier_email     String?
+  supplier_phone     String?
+  status             String    @default("PENDING")
+  order_date         DateTime  @default(now())
+  expected_date      DateTime?
+  notes              String?
+  cart_data          String?   // Данные корзины для перегенерации (JSON строка)
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
 
-  // Связи
-  order          Order     @relation(fields: [order_id], references: [id], onDelete: Cascade)
-
+  // Связи (убираем старые связи, так как теперь используем parent_document_id)
   @@map("supplier_orders")
 }
 

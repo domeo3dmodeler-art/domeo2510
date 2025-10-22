@@ -22,33 +22,26 @@ export function RelatedDocuments({ document }: RelatedDocumentsProps) {
     try {
       const related = [];
 
-      // Получаем все связанные документы через API
+      // Получаем все связанные документы через новый API
       const response = await fetch(`/api/documents/${document.id}/related?type=all`);
       if (response.ok) {
         const data = await response.json();
         related.push(...data.documents);
       }
 
-      // Дополнительно ищем документы по прямым связям
-      if (document.quote_id) {
-        const quote = await fetchDocument(document.quote_id, 'quote');
-        if (quote) {
-          related.push({ ...quote, type: 'quote', relation: 'source' });
+      // Дополнительно ищем документы по parent_document_id
+      if (document.parent_document_id) {
+        const parentDoc = await fetchDocument(document.parent_document_id);
+        if (parentDoc) {
+          related.push({ ...parentDoc, relation: 'parent' });
         }
       }
 
-      if (document.invoice_id) {
-        const invoice = await fetchDocument(document.invoice_id, 'invoice');
-        if (invoice) {
-          related.push({ ...invoice, type: 'invoice', relation: 'source' });
-        }
-      }
-
-      if (document.order_id) {
-        const order = await fetchDocument(document.order_id, 'order');
-        if (order) {
-          related.push({ ...order, type: 'order', relation: 'source' });
-        }
+      // Ищем дочерние документы (документы, где текущий является родителем)
+      const childrenResponse = await fetch(`/api/documents/${document.id}/children`);
+      if (childrenResponse.ok) {
+        const childrenData = await childrenResponse.json();
+        related.push(...childrenData.documents.map((doc: any) => ({ ...doc, relation: 'child' })));
       }
 
       // Убираем дубликаты
@@ -64,14 +57,14 @@ export function RelatedDocuments({ document }: RelatedDocumentsProps) {
     }
   };
 
-  const fetchDocument = async (id: string, type: string) => {
+  const fetchDocument = async (id: string) => {
     try {
       const response = await fetch(`/api/documents/${id}`);
       if (response.ok) {
         return await response.json();
       }
     } catch (error) {
-      console.error(`Ошибка получения ${type}:`, error);
+      console.error('Ошибка получения документа:', error);
     }
     return null;
   };
@@ -117,12 +110,23 @@ export function RelatedDocuments({ document }: RelatedDocumentsProps) {
 
   const getRelationLabel = (relation: string) => {
     switch (relation) {
-      case 'source':
-        return 'На основе';
-      case 'derived':
-        return 'Создан';
+      case 'parent':
+        return 'Исходный документ';
+      case 'child':
+        return 'Производный документ';
+      case 'sibling':
+        return 'Связанный документ';
       default:
-        return 'Связан';
+        return 'Связанный документ';
+    }
+  };
+
+  const getRelationIcon = (relation: string) => {
+    switch (relation) {
+      case 'parent': return '⬆️';
+      case 'child': return '⬇️';
+      case 'sibling': return '↔️';
+      default: return '🔗';
     }
   };
 

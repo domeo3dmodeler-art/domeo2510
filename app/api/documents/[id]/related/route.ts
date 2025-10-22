@@ -14,40 +14,37 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     let currentDoc = null;
     let currentType = null;
 
-    // Проверяем в таблице счетов
+    // Проверяем в разных таблицах
     const invoice = await prisma.invoice.findUnique({
       where: { id },
-      select: { id: true, quote_id: true, order_id: true, client_id: true }
+      select: { id: true, parent_document_id: true, client_id: true }
     });
 
     if (invoice) {
       currentDoc = invoice;
       currentType = 'invoice';
     } else {
-      // Проверяем в таблице КП
       const quote = await prisma.quote.findUnique({
         where: { id },
-        select: { id: true, client_id: true }
+        select: { id: true, parent_document_id: true, client_id: true }
       });
 
       if (quote) {
         currentDoc = quote;
         currentType = 'quote';
       } else {
-        // Проверяем в таблице заказов
         const order = await prisma.order.findUnique({
           where: { id },
-          select: { id: true, quote_id: true, invoice_id: true, client_id: true }
+          select: { id: true, parent_document_id: true, client_id: true }
         });
 
         if (order) {
           currentDoc = order;
           currentType = 'order';
         } else {
-          // Проверяем в таблице заказов у поставщика
           const supplierOrder = await prisma.supplierOrder.findUnique({
             where: { id },
-            select: { id: true, order_id: true, invoice_id: true }
+            select: { id: true, parent_document_id: true }
           });
 
           if (supplierOrder) {
@@ -75,83 +72,83 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       // Для КП ищем счета и заказы
       const [invoices, orders] = await Promise.all([
         prisma.invoice.findMany({
-          where: { quote_id: id },
+          where: { parent_document_id: id },
           include: { client: { select: { firstName: true, lastName: true } } },
           orderBy: { created_at: 'desc' }
         }),
         prisma.order.findMany({
-          where: { quote_id: id },
+          where: { parent_document_id: id },
           include: { client: { select: { firstName: true, lastName: true } } },
           orderBy: { created_at: 'desc' }
         })
       ]);
 
       relatedDocs.push(
-        ...invoices.map(inv => ({ ...inv, documentType: 'invoice', relation: 'derived' })),
-        ...orders.map(ord => ({ ...ord, documentType: 'order', relation: 'derived' }))
+        ...invoices.map(inv => ({ ...inv, documentType: 'invoice', relation: 'child' })),
+        ...orders.map(ord => ({ ...ord, documentType: 'order', relation: 'child' }))
       );
     }
 
     if (currentType === 'invoice') {
-      // Для счета ищем КП и заказы
+      // Для счета ищем КП (родитель) и заказы (дети)
       const [quotes, orders] = await Promise.all([
-        currentDoc.quote_id ? prisma.quote.findMany({
-          where: { id: currentDoc.quote_id },
+        currentDoc.parent_document_id ? prisma.quote.findMany({
+          where: { id: currentDoc.parent_document_id },
           include: { client: { select: { firstName: true, lastName: true } } }
         }) : [],
-        currentDoc.order_id ? prisma.order.findMany({
-          where: { id: currentDoc.order_id },
-          include: { client: { select: { firstName: true, lastName: true } } }
-        }) : []
-      ]);
-
-      relatedDocs.push(
-        ...quotes.map(q => ({ ...q, documentType: 'quote', relation: 'source' })),
-        ...orders.map(ord => ({ ...ord, documentType: 'order', relation: 'derived' }))
-      );
-    }
-
-    if (currentType === 'order') {
-      // Для заказа ищем КП, счета и заказы у поставщика
-      const [quotes, invoices, supplierOrders] = await Promise.all([
-        currentDoc.quote_id ? prisma.quote.findMany({
-          where: { id: currentDoc.quote_id },
-          include: { client: { select: { firstName: true, lastName: true } } }
-        }) : [],
-        currentDoc.invoice_id ? prisma.invoice.findMany({
-          where: { id: currentDoc.invoice_id },
-          include: { client: { select: { firstName: true, lastName: true } } }
-        }) : [],
-        prisma.supplierOrder.findMany({
-          where: { order_id: id },
-          include: { order: { include: { client: { select: { firstName: true, lastName: true } } } } },
+        prisma.order.findMany({
+          where: { parent_document_id: id },
+          include: { client: { select: { firstName: true, lastName: true } } },
           orderBy: { created_at: 'desc' }
         })
       ]);
 
       relatedDocs.push(
-        ...quotes.map(q => ({ ...q, documentType: 'quote', relation: 'source' })),
-        ...invoices.map(inv => ({ ...inv, documentType: 'invoice', relation: 'source' })),
-        ...supplierOrders.map(so => ({ ...so, documentType: 'supplier_order', relation: 'derived' }))
+        ...quotes.map(q => ({ ...q, documentType: 'quote', relation: 'parent' })),
+        ...orders.map(ord => ({ ...ord, documentType: 'order', relation: 'child' }))
+      );
+    }
+
+    if (currentType === 'order') {
+      // Для заказа ищем КП/счет (родители) и заказы у поставщика (дети)
+      const [quotes, invoices, supplierOrders] = await Promise.all([
+        currentDoc.parent_document_id ? prisma.quote.findMany({
+          where: { id: currentDoc.parent_document_id },
+          include: { client: { select: { firstName: true, lastName: true } } }
+        }) : [],
+        currentDoc.parent_document_id ? prisma.invoice.findMany({
+          where: { id: currentDoc.parent_document_id },
+          include: { client: { select: { firstName: true, lastName: true } } }
+        }) : [],
+        prisma.supplierOrder.findMany({
+          where: { parent_document_id: id },
+          orderBy: { created_at: 'desc' }
+        })
+      ]);
+
+      relatedDocs.push(
+        ...quotes.map(q => ({ ...q, documentType: 'quote', relation: 'parent' })),
+        ...invoices.map(inv => ({ ...inv, documentType: 'invoice', relation: 'parent' })),
+        ...supplierOrders.map(so => ({ ...so, documentType: 'supplier_order', relation: 'child' }))
       );
     }
 
     if (currentType === 'supplier_order') {
-      // Для заказа у поставщика ищем заказ и счет
+      // Для заказа у поставщика ищем заказ/счет (родители)
       const [orders, invoices] = await Promise.all([
-        prisma.order.findMany({
-          where: { id: currentDoc.order_id },
+        currentDoc.parent_document_id ? prisma.order.findMany({
+          where: { id: currentDoc.parent_document_id },
           include: { client: { select: { firstName: true, lastName: true } } }
-        }),
-        currentDoc.invoice_id ? prisma.invoice.findMany({
-          where: { id: currentDoc.invoice_id },
+        }) : [],
+        currentDoc.parent_document_id ? prisma.invoice.findMany({
+          where: { id: currentDoc.parent_document_id },
           include: { client: { select: { firstName: true, lastName: true } } }
         }) : []
       ]);
 
       relatedDocs.push(
-        ...orders.map(ord => ({ ...ord, documentType: 'order', relation: 'source' })),
-        ...invoices.map(inv => ({ ...inv, documentType: 'invoice', relation: 'source' }))
+        ...orders.map(ord => ({ ...ord, documentType: 'order', relation: 'parent' })),
+        ...invoices.map(inv => ({ ...inv, documentType: 'invoice', relation: 'parent' }))
       );
     }
 
