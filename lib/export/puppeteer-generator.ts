@@ -998,10 +998,11 @@ async function findExistingDocument(
   cartSessionId?: string | null
 ) {
   try {
-    console.log(`🔍 Поиск существующего документа: ${type}, клиент: ${clientId}, сумма: ${totalAmount}, родитель: ${parentDocumentId || 'нет'}`);
+    console.log(`🔍 Поиск существующего документа: ${type}, клиент: ${clientId}, сумма: ${totalAmount}, родитель: ${parentDocumentId || 'нет'}, сессия: ${cartSessionId}`);
     
     // Создаем хеш содержимого для более точного сравнения
     const contentHash = createContentHash(clientId, items, totalAmount);
+    console.log(`🔍 Content hash: ${contentHash}`);
     
     if (type === 'quote') {
       const existingQuote = await prisma.quote.findFirst({
@@ -1072,9 +1073,11 @@ function createContentHash(clientId: string, items: any[], totalAmount: number):
   const content = {
     client_id: clientId,
     items: items.map(item => ({
-      product_id: item.product_id,
-      quantity: item.quantity,
-      price: item.price,
+      id: item.id,
+      type: item.type,
+      model: item.model,
+      qty: item.qty || item.quantity,
+      unitPrice: item.unitPrice || item.price,
       name: item.name
     })),
     total_amount: totalAmount
