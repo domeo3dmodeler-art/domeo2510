@@ -1003,6 +1003,7 @@ async function findExistingDocument(
     // Создаем хеш содержимого для более точного сравнения
     const contentHash = createContentHash(clientId, items, totalAmount);
     console.log(`🔍 Content hash: ${contentHash}`);
+    console.log(`🔍 Items count: ${items.length}, Items:`, items.map(item => `${item.type}:${item.model}:${item.qty || item.quantity}:${item.unitPrice || item.price}`));
     
     if (type === 'quote') {
       const existingQuote = await prisma.quote.findFirst({
@@ -1083,7 +1084,12 @@ function createContentHash(clientId: string, items: any[], totalAmount: number):
     total_amount: totalAmount
   };
   
-  return Buffer.from(JSON.stringify(content)).toString('base64').substring(0, 50);
+  // Создаем более длинный и уникальный хеш
+  const contentString = JSON.stringify(content);
+  const hash = Buffer.from(contentString).toString('base64');
+  
+  // Берем первые 100 символов для лучшей уникальности
+  return hash.substring(0, 100);
 }
 
 // Пакетное создание записей в БД с поддержкой parent_document_id и cart_session_id
