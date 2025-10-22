@@ -810,7 +810,7 @@ export async function exportDocumentWithPDF(
 
   // Проверяем, есть ли уже документ с таким содержимым
   console.log(`🔍 Ищем существующий документ типа ${type} для клиента ${clientId}`);
-  const existingDocument = await findExistingDocument(type, clientId, items, totalAmount, null);
+  const existingDocument = await findExistingDocument(type, clientId, items, totalAmount, null, null);
   
   let documentNumber: string;
   let documentId: string | null = null;
@@ -949,7 +949,7 @@ export async function exportDocumentWithPDF(
   let dbResult = null;
   if (!existingDocument) {
     try {
-      dbResult = await createDocumentRecordsSimple(type, clientId, items, totalAmount, documentNumber, null);
+      dbResult = await createDocumentRecordsSimple(type, clientId, items, totalAmount, documentNumber, null, null);
       console.log(`✅ Записи в БД созданы: ${dbResult.type} #${dbResult.id}`);
     } catch (error) {
       console.error('❌ Ошибка создания записей в БД:', error);
@@ -987,13 +987,14 @@ function generateCSVSimple(data: any): string {
   return [headers.join(','), ...rows.map((row: any[]) => row.join(','))].join('\n');
 }
 
-// Поиск существующего документа по содержимому с учетом parent_document_id
+// Поиск существующего документа по содержимому с учетом parent_document_id и cart_session_id
 async function findExistingDocument(
   type: 'quote' | 'invoice' | 'order',
   clientId: string,
   items: any[],
   totalAmount: number,
-  parentDocumentId?: string | null
+  parentDocumentId?: string | null,
+  cartSessionId?: string | null
 ) {
   try {
     console.log(`🔍 Поиск существующего документа: ${type}, клиент: ${clientId}, сумма: ${totalAmount}, родитель: ${parentDocumentId || 'нет'}`);
@@ -1005,6 +1006,7 @@ async function findExistingDocument(
       const existingQuote = await prisma.quote.findFirst({
         where: {
           parent_document_id: parentDocumentId || null,
+          cart_session_id: cartSessionId || null,
           client_id: clientId,
           total_amount: totalAmount,
           cart_data: { contains: contentHash }
@@ -1022,6 +1024,7 @@ async function findExistingDocument(
       const existingInvoice = await prisma.invoice.findFirst({
         where: {
           parent_document_id: parentDocumentId || null,
+          cart_session_id: cartSessionId || null,
           client_id: clientId,
           total_amount: totalAmount,
           cart_data: { contains: contentHash }
@@ -1039,6 +1042,7 @@ async function findExistingDocument(
       const existingOrder = await prisma.order.findFirst({
         where: {
           parent_document_id: parentDocumentId || null,
+          cart_session_id: cartSessionId || null,
           client_id: clientId,
           total_amount: totalAmount,
           cart_data: { contains: contentHash }
@@ -1078,14 +1082,15 @@ function createContentHash(clientId: string, items: any[], totalAmount: number):
   return Buffer.from(JSON.stringify(content)).toString('base64').substring(0, 50);
 }
 
-// Пакетное создание записей в БД с поддержкой parent_document_id
+// Пакетное создание записей в БД с поддержкой parent_document_id и cart_session_id
 async function createDocumentRecordsSimple(
   type: 'quote' | 'invoice' | 'order',
   clientId: string,
   items: any[],
   totalAmount: number,
   documentNumber: string,
-  parentDocumentId?: string | null
+  parentDocumentId?: string | null,
+  cartSessionId?: string | null
 ) {
   const client = await prisma.client.findUnique({
     where: { id: clientId }
@@ -1100,6 +1105,7 @@ async function createDocumentRecordsSimple(
       data: {
         number: documentNumber,
         parent_document_id: parentDocumentId,
+        cart_session_id: cartSessionId,
         client_id: clientId,
         created_by: 'system',
         status: 'DRAFT',
@@ -1158,6 +1164,7 @@ async function createDocumentRecordsSimple(
       data: {
         number: documentNumber,
         parent_document_id: parentDocumentId,
+        cart_session_id: cartSessionId,
         client_id: clientId,
         created_by: 'system',
         status: 'DRAFT',
