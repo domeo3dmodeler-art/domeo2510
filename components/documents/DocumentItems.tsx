@@ -11,11 +11,13 @@ export function DocumentItems({ document }: DocumentItemsProps) {
   const [showDetails, setShowDetails] = useState(false);
 
   const getItems = () => {
-    // Получаем товары из content или documentData
-    if (document.content && document.content.items) {
-      return document.content.items;
-    } else if (document.documentData && document.documentData.items) {
-      return document.documentData.items;
+    // Получаем товары из соответствующих полей в зависимости от типа документа
+    if (document.type === 'quote' && document.quote_items) {
+      return document.quote_items;
+    } else if (document.type === 'invoice' && document.invoice_items) {
+      return document.invoice_items;
+    } else if (document.type === 'order' && document.order_items) {
+      return document.order_items;
     }
     return [];
   };

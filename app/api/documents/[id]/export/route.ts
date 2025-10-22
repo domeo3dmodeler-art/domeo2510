@@ -10,13 +10,51 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     console.log(`📄 Экспорт документа ${id} в формате ${format}`);
 
-    // Ищем документ в таблице document
-    const document = await prisma.document.findUnique({
+    // Ищем документ в разных таблицах
+    let document = null;
+    let documentType = null;
+
+    // Проверяем в таблице счетов
+    const invoice = await prisma.invoice.findUnique({
       where: { id },
       include: {
-        client: true
+        client: true,
+        invoice_items: true
       }
     });
+
+    if (invoice) {
+      document = invoice;
+      documentType = 'invoice';
+    } else {
+      // Проверяем в таблице КП
+      const quote = await prisma.quote.findUnique({
+        where: { id },
+        include: {
+          client: true,
+          quote_items: true
+        }
+      });
+
+      if (quote) {
+        document = quote;
+        documentType = 'quote';
+      } else {
+        // Проверяем в таблице заказов
+        const order = await prisma.order.findUnique({
+          where: { id },
+          include: {
+            client: true,
+            order_items: true
+          }
+        });
+
+        if (order) {
+          document = order;
+          documentType = 'order';
+        }
+      }
+    }
 
     if (!document) {
       console.log(`❌ Документ с ID ${id} не найден`);
@@ -26,25 +64,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       );
     }
 
-    console.log(`✅ Найден документ: ${document.number}`);
+    console.log(`✅ Найден документ типа ${documentType}: ${document.number}`);
 
-    // Получаем данные корзины
-    let cartData;
-    try {
-      cartData = JSON.parse(document.content || '[]');
-    } catch (error) {
-      console.error('Ошибка парсинга content:', error);
-      cartData = [];
+    // Получаем данные корзины из соответствующих полей
+    let cartData = [];
+    if (documentType === 'quote' && document.quote_items) {
+      cartData = document.quote_items;
+    } else if (documentType === 'invoice' && document.invoice_items) {
+      cartData = document.invoice_items;
+    } else if (documentType === 'order' && document.order_items) {
+      cartData = document.order_items;
     }
 
     // Формируем данные для экспорта
     const exportData = {
       documentId: document.id,
       documentNumber: document.number,
-      documentType: document.type,
+      documentType: documentType,
       client: document.client,
       items: cartData,
-      totalAmount: document.totalAmount,
+      totalAmount: document.total_amount,
       subtotal: document.subtotal,
       createdAt: document.created_at,
       status: document.status,
