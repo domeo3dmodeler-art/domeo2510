@@ -5,6 +5,7 @@ import { DocumentItems } from '@/components/documents/DocumentItems';
 import { DocumentHistory } from '@/components/documents/DocumentHistory';
 import { DocumentActions } from '@/components/documents/DocumentActions';
 import { DocumentComments } from '@/components/documents/DocumentComments';
+import { RelatedDocuments } from '@/components/documents/RelatedDocuments';
 
 interface DocumentPageProps {
   params: Promise<{ id: string }>;
@@ -72,6 +73,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
             <div className="lg:col-span-2 space-y-6">
               <DocumentContent document={document} />
               <DocumentItems document={document} />
+              <RelatedDocuments document={document} />
               <DocumentHistory document={document} />
             </div>
 

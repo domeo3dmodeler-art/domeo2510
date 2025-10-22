@@ -152,6 +152,29 @@ export function DocumentHeader({ document }: DocumentHeaderProps) {
                   <span className="font-medium">Адрес:</span> {document.client.address}
                 </p>
               )}
+              {/* Связанные документы */}
+              {document.quote_id && (
+                <p>
+                  <span className="font-medium">На основе КП:</span>{' '}
+                  <a 
+                    href={`/documents/${document.quote_id}`}
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    КП #{document.quote_id}
+                  </a>
+                </p>
+              )}
+              {document.order_id && (
+                <p>
+                  <span className="font-medium">На основе заказа:</span>{' '}
+                  <a 
+                    href={`/documents/${document.order_id}`}
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    Заказ #{document.order_id}
+                  </a>
+                </p>
+              )}
             </div>
           </div>
         </div>
