@@ -704,10 +704,10 @@ export async function exportDocumentWithPDF(
         const modelName = item.model.replace(/DomeoDoors_/g, '').replace(/_/g, ' ');
         
         if (type === 'order') {
-          name = `Дверь DomeoDoors ${modelName} (${finish}, ${color}, ${dimensions}, Фурнитура - ${cleanHardware})`;
+          name = `Дверь DomeoDoors ${modelName} (${finish}, ${color}, ${dimensions}, Комплект фурнитуры -${cleanHardware})`;
         } else {
           // Для КП и Счета - дверь с полным описанием
-          name = `Дверь DomeoDoors ${modelName} (${finish}, ${color}, ${dimensions}, Фурнитура - Комплект фурнитуры - ${cleanHardware})`;
+          name = `Дверь DomeoDoors ${modelName} (${finish}, ${color}, ${dimensions}, Комплект фурнитуры -${cleanHardware})`;
         }
       } else {
         // Другие товары - используем стандартный формат
@@ -858,7 +858,7 @@ async function createDocumentRecordsSimple(
         // Формируем название модели в правильном формате
         const modelName = item.model.replace(/DomeoDoors_/g, '').replace(/_/g, ' ');
         
-        name = `Дверь DomeoDoors ${modelName} (${finish}, ${color}, ${dimensions}, Фурнитура - Комплект фурнитуры - ${cleanHardware})`;
+        name = `Дверь DomeoDoors ${modelName} (${finish}, ${color}, ${dimensions}, Комплект фурнитуры -${cleanHardware})`;
       } else {
         // Другие товары
         name = item.name || `${item.model || 'Товар'} ${item.finish || ''} ${item.color || ''}`.trim();
@@ -915,7 +915,7 @@ async function createDocumentRecordsSimple(
         // Формируем название модели в правильном формате
         const modelName = item.model.replace(/DomeoDoors_/g, '').replace(/_/g, ' ');
         
-        name = `Дверь DomeoDoors ${modelName} (${finish}, ${color}, ${dimensions}, Фурнитура - Комплект фурнитуры - ${cleanHardware})`;
+        name = `Дверь DomeoDoors ${modelName} (${finish}, ${color}, ${dimensions}, Комплект фурнитуры -${cleanHardware})`;
       } else {
         // Другие товары
         name = item.name || `${item.model || 'Товар'} ${item.finish || ''} ${item.color || ''}`.trim();
@@ -972,7 +972,7 @@ async function createDocumentRecordsSimple(
         // Формируем название модели в правильном формате
         const modelName = item.model.replace(/DomeoDoors_/g, '').replace(/_/g, ' ');
         
-        name = `Дверь DomeoDoors ${modelName} (${finish}, ${color}, ${dimensions}, Фурнитура - ${cleanHardware})`;
+        name = `Дверь DomeoDoors ${modelName} (${finish}, ${color}, ${dimensions}, Комплект фурнитуры -${cleanHardware})`;
       } else {
         // Другие товары
         name = item.name || `${item.model || 'Товар'} ${item.finish || ''} ${item.color || ''}`.trim();
