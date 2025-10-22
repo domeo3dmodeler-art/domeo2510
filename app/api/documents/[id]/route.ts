@@ -8,60 +8,36 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     
     console.log(`🔍 Получаем документ с ID: ${id}`);
 
-    // Ищем документ в разных таблицах
-    let document = null;
-    let documentType = null;
-
-    // Проверяем в таблице счетов
-    const invoice = await prisma.invoice.findUnique({
+    // Ищем документ в таблице document
+    const document = await prisma.document.findUnique({
       where: { id },
       include: {
-        client: true,
-        invoice_items: true,
+        client: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            middleName: true,
+            phone: true,
+            address: true,
+            email: true
+          }
+        },
         document_comments: {
-          orderBy: { created_at: 'desc' }
+          orderBy: { created_at: 'desc' },
+          include: {
+            user: {
+              select: {
+                first_name: true,
+                last_name: true,
+                middle_name: true,
+                role: true
+              }
+            }
+          }
         }
       }
     });
-
-    if (invoice) {
-      document = invoice;
-      documentType = 'invoice';
-    } else {
-      // Проверяем в таблице КП
-      const quote = await prisma.quote.findUnique({
-        where: { id },
-        include: {
-          client: true,
-          quote_items: true,
-          document_comments: {
-            orderBy: { created_at: 'desc' }
-          }
-        }
-      });
-
-      if (quote) {
-        document = quote;
-        documentType = 'quote';
-      } else {
-        // Проверяем в таблице заказов
-        const order = await prisma.order.findUnique({
-          where: { id },
-          include: {
-            client: true,
-            order_items: true,
-            document_comments: {
-              orderBy: { created_at: 'desc' }
-            }
-          }
-        });
-
-        if (order) {
-          document = order;
-          documentType = 'order';
-        }
-      }
-    }
 
     if (!document) {
       console.log(`❌ Документ с ID ${id} не найден`);
@@ -71,14 +47,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       );
     }
 
-    console.log(`✅ Найден документ типа ${documentType}: ${document.number}`);
+    console.log(`✅ Найден документ: ${document.number}`);
 
     // Получаем историю изменений статуса
-    const history = await getDocumentHistory(id, documentType);
+    const history = await getDocumentHistory(id);
+
+    // Парсим данные документа
+    const content = document.content ? JSON.parse(document.content) : {};
+    const documentData = document.documentData ? JSON.parse(document.documentData) : null;
 
     return NextResponse.json({
       ...document,
-      type: documentType,
+      type: document.type,
+      content,
+      documentData,
       history
     });
 
@@ -92,7 +74,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 // Получение истории изменений документа
-async function getDocumentHistory(documentId: string, documentType: string) {
+async function getDocumentHistory(documentId: string) {
   try {
     // Здесь можно добавить логику получения истории изменений
     // Пока возвращаем базовую информацию

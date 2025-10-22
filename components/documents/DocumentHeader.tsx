@@ -159,9 +159,9 @@ export function DocumentHeader({ document }: DocumentHeaderProps) {
         {/* Сумма документа */}
         <div className="text-right">
           <div className="text-3xl font-bold text-gray-900">
-            {document.total_amount?.toLocaleString('ru-RU')} ₽
+            {document.totalAmount?.toLocaleString('ru-RU')} ₽
           </div>
-          {document.subtotal && document.subtotal !== document.total_amount && (
+          {document.subtotal && document.subtotal !== document.totalAmount && (
             <div className="text-sm text-gray-500 mt-1">
               Без НДС: {document.subtotal.toLocaleString('ru-RU')} ₽
             </div>

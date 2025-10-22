@@ -83,10 +83,10 @@ export function DocumentContent({ document }: DocumentContentProps) {
           <div className="flex justify-between">
             <span className="text-sm text-gray-500">Общая сумма:</span>
             <span className="text-sm font-medium">
-              {document.total_amount?.toLocaleString('ru-RU')} ₽
+              {document.totalAmount?.toLocaleString('ru-RU')} ₽
             </span>
           </div>
-          {document.subtotal && document.subtotal !== document.total_amount && (
+          {document.subtotal && document.subtotal !== document.totalAmount && (
             <div className="flex justify-between">
               <span className="text-sm text-gray-500">Без НДС:</span>
               <span className="text-sm font-medium">
@@ -94,11 +94,11 @@ export function DocumentContent({ document }: DocumentContentProps) {
               </span>
             </div>
           )}
-          {document.due_date && (
+          {document.dueDate && (
             <div className="flex justify-between">
               <span className="text-sm text-gray-500">Срок оплаты:</span>
               <span className="text-sm font-medium">
-                {new Date(document.due_date).toLocaleDateString('ru-RU')}
+                {new Date(document.dueDate).toLocaleDateString('ru-RU')}
               </span>
             </div>
           )}

@@ -11,12 +11,11 @@ export function DocumentItems({ document }: DocumentItemsProps) {
   const [showDetails, setShowDetails] = useState(false);
 
   const getItems = () => {
-    if (document.type === 'quote' && document.quote_items) {
-      return document.quote_items;
-    } else if (document.type === 'invoice' && document.invoice_items) {
-      return document.invoice_items;
-    } else if (document.type === 'order' && document.order_items) {
-      return document.order_items;
+    // Получаем товары из content или documentData
+    if (document.content && document.content.items) {
+      return document.content.items;
+    } else if (document.documentData && document.documentData.items) {
+      return document.documentData.items;
     }
     return [];
   };
@@ -131,10 +130,10 @@ export function DocumentItems({ document }: DocumentItemsProps) {
           <div className="flex justify-between items-center">
             <span className="text-lg font-medium text-gray-900">Итого:</span>
             <span className="text-lg font-bold text-gray-900">
-              {document.total_amount?.toLocaleString('ru-RU')} ₽
+              {document.totalAmount?.toLocaleString('ru-RU')} ₽
             </span>
           </div>
-          {document.subtotal && document.subtotal !== document.total_amount && (
+          {document.subtotal && document.subtotal !== document.totalAmount && (
             <div className="flex justify-between items-center mt-1">
               <span className="text-sm text-gray-500">Без НДС:</span>
               <span className="text-sm text-gray-500">

@@ -10,51 +10,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     console.log(`📄 Экспорт документа ${id} в формате ${format}`);
 
-    // Ищем документ в разных таблицах
-    let document = null;
-    let documentType = null;
-
-    // Проверяем в таблице счетов
-    const invoice = await prisma.invoice.findUnique({
+    // Ищем документ в таблице document
+    const document = await prisma.document.findUnique({
       where: { id },
       include: {
-        client: true,
-        invoice_items: true
+        client: true
       }
     });
-
-    if (invoice) {
-      document = invoice;
-      documentType = 'invoice';
-    } else {
-      // Проверяем в таблице КП
-      const quote = await prisma.quote.findUnique({
-        where: { id },
-        include: {
-          client: true,
-          quote_items: true
-        }
-      });
-
-      if (quote) {
-        document = quote;
-        documentType = 'quote';
-      } else {
-        // Проверяем в таблице заказов
-        const order = await prisma.order.findUnique({
-          where: { id },
-          include: {
-            client: true,
-            order_items: true
-          }
-        });
-
-        if (order) {
-          document = order;
-          documentType = 'order';
-        }
-      }
-    }
 
     if (!document) {
       console.log(`❌ Документ с ID ${id} не найден`);
@@ -64,14 +26,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       );
     }
 
-    console.log(`✅ Найден документ типа ${documentType}: ${document.number}`);
+    console.log(`✅ Найден документ: ${document.number}`);
 
     // Получаем данные корзины
     let cartData;
     try {
-      cartData = JSON.parse(document.cart_data || '[]');
+      cartData = JSON.parse(document.content || '[]');
     } catch (error) {
-      console.error('Ошибка парсинга cart_data:', error);
+      console.error('Ошибка парсинга content:', error);
       cartData = [];
     }
 
@@ -79,10 +41,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const exportData = {
       documentId: document.id,
       documentNumber: document.number,
-      documentType: documentType,
+      documentType: document.type,
       client: document.client,
       items: cartData,
-      totalAmount: document.total_amount,
+      totalAmount: document.totalAmount,
       subtotal: document.subtotal,
       createdAt: document.created_at,
       status: document.status,
