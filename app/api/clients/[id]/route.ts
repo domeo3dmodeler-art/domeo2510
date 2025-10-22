@@ -70,7 +70,8 @@ export async function GET(
           status: true,
           created_at: true,
           supplier_name: true,
-          total_amount: true
+          order_date: true,
+          expected_date: true
         },
         orderBy: { created_at: 'desc' },
         take: 10
