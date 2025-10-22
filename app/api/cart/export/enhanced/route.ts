@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exportDocumentWithPDF } from '@/lib/export/puppeteer-generator';
 import { prisma } from '@/lib/prisma';
+import { generateCartSessionId } from '@/lib/utils/cart-session';
 
 // Улучшенный API для экспорта из корзины с интеграцией в документооборот
 export async function POST(req: NextRequest) {
@@ -58,13 +59,17 @@ export async function POST(req: NextRequest) {
       sum + (item.unitPrice || 0) * (item.qty || item.quantity || 1), 0
     );
 
+    // Генерируем уникальный cart_session_id для этой сессии корзины
+    const cartSessionId = generateCartSessionId();
+    
     // Генерируем документ с помощью существующей системы
     const exportResult = await exportDocumentWithPDF(
       documentType as 'quote' | 'invoice' | 'order',
       format as 'pdf' | 'excel' | 'csv',
       clientId,
       cart.items,
-      totalAmount
+      totalAmount,
+      cartSessionId
     );
 
     console.log('✅ Document generated:', {

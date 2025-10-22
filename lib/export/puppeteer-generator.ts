@@ -797,20 +797,21 @@ export async function generateExcelFast(data: any): Promise<Buffer> {
   return buffer;
 }
 
-// Основная функция экспорта
+// Основная функция экспорта с поддержкой cart_session_id
 export async function exportDocumentWithPDF(
   type: 'quote' | 'invoice' | 'order',
   format: 'pdf' | 'excel' | 'csv',
   clientId: string,
   items: any[],
-  totalAmount: number
+  totalAmount: number,
+  cartSessionId?: string | null
 ) {
   const startTime = Date.now();
   console.log(`🚀 Экспорт ${type} в формате ${format} для ${items.length} позиций`);
 
   // Проверяем, есть ли уже документ с таким содержимым
   console.log(`🔍 Ищем существующий документ типа ${type} для клиента ${clientId}`);
-  const existingDocument = await findExistingDocument(type, clientId, items, totalAmount, null, null);
+  const existingDocument = await findExistingDocument(type, clientId, items, totalAmount, null, cartSessionId);
   
   let documentNumber: string;
   let documentId: string | null = null;
@@ -949,7 +950,7 @@ export async function exportDocumentWithPDF(
   let dbResult = null;
   if (!existingDocument) {
     try {
-      dbResult = await createDocumentRecordsSimple(type, clientId, items, totalAmount, documentNumber, null, null);
+      dbResult = await createDocumentRecordsSimple(type, clientId, items, totalAmount, documentNumber, null, cartSessionId);
       console.log(`✅ Записи в БД созданы: ${dbResult.type} #${dbResult.id}`);
     } catch (error) {
       console.error('❌ Ошибка создания записей в БД:', error);
@@ -1284,3 +1285,6 @@ async function createDocumentRecordsSimple(
 export async function cleanupExportResources() {
   // Puppeteer автоматически закрывает браузеры
 }
+
+// Экспортируем функции для использования в других модулях
+export { findExistingDocument, createDocumentRecordsSimple as createDocumentRecord };

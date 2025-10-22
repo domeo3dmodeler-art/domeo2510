@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { generateCartSessionId } from '@/lib/utils/cart-session';
+import { findExistingDocument, createDocumentRecord } from '@/lib/export/puppeteer-generator';
 
 // POST /api/documents/create-batch - Создание нескольких документов из корзины
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
-      cart_session_id, // ID сессии корзины (обязательно)
+      cart_session_id, // ID сессии корзины (опционально, будет сгенерирован если не передан)
       client_id,
       items,
       total_amount,
@@ -17,12 +19,15 @@ export async function POST(req: NextRequest) {
       created_by = 'system'
     } = body;
 
-    console.log(`🆕 Создание документов из корзины: ${document_types.join(', ')}, сессия: ${cart_session_id}`);
+    // Генерируем cart_session_id если не передан
+    const finalCartSessionId = cart_session_id || generateCartSessionId();
+
+    console.log(`🆕 Создание документов из корзины: ${document_types.join(', ')}, сессия: ${finalCartSessionId}`);
 
     // Валидация
-    if (!cart_session_id || !client_id || !items || !Array.isArray(items)) {
+    if (!client_id || !items || !Array.isArray(items)) {
       return NextResponse.json(
-        { error: 'Необходимые поля: cart_session_id, client_id, items' },
+        { error: 'Необходимые поля: client_id, items' },
         { status: 400 }
       );
     }
@@ -34,7 +39,7 @@ export async function POST(req: NextRequest) {
     for (const type of document_types) {
       try {
         // Проверяем существующий документ
-        const existingDocument = await findExistingDocument(type, null, cart_session_id, client_id, items, total_amount);
+        const existingDocument = await findExistingDocument(type, null, finalCartSessionId, client_id, items, total_amount);
         
         let documentNumber: string;
         let documentId: string | null = null;
@@ -54,7 +59,7 @@ export async function POST(req: NextRequest) {
           dbResult = await createDocumentRecord(type, {
             number: documentNumber,
             parent_document_id: null,
-            cart_session_id: cart_session_id,
+            cart_session_id: finalCartSessionId,
             client_id,
             items,
             total_amount,

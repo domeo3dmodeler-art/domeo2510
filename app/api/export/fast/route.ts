@@ -3,6 +3,7 @@ import {
   exportDocumentWithPDF, 
   cleanupExportResources 
 } from '@/lib/export/puppeteer-generator';
+import { generateCartSessionId } from '@/lib/utils/cart-session';
 
 // POST /api/export/fast - Быстрый экспорт документов
 export async function POST(request: NextRequest) {
@@ -53,13 +54,17 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Validation passed, starting export...');
 
+    // Генерируем уникальный cart_session_id для этой сессии корзины
+    const cartSessionId = generateCartSessionId();
+    
     // Экспортируем документ
     const result = await exportDocumentWithPDF(
       type,
       format,
       clientId,
       items,
-      totalAmount
+      totalAmount,
+      cartSessionId
     );
 
     // Возвращаем файл с информацией о документе
