@@ -2,6 +2,27 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import ExcelJS from 'exceljs';
 
+// Поиск ручки в БД по ID
+async function findHandleById(handleId: string) {
+  console.log('🔧 Ищем ручку по ID:', handleId);
+  
+  const handle = await prisma.product.findFirst({
+    where: {
+      id: handleId,
+      catalog_category: { name: "Ручки" }
+    },
+    select: { id: true, properties_data: true, name: true, sku: true }
+  });
+
+  if (handle) {
+    console.log('✅ Найдена ручка:', handle.sku);
+    return [handle];
+  } else {
+    console.log('❌ Ручка не найдена в БД');
+    return [];
+  }
+}
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -240,8 +261,16 @@ async function generateExcel(data: any): Promise<Buffer> {
       const item = data.items[i];
       console.log(`📦 Обрабатываем товар ${i + 1} из корзины:`, item.name);
 
-      // Ищем ВСЕ подходящие товары в БД
-      const matchingProducts = await findAllProductsByConfiguration(item);
+      // Ищем подходящие товары в БД
+      let matchingProducts: any[] = [];
+      if (item.type === 'handle' && item.handleId) {
+        // Для ручек используем специальную функцию
+        matchingProducts = await findHandleById(item.handleId);
+      } else {
+        // Для дверей используем обычную функцию
+        const result = await findAllProductsByConfiguration(item);
+        matchingProducts = result || [];
+      }
       console.log(`🔍 Для товара "${item.name}" найдено ${matchingProducts.length} подходящих товаров в БД`);
       
       if (matchingProducts.length === 0) {
