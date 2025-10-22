@@ -1011,8 +1011,7 @@ async function findExistingDocument(
           parent_document_id: parentDocumentId || null,
           cart_session_id: cartSessionId || null,
           client_id: clientId,
-          total_amount: totalAmount,
-          cart_data: { contains: contentHash }
+          total_amount: totalAmount
         } as any,
         orderBy: {
           created_at: 'desc'
@@ -1029,8 +1028,7 @@ async function findExistingDocument(
           parent_document_id: parentDocumentId || null,
           cart_session_id: cartSessionId || null,
           client_id: clientId,
-          total_amount: totalAmount,
-          cart_data: { contains: contentHash }
+          total_amount: totalAmount
         } as any,
         orderBy: {
           created_at: 'desc'
@@ -1047,8 +1045,7 @@ async function findExistingDocument(
           parent_document_id: parentDocumentId || null,
           cart_session_id: cartSessionId || null,
           client_id: clientId,
-          total_amount: totalAmount,
-          cart_data: { contains: contentHash }
+          total_amount: totalAmount
         } as any,
         orderBy: {
           created_at: 'desc'
