@@ -808,8 +808,22 @@ export async function exportDocumentWithPDF(
   const startTime = Date.now();
   console.log(`🚀 Экспорт ${type} в формате ${format} для ${items.length} позиций`);
 
-  // Генерируем номер документа
-  const documentNumber = `${type.toUpperCase()}-${Date.now()}`;
+  // Проверяем, есть ли уже документ с таким содержимым
+  const existingDocument = await findExistingDocument(type, clientId, items, totalAmount);
+  
+  let documentNumber: string;
+  let documentId: string | null = null;
+  
+  if (existingDocument) {
+    // Используем существующий документ
+    documentNumber = existingDocument.number;
+    documentId = existingDocument.id;
+    console.log(`🔄 Используем существующий документ: ${documentNumber}`);
+  } else {
+    // Создаем новый документ
+    documentNumber = `${type.toUpperCase()}-${Date.now()}`;
+    console.log(`🆕 Создаем новый документ: ${documentNumber}`);
+  }
 
   // Получаем данные клиента
   let client = await prisma.client.findUnique({
@@ -930,13 +944,18 @@ export async function exportDocumentWithPDF(
       throw new Error('Неподдерживаемый формат экспорта');
   }
 
-  // Создаем записи в БД
+  // Создаем записи в БД только если документ новый
   let dbResult = null;
-  try {
-    dbResult = await createDocumentRecordsSimple(type, clientId, items, totalAmount, documentNumber);
-    console.log(`✅ Записи в БД созданы: ${dbResult.type} #${dbResult.id}`);
-  } catch (error) {
-    console.error('❌ Ошибка создания записей в БД:', error);
+  if (!existingDocument) {
+    try {
+      dbResult = await createDocumentRecordsSimple(type, clientId, items, totalAmount, documentNumber);
+      console.log(`✅ Записи в БД созданы: ${dbResult.type} #${dbResult.id}`);
+    } catch (error) {
+      console.error('❌ Ошибка создания записей в БД:', error);
+    }
+  } else {
+    console.log(`✅ Используем существующий документ в БД: ${documentNumber}`);
+    dbResult = { id: documentId, type: type };
   }
 
   const endTime = Date.now();
@@ -967,6 +986,82 @@ function generateCSVSimple(data: any): string {
   return [headers.join(','), ...rows.map((row: any[]) => row.join(','))].join('\n');
 }
 
+// Поиск существующего документа по содержимому
+async function findExistingDocument(
+  type: 'quote' | 'invoice' | 'order',
+  clientId: string,
+  items: any[],
+  totalAmount: number
+) {
+  try {
+    // Создаем хэш содержимого для сравнения
+    const contentHash = JSON.stringify({
+      clientId,
+      items: items.map(item => ({
+        model: item.model,
+        finish: item.finish,
+        color: item.color,
+        width: item.width,
+        height: item.height,
+        quantity: item.qty || item.quantity || 1,
+        unitPrice: item.unitPrice || 0,
+        type: item.type,
+        handleId: item.handleId
+      })),
+      totalAmount
+    });
+
+    if (type === 'quote') {
+      const existingQuote = await prisma.quote.findFirst({
+        where: {
+          client_id: clientId,
+          total_amount: totalAmount,
+          cart_data: {
+            contains: contentHash // Проверяем полный хэш
+          }
+        } as any,
+        orderBy: {
+          created_at: 'desc'
+        }
+      });
+      return existingQuote;
+    } else if (type === 'invoice') {
+      const existingInvoice = await prisma.invoice.findFirst({
+        where: {
+          client_id: clientId,
+          total_amount: totalAmount,
+          cart_data: {
+            contains: contentHash // Проверяем полный хэш
+          }
+        } as any,
+        orderBy: {
+          created_at: 'desc'
+        }
+      });
+      return existingInvoice;
+    } else if (type === 'order') {
+      const existingOrder = await prisma.order.findFirst({
+        where: {
+          client_id: clientId,
+          total_amount: totalAmount,
+          cart_data: {
+            contains: contentHash // Проверяем полный хэш
+          }
+        } as any,
+        orderBy: {
+          created_at: 'desc'
+        }
+      });
+      return existingOrder;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('❌ Ошибка поиска существующего документа:', error);
+    return null;
+  }
+}
+
 // Пакетное создание записей в БД
 async function createDocumentRecordsSimple(
   type: 'quote' | 'invoice' | 'order',
@@ -994,7 +1089,24 @@ async function createDocumentRecordsSimple(
         total_amount: totalAmount,
         currency: 'RUB',
         notes: 'Сгенерировано из конфигуратора дверей',
-        cart_data: JSON.stringify(items) // Сохраняем данные корзины
+        cart_data: JSON.stringify({
+          items,
+          contentHash: JSON.stringify({
+            clientId,
+            items: items.map(item => ({
+              model: item.model,
+              finish: item.finish,
+              color: item.color,
+              width: item.width,
+              height: item.height,
+              quantity: item.qty || item.quantity || 1,
+              unitPrice: item.unitPrice || 0,
+              type: item.type,
+              handleId: item.handleId
+            })),
+            totalAmount
+          })
+        })
       } as any
     });
 
@@ -1051,7 +1163,24 @@ async function createDocumentRecordsSimple(
         total_amount: totalAmount,
         currency: 'RUB',
         notes: 'Сгенерировано из конфигуратора дверей',
-        cart_data: JSON.stringify(items) // Сохраняем данные корзины
+        cart_data: JSON.stringify({
+          items,
+          contentHash: JSON.stringify({
+            clientId,
+            items: items.map(item => ({
+              model: item.model,
+              finish: item.finish,
+              color: item.color,
+              width: item.width,
+              height: item.height,
+              quantity: item.qty || item.quantity || 1,
+              unitPrice: item.unitPrice || 0,
+              type: item.type,
+              handleId: item.handleId
+            })),
+            totalAmount
+          })
+        })
       } as any
     });
 
@@ -1108,7 +1237,24 @@ async function createDocumentRecordsSimple(
         total_amount: totalAmount,
         currency: 'RUB',
         notes: 'Сгенерировано из конфигуратора дверей',
-        cart_data: JSON.stringify(items) // Сохраняем данные корзины
+        cart_data: JSON.stringify({
+          items,
+          contentHash: JSON.stringify({
+            clientId,
+            items: items.map(item => ({
+              model: item.model,
+              finish: item.finish,
+              color: item.color,
+              width: item.width,
+              height: item.height,
+              quantity: item.qty || item.quantity || 1,
+              unitPrice: item.unitPrice || 0,
+              type: item.type,
+              handleId: item.handleId
+            })),
+            totalAmount
+          })
+        })
       } as any
     });
 
