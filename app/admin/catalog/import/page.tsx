@@ -153,7 +153,6 @@ export default function CatalogImportPage() {
       const response = await fetch(`/api/catalog/products?categoryId=${categoryId}&limit=10`);
       const data = await response.json();
       
-      console.log('Existing products response:', data);
       
       if (data.success && data.products && data.products.length > 0) {
         // Собираем все уникальные свойства из товаров
@@ -179,7 +178,6 @@ export default function CatalogImportPage() {
         });
         
         setExistingProductProperties(Array.from(allProperties).sort());
-        console.log('Loaded existing properties:', Array.from(allProperties));
       } else {
         setExistingProductProperties([]);
       }
@@ -193,22 +191,17 @@ export default function CatalogImportPage() {
 
   const loadCatalogCategories = async () => {
     try {
-      console.log('🔄 Загружаем категории для импорта...');
       const response = await fetch('/api/catalog/categories-flat');
       const data = await response.json();
       
-      console.log('📦 Ответ API категорий:', data);
       
       // Используем данные напрямую из нового API
       const categories = data.categories || [];
       
-      console.log(`✅ Загружено ${categories.length} категорий`);
-      console.log('Пример категории:', categories[0]);
       
       // Просто устанавливаем категории без дополнительной обработки
       setCatalogCategories(categories);
       
-      console.log('📊 Категории с товарами:', categories.filter((c: CatalogCategory) => (c.product_count || 0) > 0).length);
       
     } catch (error) {
       console.error('Error loading catalog categories:', error);
@@ -252,15 +245,12 @@ export default function CatalogImportPage() {
     setEncodingCheckResult(null);
     
     try {
-      console.log('📁 Начинаем обработку файла:', file.name);
       
       // Сначала проверяем кодировку файла
-      console.log('🔍 Проверяем кодировку файла...');
       const encodingResult = await checkFileEncoding(file);
       setEncodingCheckResult(encodingResult);
       
       if (encodingResult.hasEncodingIssues) {
-        console.log('⚠️ Обнаружены проблемы с кодировкой:', {
           issuesCount: encodingResult.encodingIssues.length,
           sampleIssues: encodingResult.encodingIssues.slice(0, 3)
         });
@@ -273,18 +263,14 @@ export default function CatalogImportPage() {
         );
         
         if (shouldFix) {
-          console.log('🛠️ Исправляем кодировку файла...');
           const { fixedFile } = await checkAndFixFileEncoding(file);
-          console.log('✅ Файл исправлен, продолжаем обработку...');
           
           // Используем исправленный файл для дальнейшей обработки
           await processFile(fixedFile);
         } else {
-          console.log('⚠️ Пользователь отказался от исправления, продолжаем с оригинальным файлом');
           await processFile(file);
         }
       } else {
-        console.log('✅ Проблем с кодировкой не обнаружено');
         await processFile(file);
       }
       
@@ -312,7 +298,6 @@ export default function CatalogImportPage() {
       const headers = jsonData[0] as string[];
       const rows = jsonData.slice(1) as any[][];
 
-      console.log('📊 Данные файла обработаны:', {
         filename: file.name,
         headers: headers.length,
         rows: rows.length,
@@ -358,7 +343,6 @@ export default function CatalogImportPage() {
       formData.append('mapping_property', photoMappingProperty);
       formData.append('upload_type', photoUploadType); // Добавляем тип загрузки
 
-      console.log('Отправка фотографий...', photoFiles.length, 'файлов');
       
       const response = await fetch('/api/admin/import/photos', {
         method: 'POST',
@@ -370,7 +354,6 @@ export default function CatalogImportPage() {
       }
 
       const result = await response.json();
-      console.log('Фотографии загружены:', result);
       
           // Создаем детальный отчет
           let reportMessage = `📸 ЗАГРУЗКА ФОТО ЗАВЕРШЕНА!\n\n`;
@@ -864,7 +847,6 @@ export default function CatalogImportPage() {
                     }
                     
                     const result = await response.json();
-                    console.log('Результат импорта:', result);
                     
                     alert(`Импорт завершен! Загружено: ${result.imported || 0} товаров`);
                     

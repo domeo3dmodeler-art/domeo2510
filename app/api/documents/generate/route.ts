@@ -198,7 +198,6 @@ async function generateExcel(data: any): Promise<Buffer> {
   
   // Сначала собираем все свойства из всех товаров
   data.items.forEach((item: any, index: number) => {
-    console.log(`📊 Processing item ${index + 1}:`, {
       sku: item.sku,
       name: item.name,
       hasProperties: !!item.properties_data
@@ -210,7 +209,6 @@ async function generateExcel(data: any): Promise<Buffer> {
           ? JSON.parse(item.properties_data) 
           : item.properties_data;
         
-        console.log(`📋 Item ${index + 1} properties:`, {
           totalCount: Object.keys(props).length,
           properties: Object.keys(props).slice(0, 20) // Первые 20 свойств
         });
@@ -231,11 +229,9 @@ async function generateExcel(data: any): Promise<Buffer> {
         console.warn('Failed to parse properties_data:', e);
       }
     } else {
-      console.log(`⚠️ Item ${index + 1} has no properties_data`);
     }
   });
   
-  console.log(`📈 Total unique properties collected: ${allProperties.size}`);
 
   // Базовые заголовки
   const baseHeaders = [
@@ -371,7 +367,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { type, clientId, items, totalAmount } = body;
     
-    console.log('📄 Document generation request:', { 
       type, 
       clientId, 
       itemsCount: items.length, 
@@ -408,7 +403,6 @@ export async function POST(request: NextRequest) {
     
     const cartSessionId = `cart_${cartHash}`;
     
-    console.log('🛒 Cart session ID:', cartSessionId);
     
     // Проверяем существующий документ (дедупликация)
     const existingDocument = await findExistingDocument(type, null, cartSessionId, clientId, items, totalAmount);
@@ -419,10 +413,8 @@ export async function POST(request: NextRequest) {
     if (existingDocument) {
       documentNumber = existingDocument.number;
       documentId = existingDocument.id;
-      console.log(`🔄 Используем существующий документ: ${documentNumber} (ID: ${documentId})`);
     } else {
       documentNumber = `${type.toUpperCase()}-${Date.now()}`;
-      console.log(`🆕 Создаем новый документ: ${documentNumber}`);
     }
 
     if (type === 'quote') {
@@ -431,7 +423,6 @@ export async function POST(request: NextRequest) {
       if (existingDocument) {
         // Используем существующий КП
         quote = existingDocument;
-        console.log(`✅ Используем существующий КП: ${quote.number}`);
       } else {
         // Создаем новый КП
         quote = await prisma.quote.create({
@@ -496,7 +487,6 @@ export async function POST(request: NextRequest) {
       if (existingDocument) {
         // Используем существующий счет
         invoice = existingDocument;
-        console.log(`✅ Используем существующий счет: ${invoice.number}`);
       } else {
         // Создаем новый счет
         invoice = await prisma.invoice.create({
@@ -561,7 +551,6 @@ export async function POST(request: NextRequest) {
       if (existingDocument) {
         // Используем существующий заказ
         order = existingDocument;
-        console.log(`✅ Используем существующий заказ: ${order.number}`);
       } else {
         // Создаем новый заказ
         order = await prisma.order.create({
@@ -618,7 +607,6 @@ export async function POST(request: NextRequest) {
         
         // Если не нашли по SKU, ищем по точной конфигурации
         if (!productData) {
-          console.log('🔍 Searching for product by configuration:', {
             style: item.style,
             model: item.model,
             finish: item.finish,
@@ -641,7 +629,6 @@ export async function POST(request: NextRequest) {
             }
           });
           
-          console.log(`📦 Found ${allProducts.length} door products in DB`);
           
           // Ищем товар с точной конфигурацией
           for (const product of allProducts) {
@@ -661,7 +648,6 @@ export async function POST(request: NextRequest) {
                 
                 // Логируем первые несколько товаров для отладки
                 if (allProducts.indexOf(product) < 3) {
-                  console.log(`🔍 Checking product ${product.sku}:`, {
                     style: props['Domeo_Стиль Web'],
                     model: props['Domeo_Название модели для Web'],
                     finish: props['Тип покрытия'],
@@ -674,7 +660,6 @@ export async function POST(request: NextRequest) {
                 
                 if (styleMatch && modelMatch && finishMatch && colorMatch && widthMatch && heightMatch) {
                   productData = product;
-                  console.log('✅ Found matching product:', {
                     sku: product.sku,
                     name: product.name,
                     propertiesCount: Object.keys(props).length,
@@ -689,7 +674,6 @@ export async function POST(request: NextRequest) {
           }
           
           if (!productData) {
-            console.log('❌ No exact matching product found, trying partial match...');
             
             // Fallback: ищем товар с частичным совпадением
             for (const product of allProducts) {
@@ -705,7 +689,6 @@ export async function POST(request: NextRequest) {
                   
                   if (styleMatch && modelMatch) {
                     productData = product;
-                    console.log('🔍 Found partial match:', {
                       sku: product.sku,
                       name: product.name,
                       style: props['Domeo_Стиль Web'],
@@ -721,11 +704,9 @@ export async function POST(request: NextRequest) {
             }
             
             if (!productData) {
-              console.log('❌ No partial match found either, using first available product');
               // Последний fallback: берем первый товар
               if (allProducts.length > 0) {
                 productData = allProducts[0];
-                console.log('🔍 Using first available product:', {
                   sku: productData.sku,
                   name: productData.name
                 });

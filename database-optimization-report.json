@@ -1,0 +1,123 @@
+{
+  "timestamp": "2025-10-22T19:20:17.122Z",
+  "analysis": {
+    "models": 28,
+    "relations": 21,
+    "indexes": 24,
+    "largeModels": 7
+  },
+  "recommendations": {
+    "indexes": [
+      {
+        "model": "User",
+        "field": "email",
+        "reason": "Часто используемое поле для поиска"
+      },
+      {
+        "model": "User",
+        "field": "created_at",
+        "reason": "Часто используемое поле для поиска"
+      },
+      {
+        "model": "User",
+        "field": "updated_at",
+        "reason": "Часто используемое поле для поиска"
+      },
+      {
+        "model": "Client",
+        "field": "phone",
+        "reason": "Часто используемое поле для поиска"
+      },
+      {
+        "model": "CatalogCategory",
+        "field": "created_at",
+        "reason": "Часто используемое поле для поиска"
+      },
+      {
+        "model": "CatalogCategory",
+        "field": "updated_at",
+        "reason": "Часто используемое поле для поиска"
+      },
+      {
+        "model": "ProductProperty",
+        "field": "created_at",
+        "reason": "Часто используемое поле для поиска"
+      },
+      {
+        "model": "ProductProperty",
+        "field": "updated_at",
+        "reason": "Часто используемое поле для поиска"
+      },
+      {
+        "model": "CategoryPropertyAssignment",
+        "field": "created_at",
+        "reason": "Часто используемое поле для поиска"
+      },
+      {
+        "model": "CategoryPropertyAssignment",
+        "field": "updated_at",
+        "reason": "Часто используемое поле для поиска"
+      },
+      {
+        "model": "ImportTemplate",
+        "field": "created_at",
+        "reason": "Часто используемое поле для поиска"
+      },
+      {
+        "model": "ImportTemplate",
+        "field": "updated_at",
+        "reason": "Часто используемое поле для поиска"
+      },
+      {
+        "model": "Document",
+        "field": "status",
+        "reason": "Часто используемое поле для поиска"
+      },
+      {
+        "model": "ExportSetting",
+        "field": "created_at",
+        "reason": "Часто используемое поле для поиска"
+      },
+      {
+        "model": "ExportSetting",
+        "field": "updated_at",
+        "reason": "Часто используемое поле для поиска"
+      },
+      {
+        "model": "FrontendCategory",
+        "field": "created_at",
+        "reason": "Часто используемое поле для поиска"
+      },
+      {
+        "model": "FrontendCategory",
+        "field": "updated_at",
+        "reason": "Часто используемое поле для поиска"
+      },
+      {
+        "model": "ConstructorConfig",
+        "field": "created_at",
+        "reason": "Часто используемое поле для поиска"
+      },
+      {
+        "model": "ConstructorConfig",
+        "field": "updated_at",
+        "reason": "Часто используемое поле для поиска"
+      },
+      {
+        "model": "Product",
+        "field": "created_at",
+        "reason": "Часто используемое поле для поиска"
+      }
+    ],
+    "maintenance": [
+      "Регулярно запускать VACUUM для оптимизации",
+      "Анализировать статистику таблиц",
+      "Удалять старые логи и уведомления",
+      "Мониторить размер БД"
+    ]
+  },
+  "scripts": [
+    "database-optimization.sql - SQL скрипт оптимизации",
+    "database-monitor.js - Скрипт мониторинга БД"
+  ]
+}

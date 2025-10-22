@@ -6,7 +6,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const { id } = await params;
 
-    console.log(`📧 Отправка документа ${id} клиенту`);
 
     // Ищем документ в разных таблицах
     let document = null;
@@ -46,7 +45,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     if (!document) {
-      console.log(`❌ Документ с ID ${id} не найден`);
       return NextResponse.json(
         { error: 'Документ не найден' },
         { status: 404 }
@@ -54,7 +52,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     if (!document.client?.phone) {
-      console.log(`❌ У клиента нет контактной информации`);
       return NextResponse.json(
         { error: 'У клиента не указана контактная информация' },
         { status: 400 }
@@ -92,7 +89,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // TODO: Реализовать отправку email
     // await sendDocumentEmail(document.client.email, document);
 
-    console.log(`✅ Документ ${id} отправлен клиенту ${document.client.firstName} ${document.client.lastName}`);
 
     return NextResponse.json({
       success: true,

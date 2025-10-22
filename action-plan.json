@@ -1,0 +1,161 @@
+{
+  "timestamp": "2025-10-22T19:23:06.344Z",
+  "status": "Анализ завершен, требуется выполнение действий",
+  "priority": "HIGH",
+  "categories": {
+    "immediate": {
+      "title": "Немедленные действия (критично)",
+      "items": [
+        {
+          "action": "Зафиксировать изменения в Git",
+          "description": "Все изменения готовы к коммиту",
+          "files": "200+ файлов изменено/удалено",
+          "command": "git add . && git commit -m \"feat: комплексная оптимизация проекта\"",
+          "priority": "CRITICAL"
+        },
+        {
+          "action": "Применить оптимизацию БД",
+          "description": "Запустить SQL скрипт оптимизации",
+          "file": "database-optimization.sql",
+          "command": "npx prisma db execute --file database-optimization.sql",
+          "priority": "HIGH"
+        },
+        {
+          "action": "Разбить большие компоненты",
+          "description": "Оптимизировать производительность",
+          "files": [
+            "app/doors/page.tsx (176.4 KB)",
+            "components/constructor/UltimateConstructorFixed.tsx (126.8 KB)"
+          ],
+          "priority": "HIGH"
+        }
+      ]
+    },
+    "optimization": {
+      "title": "Оптимизация производительности",
+      "items": [
+        {
+          "action": "Сжать большие изображения",
+          "description": "Уменьшить размер изображений",
+          "files": [
+            "1760988772632_z9yraj_d5_1.png (1.4MB)",
+            "1760988772666_pefe4s_d5_2.png (510KB)",
+            "1760988772609_8tc6yf_d5.png (280KB)"
+          ],
+          "tools": [
+            "imagemin",
+            "sharp",
+            "webp-converter"
+          ],
+          "priority": "MEDIUM"
+        },
+        {
+          "action": "Настроить логгер",
+          "description": "Заменить console.log на структурированное логирование",
+          "implementation": "Winston или Pino",
+          "priority": "MEDIUM"
+        },
+        {
+          "action": "Добавить мониторинг",
+          "description": "Настроить постоянный мониторинг",
+          "scripts": [
+            "performance-monitor.js",
+            "database-monitor.js"
+          ],
+          "priority": "MEDIUM"
+        }
+      ]
+    },
+    "deployment": {
+      "title": "Подготовка к деплою",
+      "items": [
+        {
+          "action": "Проверить переменные окружения",
+          "description": "Убедиться что все env файлы настроены",
+          "files": [
+            "env.production",
+            "env.staging"
+          ],
+          "priority": "HIGH"
+        },
+        {
+          "action": "Тестирование в staging",
+          "description": "Развернуть на staging сервере",
+          "command": "npm run deploy:staging",
+          "priority": "HIGH"
+        },
+        {
+          "action": "Финальное тестирование",
+          "description": "Проверить все функции",
+          "checklist": [
+            "Авторизация",
+            "Создание документов",
+            "Экспорт PDF/Excel",
+            "Дедубликация",
+            "Уведомления"
+          ],
+          "priority": "HIGH"
+        }
+      ]
+    },
+    "maintenance": {
+      "title": "Постоянное обслуживание",
+      "items": [
+        {
+          "action": "Регулярный мониторинг",
+          "description": "Запускать скрипты мониторинга",
+          "frequency": "Еженедельно",
+          "scripts": [
+            "performance-monitor.js",
+            "database-monitor.js"
+          ]
+        },
+        {
+          "action": "Обновление зависимостей",
+          "description": "Проверять и обновлять пакеты",
+          "frequency": "Ежемесячно",
+          "command": "npm audit && npm update"
+        },
+        {
+          "action": "Очистка старых данных",
+          "description": "Удалять старые логи и уведомления",
+          "frequency": "Ежемесячно",
+          "tables": [
+            "notifications",
+            "document_history"
+          ]
+        }
+      ]
+    }
+  },
+  "filesToClean": {
+    "description": "Файлы для удаления после завершения",
+    "reports": [
+      "code-audit-report.json",
+      "optimization-recommendations.json",
+      "database-optimization-report.json",
+      "final-audit-report.json"
+    ],
+    "scripts": [
+      "comprehensive-code-audit.js",
+      "fix-code-issues.js",
+      "optimize-database.js",
+      "create-final-report.js"
+    ],
+    "keep": [
+      "AUDIT_REPORT.md",
+      "performance-monitor.js",
+      "database-monitor.js",
+      "database-optimization.sql"
+    ]
+  },
+  "nextSteps": [
+    "1. Зафиксировать все изменения в Git",
+    "2. Применить оптимизацию БД",
+    "3. Разбить большие компоненты",
+    "4. Сжать изображения",
+    "5. Настроить логгер",
+    "6. Протестировать на staging",
+    "7. Деплой в продакшен"
+  ]
+}

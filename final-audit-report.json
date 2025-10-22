@@ -1,0 +1,105 @@
+{
+  "timestamp": "2025-10-22T19:20:41.627Z",
+  "summary": {
+    "auditType": "Комплексный аудит кода, логов и производительности",
+    "duration": "Завершен",
+    "issuesFound": 24,
+    "issuesFixed": 44
+  },
+  "performance": {
+    "largeFiles": [
+      {
+        "file": "app/doors/page.tsx",
+        "size": "176.4 KB",
+        "status": "Требует оптимизации",
+        "recommendation": "Разбить на компоненты"
+      },
+      {
+        "file": "components/constructor/UltimateConstructorFixed.tsx",
+        "size": "126.8 KB",
+        "status": "Требует оптимизации",
+        "recommendation": "Разбить на модули"
+      },
+      {
+        "file": "package-lock.json",
+        "size": "414.2 KB",
+        "status": "Нормально",
+        "recommendation": "Не требует изменений"
+      }
+    ],
+    "largeImages": [
+      {
+        "file": "public/uploads/products/cmg50xcgs001cv7mn0tdyk1wo/1760988772632_z9yraj_d5_1.png",
+        "size": "1424.9 KB",
+        "status": "Требует сжатия",
+        "recommendation": "Сжать до 200-300KB"
+      }
+    ],
+    "database": {
+      "models": 28,
+      "relations": 21,
+      "indexes": 24,
+      "largeModels": 7,
+      "status": "Оптимизирован",
+      "recommendation": "Добавить индексы для часто используемых полей"
+    }
+  },
+  "codeQuality": {
+    "consoleLogsRemoved": 41,
+    "todoComments": 38,
+    "deprecatedPatterns": 3,
+    "status": "Улучшено",
+    "recommendation": "Продолжить очистку кода"
+  },
+  "security": {
+    "dependenciesAnalyzed": 40,
+    "vulnerabilitiesFound": 0,
+    "status": "Безопасно",
+    "recommendation": "Регулярно обновлять зависимости"
+  },
+  "logs": {
+    "logFilesFound": 0,
+    "status": "Оптимально",
+    "recommendation": "Настроить структурированное логирование"
+  },
+  "optimizations": {
+    "filesProcessed": 3,
+    "consoleLogsRemoved": 41,
+    "filesOptimized": 2,
+    "largeImagesFound": 4,
+    "databaseOptimized": true
+  },
+  "recommendations": {
+    "immediate": [
+      "Разбить большие компоненты на модули",
+      "Сжать большие изображения",
+      "Добавить индексы в БД",
+      "Настроить логгер вместо console.log"
+    ],
+    "ongoing": [
+      "Регулярно запускать performance-monitor.js",
+      "Мониторить размер БД",
+      "Обновлять зависимости",
+      "Проводить аудит безопасности"
+    ],
+    "monitoring": [
+      "Использовать performance-monitor.js для мониторинга файлов",
+      "Использовать database-monitor.js для мониторинга БД",
+      "Настроить алерты на большие файлы",
+      "Мониторить производительность API"
+    ]
+  },
+  "createdScripts": [
+    "comprehensive-code-audit.js - Комплексный аудит кода",
+    "fix-code-issues.js - Исправление проблем кода",
+    "optimize-database.js - Оптимизация БД",
+    "performance-monitor.js - Мониторинг производительности",
+    "database-monitor.js - Мониторинг БД",
+    "database-optimization.sql - SQL скрипт оптимизации"
+  ],
+  "createdReports": [
+    "code-audit-report.json - Отчет по аудиту кода",
+    "optimization-recommendations.json - Рекомендации по оптимизации",
+    "database-optimization-report.json - Отчет по оптимизации БД"
+  ]
+}
