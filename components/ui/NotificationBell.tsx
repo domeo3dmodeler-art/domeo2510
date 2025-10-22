@@ -129,10 +129,10 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
     // Закрываем dropdown
     setIsOpen(false);
 
-    // Переходим к соответствующему документу в ЛК
+    // Переходим к соответствующему документу
     if (notification.document_id) {
-      // Всегда переходим через главную страницу дашборда для правильного отображения шапки
-      router.push(`/dashboard?focus=${notification.document_id}`);
+      // Переходим на страницу документа
+      router.push(`/documents/${notification.document_id}`);
     }
   };
 
