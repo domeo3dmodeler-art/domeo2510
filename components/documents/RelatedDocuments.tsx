@@ -22,35 +22,41 @@ export function RelatedDocuments({ document }: RelatedDocumentsProps) {
     try {
       const related = [];
 
-      // Если это заказ, ищем связанные КП и счета
-      if (document.type === 'order') {
-        if (document.quote_id) {
-          const quote = await fetchDocument(document.quote_id, 'quote');
-          if (quote) {
-            related.push({ ...quote, type: 'quote', relation: 'source' });
-          }
-        }
-        
-        // Ищем счета, созданные на основе этого заказа
-        const invoices = await fetchDocumentsByOrderId(document.id);
-        related.push(...invoices.map(inv => ({ ...inv, type: 'invoice', relation: 'derived' })));
+      // Получаем все связанные документы через API
+      const response = await fetch(`/api/documents/${document.id}/related?type=all`);
+      if (response.ok) {
+        const data = await response.json();
+        related.push(...data.documents);
       }
 
-      // Если это счет, ищем связанный заказ
-      if (document.type === 'invoice' && document.order_id) {
+      // Дополнительно ищем документы по прямым связям
+      if (document.quote_id) {
+        const quote = await fetchDocument(document.quote_id, 'quote');
+        if (quote) {
+          related.push({ ...quote, type: 'quote', relation: 'source' });
+        }
+      }
+
+      if (document.invoice_id) {
+        const invoice = await fetchDocument(document.invoice_id, 'invoice');
+        if (invoice) {
+          related.push({ ...invoice, type: 'invoice', relation: 'source' });
+        }
+      }
+
+      if (document.order_id) {
         const order = await fetchDocument(document.order_id, 'order');
         if (order) {
           related.push({ ...order, type: 'order', relation: 'source' });
         }
       }
 
-      // Если это КП, ищем заказы, созданные на основе этой КП
-      if (document.type === 'quote') {
-        const orders = await fetchDocumentsByQuoteId(document.id);
-        related.push(...orders.map(ord => ({ ...ord, type: 'order', relation: 'derived' })));
-      }
+      // Убираем дубликаты
+      const uniqueRelated = related.filter((doc, index, self) => 
+        index === self.findIndex(d => d.id === doc.id)
+      );
 
-      setRelatedDocs(related);
+      setRelatedDocs(uniqueRelated);
     } catch (error) {
       console.error('Ошибка получения связанных документов:', error);
     } finally {

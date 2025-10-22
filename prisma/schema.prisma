@@ -295,7 +295,8 @@ model QuoteItem {
 model Order {
   id            String    @id @default(cuid())
   number        String    @unique
-  quote_id      String?
+  quote_id      String?   // Ссылка на исходную КП
+  invoice_id    String?   // Ссылка на счет
   client_id     String
   created_by    String
   status        String    @default("PENDING")
@@ -336,7 +337,8 @@ model OrderItem {
 model Invoice {
   id           String    @id @default(cuid())
   number       String    @unique
-  order_id     String?
+  quote_id     String?   // Ссылка на исходную КП
+  order_id     String?   // Ссылка на внутренний заказ
   client_id    String
   created_by   String
   status       String    @default("DRAFT")
@@ -375,7 +377,8 @@ model InvoiceItem {
 
 model SupplierOrder {
   id             String    @id @default(cuid())
-  order_id       String
+  order_id       String    // Ссылка на внутренний заказ
+  invoice_id     String?   // Ссылка на счет
   executor_id    String
   supplier_name  String
   supplier_email String?
