@@ -687,7 +687,10 @@ export async function exportDocumentWithPDF(
       // Формируем название товара в правильном формате
       let name = '';
       
-      if (item.model && item.model.includes('DomeoDoors')) {
+      if (item.type === 'handle') {
+        // Это ручка - используем название как есть
+        name = item.name;
+      } else if (item.model && item.model.includes('DomeoDoors')) {
         // Это дверь - формируем описание БЕЗ ручки
         const finish = item.finish || '';
         const color = item.color || '';
@@ -700,9 +703,6 @@ export async function exportDocumentWithPDF(
           // Для КП и Счета - дверь БЕЗ ручки
           name = `Дверь ${item.model} (${finish}, ${color}, ${dimensions}, Фурнитура - Комплект фурнитуры - ${hardware})`;
         }
-      } else if (item.name && item.name.includes('Ручка')) {
-        // Это ручка - используем название как есть
-        name = item.name;
       } else {
         // Другие товары - используем стандартный формат
         name = item.name || `${item.model || 'Товар'} ${item.finish || ''} ${item.color || ''}`.trim();
@@ -836,7 +836,10 @@ async function createDocumentRecordsSimple(
       // Формируем название товара в правильном формате для КП
       let name = '';
       
-      if (item.model && item.model.includes('DomeoDoors')) {
+      if (item.type === 'handle') {
+        // Это ручка - используем название как есть
+        name = item.name;
+      } else if (item.model && item.model.includes('DomeoDoors')) {
         // Это дверь - формируем описание БЕЗ ручки
         const finish = item.finish || '';
         const color = item.color || '';
@@ -844,9 +847,6 @@ async function createDocumentRecordsSimple(
         const hardware = item.hardware || 'Базовый';
         
         name = `Дверь ${item.model} (${finish}, ${color}, ${dimensions}, Фурнитура - Комплект фурнитуры - ${hardware})`;
-      } else if (item.name && item.name.includes('Ручка')) {
-        // Это ручка - используем название как есть
-        name = item.name;
       } else {
         // Другие товары
         name = item.name || `${item.model || 'Товар'} ${item.finish || ''} ${item.color || ''}`.trim();
@@ -887,7 +887,10 @@ async function createDocumentRecordsSimple(
       // Формируем название товара в правильном формате для Счета
       let name = '';
       
-      if (item.model && item.model.includes('DomeoDoors')) {
+      if (item.type === 'handle') {
+        // Это ручка - используем название как есть
+        name = item.name;
+      } else if (item.model && item.model.includes('DomeoDoors')) {
         // Это дверь - формируем описание БЕЗ ручки
         const finish = item.finish || '';
         const color = item.color || '';
@@ -895,9 +898,6 @@ async function createDocumentRecordsSimple(
         const hardware = item.hardware || 'Базовый';
         
         name = `Дверь ${item.model} (${finish}, ${color}, ${dimensions}, Фурнитура - Комплект фурнитуры - ${hardware})`;
-      } else if (item.name && item.name.includes('Ручка')) {
-        // Это ручка - используем название как есть
-        name = item.name;
       } else {
         // Другие товары
         name = item.name || `${item.model || 'Товар'} ${item.finish || ''} ${item.color || ''}`.trim();
@@ -938,7 +938,10 @@ async function createDocumentRecordsSimple(
       // Формируем название товара в правильном формате для Заказа
       let name = '';
       
-      if (item.model && item.model.includes('DomeoDoors')) {
+      if (item.type === 'handle') {
+        // Это ручка - используем название как есть
+        name = item.name;
+      } else if (item.model && item.model.includes('DomeoDoors')) {
         // Это дверь - формируем описание БЕЗ ручки
         const finish = item.finish || '';
         const color = item.color || '';
@@ -946,9 +949,6 @@ async function createDocumentRecordsSimple(
         const hardware = item.hardware || 'Базовый';
         
         name = `Дверь ${item.model} (${finish}, ${color}, ${dimensions}, Фурнитура - ${hardware})`;
-      } else if (item.name && item.name.includes('Ручка')) {
-        // Это ручка - используем название как есть
-        name = item.name;
       } else {
         // Другие товары
         name = item.name || `${item.model || 'Товар'} ${item.finish || ''} ${item.color || ''}`.trim();

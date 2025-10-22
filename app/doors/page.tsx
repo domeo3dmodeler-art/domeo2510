@@ -1375,10 +1375,10 @@ export default function DoorsPage() {
     // Добавляем дверь с комплектом
     const item: CartItem = {
       id: uid(),
+      type: 'door', // Указываем тип товара
       style: sel.style,
       model: sel.model,
       finish: sel.finish,
-      type: sel.type,
       width: sel.width,
       height: sel.height,
       color: sel.color,
@@ -1396,10 +1396,10 @@ export default function DoorsPage() {
       const handle = Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id);
       const handleItem: CartItem = {
         id: uid(),
+        type: 'handle', // Указываем тип товара
         style: sel.style,
         model: sel.model,
         finish: sel.finish,
-        type: sel.type,
         width: sel.width,
         height: sel.height,
         color: sel.color,
@@ -2090,7 +2090,7 @@ export default function DoorsPage() {
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => setShowHandleModal(true)}
-                          disabled={!sel.hardware_kit}
+                      disabled={!sel.hardware_kit}
                           className={`flex-1 border border-black/20 px-3 py-2 text-left text-black ${
                             !sel.hardware_kit ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''
                           }`}
@@ -2397,10 +2397,16 @@ export default function DoorsPage() {
                           <div className="flex items-center justify-between">
                             <div className="text-sm">
                               <div className="font-medium text-black">
-                                Дверь DomeoDoors {i.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель'}
+                                {i.type === 'handle' 
+                                  ? `Ручка ${Object.values(handles).flat().find((h: Handle) => h.id === i.handleId)?.name || 'Неизвестная ручка'}`
+                                  : `Дверь DomeoDoors ${i.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель'}`
+                                }
                           </div>
                               <div className="text-gray-600 text-xs font-normal">
-                                ({i.finish}, {i.color}, {i.width} × {i.height} мм, Фурнитура - {hardwareKits.find((k: any) => k.id === i.hardwareKitId)?.name.replace('Комплект фурнитуры — ', '') || 'Базовый'})
+                                {i.type === 'handle' 
+                                  ? `(Ручка для двери)`
+                                  : `(${i.finish}, ${i.color}, ${i.width} × ${i.height} мм, Фурнитура - ${hardwareKits.find((k: any) => k.id === i.hardwareKitId)?.name.replace('Комплект фурнитуры — ', '') || 'Базовый'})`
+                                }
                           </div>
                         </div>
                             <div className="text-sm">
@@ -2946,7 +2952,7 @@ export default function DoorsPage() {
                   </div>
                 </div>
             )}
-          </div>
+              </div>
         </div>
       )}
 
@@ -3328,31 +3334,31 @@ function CartManager({
               <span>{selectedClientName || 'Заказчик'}</span>
             </button>
             {canCreateQuote && (
-              <button
+            <button
                 onClick={() => generateDocumentFast('quote', 'pdf')}
-                className="flex items-center space-x-1 px-3 py-1 text-sm border border-blue-500 text-blue-600 hover:bg-blue-50 transition-all duration-200"
-              >
-                <span>📄</span>
-                <span>КП</span>
-              </button>
+              className="flex items-center space-x-1 px-3 py-1 text-sm border border-blue-500 text-blue-600 hover:bg-blue-50 transition-all duration-200"
+            >
+              <span>📄</span>
+              <span>КП</span>
+            </button>
             )}
             {canCreateInvoice && (
-              <button
+            <button
                 onClick={() => generateDocumentFast('invoice', 'pdf')}
-                className="flex items-center space-x-1 px-3 py-1 text-sm border border-green-500 text-green-600 hover:bg-green-50 transition-all duration-200"
-              >
+              className="flex items-center space-x-1 px-3 py-1 text-sm border border-green-500 text-green-600 hover:bg-green-50 transition-all duration-200"
+            >
                 <span>📄</span>
-                <span>Счет</span>
-              </button>
+              <span>Счет</span>
+            </button>
             )}
             {canCreateOrder && (
-              <button
+            <button
                 onClick={() => generateDocumentFast('order', 'excel')}
-                className="flex items-center space-x-1 px-3 py-1 text-sm border border-orange-500 text-orange-600 hover:bg-orange-50 transition-all duration-200"
-              >
+              className="flex items-center space-x-1 px-3 py-1 text-sm border border-orange-500 text-orange-600 hover:bg-orange-50 transition-all duration-200"
+            >
                 <span>📊</span>
-                <span>Заказ</span>
-              </button>
+              <span>Заказ</span>
+            </button>
             )}
           </div>
           
@@ -3482,10 +3488,16 @@ function CartManager({
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-black text-sm truncate">
-                          Дверь DomeoDoors {item.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель'}
+                          {item.type === 'handle' 
+                            ? `Ручка ${Object.values(handles).flat().find((h: Handle) => h.id === item.handleId)?.name || 'Неизвестная ручка'}`
+                            : `Дверь DomeoDoors ${item.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель'}`
+                          }
                         </div>
                         <div className="text-xs text-gray-600 truncate">
-                          {item.finish}, {item.color}, {item.width} × {item.height} мм, Фурнитура: {hardwareKits.find((k: any) => k.id === item.hardwareKitId)?.name.replace('Комплект фурнитуры — ', '') || 'Базовый'}
+                          {item.type === 'handle' 
+                            ? `Ручка для двери`
+                            : `${item.finish}, ${item.color}, ${item.width} × ${item.height} мм, Фурнитура: ${hardwareKits.find((k: any) => k.id === item.hardwareKitId)?.name.replace('Комплект фурнитуры — ', '') || 'Базовый'}`
+                          }
                         </div>
                       </div>
                       <div className="flex items-center space-x-4 ml-6">
