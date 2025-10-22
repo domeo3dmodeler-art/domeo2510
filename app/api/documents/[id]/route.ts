@@ -23,24 +23,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             lastName: true,
             middleName: true,
             phone: true,
-            address: true,
-            email: true
+            address: true
           }
         },
-        invoice_items: true,
-        document_comments: {
-          orderBy: { created_at: 'desc' },
-          include: {
-            user: {
-              select: {
-                first_name: true,
-                last_name: true,
-                middle_name: true,
-                role: true
-              }
-            }
-          }
-        }
+        invoice_items: true
       }
     });
 
@@ -59,24 +45,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
               lastName: true,
               middleName: true,
               phone: true,
-              address: true,
-              email: true
+              address: true
             }
           },
-          quote_items: true,
-          document_comments: {
-            orderBy: { created_at: 'desc' },
-            include: {
-              user: {
-                select: {
-                  first_name: true,
-                  last_name: true,
-                  middle_name: true,
-                  role: true
-                }
-              }
-            }
-          }
+          quote_items: true
         }
       });
 
@@ -95,24 +67,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                 lastName: true,
                 middleName: true,
                 phone: true,
-                address: true,
-                email: true
+                address: true
               }
             },
-            order_items: true,
-            document_comments: {
-              orderBy: { created_at: 'desc' },
-              include: {
-                user: {
-                  select: {
-                    first_name: true,
-                    last_name: true,
-                    middle_name: true,
-                    role: true
-                  }
-                }
-              }
-            }
+            order_items: true
           }
         });
 

@@ -53,10 +53,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       );
     }
 
-    if (!document.client?.email) {
-      console.log(`❌ У клиента нет email адреса`);
+    if (!document.client?.phone) {
+      console.log(`❌ У клиента нет контактной информации`);
       return NextResponse.json(
-        { error: 'У клиента не указан email адрес' },
+        { error: 'У клиента не указана контактная информация' },
         { status: 400 }
       );
     }
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // TODO: Реализовать отправку email
     // await sendDocumentEmail(document.client.email, document);
 
-    console.log(`✅ Документ ${id} отправлен клиенту ${document.client.email}`);
+    console.log(`✅ Документ ${id} отправлен клиенту ${document.client.firstName} ${document.client.lastName}`);
 
     return NextResponse.json({
       success: true,
