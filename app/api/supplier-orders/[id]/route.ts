@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       select: {
         id: true,
         number: true,
-        order_id: true,
+        parent_document_id: true,
         client_id: true,
         created_by: true,
         status: true,

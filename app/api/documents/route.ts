@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     if (orderId) {
       // Получаем счета, созданные на основе заказа
       const invoices = await prisma.invoice.findMany({
-        where: { order_id: orderId },
+        where: { parent_document_id: orderId },
         include: {
           client: {
             select: {

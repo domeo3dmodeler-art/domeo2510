@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { Settings, Download, Share, Edit, Archive, Trash2, Send, CheckCircle, XCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface DocumentActionsProps {
   document: any;
@@ -9,6 +11,7 @@ interface DocumentActionsProps {
 
 export function DocumentActions({ document }: DocumentActionsProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const { showConfirm, ConfirmDialogComponent } = useConfirmDialog();
 
   const handleStatusChange = async (newStatus: string) => {
     setIsLoading(true);
@@ -199,10 +202,19 @@ export function DocumentActions({ document }: DocumentActionsProps) {
           <div className="space-y-2">
             <button
               onClick={() => {
-                if (confirm('Вы уверены, что хотите архивировать этот документ?')) {
-                  // TODO: Реализовать архивирование
-                  alert('Функция архивирования в разработке');
-                }
+                showConfirm(
+                  'Архивирование документа',
+                  'Вы уверены, что хотите архивировать этот документ?',
+                  () => {
+                    // TODO: Реализовать архивирование
+                    toast.info('Функция архивирования в разработке');
+                  },
+                  {
+                    confirmText: 'Архивировать',
+                    cancelText: 'Отмена',
+                    type: 'warning'
+                  }
+                );
               }}
               className="w-full flex items-center space-x-3 px-4 py-2 text-orange-700 hover:text-orange-900 hover:bg-orange-50 rounded-md transition-colors"
             >
@@ -212,10 +224,19 @@ export function DocumentActions({ document }: DocumentActionsProps) {
 
             <button
               onClick={() => {
-                if (confirm('Вы уверены, что хотите удалить этот документ? Это действие нельзя отменить.')) {
-                  // TODO: Реализовать удаление
-                  alert('Функция удаления в разработке');
-                }
+                showConfirm(
+                  'Удаление документа',
+                  'Вы уверены, что хотите удалить этот документ? Это действие нельзя отменить.',
+                  () => {
+                    // TODO: Реализовать удаление
+                    toast.info('Функция удаления в разработке');
+                  },
+                  {
+                    confirmText: 'Удалить',
+                    cancelText: 'Отмена',
+                    type: 'danger'
+                  }
+                );
               }}
               className="w-full flex items-center space-x-3 px-4 py-2 text-red-700 hover:text-red-900 hover:bg-red-50 rounded-md transition-colors"
             >
@@ -225,6 +246,7 @@ export function DocumentActions({ document }: DocumentActionsProps) {
           </div>
         </div>
       </div>
+      <ConfirmDialogComponent />
     </div>
   );
 }

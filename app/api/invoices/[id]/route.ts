@@ -11,7 +11,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       select: {
         id: true,
         number: true,
-        order_id: true,
+        parent_document_id: true,
+        cart_session_id: true,
         client_id: true,
         created_by: true,
         status: true,
@@ -59,7 +60,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // Обновляем счет
     const updatedInvoice = await prisma.invoice.update({
       where: { id },
-      data: body,
+      data: {
+        ...body,
+        // Заменяем order_id на parent_document_id если оно есть
+        ...(body.order_id && { parent_document_id: body.order_id }),
+        // Удаляем order_id из данных
+        order_id: undefined
+      },
       include: {
         client: true,
         invoice_items: true

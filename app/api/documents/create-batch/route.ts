@@ -125,13 +125,13 @@ async function findExistingDocument(
     const contentHash = createContentHash(clientId, items, totalAmount);
 
     if (type === 'quote') {
+      // Строгая логика поиска существующего КП - точное совпадение всех полей
       const existingQuote = await prisma.quote.findFirst({
         where: {
           parent_document_id: parentDocumentId,
           cart_session_id: cartSessionId,
           client_id: clientId,
-          total_amount: totalAmount,
-          cart_data: { contains: contentHash }
+          total_amount: totalAmount
         } as any,
         orderBy: { created_at: 'desc' }
       });
@@ -140,13 +140,13 @@ async function findExistingDocument(
         return existingQuote;
       }
     } else if (type === 'invoice') {
+      // Строгая логика поиска существующего счета - точное совпадение всех полей
       const existingInvoice = await prisma.invoice.findFirst({
         where: {
           parent_document_id: parentDocumentId,
           cart_session_id: cartSessionId,
           client_id: clientId,
-          total_amount: totalAmount,
-          cart_data: { contains: contentHash }
+          total_amount: totalAmount
         } as any,
         orderBy: { created_at: 'desc' }
       });
@@ -160,8 +160,7 @@ async function findExistingDocument(
           parent_document_id: parentDocumentId,
           cart_session_id: cartSessionId,
           client_id: clientId,
-          total_amount: totalAmount,
-          cart_data: { contains: contentHash }
+          total_amount: totalAmount
         } as any,
         orderBy: { created_at: 'desc' }
       });
@@ -329,13 +328,19 @@ function createContentHash(clientId: string, items: any[], totalAmount: number):
   const content = {
     client_id: clientId,
     items: items.map(item => ({
-      product_id: item.product_id,
-      quantity: item.quantity,
-      price: item.price,
+      id: item.id,
+      type: item.type,
+      quantity: item.qty || item.quantity,
+      unitPrice: item.unitPrice || item.price,
       name: item.name
     })),
     total_amount: totalAmount
   };
   
-  return Buffer.from(JSON.stringify(content)).toString('base64').substring(0, 50);
+  // Создаем более длинный и уникальный хеш
+  const contentString = JSON.stringify(content);
+  const hash = Buffer.from(contentString).toString('base64');
+  
+  // Берем первые 100 символов для лучшей уникальности
+  return hash.substring(0, 100);
 }

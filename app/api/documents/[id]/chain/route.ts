@@ -63,11 +63,19 @@ async function getAllClientDocuments(documentId: string) {
       } else {
         const supplierOrder = await prisma.supplierOrder.findUnique({
           where: { id: documentId },
-          include: { order: { select: { client_id: true } } }
+          select: { parent_document_id: true }
         });
 
-        if (supplierOrder) {
-          clientId = supplierOrder.order.client_id;
+        if (supplierOrder && supplierOrder.parent_document_id) {
+          // Получаем клиента через родительский документ
+          const parentOrder = await prisma.order.findUnique({
+            where: { id: supplierOrder.parent_document_id },
+            select: { client_id: true }
+          });
+          
+          if (parentOrder) {
+            clientId = parentOrder.client_id;
+          }
         }
       }
     }
@@ -137,24 +145,24 @@ function buildDocumentChain(allDocuments: any[], startDocumentId: string) {
     let nextDoc = null;
 
     if (currentDoc.documentType === 'quote') {
-      // КП → Счет
+      // КП → Счет (через parent_document_id)
       nextDoc = allDocuments.find(doc => 
         doc.documentType === 'invoice' && 
-        doc.quote_id === currentDoc.id &&
+        doc.parent_document_id === currentDoc.id &&
         !visited.has(doc.id)
       );
     } else if (currentDoc.documentType === 'invoice') {
-      // Счет → Заказ
+      // Счет → Заказ (через parent_document_id)
       nextDoc = allDocuments.find(doc => 
         doc.documentType === 'order' && 
-        doc.invoice_id === currentDoc.id &&
+        doc.parent_document_id === currentDoc.id &&
         !visited.has(doc.id)
       );
     } else if (currentDoc.documentType === 'order') {
-      // Заказ → Заказ у поставщика
+      // Заказ → Заказ у поставщика (через parent_document_id)
       nextDoc = allDocuments.find(doc => 
         doc.documentType === 'supplier_order' && 
-        doc.order_id === currentDoc.id &&
+        doc.parent_document_id === currentDoc.id &&
         !visited.has(doc.id)
       );
     }
@@ -177,25 +185,25 @@ function buildDocumentChain(allDocuments: any[], startDocumentId: string) {
   while (currentDoc) {
     let prevDoc = null;
 
-    if (currentDoc.documentType === 'invoice' && currentDoc.quote_id) {
-      // Счет ← КП
+    if (currentDoc.documentType === 'invoice' && currentDoc.parent_document_id) {
+      // Счет ← КП (через parent_document_id)
       prevDoc = allDocuments.find(doc => 
         doc.documentType === 'quote' && 
-        doc.id === currentDoc.quote_id &&
+        doc.id === currentDoc.parent_document_id &&
         !visited.has(doc.id)
       );
-    } else if (currentDoc.documentType === 'order' && currentDoc.invoice_id) {
-      // Заказ ← Счет
+    } else if (currentDoc.documentType === 'order' && currentDoc.parent_document_id) {
+      // Заказ ← КП или Счет (через parent_document_id)
       prevDoc = allDocuments.find(doc => 
-        doc.documentType === 'invoice' && 
-        doc.id === currentDoc.invoice_id &&
+        (doc.documentType === 'quote' || doc.documentType === 'invoice') && 
+        doc.id === currentDoc.parent_document_id &&
         !visited.has(doc.id)
       );
-    } else if (currentDoc.documentType === 'supplier_order' && currentDoc.order_id) {
-      // Заказ у поставщика ← Заказ
+    } else if (currentDoc.documentType === 'supplier_order' && currentDoc.parent_document_id) {
+      // Заказ у поставщика ← Заказ (через parent_document_id)
       prevDoc = allDocuments.find(doc => 
         doc.documentType === 'order' && 
-        doc.id === currentDoc.order_id &&
+        doc.id === currentDoc.parent_document_id &&
         !visited.has(doc.id)
       );
     }

@@ -32,7 +32,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       where: { id },
       select: {
         id: true,
-        order_id: true,
+        parent_document_id: true,
         supplier_name: true,
         supplier_email: true,
         supplier_phone: true,
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Получаем связанный заказ и клиента
     const order = await prisma.order.findUnique({
-      where: { id: supplierOrder.order_id },
+      where: { id: supplierOrder.parent_document_id },
       select: {
         id: true,
         client: {

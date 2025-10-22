@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import puppeteer from 'puppeteer';
 import ExcelJS from 'exceljs';
+import { findExistingDocument } from '@/lib/export/puppeteer-generator';
 
 const prisma = new PrismaClient();
 
@@ -392,39 +393,78 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Клиент не найден' }, { status: 404 });
     }
 
-    // Генерируем номер документа
-    const documentNumber = `${type.toUpperCase()}-${Date.now()}`;
+    // Генерируем cart_session_id для группировки документов
+    const cartHash = Buffer.from(JSON.stringify({
+      clientId,
+      items: items.map(item => ({
+        id: item.id,
+        type: item.type,
+        model: item.model,
+        qty: item.qty,
+        unitPrice: item.unitPrice
+      })),
+      totalAmount
+    })).toString('base64').substring(0, 20);
+    
+    const cartSessionId = `cart_${cartHash}`;
+    
+    console.log('🛒 Cart session ID:', cartSessionId);
+    
+    // Проверяем существующий документ (дедупликация)
+    const existingDocument = await findExistingDocument(type, null, cartSessionId, clientId, items, totalAmount);
+    
+    let documentNumber: string;
+    let documentId: string | null = null;
+    
+    if (existingDocument) {
+      documentNumber = existingDocument.number;
+      documentId = existingDocument.id;
+      console.log(`🔄 Используем существующий документ: ${documentNumber} (ID: ${documentId})`);
+    } else {
+      documentNumber = `${type.toUpperCase()}-${Date.now()}`;
+      console.log(`🆕 Создаем новый документ: ${documentNumber}`);
+    }
 
     if (type === 'quote') {
-      // Создаем КП
-      const quote = await prisma.quote.create({
-        data: {
-          number: documentNumber,
-          client_id: clientId,
-          created_by: 'system', // TODO: Получить из токена
-          status: 'DRAFT',
-          subtotal: totalAmount,
-          total_amount: totalAmount,
-          currency: 'RUB',
-          notes: 'Сгенерировано из конфигуратора дверей'
-        }
-      });
-
-      // Создаем позиции КП
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        const productName = buildProductName(item);
-        
-        await prisma.quoteItem.create({
+      let quote;
+      
+      if (existingDocument) {
+        // Используем существующий КП
+        quote = existingDocument;
+        console.log(`✅ Используем существующий КП: ${quote.number}`);
+      } else {
+        // Создаем новый КП
+        quote = await prisma.quote.create({
           data: {
-            quote_id: quote.id,
-            product_id: item.id || `temp_${i}`,
-            quantity: item.qty || item.quantity || 1,
-            unit_price: item.unitPrice || 0,
-            total_price: (item.qty || item.quantity || 1) * (item.unitPrice || 0),
-            notes: `${productName} | Артикул: ${item.sku_1c || 'N/A'}`
+            number: documentNumber,
+            cart_session_id: cartSessionId,
+            client_id: clientId,
+            created_by: 'system', // TODO: Получить из токена
+            status: 'DRAFT',
+            subtotal: totalAmount,
+            total_amount: totalAmount,
+            currency: 'RUB',
+            notes: 'Сгенерировано из конфигуратора дверей',
+            cart_data: JSON.stringify(items)
           }
         });
+
+        // Создаем позиции КП только для нового документа
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          const productName = buildProductName(item);
+          
+          await prisma.quoteItem.create({
+            data: {
+              quote_id: quote.id,
+              product_id: item.id || `temp_${i}`,
+              quantity: item.qty || item.quantity || 1,
+              unit_price: item.unitPrice || 0,
+              total_price: (item.qty || item.quantity || 1) * (item.unitPrice || 0),
+              notes: `${productName} | Артикул: ${item.sku_1c || 'N/A'}`
+            }
+          });
+        }
       }
 
       // Генерируем PDF для КП
@@ -451,35 +491,45 @@ export async function POST(request: NextRequest) {
       });
 
     } else if (type === 'invoice') {
-      // Создаем Счет
-      const invoice = await prisma.invoice.create({
-        data: {
-          number: documentNumber,
-          client_id: clientId,
-          created_by: 'system', // TODO: Получить из токена
-          status: 'DRAFT',
-          subtotal: totalAmount,
-          total_amount: totalAmount,
-          currency: 'RUB',
-          notes: 'Сгенерировано из конфигуратора дверей'
-        }
-      });
-
-      // Создаем позиции Счета
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        const productName = buildProductName(item);
-        
-        await prisma.invoiceItem.create({
+      let invoice;
+      
+      if (existingDocument) {
+        // Используем существующий счет
+        invoice = existingDocument;
+        console.log(`✅ Используем существующий счет: ${invoice.number}`);
+      } else {
+        // Создаем новый счет
+        invoice = await prisma.invoice.create({
           data: {
-            invoice_id: invoice.id,
-            product_id: item.id || `temp_${i}`,
-            quantity: item.qty || item.quantity || 1,
-            unit_price: item.unitPrice || 0,
-            total_price: (item.qty || item.quantity || 1) * (item.unitPrice || 0),
-            notes: `${productName} | Артикул: ${item.sku_1c || 'N/A'}`
+            number: documentNumber,
+            cart_session_id: cartSessionId,
+            client_id: clientId,
+            created_by: 'system', // TODO: Получить из токена
+            status: 'DRAFT',
+            subtotal: totalAmount,
+            total_amount: totalAmount,
+            currency: 'RUB',
+            notes: 'Сгенерировано из конфигуратора дверей',
+            cart_data: JSON.stringify(items)
           }
         });
+
+        // Создаем позиции счета только для нового документа
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          const productName = buildProductName(item);
+          
+          await prisma.invoiceItem.create({
+            data: {
+              invoice_id: invoice.id,
+              product_id: item.id || `temp_${i}`,
+              quantity: item.qty || item.quantity || 1,
+              unit_price: item.unitPrice || 0,
+              total_price: (item.qty || item.quantity || 1) * (item.unitPrice || 0),
+              notes: `${productName} | Артикул: ${item.sku_1c || 'N/A'}`
+            }
+          });
+        }
       }
 
       // Генерируем PDF для Счета
@@ -506,35 +556,45 @@ export async function POST(request: NextRequest) {
       });
 
     } else if (type === 'order') {
-      // Создаем Заказ
-      const order = await prisma.order.create({
-        data: {
-          number: documentNumber,
-          client_id: clientId,
-          created_by: 'system', // TODO: Получить из токена
-          status: 'PENDING',
-          subtotal: totalAmount,
-          total_amount: totalAmount,
-          currency: 'RUB',
-          notes: 'Сгенерировано из конфигуратора дверей'
-        }
-      });
-
-      // Создаем позиции Заказа
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        const productName = buildProductName(item);
-        
-        await prisma.orderItem.create({
+      let order;
+      
+      if (existingDocument) {
+        // Используем существующий заказ
+        order = existingDocument;
+        console.log(`✅ Используем существующий заказ: ${order.number}`);
+      } else {
+        // Создаем новый заказ
+        order = await prisma.order.create({
           data: {
-            order_id: order.id,
-            product_id: item.id || `temp_${i}`,
-            quantity: item.qty || item.quantity || 1,
-            unit_price: item.unitPrice || 0,
-            total_price: (item.qty || item.quantity || 1) * (item.unitPrice || 0),
-            notes: `${productName} | Артикул: ${item.sku_1c || 'N/A'}`
+            number: documentNumber,
+            cart_session_id: cartSessionId,
+            client_id: clientId,
+            created_by: 'system', // TODO: Получить из токена
+            status: 'PENDING',
+            subtotal: totalAmount,
+            total_amount: totalAmount,
+            currency: 'RUB',
+            notes: 'Сгенерировано из конфигуратора дверей',
+            cart_data: JSON.stringify(items)
           }
         });
+
+        // Создаем позиции заказа только для нового документа
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          const productName = buildProductName(item);
+          
+          await prisma.orderItem.create({
+            data: {
+              order_id: order.id,
+              product_id: item.id || `temp_${i}`,
+              quantity: item.qty || item.quantity || 1,
+              unit_price: item.unitPrice || 0,
+              total_price: (item.qty || item.quantity || 1) * (item.unitPrice || 0),
+              notes: `${productName} | Артикул: ${item.sku_1c || 'N/A'}`
+            }
+          });
+        }
       }
 
       // Получаем полные данные товаров из БД по точной конфигурации

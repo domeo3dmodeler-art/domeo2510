@@ -9,7 +9,15 @@ import { generateCartSessionId } from '@/lib/utils/cart-session';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { type, format, clientId, items, totalAmount } = body;
+    const { 
+      type, 
+      format, 
+      clientId, 
+      items, 
+      totalAmount, 
+      parentDocumentId, 
+      cartSessionId 
+    } = body;
     
     console.log('🚀 Fast export request:', { 
       type, 
@@ -54,32 +62,39 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Validation passed, starting export...');
 
-    // Генерируем cart_session_id на основе содержимого корзины
-    // Если корзина одинаковая - cart_session_id будет одинаковый
-    const cartHash = Buffer.from(JSON.stringify({
-      clientId,
-      items: items.map(item => ({
-        id: item.id,
-        type: item.type,
-        model: item.model,
-        qty: item.qty,
-        unitPrice: item.unitPrice
-      })),
-      totalAmount
-    })).toString('base64').substring(0, 20);
+    // Используем переданный cartSessionId или генерируем новый
+    let finalCartSessionId = cartSessionId;
     
-    const cartSessionId = `cart_${cartHash}`;
+    if (!finalCartSessionId) {
+      // Генерируем cart_session_id на основе содержимого корзины
+      // Если корзина одинаковая - cart_session_id будет одинаковый
+      const cartHash = Buffer.from(JSON.stringify({
+        clientId,
+        items: items.map(item => ({
+          id: item.id,
+          type: item.type,
+          model: item.model,
+          qty: item.qty,
+          unitPrice: item.unitPrice
+        })),
+        totalAmount
+      })).toString('base64').substring(0, 20);
+      
+      finalCartSessionId = `cart_${cartHash}`;
+    }
     
-    console.log('🛒 Cart session ID:', cartSessionId);
+    console.log('🛒 Cart session ID:', finalCartSessionId);
+    console.log('👨‍👩‍👧‍👦 Parent document ID:', parentDocumentId);
     
-    // Экспортируем документ
+    // Экспортируем документ с поддержкой связанных документов
     const result = await exportDocumentWithPDF(
       type,
       format,
       clientId,
       items,
       totalAmount,
-      cartSessionId
+      finalCartSessionId,
+      parentDocumentId
     );
 
     // Возвращаем файл с информацией о документе

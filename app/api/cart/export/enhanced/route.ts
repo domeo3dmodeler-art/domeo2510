@@ -175,12 +175,12 @@ async function createDocumentRelationship(
     } else if (sourceType === 'order' && targetType === 'invoice') {
       await prisma.invoice.update({
         where: { id: targetId },
-        data: { order_id: sourceId }
+        data: { parent_document_id: sourceId }
       });
     } else if (sourceType === 'order' && targetType === 'supplier_order') {
       await prisma.supplierOrder.update({
         where: { id: targetId },
-        data: { order_id: sourceId }
+        data: { parent_document_id: sourceId }
       });
     }
 

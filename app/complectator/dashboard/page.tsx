@@ -23,6 +23,8 @@ import { useAuth } from '../../../hooks/useAuth';
 import CommentsModal from '@/components/ui/CommentsModal';
 import HistoryModal from '@/components/ui/HistoryModal';
 import NotificationBell from '@/components/ui/NotificationBell';
+import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
+import { toast } from 'sonner';
 // Убраны корзина/генераторы документов для режима работы с клиентами
 
 interface ComplectatorStats {
@@ -76,6 +78,19 @@ export default function ComplectatorDashboard() {
   
   // Состояние для количества комментариев по документам
   const [commentsCount, setCommentsCount] = useState<Record<string, number>>({});
+  
+  // Состояние для модального окна удаления
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    type: 'quote' | 'invoice';
+    id: string | null;
+    name: string | null;
+  }>({
+    isOpen: false,
+    type: 'quote',
+    id: null,
+    name: null
+  });
 
   useEffect(() => {
     fetchStats();
@@ -347,7 +362,7 @@ export default function ComplectatorDashboard() {
       }
     } catch (error) {
       console.error('Error creating client:', error);
-      alert('Ошибка при создании клиента');
+      toast.error('Ошибка при создании клиента');
       throw error;
     }
   };
@@ -438,7 +453,7 @@ export default function ComplectatorDashboard() {
       }
     } catch (error) {
       console.error('❌ Error updating quote status:', error);
-      alert(`Ошибка при изменении статуса КП: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+      toast.error(`Ошибка при изменении статуса КП: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
       throw error;
     }
   };
@@ -516,7 +531,7 @@ export default function ComplectatorDashboard() {
       }
     } catch (error) {
       console.error('❌ Error updating invoice status:', error);
-      alert(`Ошибка при изменении статуса счета: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+      toast.error(`Ошибка при изменении статуса счета: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
       throw error;
     }
   };
@@ -527,21 +542,21 @@ export default function ComplectatorDashboard() {
       // Получаем данные КП
       const quote = quotes.find(q => q.id === quoteId);
       if (!quote) {
-        alert('КП не найдено');
+        toast.error('КП не найдено');
         return;
       }
 
       // Получаем полные данные КП из API
       const quoteResponse = await fetch(`/api/quotes/${quoteId}`);
       if (!quoteResponse.ok) {
-        alert('Ошибка при получении данных КП');
+        toast.error('Ошибка при получении данных КП');
         return;
       }
       
       const quoteData = await quoteResponse.json();
       
       if (!quoteData.quote.cart_data) {
-        alert('Нет данных корзины для перегенерации');
+        toast.error('Нет данных корзины для перегенерации');
         return;
       }
 
@@ -587,14 +602,14 @@ export default function ComplectatorDashboard() {
         if (selectedClient) {
           fetchClientDocuments(selectedClient);
         }
-        alert('Счет создан и скачан успешно');
+        toast.success('Счет создан и скачан успешно');
       } else {
         const error = await response.json();
-        alert(`Ошибка: ${error.error}`);
+        toast.error(`Ошибка: ${error.error}`);
       }
     } catch (error) {
       console.error('Error creating invoice from quote:', error);
-      alert('Ошибка при создании счета');
+      toast.error('Ошибка при создании счета');
     }
   };
 
@@ -604,21 +619,21 @@ export default function ComplectatorDashboard() {
       // Получаем данные КП
       const quote = quotes.find(q => q.id === quoteId);
       if (!quote) {
-        alert('КП не найдено');
+        toast.error('КП не найдено');
         return;
       }
 
       // Получаем полные данные КП из API
       const quoteResponse = await fetch(`/api/quotes/${quoteId}`);
       if (!quoteResponse.ok) {
-        alert('Ошибка при получении данных КП');
+        toast.error('Ошибка при получении данных КП');
         return;
       }
       
       const quoteData = await quoteResponse.json();
       
       if (!quoteData.quote.cart_data) {
-        alert('Нет данных корзины для перегенерации');
+        toast.error('Нет данных корзины для перегенерации');
         return;
       }
 
@@ -660,14 +675,14 @@ export default function ComplectatorDashboard() {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
         
-        alert('КП перегенерировано и скачано успешно');
+        toast.success('КП перегенерировано и скачано успешно');
       } else {
         const error = await response.json();
-        alert(`Ошибка: ${error.error}`);
+        toast.error(`Ошибка: ${error.error}`);
       }
     } catch (error) {
       console.error('Error regenerating quote:', error);
-      alert('Ошибка при перегенерации КП');
+      toast.error('Ошибка при перегенерации КП');
     }
   };
 
@@ -677,21 +692,21 @@ export default function ComplectatorDashboard() {
       // Получаем данные счета
       const invoice = invoices.find(i => i.id === invoiceId);
       if (!invoice) {
-        alert('Счет не найден');
+        toast.error('Счет не найден');
         return;
       }
 
       // Получаем полные данные счета из API
       const invoiceResponse = await fetch(`/api/invoices/${invoiceId}`);
       if (!invoiceResponse.ok) {
-        alert('Ошибка при получении данных счета');
+        toast.error('Ошибка при получении данных счета');
         return;
       }
       
       const invoiceData = await invoiceResponse.json();
       
       if (!invoiceData.invoice.cart_data) {
-        alert('Нет данных корзины для перегенерации');
+        toast.error('Нет данных корзины для перегенерации');
         return;
       }
 
@@ -733,21 +748,19 @@ export default function ComplectatorDashboard() {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
         
-        alert('Счет перегенерирован и скачан успешно');
+        toast.success('Счет перегенерирован и скачан успешно');
       } else {
         const error = await response.json();
-        alert(`Ошибка: ${error.error}`);
+        toast.error(`Ошибка: ${error.error}`);
       }
     } catch (error) {
       console.error('Error regenerating invoice:', error);
-      alert('Ошибка при перегенерации счета');
+      toast.error('Ошибка при перегенерации счета');
     }
   };
 
   // Удаление КП
   const deleteQuote = async (quoteId: string) => {
-    if (!confirm('Вы уверены, что хотите удалить это КП?')) return;
-
     try {
       const response = await fetch(`/api/quotes/${quoteId}`, {
         method: 'DELETE'
@@ -755,21 +768,19 @@ export default function ComplectatorDashboard() {
 
       if (response.ok) {
         setQuotes(prev => prev.filter(q => q.id !== quoteId));
-        alert('КП удалено успешно');
+        toast.success('КП удалено успешно');
       } else {
         const error = await response.json();
-        alert(`Ошибка: ${error.error}`);
+        toast.error(`Ошибка: ${error.error}`);
       }
     } catch (error) {
       console.error('Error deleting quote:', error);
-      alert('Ошибка при удалении КП');
+      toast.error('Ошибка при удалении КП');
     }
   };
 
   // Удаление счета
   const deleteInvoice = async (invoiceId: string) => {
-    if (!confirm('Вы уверены, что хотите удалить этот счет?')) return;
-
     try {
       const response = await fetch(`/api/invoices/${invoiceId}`, {
         method: 'DELETE'
@@ -777,14 +788,14 @@ export default function ComplectatorDashboard() {
 
       if (response.ok) {
         setInvoices(prev => prev.filter(i => i.id !== invoiceId));
-        alert('Счет удален успешно');
+        toast.success('Счет удален успешно');
       } else {
         const error = await response.json();
-        alert(`Ошибка: ${error.error}`);
+        toast.error(`Ошибка: ${error.error}`);
       }
     } catch (error) {
       console.error('Error deleting invoice:', error);
-      alert('Ошибка при удалении счета');
+      toast.error('Ошибка при удалении счета');
     }
   };
 
@@ -800,6 +811,11 @@ export default function ComplectatorDashboard() {
     if (selectedDocument) {
       fetchCommentsCount(selectedDocument.id);
     }
+  };
+
+  const openHistoryModal = (documentId: string, documentType: 'quote' | 'invoice', documentNumber: string) => {
+    setSelectedDocument({ id: documentId, type: documentType, number: documentNumber });
+    setShowHistoryModal(true);
   };
 
   // Функция для фокуса на документ при переходе из уведомления
@@ -1008,7 +1024,12 @@ export default function ComplectatorDashboard() {
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        deleteQuote(q.id);
+                                        setDeleteModal({
+                                          isOpen: true,
+                                          type: 'quote',
+                                          id: q.id,
+                                          name: q.number
+                                        });
                                         setShowQuoteActions(null);
                                       }}
                                       className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
@@ -1103,7 +1124,12 @@ export default function ComplectatorDashboard() {
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        deleteInvoice(i.id);
+                                        setDeleteModal({
+                                          isOpen: true,
+                                          type: 'invoice',
+                                          id: i.id,
+                                          name: i.number
+                                        });
                                         setShowInvoiceActions(null);
                                       }}
                                       className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
@@ -1218,7 +1244,7 @@ export default function ComplectatorDashboard() {
               <button
                 onClick={async () => {
                   if (!newClientData.firstName || !newClientData.lastName || !newClientData.phone) {
-                    alert('Заполните ФИО и телефон');
+                    toast.error('Заполните ФИО и телефон');
                     return;
                   }
                   try {
@@ -1347,6 +1373,35 @@ export default function ComplectatorDashboard() {
         documentId={selectedDocument?.id || ''}
         documentType={selectedDocument?.type || 'quote'}
         documentNumber={selectedDocument?.number || ''}
+      />
+
+      {/* Модальное окно подтверждения удаления */}
+      <DeleteConfirmModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => {
+          console.log('🔒 Закрытие модального окна удаления');
+          setDeleteModal(prev => ({ ...prev, isOpen: false }));
+        }}
+        onConfirm={async () => {
+          console.log('✅ Подтверждение удаления в модальном окне:', deleteModal.type, deleteModal.id);
+          try {
+            if (deleteModal.type === 'quote' && deleteModal.id) {
+              await deleteQuote(deleteModal.id);
+            } else if (deleteModal.type === 'invoice' && deleteModal.id) {
+              await deleteInvoice(deleteModal.id);
+            }
+            console.log('✅ Удаление завершено, закрываем модальное окно');
+          } catch (error) {
+            console.error('❌ Ошибка в модальном окне:', error);
+            throw error; // Перебрасываем ошибку, чтобы модальное окно не закрылось
+          }
+        }}
+        title={deleteModal.type === 'quote' ? 'Удаление КП' : 'Удаление счета'}
+        message={deleteModal.type === 'quote' 
+          ? 'Вы уверены, что хотите удалить это КП? Все связанные данные будут потеряны.'
+          : 'Вы уверены, что хотите удалить этот счет? Все связанные данные будут потеряны.'
+        }
+        itemName={deleteModal.name || undefined}
       />
     </div>
   );

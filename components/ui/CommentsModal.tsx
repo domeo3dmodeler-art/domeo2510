@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { StickyNote, History, Send, Trash2, Edit3, X } from 'lucide-react';
 import { Button } from './Button';
+import { toast } from 'sonner';
+import { useConfirmDialog } from './ConfirmDialog';
 
 interface Comment {
   id: string;
@@ -52,6 +54,7 @@ export default function CommentsModal({
   const [submitting, setSubmitting] = useState(false);
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
+  const { showConfirm, ConfirmDialogComponent } = useConfirmDialog();
 
   // Получаем текущего пользователя
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -153,45 +156,59 @@ export default function CommentsModal({
       } else {
         const errorData = await response.json();
         console.error('❌ Comment error:', errorData);
-        alert(`Ошибка при добавлении комментария: ${errorData.error}`);
+        toast.error(`Ошибка при добавлении комментария: ${errorData.error}`);
       }
     } catch (error) {
       console.error('Error adding comment:', error);
-      alert('Ошибка при добавлении комментария');
+      toast.error('Ошибка при добавлении комментария');
     } finally {
       setSubmitting(false);
     }
   };
 
   const deleteComment = async (commentId: string) => {
-    if (!confirm('Вы уверены, что хотите удалить этот комментарий?')) return;
-
-    try {
-      const response = await fetch(`/api/documents/${documentId}/comments/${commentId}`, {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        setComments(comments.filter(c => c.id !== commentId));
-        
-        // Добавляем запись в историю
-        if (currentUser) {
-          await fetch(`/api/documents/${documentId}/history`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              action: 'comment_deleted',
-              user_id: currentUser.id,
-              details: JSON.stringify({ comment_id: commentId })
-            })
+    showConfirm(
+      'Удаление комментария',
+      'Вы уверены, что хотите удалить этот комментарий?',
+      async () => {
+        try {
+          const response = await fetch(`/api/documents/${documentId}/comments/${commentId}`, {
+            method: 'DELETE'
           });
+
+          if (response.ok) {
+            setComments(comments.filter(c => c.id !== commentId));
+            
+            // Добавляем запись в историю
+            if (currentUser) {
+              await fetch(`/api/documents/${documentId}/history`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  action: 'comment_deleted',
+                  user_id: currentUser.id,
+                  details: JSON.stringify({ comment_id: commentId })
+                })
+              });
+            }
+            
+            toast.success('Комментарий удален успешно');
+          } else {
+            toast.error('Ошибка при удалении комментария');
+          }
+        } catch (error) {
+          console.error('Error deleting comment:', error);
+          toast.error('Ошибка при удалении комментария');
         }
+      },
+      {
+        confirmText: 'Удалить',
+        cancelText: 'Отмена',
+        type: 'danger'
       }
-    } catch (error) {
-      console.error('Error deleting comment:', error);
-    }
+    );
   };
 
   const startEdit = (comment: Comment) => {
@@ -399,6 +416,7 @@ export default function CommentsModal({
           )}
         </div>
       </div>
+      <ConfirmDialogComponent />
     </div>
   );
 }

@@ -105,7 +105,7 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
   <div class="header">${title}</div>
   
   <div class="info">
-    <div><strong>Клиент:</strong> ${data.client.name || 'N/A'}</div>
+    <div><strong>Клиент:</strong> ${data.client.firstName && data.client.lastName ? `${data.client.lastName} ${data.client.firstName} ${data.client.middleName || ''}`.trim() : 'N/A'}</div>
     <div><strong>Телефон:</strong> ${data.client.phone || 'N/A'}</div>
     <div><strong>Адрес:</strong> ${data.client.address || 'N/A'}</div>
     <div><strong>Номер документа:</strong> ${data.documentNumber}</div>
@@ -387,7 +387,7 @@ export async function generateExcelOrder(data: any): Promise<Buffer> {
 
     // Информация о клиенте
     worksheet.getCell('A3').value = 'Клиент:';
-    worksheet.getCell('B3').value = data.client.name || 'N/A';
+    worksheet.getCell('B3').value = data.client.firstName && data.client.lastName ? `${data.client.lastName} ${data.client.firstName} ${data.client.middleName || ''}`.trim() : 'N/A';
     worksheet.getCell('A4').value = 'Телефон:';
     worksheet.getCell('B4').value = data.client.phone || 'N/A';
     worksheet.getCell('A5').value = 'Адрес:';
@@ -797,21 +797,22 @@ export async function generateExcelFast(data: any): Promise<Buffer> {
   return buffer;
 }
 
-// Основная функция экспорта с поддержкой cart_session_id
+// Основная функция экспорта с поддержкой cart_session_id и parent_document_id
 export async function exportDocumentWithPDF(
   type: 'quote' | 'invoice' | 'order',
   format: 'pdf' | 'excel' | 'csv',
   clientId: string,
   items: any[],
   totalAmount: number,
-  cartSessionId?: string | null
+  cartSessionId?: string | null,
+  parentDocumentId?: string | null
 ) {
   const startTime = Date.now();
   console.log(`🚀 Экспорт ${type} в формате ${format} для ${items.length} позиций`);
 
   // Проверяем, есть ли уже документ с таким содержимым
   console.log(`🔍 Ищем существующий документ типа ${type} для клиента ${clientId}`);
-  const existingDocument = await findExistingDocument(type, clientId, items, totalAmount, null, cartSessionId);
+  const existingDocument = await findExistingDocument(type, clientId, items, totalAmount, parentDocumentId, cartSessionId);
   
   let documentNumber: string;
   let documentId: string | null = null;
@@ -851,6 +852,8 @@ export async function exportDocumentWithPDF(
   }
 
   // Подготавливаем данные для экспорта
+  console.log('🔍 Debug items data:', JSON.stringify(items, null, 2));
+  
   const exportData = {
     type,
     documentNumber,
@@ -888,11 +891,11 @@ export async function exportDocumentWithPDF(
       
       return {
         rowNumber: i + 1,
-        sku: item.sku_1c || 'N/A',
+        sku: item.sku || item.sku_1c || item.id || 'N/A',
         name: name,
-        unitPrice: item.unitPrice || 0,
+        unitPrice: item.unitPrice || item.price || 0,
         quantity: item.qty || item.quantity || 1,
-        total: (item.qty || item.quantity || 1) * (item.unitPrice || 0),
+        total: (item.qty || item.quantity || 1) * (item.unitPrice || item.price || 0),
         // Дополнительные поля для поиска в БД (для заказов)
         model: item.model,
         finish: item.finish,
@@ -950,7 +953,7 @@ export async function exportDocumentWithPDF(
   let dbResult = null;
   if (!existingDocument) {
     try {
-      dbResult = await createDocumentRecordsSimple(type, clientId, items, totalAmount, documentNumber, null, cartSessionId);
+      dbResult = await createDocumentRecordsSimple(type, clientId, items, totalAmount, documentNumber, parentDocumentId, cartSessionId);
       console.log(`✅ Записи в БД созданы: ${dbResult.type} #${dbResult.id}`);
     } catch (error) {
       console.error('❌ Ошибка создания записей в БД:', error);
@@ -1006,6 +1009,7 @@ async function findExistingDocument(
     console.log(`🔍 Items count: ${items.length}, Items:`, items.map(item => `${item.type}:${item.model}:${item.qty || item.quantity}:${item.unitPrice || item.price}`));
     
     if (type === 'quote') {
+      // Строгая логика поиска существующего КП - точное совпадение всех полей
       const existingQuote = await prisma.quote.findFirst({
         where: {
           parent_document_id: parentDocumentId || null,
@@ -1023,6 +1027,7 @@ async function findExistingDocument(
         return existingQuote;
       }
     } else if (type === 'invoice') {
+      // Строгая логика поиска существующего счета - точное совпадение всех полей
       const existingInvoice = await prisma.invoice.findFirst({
         where: {
           parent_document_id: parentDocumentId || null,
@@ -1040,6 +1045,7 @@ async function findExistingDocument(
         return existingInvoice;
       }
     } else if (type === 'order') {
+      // Строгая логика поиска существующего заказа - точное совпадение всех полей
       const existingOrder = await prisma.order.findFirst({
         where: {
           parent_document_id: parentDocumentId || null,
@@ -1230,6 +1236,7 @@ async function createDocumentRecordsSimple(
       data: {
         number: documentNumber,
         parent_document_id: parentDocumentId,
+        cart_session_id: cartSessionId,
         client_id: clientId,
         created_by: 'system',
         status: 'PENDING',

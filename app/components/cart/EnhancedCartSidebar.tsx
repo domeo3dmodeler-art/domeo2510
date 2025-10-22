@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ShoppingCart, X, Plus, Minus, Trash2, FileText, Download, ArrowRight, Copy } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui';
 import { CartService } from '../../lib/cart/cart-service';
 import { Cart, CartItem, CartCalculation } from '../../lib/cart/types';
@@ -75,7 +76,7 @@ export default function EnhancedCartSidebar({
 
   const handleExportDocument = async (documentType: 'quote' | 'invoice' | 'order' | 'supplier_order') => {
     if (!selectedClientId) {
-      alert('Выберите клиента для создания документа');
+      toast.error('Выберите клиента для создания документа');
       return;
     }
 
@@ -118,14 +119,14 @@ export default function EnhancedCartSidebar({
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        alert(`${documentType} успешно создан и скачан!`);
+        toast.success(`${documentType} успешно создан и скачан!`);
       } else {
         const error = await response.json();
-        alert(`Ошибка: ${error.error}`);
+        toast.error(`Ошибка: ${error.error}`);
       }
     } catch (error) {
       console.error('Error exporting document:', error);
-      alert('Ошибка при создании документа');
+      toast.error('Ошибка при создании документа');
     } finally {
       setIsExporting(false);
     }

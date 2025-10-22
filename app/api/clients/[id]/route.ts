@@ -67,11 +67,13 @@ export async function GET(
         },
         select: {
           id: true,
+          number: true, // Номер заказа у поставщика
           status: true,
           created_at: true,
           supplier_name: true,
           order_date: true,
-          expected_date: true
+          expected_date: true,
+          total_amount: true // Общая сумма заказа у поставщика
         },
         orderBy: { created_at: 'desc' },
         take: 10

@@ -7,6 +7,7 @@ import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import NotificationBell from '@/components/ui/NotificationBell';
 import CommentsModal from '@/components/ui/CommentsModal';
 import HistoryModal from '@/components/ui/HistoryModal';
+import { toast } from 'sonner';
 import { 
   FileText, 
   Download, 
@@ -182,10 +183,10 @@ export default function ExecutorDashboard() {
         console.log('📦 Обрабатываем заказы у поставщика:', client.supplierOrders?.length || 0);
         const formattedSupplierOrders = client.supplierOrders?.map((so: any) => ({
           id: so.id,
-          number: `ЗП-${so.id.slice(-6)}`,
+          number: so.number || `ЗП-${so.id.slice(-6)}`, // Используем номер заказа у поставщика или генерируем
           date: new Date(so.created_at).toISOString().split('T')[0],
           status: mapSupplierOrderStatus(so.status),
-          total: so.order?.total_amount || 0,
+          total: so.total_amount || so.order?.total_amount || 0, // Используем total_amount из заказа у поставщика
           supplierName: so.supplier_name
         })) || [];
         console.log('📦 Форматированные заказы у поставщика:', formattedSupplierOrders.length);
@@ -381,7 +382,7 @@ export default function ExecutorDashboard() {
       }
     } catch (error) {
       console.error('Error creating client:', error);
-      alert('Ошибка при создании клиента');
+      toast.error('Ошибка при создании клиента');
       throw error;
     }
   };
@@ -470,7 +471,7 @@ export default function ExecutorDashboard() {
       }
     } catch (error) {
       console.error('❌ Error updating invoice status:', error);
-      alert(`Ошибка при изменении статуса счета: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+      toast.error(`Ошибка при изменении статуса счета: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
       throw error;
     }
   };
@@ -481,21 +482,21 @@ export default function ExecutorDashboard() {
       // Получаем данные счета
       const invoice = invoices.find(inv => inv.id === invoiceId);
       if (!invoice) {
-        alert('Счет не найден');
+        toast.error('Счет не найден');
         return;
       }
 
       // Получаем полные данные счета из API
       const invoiceResponse = await fetch(`/api/invoices/${invoiceId}`);
       if (!invoiceResponse.ok) {
-        alert('Ошибка при получении данных счета');
+        toast.error('Ошибка при получении данных счета');
         return;
       }
       
       const invoiceData = await invoiceResponse.json();
       
       if (!invoiceData.invoice.cart_data) {
-        alert('Нет данных корзины для создания нового счета');
+        toast.error('Нет данных корзины для создания нового счета');
         return;
       }
 
@@ -541,14 +542,14 @@ export default function ExecutorDashboard() {
         if (selectedClient) {
           fetchClientDocuments(selectedClient);
         }
-        alert('Счет создан и скачан успешно');
+        toast.success('Счет создан и скачан успешно');
       } else {
         const error = await response.json();
-        alert(`Ошибка: ${error.error}`);
+        toast.error(`Ошибка: ${error.error}`);
       }
     } catch (error) {
       console.error('Error creating invoice from invoice:', error);
-      alert('Ошибка при создании счета');
+      toast.error('Ошибка при создании счета');
     }
   };
 
@@ -558,14 +559,14 @@ export default function ExecutorDashboard() {
       // Получаем данные счета
       const invoice = invoices.find(inv => inv.id === invoiceId);
       if (!invoice) {
-        alert('Счет не найден');
+        toast.error('Счет не найден');
         return;
       }
 
       // Получаем полные данные счета из API
       const invoiceResponse = await fetch(`/api/invoices/${invoiceId}`);
       if (!invoiceResponse.ok) {
-        alert('Ошибка при получении данных счета');
+        toast.error('Ошибка при получении данных счета');
         return;
       }
       
@@ -599,7 +600,7 @@ export default function ExecutorDashboard() {
 
         if (!orderResponse.ok) {
           const error = await orderResponse.json();
-          alert(`Ошибка при создании заказа: ${error.error}`);
+          toast.error(`Ошибка при создании заказа: ${error.error}`);
           return;
         }
         const newOrder = await orderResponse.json();
@@ -638,7 +639,7 @@ export default function ExecutorDashboard() {
           await generateSupplierOrderExcel(result.supplierOrder.id);
         } catch (excelError) {
           console.error('Error generating Excel:', excelError);
-          alert('Заказ у поставщика создан, но произошла ошибка при генерации Excel файла');
+          toast.warning('Заказ у поставщика создан, но произошла ошибка при генерации Excel файла');
         }
 
         // Обновляем данные клиента
@@ -647,11 +648,11 @@ export default function ExecutorDashboard() {
         }
       } else {
         const error = await response.json();
-        alert(`Ошибка: ${error.error}`);
+        toast.error(`Ошибка: ${error.error}`);
       }
     } catch (error) {
       console.error('Error creating supplier order:', error);
-      alert('Ошибка при создании заказа у поставщика');
+      toast.error('Ошибка при создании заказа у поставщика');
     }
   };
 
@@ -709,15 +710,15 @@ export default function ExecutorDashboard() {
         //   await fetchClientDocuments(selectedClient);
         // }
         
-        alert('Счет удален успешно');
+        toast.success('Счет удален успешно');
       } else {
         const error = await response.json();
         console.error('❌ Ошибка удаления счета:', error);
-        alert(`Ошибка: ${error.error}`);
+        toast.error(`Ошибка: ${error.error}`);
       }
     } catch (error) {
       console.error('❌ Error deleting invoice:', error);
-      alert('Ошибка при удалении счета');
+      toast.error('Ошибка при удалении счета');
     }
   };
 
@@ -761,15 +762,15 @@ export default function ExecutorDashboard() {
         //   await fetchClientDocuments(selectedClient);
         // }
         
-        alert('Заказ у поставщика удален успешно');
+        toast.success('Заказ у поставщика удален успешно');
       } else {
         const error = await response.json();
         console.error('❌ Ошибка удаления заказа у поставщика:', error);
-        alert(`Ошибка: ${error.error}`);
+        toast.error(`Ошибка: ${error.error}`);
       }
     } catch (error) {
       console.error('❌ Error deleting supplier order:', error);
-      alert('Ошибка при удалении заказа у поставщика');
+      toast.error('Ошибка при удалении заказа у поставщика');
     }
   };
 
@@ -1212,7 +1213,7 @@ export default function ExecutorDashboard() {
               <button
                 onClick={async () => {
                   if (!newClientData.firstName || !newClientData.lastName || !newClientData.phone) {
-                    alert('Заполните ФИО и телефон');
+                    toast.error('Заполните ФИО и телефон');
                     return;
                   }
                   try {

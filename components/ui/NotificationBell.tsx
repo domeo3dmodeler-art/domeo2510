@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, ChevronDown, FileText, CreditCard, Package } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import DocumentQuickViewModal from '@/components/documents/DocumentQuickViewModal';
 
 interface Notification {
   id: string;
@@ -30,6 +31,8 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Получаем уведомления
@@ -129,10 +132,10 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
     // Закрываем dropdown
     setIsOpen(false);
 
-    // Переходим к соответствующему документу
+    // Открываем модальное окно с документом
     if (notification.document_id) {
-      // Переходим на страницу документа
-      router.push(`/documents/${notification.document_id}`);
+      setSelectedDocumentId(notification.document_id);
+      setIsModalOpen(true);
     }
   };
 
@@ -258,6 +261,18 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Модальное окно для быстрого просмотра документа */}
+      {selectedDocumentId && (
+        <DocumentQuickViewModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedDocumentId(null);
+          }}
+          documentId={selectedDocumentId}
+        />
       )}
     </div>
   );

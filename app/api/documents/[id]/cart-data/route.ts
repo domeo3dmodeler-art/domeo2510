@@ -45,7 +45,7 @@ export async function GET(
       case 'supplier_order':
         document = await prisma.supplierOrder.findUnique({
           where: { id },
-          select: { id: true, cart_data: true, order_id: true }
+          select: { id: true, cart_data: true, parent_document_id: true }
         });
         break;
       
@@ -75,7 +75,7 @@ export async function GET(
         id: document.id,
         number: document.number || `DOC-${document.id.slice(-6)}`,
         type: documentType,
-        clientId: document.client_id || document.order_id,
+        clientId: document.client_id || document.parent_document_id,
         cartData: cartData
       }
     });
