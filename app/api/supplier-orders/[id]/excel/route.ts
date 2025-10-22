@@ -195,12 +195,12 @@ async function generateExcel(data: any): Promise<Buffer> {
       'Цена опт',
       'Цена РРЦ', 
       'Поставщик',
-      'Наименование двери у поставщика',
-      'Тип покрытия',
-      'Ширина/мм',
-      'Высота/мм', 
-      'Толщина/мм',
-      'Фабрика_Цвет/Отделка',
+      'Наименование у поставщика',
+      'Материал/Покрытие',
+      'Размер 1',
+      'Размер 2', 
+      'Размер 3',
+      'Цвет/Отделка',
       'SKU внутреннее',
       'Артикул поставщика'
     ];
@@ -369,8 +369,29 @@ async function generateExcel(data: any): Promise<Buffer> {
               
               // Заполняем поля в нужном порядке
               dbFields.forEach(fieldName => {
-                const value = props[fieldName];
-                if (value !== undefined && value !== null) {
+                let value = '';
+                
+                // Специальная логика для ручек
+                if (item.type === 'handle') {
+                  if (fieldName === 'Наименование у поставщика') {
+                    // Для ручек используем Фабрика_наименование
+                    value = props['Фабрика_наименование'] || '';
+                  } else if (fieldName === 'Материал/Покрытие' || 
+                           fieldName === 'Размер 1' || 
+                           fieldName === 'Размер 2' || 
+                           fieldName === 'Размер 3') {
+                    // Для ручек эти поля не заполняем
+                    value = '';
+                  } else {
+                    // Остальные поля заполняем как обычно
+                    value = props[fieldName] || '';
+                  }
+                } else {
+                  // Для дверей используем старую логику
+                  value = props[fieldName] || '';
+                }
+                
+                if (value !== undefined && value !== null && value !== '') {
                   // Специальное форматирование для цен
                   if (fieldName === 'Цена опт' || fieldName === 'Цена РРЦ') {
                     const numValue = parseFloat(String(value));
@@ -525,11 +546,11 @@ async function findAllProductsByConfiguration(item: any) {
         
         // Проверяем ТОЧНОЕ соответствие конфигурации (как в оригинале)
         const modelMatch = !item.model || props['Domeo_Название модели для Web'] === item.model;
-        const finishMatch = !item.finish || props['Тип покрытия'] === item.finish;
-        const colorMatch = !item.color || props['Domeo_Цвет'] === item.color;
+        const finishMatch = !item.finish || props['Материал/Покрытие'] === item.finish;
+        const colorMatch = !item.color || props['Цвет/Отделка'] === item.color;
         // Исправляем сравнение размеров - приводим к строкам для сравнения
-        const widthMatch = !item.width || String(props['Ширина/мм']) === String(item.width);
-        const heightMatch = !item.height || String(props['Высота/мм']) === String(item.height);
+        const widthMatch = !item.width || String(props['Размер 1']) === String(item.width);
+        const heightMatch = !item.height || String(props['Размер 2']) === String(item.height);
         
         if (modelMatch && finishMatch && colorMatch && widthMatch && heightMatch) {
           console.log('✅ Найден подходящий товар:', product.sku);
@@ -546,10 +567,10 @@ async function findAllProductsByConfiguration(item: any) {
               itemModel: item.model, itemFinish: item.finish, itemColor: item.color,
               itemWidth: item.width, itemHeight: item.height,
               dbModel: props['Domeo_Название модели для Web'],
-              dbFinish: props['Тип покрытия'],
-              dbColor: props['Domeo_Цвет'],
-              dbWidth: props['Ширина/мм'],
-              dbHeight: props['Высота/мм']
+              dbFinish: props['Материал/Покрытие'],
+              dbColor: props['Цвет/Отделка'],
+              dbWidth: props['Размер 1'],
+              dbHeight: props['Размер 2']
             });
           }
         }

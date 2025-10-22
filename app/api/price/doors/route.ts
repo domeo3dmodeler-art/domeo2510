@@ -71,21 +71,28 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { selection } = body;
+    console.log('📦 Raw request body:', JSON.stringify(body, null, 2));
+    console.log('🔍 Body type:', typeof body);
+    console.log('🔍 Body.selection:', body?.selection);
+    
+    // Данные могут приходить напрямую в body или в поле selection
+    const selection = body?.selection || body;
+    console.log('🎯 Extracted selection:', JSON.stringify(selection, null, 2));
     
     console.log('💰 Price calculation request:', {
-      style: selection.style,
-      model: selection.model,
-      finish: selection.finish,
-      color: selection.color,
-      width: selection.width,
-      height: selection.height,
-      hardware_kit: selection.hardware_kit,
-      handle: selection.handle
+      style: selection?.style,
+      model: selection?.model,
+      finish: selection?.finish,
+      color: selection?.color,
+      width: selection?.width,
+      height: selection?.height,
+      hardware_kit: selection?.hardware_kit,
+      handle: selection?.handle
     });
     
 
     if (!selection) {
+      console.error('❌ Selection is undefined or null');
       return NextResponse.json(
         { error: "Данные для расчета не предоставлены" },
         { status: 400 }

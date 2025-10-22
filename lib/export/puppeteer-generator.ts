@@ -287,13 +287,54 @@ async function findAllProductsByConfiguration(item: any) {
             matchingProducts.push(product);
           }
         } else {
-          // Для дверей проверяем ТОЧНОЕ соответствие конфигурации
-          const modelMatch = !item.model || props['Domeo_Название модели для Web'] === item.model;
-          const finishMatch = !item.finish || props['Тип покрытия'] === item.finish;
-          const colorMatch = !item.color || props['Domeo_Цвет'] === item.color;
-          // Исправляем сравнение размеров - приводим к строкам для сравнения
-          const widthMatch = !item.width || String(props['Ширина/мм']) === String(item.width);
-          const heightMatch = !item.height || String(props['Высота/мм']) === String(item.height);
+          // Для отладки - показываем все доступные поля только для первого товара
+          if (matchingProducts.length === 0 && allProducts.indexOf(product) === 0) {
+            console.log('🔍 Доступные поля в properties_data:', Object.keys(props));
+            console.log('🔍 Примеры значений:', {
+              'Domeo_Название модели для Web': props['Domeo_Название модели для Web'],
+              'Материал/Покрытие': props['Материал/Покрытие'],
+              'Цвет/Отделка': props['Цвет/Отделка'],
+              'Размер 1': props['Размер 1'],
+              'Размер 2': props['Размер 2'],
+              'Ширина/мм': props['Ширина/мм'],
+              'Высота/мм': props['Высота/мм'],
+              'Толщина/мм': props['Толщина/мм'],
+              'Тип покрытия': props['Тип покрытия'],
+              'Domeo_Цвет': props['Domeo_Цвет']
+            });
+          }
+          
+          // Для дверей проверяем соответствие конфигурации (более гибкий поиск)
+          // Пробуем разные варианты названий полей
+          const modelMatch = !item.model || 
+            props['Domeo_Название модели для Web'] === item.model ||
+            props['МОДЕЛЬ'] === item.model ||
+            props['model'] === item.model ||
+            // Более гибкий поиск - если модель не найдена, пропускаем проверку модели
+            (item.model && !props['Domeo_Название модели для Web'] && !props['МОДЕЛЬ'] && !props['model']);
+            
+          const finishMatch = !item.finish || 
+            props['Материал/Покрытие'] === item.finish ||
+            props['Тип покрытия'] === item.finish ||
+            props['ТИП ПОКРЫТИЯ'] === item.finish ||
+            props['finish'] === item.finish;
+            
+          const colorMatch = !item.color || 
+            props['Цвет/Отделка'] === item.color ||
+            props['Domeo_Цвет'] === item.color ||
+            props['ЦВЕТ'] === item.color ||
+            props['color'] === item.color;
+            
+          // Исправляем сравнение размеров - пробуем разные варианты названий
+          const widthMatch = !item.width || 
+            String(props['Размер 1']) === String(item.width) ||
+            String(props['Ширина/мм']) === String(item.width) ||
+            String(props['width']) === String(item.width);
+            
+          const heightMatch = !item.height || 
+            String(props['Размер 2']) === String(item.height) ||
+            String(props['Высота/мм']) === String(item.height) ||
+            String(props['height']) === String(item.height);
       
           if (modelMatch && finishMatch && colorMatch && widthMatch && heightMatch) {
             console.log('✅ Найден подходящий товар:', product.sku);
@@ -306,11 +347,11 @@ async function findAllProductsByConfiguration(item: any) {
                 modelMatch, finishMatch, colorMatch, widthMatch, heightMatch,
                 itemModel: item.model, itemFinish: item.finish, itemColor: item.color,
                 itemWidth: item.width, itemHeight: item.height,
-                dbModel: props['Domeo_Название модели для Web'],
-                dbFinish: props['Тип покрытия'],
-                dbColor: props['Domeo_Цвет'],
-                dbWidth: props['Ширина/мм'],
-                dbHeight: props['Высота/мм']
+                dbModel: props['Domeo_Название модели для Web'] || props['МОДЕЛЬ'] || props['model'],
+                dbFinish: props['Материал/Покрытие'] || props['Тип покрытия'] || props['ТИП ПОКРЫТИЯ'] || props['finish'],
+                dbColor: props['Цвет/Отделка'] || props['Domeo_Цвет'] || props['ЦВЕТ'] || props['color'],
+                dbWidth: props['Размер 1'] || props['Ширина/мм'] || props['width'],
+                dbHeight: props['Размер 2'] || props['Высота/мм'] || props['height']
               });
             }
           }
@@ -366,12 +407,12 @@ export async function generateExcelOrder(data: any): Promise<Buffer> {
       'Цена опт',
       'Цена РРЦ', 
       'Поставщик',
-      'Наименование двери у поставщика',
-      'Тип покрытия',
-      'Ширина/мм',
-      'Высота/мм', 
-      'Толщина/мм',
-      'Фабрика_Цвет/Отделка',
+      'Наименование у поставщика',
+      'Материал/Покрытие',
+      'Размер 1',
+      'Размер 2', 
+      'Размер 3',
+      'Цвет/Отделка',
       'SKU внутреннее',
       'Артикул поставщика'
     ];
@@ -532,9 +573,75 @@ export async function generateExcelOrder(data: any): Promise<Buffer> {
                 : productData.properties_data;
               
               // Заполняем поля в нужном порядке
+              console.log(`🔍 Тип товара: "${item.type}", Заполняем поля для ${productData.sku}`);
+              console.log(`🔍 Проверяем item.type === 'handle': ${item.type === 'handle'}`);
               dbFields.forEach(fieldName => {
-                const value = props[fieldName];
-                if (value !== undefined && value !== null) {
+                let value = '';
+                
+                // Универсальная логика для всех товаров
+                if (fieldName === 'Наименование у поставщика') {
+                  // Для всех товаров используем правильные поля
+                  value = props['Фабрика_наименование'] || props['Наименование двери у поставщика'] || props['Наименование поставщика'] || props['Наименование'] || '';
+                  console.log(`🔍 Поле "${fieldName}" заполняем: ${value} (из props: ${JSON.stringify(props)})`);
+                } else if (fieldName === 'Материал/Покрытие') {
+                  // Для дверей: Материал/Покрытие, для ручек: пустое
+                  if (item.type === 'handle') {
+                    value = ''; // Ручки не заполняют материал
+                    console.log(`🔍 Ручка - поле "${fieldName}" оставляем пустым`);
+                  } else {
+                    value = props['Материал/Покрытие'] || props['Тип покрытия'] || '';
+                    console.log(`🔍 Дверь - поле "${fieldName}" заполняем: ${value}`);
+                  }
+                } else if (fieldName === 'Размер 1') {
+                  // Для дверей: Ширина/мм, для ручек: пустое
+                  if (item.type === 'handle') {
+                    value = ''; // Ручки не заполняют размеры
+                    console.log(`🔍 Ручка - поле "${fieldName}" оставляем пустым`);
+                  } else {
+                    value = props['Ширина/мм'] || '';
+                    console.log(`🔍 Дверь - поле "${fieldName}" заполняем: ${value}`);
+                  }
+                } else if (fieldName === 'Размер 2') {
+                  // Для дверей: Высота/мм, для ручек: пустое
+                  if (item.type === 'handle') {
+                    value = ''; // Ручки не заполняют размеры
+                    console.log(`🔍 Ручка - поле "${fieldName}" оставляем пустым`);
+                  } else {
+                    value = props['Высота/мм'] || '';
+                    console.log(`🔍 Дверь - поле "${fieldName}" заполняем: ${value}`);
+                  }
+                } else if (fieldName === 'Размер 3') {
+                  // Для дверей: Толщина/мм, для ручек: пустое
+                  if (item.type === 'handle') {
+                    value = ''; // Ручки не заполняют размеры
+                    console.log(`🔍 Ручка - поле "${fieldName}" оставляем пустым`);
+                  } else {
+                    value = props['Толщина/мм'] || '';
+                    console.log(`🔍 Дверь - поле "${fieldName}" заполняем: ${value}`);
+                  }
+                } else if (fieldName === 'Цвет/Отделка') {
+                  // Для всех товаров используем Цвет/Отделка
+                  value = props['Цвет/Отделка'] || props['Domeo_Цвет'] || '';
+                } else {
+                  // Остальные поля заполняем как обычно
+                  if (item.type === 'handle') {
+                    // Для ручек используем специальную логику для некоторых полей
+                    if (fieldName === 'Цена РРЦ') {
+                      value = props['Цена розница'] || props['Цена РРЦ'] || '';
+                    } else if (fieldName === 'Артикул поставщика') {
+                      value = props['Фабрика_артикул'] || props['Артикул поставщика'] || '';
+                    } else {
+                      value = props[fieldName] || '';
+                    }
+                    console.log(`🔍 Ручка - поле "${fieldName}" заполняем: ${value}`);
+                  } else {
+                    // Для дверей используем стандартную логику
+                    value = props[fieldName] || '';
+                    console.log(`🔍 Дверь - поле "${fieldName}" заполняем: ${value}`);
+                  }
+                }
+                
+                if (value !== undefined && value !== null && value !== '') {
                   // Специальное форматирование для цен
                   if (fieldName === 'Цена опт' || fieldName === 'Цена РРЦ') {
                     const numValue = parseFloat(String(value));
@@ -778,7 +885,11 @@ export async function exportDocumentWithPDF(
         height: item.height,
         style: item.style,
         hardware: item.hardware,
-        sku_1c: item.sku_1c
+        sku_1c: item.sku_1c,
+        // КРИТИЧНО: передаем тип товара для правильной логики
+        type: item.type,
+        handleId: item.handleId,
+        handleName: item.handleName
       };
     }),
     totalAmount
