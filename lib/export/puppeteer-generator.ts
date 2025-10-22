@@ -1,9 +1,9 @@
 import { prisma } from '@/lib/prisma';
 import ExcelJS from 'exceljs';
-import puppeteer from 'puppeteer';
+import puppeteer, { Browser } from 'puppeteer';
 
 // Кэшированный браузер для ускорения генерации
-let cachedBrowser: puppeteer.Browser | null = null;
+let cachedBrowser: Browser | null = null;
 
 // Функция для очистки кэшированного браузера
 export async function cleanupBrowserCache() {
@@ -193,7 +193,7 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
     
   } catch (error) {
     console.error('❌ Ошибка генерации PDF:', error);
-    throw new Error(`PDF generation failed: ${error.message}`); 
+    throw new Error(`PDF generation failed: ${error instanceof Error ? error.message : String(error)}`); 
   }
 }
 
@@ -307,11 +307,12 @@ async function findAllProductsByConfiguration(item: any) {
                 itemModel: item.model, itemFinish: item.finish, itemColor: item.color,
                 itemWidth: item.width, itemHeight: item.height,
                 dbModel: props['Domeo_Название модели для Web'],
-              dbFinish: props['Тип покрытия'],
-              dbColor: props['Domeo_Цвет'],
-              dbWidth: props['Ширина/мм'],
-              dbHeight: props['Высота/мм']
-            });
+                dbFinish: props['Тип покрытия'],
+                dbColor: props['Domeo_Цвет'],
+                dbWidth: props['Ширина/мм'],
+                dbHeight: props['Высота/мм']
+              });
+            }
           }
         }
       } catch (e) {
@@ -638,7 +639,7 @@ export async function generateExcelOrder(data: any): Promise<Buffer> {
       right: { style: 'thin' }
     };
 
-    const buffer = await workbook.xlsx.writeBuffer() as Buffer;
+    const buffer = await workbook.xlsx.writeBuffer() as unknown as Buffer;
     
     const endTime = Date.now();
     console.log(`⚡ Excel заказ сгенерирован за ${endTime - startTime}ms`);
@@ -647,7 +648,7 @@ export async function generateExcelOrder(data: any): Promise<Buffer> {
     
   } catch (error) {
     console.error('❌ Ошибка генерации Excel заказа:', error);
-    throw new Error(`Excel order generation failed: ${error.message}`);
+    throw new Error(`Excel order generation failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -681,7 +682,7 @@ export async function generateExcelFast(data: any): Promise<Buffer> {
     column.width = 15;
   });
   
-  const buffer = await workbook.xlsx.writeBuffer() as Buffer;
+  const buffer = await workbook.xlsx.writeBuffer() as unknown as Buffer;
   
   const endTime = Date.now();
   console.log(`⚡ Excel сгенерирован за ${endTime - startTime}ms`);
@@ -713,10 +714,16 @@ export async function exportDocumentWithPDF(
     // Создаем тестового клиента для демонстрации
     client = {
       id: clientId,
-      name: 'Тестовый Клиент',
+      firstName: 'Тестовый',
+      lastName: 'Клиент',
+      middleName: null,
       phone: '+7 (999) 123-45-67',
       address: 'Тестовый адрес',
-      email: 'test@example.com'
+      objectId: 'test-client',
+      customFields: '{}',
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
   }
 
@@ -846,7 +853,7 @@ function generateCSVSimple(data: any): string {
     item.total
   ]);
   
-  return [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+  return [headers.join(','), ...rows.map((row: any[]) => row.join(','))].join('\n');
 }
 
 // Пакетное создание записей в БД
@@ -877,7 +884,7 @@ async function createDocumentRecordsSimple(
         currency: 'RUB',
         notes: 'Сгенерировано из конфигуратора дверей',
         cart_data: JSON.stringify(items) // Сохраняем данные корзины
-      }
+      } as any
     });
 
     const quoteItems = items.map((item, i) => {
@@ -934,7 +941,7 @@ async function createDocumentRecordsSimple(
         currency: 'RUB',
         notes: 'Сгенерировано из конфигуратора дверей',
         cart_data: JSON.stringify(items) // Сохраняем данные корзины
-      }
+      } as any
     });
 
     const invoiceItems = items.map((item, i) => {
@@ -991,7 +998,7 @@ async function createDocumentRecordsSimple(
         currency: 'RUB',
         notes: 'Сгенерировано из конфигуратора дверей',
         cart_data: JSON.stringify(items) // Сохраняем данные корзины
-      }
+      } as any
     });
 
     const orderItems = items.map((item, i) => {

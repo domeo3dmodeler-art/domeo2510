@@ -6,7 +6,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const { id } = await params;
 
-    // Получаем user_id из токена (поддерживаем и Authorization header и Cookie)
+    // Получаем user_id из токена
     let token = null;
     let userId = null;
 
@@ -35,18 +35,24 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Обновляем уведомление
     const notification = await prisma.notification.updateMany({
-      where: { 
+      where: {
         id: id,
-        user_id: userId // Убеждаемся, что пользователь может изменить только свои уведомления
+        user_id: userId // Убеждаемся, что пользователь может обновлять только свои уведомления
       },
-      data: { is_read: true }
+      data: {
+        is_read: true
+      }
     });
 
     if (notification.count === 0) {
       return NextResponse.json({ error: 'Notification not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true }, {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8'
+      }
+    });
   } catch (error) {
     console.error('Error marking notification as read:', error);
     return NextResponse.json({ error: 'Failed to mark notification as read' }, { status: 500 });

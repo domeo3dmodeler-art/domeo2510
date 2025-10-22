@@ -43,7 +43,12 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
 
       if (!token) return;
 
-      const response = await fetch('/api/notifications');
+      const response = await fetch('/api/notifications', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
       if (response.ok) {
         const data = await response.json();
@@ -68,7 +73,11 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
       if (!token) return;
 
       await fetch(`/api/notifications/${notificationId}/read`, {
-        method: 'PUT'
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       // Обновляем локальное состояние
