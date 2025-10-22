@@ -231,8 +231,30 @@ async function findAllProductsByConfiguration(item: any) {
     finish: item.finish,
     color: item.color,
     width: item.width,
-    height: item.height
+    height: item.height,
+    type: item.type
   });
+
+  // Если это ручка, ищем в категории ручек
+  if (item.type === 'handle' && item.handleId) {
+    console.log('🔧 Ищем ручку по ID:', item.handleId);
+    
+    const handle = await prisma.product.findFirst({
+      where: {
+        id: item.handleId,
+        catalog_category: { name: "Ручки" }
+      },
+      select: { properties_data: true, name: true, sku: true }
+    });
+
+    if (handle) {
+      console.log('✅ Найдена ручка:', handle.sku);
+      return [handle];
+    } else {
+      console.log('❌ Ручка не найдена в БД');
+      return [];
+    }
+  }
 
   // Получаем все товары категории дверей
   const allProducts = await prisma.product.findMany({
@@ -489,28 +511,74 @@ export async function generateExcelOrder(data: any): Promise<Buffer> {
                 : productData.properties_data;
               
               // Заполняем поля в нужном порядке
-              dbFields.forEach(fieldName => {
-                const value = props[fieldName];
-                if (value !== undefined && value !== null) {
-                  // Специальное форматирование для цен
-                  if (fieldName === 'Цена опт' || fieldName === 'Цена РРЦ') {
-                    const numValue = parseFloat(String(value));
-                    if (!isNaN(numValue)) {
-                      currentRow.getCell(colIndex).value = numValue;
-                      currentRow.getCell(colIndex).numFmt = '#,##0';
+              if (item.type === 'handle') {
+                // Специальная логика для ручек
+                const handleFields = [
+                  'Domeo_цена группы Web', // Цена опт
+                  'Domeo_цена группы Web', // Цена РРЦ (та же цена)
+                  'Поставщик', // Поставщик
+                  'Фабрика_наименование', // Наименование двери у поставщика
+                  'Группа', // Тип покрытия (группа ручки)
+                  '', // Ширина/мм (не применимо для ручек)
+                  '', // Высота/мм (не применимо для ручек)
+                  '', // Толщина/мм (не применимо для ручек)
+                  'Domeo_наименование для Web', // Фабрика_Цвет/Отделка
+                  '', // SKU внутреннее (не применимо для ручек)
+                  'Фабрика_артикул' // Артикул поставщика
+                ];
+                
+                handleFields.forEach((fieldName, index) => {
+                  if (fieldName) {
+                    const value = props[fieldName];
+                    if (value !== undefined && value !== null) {
+                      // Специальное форматирование для цен
+                      if (index === 0 || index === 1) { // Цена опт и Цена РРЦ
+                        const numValue = parseFloat(String(value));
+                        if (!isNaN(numValue)) {
+                          currentRow.getCell(colIndex).value = numValue;
+                          currentRow.getCell(colIndex).numFmt = '#,##0';
+                        } else {
+                          currentRow.getCell(colIndex).value = '';
+                        }
+                      } else {
+                        currentRow.getCell(colIndex).value = String(value);
+                      }
+                      console.log(`✅ Записано поле ручки "${fieldName}": ${value}`);
                     } else {
                       currentRow.getCell(colIndex).value = '';
+                      console.log(`❌ Пустое поле ручки "${fieldName}"`);
                     }
                   } else {
-                    currentRow.getCell(colIndex).value = String(value);
+                    currentRow.getCell(colIndex).value = '';
+                    console.log(`❌ Поле не применимо для ручек (индекс ${index})`);
                   }
-                  console.log(`✅ Записано поле "${fieldName}": ${value}`);
-                } else {
-                  currentRow.getCell(colIndex).value = '';
-                  console.log(`❌ Пустое поле "${fieldName}"`);
-                }
-                colIndex++;
-              });
+                  colIndex++;
+                });
+              } else {
+                // Обычная логика для дверей
+                dbFields.forEach(fieldName => {
+                  const value = props[fieldName];
+                  if (value !== undefined && value !== null) {
+                    // Специальное форматирование для цен
+                    if (fieldName === 'Цена опт' || fieldName === 'Цена РРЦ') {
+                      const numValue = parseFloat(String(value));
+                      if (!isNaN(numValue)) {
+                        currentRow.getCell(colIndex).value = numValue;
+                        currentRow.getCell(colIndex).numFmt = '#,##0';
+                      } else {
+                        currentRow.getCell(colIndex).value = '';
+                      }
+                    } else {
+                      currentRow.getCell(colIndex).value = String(value);
+                    }
+                    console.log(`✅ Записано поле "${fieldName}": ${value}`);
+                  } else {
+                    currentRow.getCell(colIndex).value = '';
+                    console.log(`❌ Пустое поле "${fieldName}"`);
+                  }
+                  colIndex++;
+                });
+              }
             } catch (e) {
               console.warn('Ошибка парсинга properties_data для товара:', e);
               // Заполняем пустыми значениями
