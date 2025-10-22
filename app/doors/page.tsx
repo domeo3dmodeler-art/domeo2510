@@ -737,7 +737,7 @@ const realApi = {
   },
 };
 
-const api = API ? realApi : mockApi;
+const api = mockApi; // Временно используем mockApi для отладки
 
 // --- helper: resolve selection by SKU (prefill calculator) ---
 async function resolveSelectionBySku(sku: string) {
