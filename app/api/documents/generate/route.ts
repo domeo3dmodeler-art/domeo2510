@@ -198,6 +198,7 @@ async function generateExcel(data: any): Promise<Buffer> {
   
   // Сначала собираем все свойства из всех товаров
   data.items.forEach((item: any, index: number) => {
+    console.log(`🔍 Товар ${index + 1}:`, {
       sku: item.sku,
       name: item.name,
       hasProperties: !!item.properties_data
@@ -208,7 +209,7 @@ async function generateExcel(data: any): Promise<Buffer> {
         const props = typeof item.properties_data === 'string' 
           ? JSON.parse(item.properties_data) 
           : item.properties_data;
-        
+        console.log('📊 Свойства товара:', {
           totalCount: Object.keys(props).length,
           properties: Object.keys(props).slice(0, 20) // Первые 20 свойств
         });
@@ -338,6 +339,28 @@ async function generateExcel(data: any): Promise<Buffer> {
   return Buffer.from(buffer);
 }
 
+// Функция для извлечения SKU поставщика из свойств товара
+function extractSupplierSku(propertiesData: any): string {
+  if (!propertiesData) return 'N/A';
+  
+  try {
+    const props = typeof propertiesData === 'string' 
+      ? JSON.parse(propertiesData) 
+      : propertiesData;
+    
+    // Ищем SKU поставщика в различных полях
+    return props['Артикул поставщика'] || 
+           props['SKU поставщика'] || 
+           props['Фабрика_артикул'] ||
+           props['Артикул'] || 
+           props['SKU'] || 
+           'N/A';
+  } catch (error) {
+    console.warn('Failed to parse properties_data for SKU extraction:', error);
+    return 'N/A';
+  }
+}
+
 // Функция для формирования наименования товара
 function buildProductName(item: any): string {
   if (item.handleId) {
@@ -367,6 +390,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { type, clientId, items, totalAmount } = body;
     
+    console.log('📄 Генерация документа:', {
       type, 
       clientId, 
       itemsCount: items.length, 
@@ -463,13 +487,54 @@ export async function POST(request: NextRequest) {
         type: 'quote',
         documentNumber,
         client,
-        items: items.map((item, i) => ({
-          rowNumber: i + 1,
-          sku: item.sku_1c || 'N/A',
-          name: buildProductName(item),
-          unitPrice: item.unitPrice || 0,
-          quantity: item.qty || item.quantity || 1,
-          total: (item.qty || item.quantity || 1) * (item.unitPrice || 0)
+        items: await Promise.all(items.map(async (item, i) => {
+          // Ищем товар в БД для получения SKU поставщика
+          let supplierSku = 'N/A';
+          
+          if (item.type === 'door') {
+            // Для дверей ищем по конфигурации
+            const product = await prisma.product.findFirst({
+              where: {
+                catalog_category: {
+                  name: 'Межкомнатные двери'
+                },
+                name: item.model
+              },
+              select: {
+                properties_data: true
+              }
+            });
+            
+            if (product) {
+              supplierSku = extractSupplierSku(product.properties_data);
+            }
+          } else if (item.type === 'handle') {
+            // Для ручек ищем по ID
+            const product = await prisma.product.findFirst({
+              where: {
+                catalog_category: {
+                  name: 'Ручки'
+                },
+                id: item.handleId
+              },
+              select: {
+                properties_data: true
+              }
+            });
+            
+            if (product) {
+              supplierSku = extractSupplierSku(product.properties_data);
+            }
+          }
+          
+          return {
+            rowNumber: i + 1,
+            sku: supplierSku,
+            name: buildProductName(item),
+            unitPrice: item.unitPrice || 0,
+            quantity: item.qty || item.quantity || 1,
+            total: (item.qty || item.quantity || 1) * (item.unitPrice || 0)
+          };
         })),
         totalAmount
       });
@@ -527,13 +592,54 @@ export async function POST(request: NextRequest) {
         type: 'invoice',
         documentNumber,
         client,
-        items: items.map((item, i) => ({
-          rowNumber: i + 1,
-          sku: item.sku_1c || 'N/A',
-          name: buildProductName(item),
-          unitPrice: item.unitPrice || 0,
-          quantity: item.qty || item.quantity || 1,
-          total: (item.qty || item.quantity || 1) * (item.unitPrice || 0)
+        items: await Promise.all(items.map(async (item, i) => {
+          // Ищем товар в БД для получения SKU поставщика
+          let supplierSku = 'N/A';
+          
+          if (item.type === 'door') {
+            // Для дверей ищем по конфигурации
+            const product = await prisma.product.findFirst({
+              where: {
+                catalog_category: {
+                  name: 'Межкомнатные двери'
+                },
+                name: item.model
+              },
+              select: {
+                properties_data: true
+              }
+            });
+            
+            if (product) {
+              supplierSku = extractSupplierSku(product.properties_data);
+            }
+          } else if (item.type === 'handle') {
+            // Для ручек ищем по ID
+            const product = await prisma.product.findFirst({
+              where: {
+                catalog_category: {
+                  name: 'Ручки'
+                },
+                id: item.handleId
+              },
+              select: {
+                properties_data: true
+              }
+            });
+            
+            if (product) {
+              supplierSku = extractSupplierSku(product.properties_data);
+            }
+          }
+          
+          return {
+            rowNumber: i + 1,
+            sku: supplierSku,
+            name: buildProductName(item),
+            unitPrice: item.unitPrice || 0,
+            quantity: item.qty || item.quantity || 1,
+            total: (item.qty || item.quantity || 1) * (item.unitPrice || 0)
+          };
         })),
         totalAmount
       });
@@ -607,6 +713,7 @@ export async function POST(request: NextRequest) {
         
         // Если не нашли по SKU, ищем по точной конфигурации
         if (!productData) {
+          console.log('🔍 Поиск по конфигурации:', {
             style: item.style,
             model: item.model,
             finish: item.finish,
@@ -648,6 +755,7 @@ export async function POST(request: NextRequest) {
                 
                 // Логируем первые несколько товаров для отладки
                 if (allProducts.indexOf(product) < 3) {
+                  console.log('🔍 Товар из БД:', {
                     style: props['Domeo_Стиль Web'],
                     model: props['Domeo_Название модели для Web'],
                     finish: props['Тип покрытия'],
@@ -660,6 +768,7 @@ export async function POST(request: NextRequest) {
                 
                 if (styleMatch && modelMatch && finishMatch && colorMatch && widthMatch && heightMatch) {
                   productData = product;
+                  console.log('✅ Найден товар по конфигурации:', {
                     sku: product.sku,
                     name: product.name,
                     propertiesCount: Object.keys(props).length,
@@ -689,6 +798,7 @@ export async function POST(request: NextRequest) {
                   
                   if (styleMatch && modelMatch) {
                     productData = product;
+                    console.log('✅ Найден товар по стилю и модели:', {
                       sku: product.sku,
                       name: product.name,
                       style: props['Domeo_Стиль Web'],
@@ -707,6 +817,7 @@ export async function POST(request: NextRequest) {
               // Последний fallback: берем первый товар
               if (allProducts.length > 0) {
                 productData = allProducts[0];
+                console.log('⚠️ Fallback: используем первый товар:', {
                   sku: productData.sku,
                   name: productData.name
                 });

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { DoorCalculator } from '../components/page-builder/elements/DoorCalculator';
+import { DoorCalculator } from '../../components/page-builder/elements/DoorCalculator';
 
 export default function KalkulyatorDvereyPage() {
   return (

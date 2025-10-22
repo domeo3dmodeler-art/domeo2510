@@ -2,6 +2,28 @@ import { prisma } from '@/lib/prisma';
 import ExcelJS from 'exceljs';
 import puppeteer, { Browser } from 'puppeteer';
 
+// Функция для извлечения SKU поставщика из свойств товара
+function extractSupplierSku(propertiesData: any): string {
+  if (!propertiesData) return 'N/A';
+  
+  try {
+    const props = typeof propertiesData === 'string' 
+      ? JSON.parse(propertiesData) 
+      : propertiesData;
+    
+    // Ищем SKU поставщика в различных полях
+    return props['Артикул поставщика'] || 
+           props['SKU поставщика'] || 
+           props['Фабрика_артикул'] ||
+           props['Артикул'] || 
+           props['SKU'] || 
+           'N/A';
+  } catch (error) {
+    console.warn('Failed to parse properties_data for SKU extraction:', error);
+    return 'N/A';
+  }
+}
+
 // Кэшированный браузер для ускорения генерации
 let cachedBrowser: Browser | null = null;
 
@@ -891,7 +913,7 @@ export async function exportDocumentWithPDF(
       
       return {
         rowNumber: i + 1,
-        sku: item.sku || item.sku_1c || item.id || 'N/A',
+        sku: item.properties_data ? extractSupplierSku(item.properties_data) : (item.sku || item.sku_1c || item.id || 'N/A'),
         name: name,
         unitPrice: item.unitPrice || item.price || 0,
         quantity: item.qty || item.quantity || 1,

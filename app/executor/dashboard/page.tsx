@@ -53,7 +53,7 @@ export default function ExecutorDashboard() {
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [clientTab, setClientTab] = useState<'invoices'|'supplier_orders'>('invoices');
   const [invoices, setInvoices] = useState<Array<{ id: string; number: string; date: string; status: 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'; total: number; dueAt?: string }>>([]);
-  const [supplierOrders, setSupplierOrders] = useState<Array<{ id: string; number: string; date: string; status: 'Черновик'|'Отправлен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'; total: number; supplierName?: string }>>([]);
+  const [supplierOrders, setSupplierOrders] = useState<Array<{ id: string; number: string; date: string; status: 'Черновик'|'Отправлен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'; total: number; supplierName?: string; invoiceInfo?: { id: string; number: string; total_amount: number } }>>([]);
   const [invoicesFilter, setInvoicesFilter] = useState<'all'|'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'>('all');
   const [supplierOrdersFilter, setSupplierOrdersFilter] = useState<'all'|'Черновик'|'Отправлен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'>('all');
   const [showInWorkOnly, setShowInWorkOnly] = useState(false);
@@ -183,11 +183,12 @@ export default function ExecutorDashboard() {
         console.log('📦 Обрабатываем заказы у поставщика:', client.supplierOrders?.length || 0);
         const formattedSupplierOrders = client.supplierOrders?.map((so: any) => ({
           id: so.id,
-          number: so.number || `ЗП-${so.id.slice(-6)}`, // Используем номер заказа у поставщика или генерируем
+          number: so.number ? so.number.replace('SUPPLIER-', 'Заказ-') : `Заказ-${so.id.slice(-6)}`, // Заменяем SUPPLIER- на Заказ-
           date: new Date(so.created_at).toISOString().split('T')[0],
           status: mapSupplierOrderStatus(so.status),
           total: so.total_amount || so.order?.total_amount || 0, // Используем total_amount из заказа у поставщика
-          supplierName: so.supplier_name
+          supplierName: so.supplier_name,
+          invoiceInfo: so.invoiceInfo // Добавляем информацию о счете
         })) || [];
         console.log('📦 Форматированные заказы у поставщика:', formattedSupplierOrders.length);
         setSupplierOrders(formattedSupplierOrders);
@@ -1065,8 +1066,12 @@ export default function ExecutorDashboard() {
                                 </button>
                       </div>
                               <div className="text-sm text-gray-600 mt-1">
-                                {so.supplierName && <span>Поставщик: {so.supplierName}</span>}
-                  </div>
+                                {so.invoiceInfo ? (
+                                  <span>Счет - {so.invoiceInfo.number}</span>
+                                ) : (
+                                  <span>Счет не найден</span>
+                                )}
+                              </div>
                 </div>
                             <div className="text-right ml-4 flex items-center space-x-2">
                               <div className="font-semibold text-black">{so.total.toLocaleString('ru-RU')} ₽</div>
@@ -1289,7 +1294,8 @@ export default function ExecutorDashboard() {
                 if (!supplierOrder) return null;
                 
                 const getAllStatuses = () => {
-                  return ['Черновик', 'Отправлен', 'В производстве', 'Получен от поставщика', 'Исполнен'];
+                  // Для исполнителя доступны только определенные статусы
+                  return ['Заказ размещен', 'Получен от поставщика', 'Исполнен'];
                 };
                 
                 const allStatuses = getAllStatuses();
@@ -1297,10 +1303,42 @@ export default function ExecutorDashboard() {
                 return allStatuses.map((status, index) => (
                   <div key={status}>
                     <button
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation();
-                        // Здесь можно добавить логику изменения статуса заказа у поставщика
+                        // Быстрое обновление статуса без генерации Excel
                         console.log('Status clicked:', { supplierOrderId: supplierOrder.id, status });
+                        
+                        // Маппинг русских статусов на английские для API
+                        const statusMap: Record<string, string> = {
+                          'Заказ размещен': 'ORDERED',
+                          'Получен от поставщика': 'READY',
+                          'Исполнен': 'COMPLETED'
+                        };
+                        
+                        const apiStatus = statusMap[status] || status;
+                        
+                        try {
+                          const response = await fetch(`/api/supplier-orders/${supplierOrder.id}/status`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: apiStatus })
+                          });
+                          
+                          if (response.ok) {
+                            // Обновляем локальное состояние
+                            setSupplierOrders(prev => prev.map(so => 
+                              so.id === supplierOrder.id ? { ...so, status } : so
+                            ));
+                            hideStatusDropdown();
+                            toast.success(`Статус изменен на "${status}"`);
+                          } else {
+                            const error = await response.json();
+                            toast.error(`Ошибка: ${error.error}`);
+                          }
+                        } catch (error) {
+                          console.error('Error updating status:', error);
+                          toast.error('Ошибка при изменении статуса');
+                        }
                       }}
                       className={`w-full px-4 py-2.5 text-sm text-left transition-all duration-200 ${
                         supplierOrder.status === status 

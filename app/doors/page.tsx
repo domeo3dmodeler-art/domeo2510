@@ -968,6 +968,8 @@ export default function DoorsPage() {
         foundPhotos: found?.photos
       });
       
+      return found;
+      
       // Дополнительное логирование для отладки
       if (found) {
         console.log('🔍 Детали найденной модели:', {

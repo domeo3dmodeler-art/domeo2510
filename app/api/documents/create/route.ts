@@ -291,7 +291,8 @@ async function createDocumentRecord(
         executor_id: data.created_by,
         supplier_name: 'Поставщик', // Можно передавать в параметрах
         notes: data.notes,
-        cart_data: cartData
+        cart_data: cartData,
+        total_amount: data.total_amount // Добавляем общую сумму
       }
     });
 

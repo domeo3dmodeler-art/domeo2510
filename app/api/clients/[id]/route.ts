@@ -33,6 +33,13 @@ export async function GET(
       );
     }
 
+    // Сначала получаем ID заказов клиента для поиска связанных заказов поставщика
+    const orders = await prisma.order.findMany({
+      where: { client_id: id },
+      select: { id: true }
+    });
+    const orderIds = orders.map(order => order.id);
+
     // Загружаем документы отдельными оптимизированными запросами
     const [quotes, invoices, supplierOrders] = await Promise.all([
       prisma.quote.findMany({
@@ -62,8 +69,10 @@ export async function GET(
       }),
       prisma.supplierOrder.findMany({
         where: { 
-          // Пока что загружаем все заказы поставщиков, так как связь с клиентом через order_id была удалена
-          // В будущем можно будет добавить связь через parent_document_id
+          // Ищем заказы поставщика через связанные заказы клиента
+          parent_document_id: {
+            in: orderIds
+          }
         },
         select: {
           id: true,
@@ -73,12 +82,78 @@ export async function GET(
           supplier_name: true,
           order_date: true,
           expected_date: true,
-          total_amount: true // Общая сумма заказа у поставщика
+          total_amount: true, // Общая сумма заказа у поставщика
+          parent_document_id: true,
+          cart_session_id: true
         },
         orderBy: { created_at: 'desc' },
         take: 10
       })
     ]);
+
+    // Для каждого заказа поставщика ищем связанный счет
+    const supplierOrdersWithInvoiceInfo = await Promise.all(
+      supplierOrders.map(async (so) => {
+        let invoiceInfo = null;
+        
+        // Ищем счет по cart_session_id
+        if (so.cart_session_id) {
+          const invoice = await prisma.invoice.findFirst({
+            where: {
+              cart_session_id: so.cart_session_id
+            },
+            select: {
+              id: true,
+              number: true,
+              total_amount: true
+            }
+          });
+          
+          if (invoice) {
+            invoiceInfo = {
+              id: invoice.id,
+              number: invoice.number,
+              total_amount: invoice.total_amount
+            };
+          }
+        }
+        
+        // Если счет не найден по cart_session_id, ищем через связанный заказ
+        if (!invoiceInfo && so.parent_document_id) {
+          const order = await prisma.order.findUnique({
+            where: { id: so.parent_document_id },
+            select: {
+              parent_document_id: true,
+              cart_session_id: true
+            }
+          });
+          
+          if (order && order.parent_document_id) {
+            const invoice = await prisma.invoice.findUnique({
+              where: { id: order.parent_document_id },
+              select: {
+                id: true,
+                number: true,
+                total_amount: true
+              }
+            });
+            
+            if (invoice) {
+              invoiceInfo = {
+                id: invoice.id,
+                number: invoice.number,
+                total_amount: invoice.total_amount
+              };
+            }
+          }
+        }
+        
+        return {
+          ...so,
+          invoiceInfo
+        };
+      })
+    );
 
     return NextResponse.json({
       success: true,
@@ -87,7 +162,8 @@ export async function GET(
         customFields: JSON.parse(client.customFields || '{}'),
         quotes,
         invoices,
-        supplierOrders
+        orders,
+        supplierOrders: supplierOrdersWithInvoiceInfo
       }
     });
 

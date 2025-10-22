@@ -251,6 +251,7 @@ export default function CatalogImportPage() {
       setEncodingCheckResult(encodingResult);
       
       if (encodingResult.hasEncodingIssues) {
+        console.log('⚠️ Проблемы с кодировкой:', {
           issuesCount: encodingResult.encodingIssues.length,
           sampleIssues: encodingResult.encodingIssues.slice(0, 3)
         });
@@ -297,8 +298,8 @@ export default function CatalogImportPage() {
 
       const headers = jsonData[0] as string[];
       const rows = jsonData.slice(1) as any[][];
-
-        filename: file.name,
+        console.log('📄 Файл загружен:', {
+          filename: file.name,
         headers: headers.length,
         rows: rows.length,
         sampleHeaders: headers.slice(0, 5)
