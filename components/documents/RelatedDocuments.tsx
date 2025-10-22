@@ -44,6 +44,13 @@ export function RelatedDocuments({ document }: RelatedDocumentsProps) {
         related.push(...childrenData.documents.map((doc: any) => ({ ...doc, relation: 'child' })));
       }
 
+      // Ищем документы из той же корзины
+      const siblingsResponse = await fetch(`/api/documents/${document.id}/siblings`);
+      if (siblingsResponse.ok) {
+        const siblingsData = await siblingsResponse.json();
+        related.push(...siblingsData.documents.map((doc: any) => ({ ...doc, relation: 'sibling' })));
+      }
+
       // Убираем дубликаты
       const uniqueRelated = related.filter((doc, index, self) => 
         index === self.findIndex(d => d.id === doc.id)
@@ -115,7 +122,7 @@ export function RelatedDocuments({ document }: RelatedDocumentsProps) {
       case 'child':
         return 'Производный документ';
       case 'sibling':
-        return 'Связанный документ';
+        return 'Из той же корзины';
       default:
         return 'Связанный документ';
     }
@@ -125,7 +132,7 @@ export function RelatedDocuments({ document }: RelatedDocumentsProps) {
     switch (relation) {
       case 'parent': return '⬆️';
       case 'child': return '⬇️';
-      case 'sibling': return '↔️';
+      case 'sibling': return '🛒';
       default: return '🔗';
     }
   };

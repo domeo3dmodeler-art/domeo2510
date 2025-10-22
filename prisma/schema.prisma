@@ -257,6 +257,7 @@ model Quote {
   id                 String    @id @default(cuid())
   number             String    @unique
   parent_document_id String?   // Универсальная ссылка на родительский документ
+  cart_session_id    String?   // Сессия корзины для группировки документов
   client_id          String
   created_by         String
   status             String    @default("DRAFT")
@@ -297,6 +298,7 @@ model Order {
   id                 String    @id @default(cuid())
   number             String    @unique
   parent_document_id String?   // Универсальная ссылка на родительский документ
+  cart_session_id    String?   // Сессия корзины для группировки документов
   client_id          String
   created_by         String
   status             String    @default("PENDING")
@@ -337,6 +339,7 @@ model Invoice {
   id                 String    @id @default(cuid())
   number             String    @unique
   parent_document_id String?   // Универсальная ссылка на родительский документ
+  cart_session_id    String?   // Сессия корзины для группировки документов
   client_id          String
   created_by         String
   status             String    @default("DRAFT")
@@ -376,6 +379,7 @@ model InvoiceItem {
 model SupplierOrder {
   id                 String    @id @default(cuid())
   parent_document_id String?   // Универсальная ссылка на родительский документ
+  cart_session_id    String?   // Сессия корзины для группировки документов
   executor_id        String
   supplier_name      String
   supplier_email     String?

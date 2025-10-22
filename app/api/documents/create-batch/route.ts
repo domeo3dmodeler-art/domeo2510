@@ -1,93 +1,110 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// POST /api/documents/create - Универсальное создание документов с автоматическими связями
+// POST /api/documents/create-batch - Создание нескольких документов из корзины
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
-      type, // 'quote', 'invoice', 'order', 'supplier_order'
-      parent_document_id, // ID родительского документа (опционально)
-      cart_session_id, // ID сессии корзины для группировки (опционально)
+      cart_session_id, // ID сессии корзины (обязательно)
       client_id,
       items,
       total_amount,
       subtotal = 0,
       tax_amount = 0,
       notes,
-      prevent_duplicates = true,
+      document_types = ['quote', 'invoice'], // Типы документов для создания
       created_by = 'system'
     } = body;
 
-    console.log(`🆕 Создание документа типа ${type}, родитель: ${parent_document_id || 'нет'}`);
+    console.log(`🆕 Создание документов из корзины: ${document_types.join(', ')}, сессия: ${cart_session_id}`);
 
     // Валидация
-    if (!type || !client_id || !items || !Array.isArray(items)) {
+    if (!cart_session_id || !client_id || !items || !Array.isArray(items)) {
       return NextResponse.json(
-        { error: 'Необходимые поля: type, client_id, items' },
+        { error: 'Необходимые поля: cart_session_id, client_id, items' },
         { status: 400 }
       );
     }
 
-    // Проверяем существующий документ (дедупликация)
-    let existingDocument = null;
-    if (prevent_duplicates) {
-      existingDocument = await findExistingDocument(type, parent_document_id, cart_session_id, client_id, items, total_amount);
-    }
+    const results = [];
+    const errors = [];
 
-    let documentNumber: string;
-    let documentId: string | null = null;
+    // Создаем каждый тип документа
+    for (const type of document_types) {
+      try {
+        // Проверяем существующий документ
+        const existingDocument = await findExistingDocument(type, null, cart_session_id, client_id, items, total_amount);
+        
+        let documentNumber: string;
+        let documentId: string | null = null;
 
-    if (existingDocument) {
-      documentNumber = existingDocument.number;
-      documentId = existingDocument.id;
-      console.log(`🔄 Используем существующий документ: ${documentNumber} (ID: ${documentId})`);
-    } else {
-      documentNumber = `${type.toUpperCase()}-${Date.now()}`;
-      console.log(`🆕 Создаем новый документ: ${documentNumber}`);
-    }
+        if (existingDocument) {
+          documentNumber = existingDocument.number;
+          documentId = existingDocument.id;
+          console.log(`🔄 Используем существующий ${type}: ${documentNumber} (ID: ${documentId})`);
+        } else {
+          documentNumber = `${type.toUpperCase()}-${Date.now()}`;
+          console.log(`🆕 Создаем новый ${type}: ${documentNumber}`);
+        }
 
-    // Создаем или обновляем документ в БД
-    let dbResult;
-    if (!existingDocument) {
-      dbResult = await createDocumentRecord(type, {
-        number: documentNumber,
-        parent_document_id,
-        client_id,
-        items,
-        total_amount,
-        subtotal,
-        tax_amount,
-        notes,
-        created_by
-      });
-      documentId = dbResult.id;
-      console.log(`✅ Запись в БД создана: ${type} #${dbResult.id}`);
-    } else {
-      console.log(`✅ Используем существующий документ в БД: ${documentNumber}`);
-      dbResult = { id: documentId, type: type };
+        // Создаем или обновляем документ в БД
+        let dbResult;
+        if (!existingDocument) {
+          dbResult = await createDocumentRecord(type, {
+            number: documentNumber,
+            parent_document_id: null,
+            cart_session_id: cart_session_id,
+            client_id,
+            items,
+            total_amount,
+            subtotal,
+            tax_amount,
+            notes,
+            created_by
+          });
+          documentId = dbResult.id;
+          console.log(`✅ Запись в БД создана: ${type} #${dbResult.id}`);
+        } else {
+          console.log(`✅ Используем существующий документ в БД: ${documentNumber}`);
+          dbResult = { id: documentId, type: type };
+        }
+
+        results.push({
+          type: type,
+          documentId: documentId,
+          documentNumber: documentNumber,
+          isNew: !existingDocument,
+          message: existingDocument ? 'Использован существующий документ' : 'Создан новый документ'
+        });
+
+      } catch (error) {
+        console.error(`❌ Ошибка создания ${type}:`, error);
+        errors.push({
+          type: type,
+          error: error.message || 'Неизвестная ошибка'
+        });
+      }
     }
 
     return NextResponse.json({
-      success: true,
-      documentId: documentId,
-      documentNumber: documentNumber,
-      type: type,
-      parent_document_id,
-      isNew: !existingDocument,
-      message: existingDocument ? 'Использован существующий документ' : 'Создан новый документ'
+      success: errors.length === 0,
+      cart_session_id,
+      results,
+      errors,
+      message: `Создано ${results.length} документов из корзины`
     });
 
   } catch (error) {
-    console.error('❌ Ошибка создания документа:', error);
+    console.error('❌ Ошибка создания документов из корзины:', error);
     return NextResponse.json(
-      { error: 'Ошибка при создании документа' },
+      { error: 'Ошибка при создании документов из корзины' },
       { status: 500 }
     );
   }
 }
 
-// Поиск существующего документа
+// Поиск существующего документа (копируем из create/route.ts)
 async function findExistingDocument(
   type: 'quote' | 'invoice' | 'order' | 'supplier_order',
   parentDocumentId: string | null,
@@ -170,7 +187,7 @@ async function findExistingDocument(
   }
 }
 
-// Создание записи документа в БД
+// Создание записи документа в БД (копируем из create/route.ts)
 async function createDocumentRecord(
   type: 'quote' | 'invoice' | 'order' | 'supplier_order',
   data: {
@@ -187,21 +204,22 @@ async function createDocumentRecord(
   }
 ) {
   const cartData = JSON.stringify(data.items);
-  const contentHash = createContentHash(data.client_id, data.items, data.total_amount);
 
   if (type === 'quote') {
     const quote = await prisma.quote.create({
       data: {
         number: data.number,
         parent_document_id: data.parent_document_id,
+        cart_session_id: data.cart_session_id,
         client_id: data.client_id,
         created_by: data.created_by,
         subtotal: data.subtotal,
         tax_amount: data.tax_amount,
         total_amount: data.total_amount,
+        currency: 'RUB',
         notes: data.notes,
         cart_data: cartData
-      }
+      } as any
     });
 
     // Создаем элементы КП
@@ -224,14 +242,16 @@ async function createDocumentRecord(
       data: {
         number: data.number,
         parent_document_id: data.parent_document_id,
+        cart_session_id: data.cart_session_id,
         client_id: data.client_id,
         created_by: data.created_by,
         subtotal: data.subtotal,
         tax_amount: data.tax_amount,
         total_amount: data.total_amount,
+        currency: 'RUB',
         notes: data.notes,
         cart_data: cartData
-      }
+      } as any
     });
 
     // Создаем элементы счета
@@ -254,14 +274,16 @@ async function createDocumentRecord(
       data: {
         number: data.number,
         parent_document_id: data.parent_document_id,
+        cart_session_id: data.cart_session_id,
         client_id: data.client_id,
         created_by: data.created_by,
         subtotal: data.subtotal,
         tax_amount: data.tax_amount,
         total_amount: data.total_amount,
+        currency: 'RUB',
         notes: data.notes,
         cart_data: cartData
-      }
+      } as any
     });
 
     // Создаем элементы заказа
@@ -283,11 +305,12 @@ async function createDocumentRecord(
     const supplierOrder = await prisma.supplierOrder.create({
       data: {
         parent_document_id: data.parent_document_id,
+        cart_session_id: data.cart_session_id,
         executor_id: data.created_by,
         supplier_name: 'Поставщик', // Можно передавать в параметрах
         notes: data.notes,
         cart_data: cartData
-      }
+      } as any
     });
 
     return supplierOrder;
