@@ -684,33 +684,28 @@ export async function exportDocumentWithPDF(
     documentNumber,
     client,
     items: items.map((item, i) => {
-      // Формируем название товара в правильном формате только для КП и Счета
+      // Формируем название товара в правильном формате
       let name = '';
       
-      if ((type === 'quote' || type === 'invoice') && item.model && item.model.includes('DomeoDoors')) {
-        // Это дверь для КП/Счета - формируем полное описание
+      if (item.model && item.model.includes('DomeoDoors')) {
+        // Это дверь - формируем описание БЕЗ ручки
         const finish = item.finish || '';
         const color = item.color || '';
         const dimensions = item.width && item.height ? `${item.width} × ${item.height} мм` : '';
         const hardware = item.hardware || 'Базовый';
         
-        name = `Дверь ${item.model} (${finish}, ${color}, ${dimensions}, Фурнитура - Комплект фурнитуры - ${hardware})`;
-      } else if ((type === 'quote' || type === 'invoice') && item.name && item.name.includes('Ручка')) {
-        // Это ручка для КП/Счета - используем название как есть
-        name = item.name;
-      } else {
-        // Для заказа - формируем полное название в правильном формате
-        if (type === 'order' && item.model && item.model.includes('DomeoDoors')) {
-          const finish = item.finish || '';
-          const color = item.color || '';
-          const dimensions = item.width && item.height ? `${item.width} × ${item.height} мм` : '';
-          const hardware = item.hardware || 'Базовый';
-          
+        if (type === 'order') {
           name = `Дверь ${item.model} (${finish}, ${color}, ${dimensions}, Фурнитура - ${hardware})`;
         } else {
-          // Другие товары - используем стандартный формат
-          name = item.name || `${item.model || 'Товар'} ${item.finish || ''} ${item.color || ''}`.trim();
+          // Для КП и Счета - дверь БЕЗ ручки
+          name = `Дверь ${item.model} (${finish}, ${color}, ${dimensions}, Фурнитура - Комплект фурнитуры - ${hardware})`;
         }
+      } else if (item.name && item.name.includes('Ручка')) {
+        // Это ручка - используем название как есть
+        name = item.name;
+      } else {
+        // Другие товары - используем стандартный формат
+        name = item.name || `${item.model || 'Товар'} ${item.finish || ''} ${item.color || ''}`.trim();
       }
       
       return {
@@ -842,7 +837,7 @@ async function createDocumentRecordsSimple(
       let name = '';
       
       if (item.model && item.model.includes('DomeoDoors')) {
-        // Это дверь - формируем полное описание
+        // Это дверь - формируем описание БЕЗ ручки
         const finish = item.finish || '';
         const color = item.color || '';
         const dimensions = item.width && item.height ? `${item.width} × ${item.height} мм` : '';
@@ -893,7 +888,7 @@ async function createDocumentRecordsSimple(
       let name = '';
       
       if (item.model && item.model.includes('DomeoDoors')) {
-        // Это дверь - формируем полное описание
+        // Это дверь - формируем описание БЕЗ ручки
         const finish = item.finish || '';
         const color = item.color || '';
         const dimensions = item.width && item.height ? `${item.width} × ${item.height} мм` : '';
@@ -939,14 +934,35 @@ async function createDocumentRecordsSimple(
       }
     });
 
-    const orderItems = items.map((item, i) => ({
-      order_id: order.id,
-      product_id: item.id || `temp_${i}`,
-      quantity: item.qty || item.quantity || 1,
-      unit_price: item.unitPrice || 0,
-      total_price: (item.qty || item.quantity || 1) * (item.unitPrice || 0),
-      notes: `${item.name || `${item.model || 'Товар'} ${item.finish || ''} ${item.color || ''}`.trim()} | Артикул: ${item.sku_1c || 'N/A'}`
-    }));
+    const orderItems = items.map((item, i) => {
+      // Формируем название товара в правильном формате для Заказа
+      let name = '';
+      
+      if (item.model && item.model.includes('DomeoDoors')) {
+        // Это дверь - формируем описание БЕЗ ручки
+        const finish = item.finish || '';
+        const color = item.color || '';
+        const dimensions = item.width && item.height ? `${item.width} × ${item.height} мм` : '';
+        const hardware = item.hardware || 'Базовый';
+        
+        name = `Дверь ${item.model} (${finish}, ${color}, ${dimensions}, Фурнитура - ${hardware})`;
+      } else if (item.name && item.name.includes('Ручка')) {
+        // Это ручка - используем название как есть
+        name = item.name;
+      } else {
+        // Другие товары
+        name = item.name || `${item.model || 'Товар'} ${item.finish || ''} ${item.color || ''}`.trim();
+      }
+      
+      return {
+        order_id: order.id,
+        product_id: item.id || `temp_${i}`,
+        quantity: item.qty || item.quantity || 1,
+        unit_price: item.unitPrice || 0,
+        total_price: (item.qty || item.quantity || 1) * (item.unitPrice || 0),
+        notes: `${name} | Артикул: ${item.sku_1c || 'N/A'}`
+      };
+    });
 
     await prisma.orderItem.createMany({
       data: orderItems
