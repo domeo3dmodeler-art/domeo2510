@@ -809,6 +809,7 @@ export async function exportDocumentWithPDF(
   console.log(`🚀 Экспорт ${type} в формате ${format} для ${items.length} позиций`);
 
   // Проверяем, есть ли уже документ с таким содержимым
+  console.log(`🔍 Ищем существующий документ типа ${type} для клиента ${clientId}`);
   const existingDocument = await findExistingDocument(type, clientId, items, totalAmount);
   
   let documentNumber: string;
@@ -818,7 +819,7 @@ export async function exportDocumentWithPDF(
     // Используем существующий документ
     documentNumber = existingDocument.number;
     documentId = existingDocument.id;
-    console.log(`🔄 Используем существующий документ: ${documentNumber}`);
+    console.log(`🔄 Используем существующий документ: ${documentNumber} (ID: ${documentId})`);
   } else {
     // Создаем новый документ
     documentNumber = `${type.toUpperCase()}-${Date.now()}`;
@@ -994,67 +995,57 @@ async function findExistingDocument(
   totalAmount: number
 ) {
   try {
-    // Создаем хэш содержимого для сравнения
-    const contentHash = JSON.stringify({
-      clientId,
-      items: items.map(item => ({
-        model: item.model,
-        finish: item.finish,
-        color: item.color,
-        width: item.width,
-        height: item.height,
-        quantity: item.qty || item.quantity || 1,
-        unitPrice: item.unitPrice || 0,
-        type: item.type,
-        handleId: item.handleId
-      })),
-      totalAmount
-    });
-
+    console.log(`🔍 Поиск существующего документа: ${type}, клиент: ${clientId}, сумма: ${totalAmount}`);
+    
+    // Упрощенный поиск - сначала по клиенту и сумме
     if (type === 'quote') {
       const existingQuote = await prisma.quote.findFirst({
         where: {
           client_id: clientId,
-          total_amount: totalAmount,
-          cart_data: {
-            contains: contentHash // Проверяем полный хэш
-          }
-        } as any,
+          total_amount: totalAmount
+        },
         orderBy: {
           created_at: 'desc'
         }
       });
-      return existingQuote;
+      
+      if (existingQuote) {
+        console.log(`✅ Найден существующий КП: ${existingQuote.number} (ID: ${existingQuote.id})`);
+        return existingQuote;
+      }
     } else if (type === 'invoice') {
       const existingInvoice = await prisma.invoice.findFirst({
         where: {
           client_id: clientId,
-          total_amount: totalAmount,
-          cart_data: {
-            contains: contentHash // Проверяем полный хэш
-          }
-        } as any,
+          total_amount: totalAmount
+        },
         orderBy: {
           created_at: 'desc'
         }
       });
-      return existingInvoice;
+      
+      if (existingInvoice) {
+        console.log(`✅ Найден существующий счет: ${existingInvoice.number} (ID: ${existingInvoice.id})`);
+        return existingInvoice;
+      }
     } else if (type === 'order') {
       const existingOrder = await prisma.order.findFirst({
         where: {
           client_id: clientId,
-          total_amount: totalAmount,
-          cart_data: {
-            contains: contentHash // Проверяем полный хэш
-          }
-        } as any,
+          total_amount: totalAmount
+        },
         orderBy: {
           created_at: 'desc'
         }
       });
-      return existingOrder;
+      
+      if (existingOrder) {
+        console.log(`✅ Найден существующий заказ: ${existingOrder.number} (ID: ${existingOrder.id})`);
+        return existingOrder;
+      }
     }
 
+    console.log(`❌ Существующий документ не найден`);
     return null;
   } catch (error) {
     console.error('❌ Ошибка поиска существующего документа:', error);
@@ -1089,24 +1080,7 @@ async function createDocumentRecordsSimple(
         total_amount: totalAmount,
         currency: 'RUB',
         notes: 'Сгенерировано из конфигуратора дверей',
-        cart_data: JSON.stringify({
-          items,
-          contentHash: JSON.stringify({
-            clientId,
-            items: items.map(item => ({
-              model: item.model,
-              finish: item.finish,
-              color: item.color,
-              width: item.width,
-              height: item.height,
-              quantity: item.qty || item.quantity || 1,
-              unitPrice: item.unitPrice || 0,
-              type: item.type,
-              handleId: item.handleId
-            })),
-            totalAmount
-          })
-        })
+        cart_data: JSON.stringify(items) // Сохраняем данные корзины
       } as any
     });
 
@@ -1163,24 +1137,7 @@ async function createDocumentRecordsSimple(
         total_amount: totalAmount,
         currency: 'RUB',
         notes: 'Сгенерировано из конфигуратора дверей',
-        cart_data: JSON.stringify({
-          items,
-          contentHash: JSON.stringify({
-            clientId,
-            items: items.map(item => ({
-              model: item.model,
-              finish: item.finish,
-              color: item.color,
-              width: item.width,
-              height: item.height,
-              quantity: item.qty || item.quantity || 1,
-              unitPrice: item.unitPrice || 0,
-              type: item.type,
-              handleId: item.handleId
-            })),
-            totalAmount
-          })
-        })
+        cart_data: JSON.stringify(items) // Сохраняем данные корзины
       } as any
     });
 
@@ -1237,24 +1194,7 @@ async function createDocumentRecordsSimple(
         total_amount: totalAmount,
         currency: 'RUB',
         notes: 'Сгенерировано из конфигуратора дверей',
-        cart_data: JSON.stringify({
-          items,
-          contentHash: JSON.stringify({
-            clientId,
-            items: items.map(item => ({
-              model: item.model,
-              finish: item.finish,
-              color: item.color,
-              width: item.width,
-              height: item.height,
-              quantity: item.qty || item.quantity || 1,
-              unitPrice: item.unitPrice || 0,
-              type: item.type,
-              handleId: item.handleId
-            })),
-            totalAmount
-          })
-        })
+        cart_data: JSON.stringify(items) // Сохраняем данные корзины
       } as any
     });
 
