@@ -62,20 +62,15 @@ export async function GET(
       }),
       prisma.supplierOrder.findMany({
         where: { 
-          order: {
-            client_id: id
-          }
+          // Пока что загружаем все заказы поставщиков, так как связь с клиентом через order_id была удалена
+          // В будущем можно будет добавить связь через parent_document_id
         },
         select: {
           id: true,
           status: true,
           created_at: true,
           supplier_name: true,
-          order: {
-            select: {
-              total_amount: true
-            }
-          }
+          total_amount: true
         },
         orderBy: { created_at: 'desc' },
         take: 10
