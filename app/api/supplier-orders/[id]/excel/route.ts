@@ -98,7 +98,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const excelData = {
       items: cartData.items.map((item: any) => ({
         sku: item.id || 'N/A',
-        name: item.name || `Дверь ${item.model} (${item.finish}, ${item.color}, ${item.width} х ${item.height} мм)` || 'Товар',
+        name: item.type === 'handle' 
+          ? (item.handleName || item.name || 'Ручка')
+          : (item.name || `Дверь ${item.model} (${item.finish}, ${item.color}, ${item.width} х ${item.height} мм)` || 'Товар'),
         quantity: item.quantity || item.qty || 1,
         unitPrice: item.unitPrice || 0,
         total: (item.quantity || item.qty || 1) * (item.unitPrice || 0),
@@ -107,7 +109,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         finish: item.finish,
         color: item.color,
         width: item.width,
-        height: item.height
+        height: item.height,
+        // КРИТИЧНО: передаем тип товара для правильной логики
+        type: item.type,
+        handleId: item.handleId,
+        handleName: item.handleName
       }))
     };
 
@@ -368,27 +374,72 @@ async function generateExcel(data: any): Promise<Buffer> {
                 : productData.properties_data;
               
               // Заполняем поля в нужном порядке
+              console.log(`🔍 Тип товара: "${item.type}", Заполняем поля для ${productData.sku}`);
+              console.log(`🔍 Проверяем item.type === 'handle': ${item.type === 'handle'}`);
               dbFields.forEach(fieldName => {
                 let value = '';
                 
-                // Специальная логика для ручек
-                if (item.type === 'handle') {
-                  if (fieldName === 'Наименование у поставщика') {
-                    // Для ручек используем Фабрика_наименование
-                    value = props['Фабрика_наименование'] || '';
-                  } else if (fieldName === 'Материал/Покрытие' || 
-                           fieldName === 'Размер 1' || 
-                           fieldName === 'Размер 2' || 
-                           fieldName === 'Размер 3') {
-                    // Для ручек эти поля не заполняем
-                    value = '';
+                // Универсальная логика для всех товаров (как в puppeteer-generator.ts)
+                if (fieldName === 'Наименование у поставщика') {
+                  // Для всех товаров используем правильные поля
+                  value = props['Фабрика_наименование'] || props['Наименование двери у поставщика'] || props['Наименование поставщика'] || props['Наименование'] || '';
+                  console.log(`🔍 Поле "${fieldName}" заполняем: ${value}`);
+                } else if (fieldName === 'Материал/Покрытие') {
+                  // Для дверей: Материал/Покрытие, для ручек: пустое
+                  if (item.type === 'handle') {
+                    value = ''; // Ручки не заполняют материал
+                    console.log(`🔍 Ручка - поле "${fieldName}" оставляем пустым`);
                   } else {
-                    // Остальные поля заполняем как обычно
-                    value = props[fieldName] || '';
+                    value = props['Материал/Покрытие'] || props['Тип покрытия'] || '';
+                    console.log(`🔍 Дверь - поле "${fieldName}" заполняем: ${value}`);
                   }
+                } else if (fieldName === 'Размер 1') {
+                  // Для дверей: Ширина/мм, для ручек: пустое
+                  if (item.type === 'handle') {
+                    value = ''; // Ручки не заполняют размеры
+                    console.log(`🔍 Ручка - поле "${fieldName}" оставляем пустым`);
+                  } else {
+                    value = props['Ширина/мм'] || '';
+                    console.log(`🔍 Дверь - поле "${fieldName}" заполняем: ${value}`);
+                  }
+                } else if (fieldName === 'Размер 2') {
+                  // Для дверей: Высота/мм, для ручек: пустое
+                  if (item.type === 'handle') {
+                    value = ''; // Ручки не заполняют размеры
+                    console.log(`🔍 Ручка - поле "${fieldName}" оставляем пустым`);
+                  } else {
+                    value = props['Высота/мм'] || '';
+                    console.log(`🔍 Дверь - поле "${fieldName}" заполняем: ${value}`);
+                  }
+                } else if (fieldName === 'Размер 3') {
+                  // Для дверей: Толщина/мм, для ручек: пустое
+                  if (item.type === 'handle') {
+                    value = ''; // Ручки не заполняют размеры
+                    console.log(`🔍 Ручка - поле "${fieldName}" оставляем пустым`);
+                  } else {
+                    value = props['Толщина/мм'] || '';
+                    console.log(`🔍 Дверь - поле "${fieldName}" заполняем: ${value}`);
+                  }
+                } else if (fieldName === 'Цвет/Отделка') {
+                  // Для всех товаров используем Цвет/Отделка
+                  value = props['Цвет/Отделка'] || props['Domeo_Цвет'] || '';
                 } else {
-                  // Для дверей используем старую логику
-                  value = props[fieldName] || '';
+                  // Остальные поля заполняем как обычно
+                  if (item.type === 'handle') {
+                    // Для ручек используем специальную логику для некоторых полей
+                    if (fieldName === 'Цена РРЦ') {
+                      value = props['Цена розница'] || props['Цена РРЦ'] || '';
+                    } else if (fieldName === 'Артикул поставщика') {
+                      value = props['Фабрика_артикул'] || props['Артикул поставщика'] || '';
+                    } else {
+                      value = props[fieldName] || '';
+                    }
+                    console.log(`🔍 Ручка - поле "${fieldName}" заполняем: ${value}`);
+                  } else {
+                    // Для дверей используем стандартную логику
+                    value = props[fieldName] || '';
+                    console.log(`🔍 Дверь - поле "${fieldName}" заполняем: ${value}`);
+                  }
                 }
                 
                 if (value !== undefined && value !== null && value !== '') {
@@ -544,13 +595,24 @@ async function findAllProductsByConfiguration(item: any) {
           ? JSON.parse(product.properties_data) 
           : product.properties_data;
         
-        // Проверяем ТОЧНОЕ соответствие конфигурации (как в оригинале)
-        const modelMatch = !item.model || props['Domeo_Название модели для Web'] === item.model;
-        const finishMatch = !item.finish || props['Материал/Покрытие'] === item.finish;
-        const colorMatch = !item.color || props['Цвет/Отделка'] === item.color;
+        // Проверяем соответствие конфигурации с гибким поиском
+        const modelMatch = !item.model || 
+          props['Domeo_Название модели для Web'] === item.model ||
+          props['Domeo_Название модели для Web']?.includes(item.model) ||
+          item.model?.includes(props['Domeo_Название модели для Web']);
+        const finishMatch = !item.finish || 
+          props['Материал/Покрытие'] === item.finish ||
+          props['Тип покрытия'] === item.finish;
+        const colorMatch = !item.color || 
+          props['Цвет/Отделка'] === item.color ||
+          props['Domeo_Цвет'] === item.color;
         // Исправляем сравнение размеров - приводим к строкам для сравнения
-        const widthMatch = !item.width || String(props['Размер 1']) === String(item.width);
-        const heightMatch = !item.height || String(props['Размер 2']) === String(item.height);
+        const widthMatch = !item.width || 
+          String(props['Ширина/мм']) === String(item.width) ||
+          String(props['Размер 1']) === String(item.width);
+        const heightMatch = !item.height || 
+          String(props['Высота/мм']) === String(item.height) ||
+          String(props['Размер 2']) === String(item.height);
         
         if (modelMatch && finishMatch && colorMatch && widthMatch && heightMatch) {
           console.log('✅ Найден подходящий товар:', product.sku);
@@ -570,7 +632,9 @@ async function findAllProductsByConfiguration(item: any) {
               dbFinish: props['Материал/Покрытие'],
               dbColor: props['Цвет/Отделка'],
               dbWidth: props['Размер 1'],
-              dbHeight: props['Размер 2']
+              dbHeight: props['Размер 2'],
+              // ДОБАВЛЯЕМ ВСЕ ДОСТУПНЫЕ ПОЛЯ ДЛЯ ДИАГНОСТИКИ
+              allProps: Object.keys(props).slice(0, 10) // Показываем первые 10 ключей
             });
           }
         }
