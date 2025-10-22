@@ -688,21 +688,26 @@ export async function exportDocumentWithPDF(
       let name = '';
       
       if (item.type === 'handle') {
-        // Это ручка - используем название ручки
-        const handleName = item.handleName || `Ручка ${item.handleId || 'Неизвестная'}`;
-        name = handleName;
+        // Это ручка - используем название ручки с префиксом
+        const handleName = item.handleName || item.handleId || 'Неизвестная ручка';
+        name = `Ручка ${handleName}`;
       } else if (item.model && item.model.includes('DomeoDoors')) {
-        // Это дверь - формируем описание БЕЗ ручки
+        // Это дверь - формируем полное описание
         const finish = item.finish || '';
         const color = item.color || '';
         const dimensions = item.width && item.height ? `${item.width} × ${item.height} мм` : '';
-        const hardware = item.hardware || 'Базовый';
+        const hardware = item.hardwareKitName || item.hardware || 'Базовый';
+        // Убираем префикс "Комплект фурнитуры — " если он есть
+        const cleanHardware = hardware.replace(/^Комплект фурнитуры — /, '');
+        
+        // Формируем название модели в правильном формате
+        const modelName = item.model.replace(/DomeoDoors_/g, '').replace(/_/g, ' ');
         
         if (type === 'order') {
-          name = `Дверь ${item.model} (${finish}, ${color}, ${dimensions}, Фурнитура - ${hardware})`;
+          name = `Дверь DomeoDoors ${modelName} (${finish}, ${color}, ${dimensions}, Фурнитура - ${cleanHardware})`;
         } else {
-          // Для КП и Счета - дверь БЕЗ ручки
-          name = `Дверь ${item.model} (${finish}, ${color}, ${dimensions}, Фурнитура - Комплект фурнитуры - ${hardware})`;
+          // Для КП и Счета - дверь с полным описанием
+          name = `Дверь DomeoDoors ${modelName} (${finish}, ${color}, ${dimensions}, Фурнитура - Комплект фурнитуры - ${cleanHardware})`;
         }
       } else {
         // Другие товары - используем стандартный формат
@@ -838,17 +843,22 @@ async function createDocumentRecordsSimple(
       let name = '';
       
       if (item.type === 'handle') {
-        // Это ручка - используем название ручки
-        const handleName = item.handleName || `Ручка ${item.handleId || 'Неизвестная'}`;
-        name = handleName;
+        // Это ручка - используем название ручки с префиксом
+        const handleName = item.handleName || item.handleId || 'Неизвестная ручка';
+        name = `Ручка ${handleName}`;
       } else if (item.model && item.model.includes('DomeoDoors')) {
-        // Это дверь - формируем описание БЕЗ ручки
+        // Это дверь - формируем полное описание
         const finish = item.finish || '';
         const color = item.color || '';
         const dimensions = item.width && item.height ? `${item.width} × ${item.height} мм` : '';
-        const hardware = item.hardware || 'Базовый';
+        const hardware = item.hardwareKitName || item.hardware || 'Базовый';
+        // Убираем префикс "Комплект фурнитуры — " если он есть
+        const cleanHardware = hardware.replace(/^Комплект фурнитуры — /, '');
         
-        name = `Дверь ${item.model} (${finish}, ${color}, ${dimensions}, Фурнитура - Комплект фурнитуры - ${hardware})`;
+        // Формируем название модели в правильном формате
+        const modelName = item.model.replace(/DomeoDoors_/g, '').replace(/_/g, ' ');
+        
+        name = `Дверь DomeoDoors ${modelName} (${finish}, ${color}, ${dimensions}, Фурнитура - Комплект фурнитуры - ${cleanHardware})`;
       } else {
         // Другие товары
         name = item.name || `${item.model || 'Товар'} ${item.finish || ''} ${item.color || ''}`.trim();
@@ -890,17 +900,22 @@ async function createDocumentRecordsSimple(
       let name = '';
       
       if (item.type === 'handle') {
-        // Это ручка - используем название ручки
-        const handleName = item.handleName || `Ручка ${item.handleId || 'Неизвестная'}`;
-        name = handleName;
+        // Это ручка - используем название ручки с префиксом
+        const handleName = item.handleName || item.handleId || 'Неизвестная ручка';
+        name = `Ручка ${handleName}`;
       } else if (item.model && item.model.includes('DomeoDoors')) {
-        // Это дверь - формируем описание БЕЗ ручки
+        // Это дверь - формируем полное описание
         const finish = item.finish || '';
         const color = item.color || '';
         const dimensions = item.width && item.height ? `${item.width} × ${item.height} мм` : '';
-        const hardware = item.hardware || 'Базовый';
+        const hardware = item.hardwareKitName || item.hardware || 'Базовый';
+        // Убираем префикс "Комплект фурнитуры — " если он есть
+        const cleanHardware = hardware.replace(/^Комплект фурнитуры — /, '');
         
-        name = `Дверь ${item.model} (${finish}, ${color}, ${dimensions}, Фурнитура - Комплект фурнитуры - ${hardware})`;
+        // Формируем название модели в правильном формате
+        const modelName = item.model.replace(/DomeoDoors_/g, '').replace(/_/g, ' ');
+        
+        name = `Дверь DomeoDoors ${modelName} (${finish}, ${color}, ${dimensions}, Фурнитура - Комплект фурнитуры - ${cleanHardware})`;
       } else {
         // Другие товары
         name = item.name || `${item.model || 'Товар'} ${item.finish || ''} ${item.color || ''}`.trim();
@@ -942,17 +957,22 @@ async function createDocumentRecordsSimple(
       let name = '';
       
       if (item.type === 'handle') {
-        // Это ручка - используем название ручки
-        const handleName = item.handleName || `Ручка ${item.handleId || 'Неизвестная'}`;
-        name = handleName;
+        // Это ручка - используем название ручки с префиксом
+        const handleName = item.handleName || item.handleId || 'Неизвестная ручка';
+        name = `Ручка ${handleName}`;
       } else if (item.model && item.model.includes('DomeoDoors')) {
-        // Это дверь - формируем описание БЕЗ ручки
+        // Это дверь - формируем полное описание
         const finish = item.finish || '';
         const color = item.color || '';
         const dimensions = item.width && item.height ? `${item.width} × ${item.height} мм` : '';
-        const hardware = item.hardware || 'Базовый';
+        const hardware = item.hardwareKitName || item.hardware || 'Базовый';
+        // Убираем префикс "Комплект фурнитуры — " если он есть
+        const cleanHardware = hardware.replace(/^Комплект фурнитуры — /, '');
         
-        name = `Дверь ${item.model} (${finish}, ${color}, ${dimensions}, Фурнитура - ${hardware})`;
+        // Формируем название модели в правильном формате
+        const modelName = item.model.replace(/DomeoDoors_/g, '').replace(/_/g, ' ');
+        
+        name = `Дверь DomeoDoors ${modelName} (${finish}, ${color}, ${dimensions}, Фурнитура - ${cleanHardware})`;
       } else {
         // Другие товары
         name = item.name || `${item.model || 'Товар'} ${item.finish || ''} ${item.color || ''}`.trim();

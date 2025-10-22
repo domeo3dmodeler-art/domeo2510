@@ -64,6 +64,7 @@ type CartItem = {
   // edge?: string;
   // edge_note?: string;
   hardwareKitId?: string;
+  hardwareKitName?: string; // Добавляем название комплекта фурнитуры
   baseAtAdd: number;
 };
 
@@ -1387,6 +1388,7 @@ export default function DoorsPage() {
       unitPrice: price.total,
       sku_1c: price.sku_1c,
       hardwareKitId: (sel.hardware_kit && sel.hardware_kit.id) || undefined,
+      hardwareKitName: sel.hardware_kit ? hardwareKits.find(k => k.id === sel.hardware_kit?.id)?.name : undefined, // Добавляем название комплекта
       baseAtAdd: price.total,
     };
     
