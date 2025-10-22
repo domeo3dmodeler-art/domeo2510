@@ -91,40 +91,17 @@ export async function GET(
       })
     ]);
 
-    // Для каждого заказа поставщика ищем связанный счет
+    // Для каждого заказа поставщика ищем связанный счет через логику parent_document_id
     const supplierOrdersWithInvoiceInfo = await Promise.all(
       supplierOrders.map(async (so) => {
         let invoiceInfo = null;
         
-        // Ищем счет по cart_session_id
-        if (so.cart_session_id) {
-          const invoice = await prisma.invoice.findFirst({
-            where: {
-              cart_session_id: so.cart_session_id
-            },
-            select: {
-              id: true,
-              number: true,
-              total_amount: true
-            }
-          });
-          
-          if (invoice) {
-            invoiceInfo = {
-              id: invoice.id,
-              number: invoice.number,
-              total_amount: invoice.total_amount
-            };
-          }
-        }
-        
-        // Если счет не найден по cart_session_id, ищем через связанный заказ
-        if (!invoiceInfo && so.parent_document_id) {
+        // Ищем счет через цепочку: SupplierOrder → Order → Invoice
+        if (so.parent_document_id) {
           const order = await prisma.order.findUnique({
             where: { id: so.parent_document_id },
             select: {
-              parent_document_id: true,
-              cart_session_id: true
+              parent_document_id: true
             }
           });
           
@@ -145,6 +122,28 @@ export async function GET(
                 total_amount: invoice.total_amount
               };
             }
+          }
+        }
+        
+        // Fallback: ищем счет по cart_session_id (для совместимости со старыми данными)
+        if (!invoiceInfo && so.cart_session_id) {
+          const invoice = await prisma.invoice.findFirst({
+            where: {
+              cart_session_id: so.cart_session_id
+            },
+            select: {
+              id: true,
+              number: true,
+              total_amount: true
+            }
+          });
+          
+          if (invoice) {
+            invoiceInfo = {
+              id: invoice.id,
+              number: invoice.number,
+              total_amount: invoice.total_amount
+            };
           }
         }
         

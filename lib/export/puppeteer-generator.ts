@@ -2,6 +2,11 @@ import { prisma } from '@/lib/prisma';
 import ExcelJS from 'exceljs';
 import puppeteer, { Browser } from 'puppeteer';
 
+// Кэш для товаров по категориям
+const productsCache = new Map<string, any[]>();
+const cacheExpiry = new Map<string, number>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 минут
+
 // Функция для извлечения SKU поставщика из свойств товара
 function extractSupplierSku(propertiesData: any): string {
   if (!propertiesData) return 'N/A';
@@ -265,10 +270,9 @@ async function findHandleById(handleId: string) {
   }
 }
 
-// Поиск ВСЕХ товаров в БД по точной конфигурации
+// Оптимизированный поиск товаров с кэшированием
 async function findAllProductsByConfiguration(item: any) {
-  console.log('🔍 Ищем ВСЕ товары по конфигурации:');
-  console.log('📦 Полный объект товара из корзины:', JSON.stringify(item, null, 2));
+  console.log('🔍 Ищем товары по конфигурации (оптимизированно):');
   console.log('🎯 Параметры поиска:', {
     model: item.model,
     finish: item.finish,
@@ -283,19 +287,48 @@ async function findAllProductsByConfiguration(item: any) {
     categoryName = "Ручки";
   }
 
-  // Получаем все товары нужной категории
+  // Проверяем кэш
+  const cacheKey = categoryName;
+  const now = Date.now();
+  
+  if (productsCache.has(cacheKey) && cacheExpiry.get(cacheKey)! > now) {
+    console.log('📦 Используем кэшированные товары');
+    const cachedProducts = productsCache.get(cacheKey)!;
+    return findMatchingProductsInList(cachedProducts, item);
+  }
+
+  console.log('📦 Загружаем товары из БД...');
+  
+  // Загружаем товары с оптимизированным запросом
   const allProducts = await prisma.product.findMany({
     where: {
       catalog_category: { name: categoryName }
     },
-    select: { id: true, properties_data: true, name: true, sku: true }
+    select: { 
+      id: true, 
+      properties_data: true, 
+      name: true, 
+      sku: true 
+    },
+    // Добавляем лимит для безопасности
+    take: 10000
   });
 
-  console.log(`📦 Найдено ${allProducts.length} товаров для поиска`);
+  console.log(`📦 Загружено ${allProducts.length} товаров`);
 
+  // Кэшируем результат
+  productsCache.set(cacheKey, allProducts);
+  cacheExpiry.set(cacheKey, now + CACHE_TTL);
+
+  return findMatchingProductsInList(allProducts, item);
+}
+
+// Оптимизированный поиск в списке товаров
+function findMatchingProductsInList(products: any[], item: any) {
   const matchingProducts = [];
+  let processedCount = 0;
 
-  for (const product of allProducts) {
+  for (const product of products) {
     if (product.properties_data) {
       try {
         const props = typeof product.properties_data === 'string' 
@@ -303,36 +336,18 @@ async function findAllProductsByConfiguration(item: any) {
           : product.properties_data;
         
         if (item.type === 'handle') {
-          // Для ручек ищем по ID
+          // Для ручек проверяем только ID (уже найдено по ID)
           if (product.id === item.handleId) {
             console.log('✅ Найдена ручка:', product.sku);
             matchingProducts.push(product);
+            break; // Для ручек нужен только один товар
           }
         } else {
-          // Для отладки - показываем все доступные поля только для первого товара
-          if (matchingProducts.length === 0 && allProducts.indexOf(product) === 0) {
-            console.log('🔍 Доступные поля в properties_data:', Object.keys(props));
-            console.log('🔍 Примеры значений:', {
-              'Domeo_Название модели для Web': props['Domeo_Название модели для Web'],
-              'Материал/Покрытие': props['Материал/Покрытие'],
-              'Цвет/Отделка': props['Цвет/Отделка'],
-              'Размер 1': props['Размер 1'],
-              'Размер 2': props['Размер 2'],
-              'Ширина/мм': props['Ширина/мм'],
-              'Высота/мм': props['Высота/мм'],
-              'Толщина/мм': props['Толщина/мм'],
-              'Тип покрытия': props['Тип покрытия'],
-              'Domeo_Цвет': props['Domeo_Цвет']
-            });
-          }
-          
-          // Для дверей проверяем соответствие конфигурации (более гибкий поиск)
-          // Пробуем разные варианты названий полей
+          // Для дверей проверяем соответствие конфигурации
           const modelMatch = !item.model || 
             props['Domeo_Название модели для Web'] === item.model ||
             props['МОДЕЛЬ'] === item.model ||
             props['model'] === item.model ||
-            // Более гибкий поиск - если модель не найдена, пропускаем проверку модели
             (item.model && !props['Domeo_Название модели для Web'] && !props['МОДЕЛЬ'] && !props['model']);
             
           const finishMatch = !item.finish || 
@@ -347,7 +362,6 @@ async function findAllProductsByConfiguration(item: any) {
             props['ЦВЕТ'] === item.color ||
             props['color'] === item.color;
             
-          // Исправляем сравнение размеров - пробуем разные варианты названий
           const widthMatch = !item.width || 
             String(props['Размер 1']) === String(item.width) ||
             String(props['Ширина/мм']) === String(item.width) ||
@@ -360,31 +374,30 @@ async function findAllProductsByConfiguration(item: any) {
       
           if (modelMatch && finishMatch && colorMatch && widthMatch && heightMatch) {
             console.log('✅ Найден подходящий товар:', product.sku);
-            console.log('   Совпадения:', { modelMatch, finishMatch, colorMatch, widthMatch, heightMatch });
             matchingProducts.push(product);
-          } else {
-            // Логируем только первые несколько несовпадений для отладки
-            if (matchingProducts.length < 3) {
-              console.log('❌ Товар не подходит:', product.sku, {
-                modelMatch, finishMatch, colorMatch, widthMatch, heightMatch,
-                itemModel: item.model, itemFinish: item.finish, itemColor: item.color,
-                itemWidth: item.width, itemHeight: item.height,
-                dbModel: props['Domeo_Название модели для Web'] || props['МОДЕЛЬ'] || props['model'],
-                dbFinish: props['Материал/Покрытие'] || props['Тип покрытия'] || props['ТИП ПОКРЫТИЯ'] || props['finish'],
-                dbColor: props['Цвет/Отделка'] || props['Domeo_Цвет'] || props['ЦВЕТ'] || props['color'],
-                dbWidth: props['Размер 1'] || props['Ширина/мм'] || props['width'],
-                dbHeight: props['Размер 2'] || props['Высота/мм'] || props['height']
-              });
+            
+            // Ограничиваем количество результатов для производительности
+            if (matchingProducts.length >= 5) {
+              console.log('⚠️ Ограничиваем результаты до 5 товаров для производительности');
+              break;
             }
           }
         }
+        
+        processedCount++;
+        
+        // Логируем прогресс каждые 1000 товаров
+        if (processedCount % 1000 === 0) {
+          console.log(`📊 Обработано ${processedCount}/${products.length} товаров`);
+        }
+        
       } catch (e) {
         console.warn('Ошибка парсинга properties_data:', e);
       }
     }
   }
 
-  console.log(`🎯 Найдено ${matchingProducts.length} подходящих товаров`);
+  console.log(`🎯 Найдено ${matchingProducts.length} подходящих товаров из ${processedCount} обработанных`);
   return matchingProducts;
 }
 
@@ -1322,4 +1335,5 @@ export async function cleanupExportResources() {
 }
 
 // Экспортируем функции для использования в других модулях
+export { findExistingDocument, createDocumentRecordsSimple as createDocumentRecord };
 export { findExistingDocument, createDocumentRecordsSimple as createDocumentRecord };
