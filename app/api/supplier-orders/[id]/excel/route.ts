@@ -100,7 +100,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         sku: item.id || 'N/A',
         name: item.type === 'handle' 
           ? (item.handleName || item.name || 'Ручка')
-          : (item.name || `Дверь ${item.model} (${item.finish}, ${item.color}, ${item.width} х ${item.height} мм, Комплект фурнитуры - ${item.hardwareKitName || item.hardware || 'Базовый'})` || 'Товар'),
+          : (item.name || `Дверь ${item.model?.replace(/DomeoDoors_/g, 'DomeoDoors ').replace(/_/g, ' ')} (${item.finish}, ${item.color}, ${item.width} × ${item.height} мм, Комплект фурнитуры - ${item.hardwareKitName || item.hardware || 'Базовый'})` || 'Товар'),
         quantity: item.quantity || item.qty || 1,
         unitPrice: item.unitPrice || 0,
         total: (item.quantity || item.qty || 1) * (item.unitPrice || 0),
