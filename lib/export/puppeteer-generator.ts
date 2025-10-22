@@ -688,8 +688,9 @@ export async function exportDocumentWithPDF(
       let name = '';
       
       if (item.type === 'handle') {
-        // Это ручка - используем название как есть
-        name = item.name;
+        // Это ручка - используем название ручки
+        const handleName = item.handleName || `Ручка ${item.handleId || 'Неизвестная'}`;
+        name = handleName;
       } else if (item.model && item.model.includes('DomeoDoors')) {
         // Это дверь - формируем описание БЕЗ ручки
         const finish = item.finish || '';
@@ -837,8 +838,9 @@ async function createDocumentRecordsSimple(
       let name = '';
       
       if (item.type === 'handle') {
-        // Это ручка - используем название как есть
-        name = item.name;
+        // Это ручка - используем название ручки
+        const handleName = item.handleName || `Ручка ${item.handleId || 'Неизвестная'}`;
+        name = handleName;
       } else if (item.model && item.model.includes('DomeoDoors')) {
         // Это дверь - формируем описание БЕЗ ручки
         const finish = item.finish || '';
@@ -888,8 +890,9 @@ async function createDocumentRecordsSimple(
       let name = '';
       
       if (item.type === 'handle') {
-        // Это ручка - используем название как есть
-        name = item.name;
+        // Это ручка - используем название ручки
+        const handleName = item.handleName || `Ручка ${item.handleId || 'Неизвестная'}`;
+        name = handleName;
       } else if (item.model && item.model.includes('DomeoDoors')) {
         // Это дверь - формируем описание БЕЗ ручки
         const finish = item.finish || '';
@@ -939,8 +942,9 @@ async function createDocumentRecordsSimple(
       let name = '';
       
       if (item.type === 'handle') {
-        // Это ручка - используем название как есть
-        name = item.name;
+        // Это ручка - используем название ручки
+        const handleName = item.handleName || `Ручка ${item.handleId || 'Неизвестная'}`;
+        name = handleName;
       } else if (item.model && item.model.includes('DomeoDoors')) {
         // Это дверь - формируем описание БЕЗ ручки
         const finish = item.finish || '';

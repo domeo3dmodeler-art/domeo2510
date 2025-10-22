@@ -59,6 +59,7 @@ type CartItem = {
   qty: number;
   unitPrice: number;
   handleId?: string;
+  handleName?: string; // Добавляем название ручки
   sku_1c?: string | number | null;
   // edge?: string;
   // edge_note?: string;
@@ -1406,6 +1407,7 @@ export default function DoorsPage() {
         qty: quantity,
         unitPrice: handle ? handle.price : 0,
         handleId: sel.handle.id,
+        handleName: handle ? handle.name : 'Неизвестная ручка', // Добавляем название ручки
         sku_1c: price.sku_1c,
         baseAtAdd: 0,
       };
@@ -2398,10 +2400,10 @@ export default function DoorsPage() {
                             <div className="text-sm">
                               <div className="font-medium text-black">
                                 {i.type === 'handle' 
-                                  ? `Ручка ${Object.values(handles).flat().find((h: Handle) => h.id === i.handleId)?.name || 'Неизвестная ручка'}`
+                                  ? `Ручка ${i.handleName || 'Неизвестная ручка'}`
                                   : `Дверь DomeoDoors ${i.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель'}`
                                 }
-                          </div>
+                              </div>
                               <div className="text-gray-600 text-xs font-normal">
                                 {i.type === 'handle' 
                                   ? `(Ручка для двери)`
@@ -3489,7 +3491,7 @@ function CartManager({
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-black text-sm truncate">
                           {item.type === 'handle' 
-                            ? `Ручка ${Object.values(handles).flat().find((h: Handle) => h.id === item.handleId)?.name || 'Неизвестная ручка'}`
+                            ? `Ручка ${item.handleName || 'Неизвестная ручка'}`
                             : `Дверь DomeoDoors ${item.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель'}`
                           }
                         </div>
