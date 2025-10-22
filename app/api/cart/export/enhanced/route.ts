@@ -59,8 +59,23 @@ export async function POST(req: NextRequest) {
       sum + (item.unitPrice || 0) * (item.qty || item.quantity || 1), 0
     );
 
-    // Генерируем уникальный cart_session_id для этой сессии корзины
-    const cartSessionId = generateCartSessionId();
+    // Генерируем cart_session_id на основе содержимого корзины
+    // Если корзина одинаковая - cart_session_id будет одинаковый
+    const cartHash = Buffer.from(JSON.stringify({
+      clientId,
+      items: cart.items.map(item => ({
+        id: item.id,
+        type: item.type,
+        model: item.model,
+        qty: item.qty || item.quantity,
+        unitPrice: item.unitPrice
+      })),
+      totalAmount
+    })).toString('base64').substring(0, 20);
+    
+    const cartSessionId = `cart_${cartHash}`;
+    
+    console.log('🛒 Cart session ID:', cartSessionId);
     
     // Генерируем документ с помощью существующей системы
     const exportResult = await exportDocumentWithPDF(
