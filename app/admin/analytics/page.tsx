@@ -13,6 +13,7 @@ import {
   Clock,
   Activity
 } from 'lucide-react';
+import AdminLayout from '../../../components/layout/AdminLayout';
 
 interface AnalyticsData {
   totalProducts: number;
@@ -189,14 +190,13 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="p-6">
+    <AdminLayout 
+      title="Аналитика" 
+      subtitle="Обзор состояния системы и ключевые метрики"
+    >
+      <div className="p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Аналитика</h1>
-          <p className="text-gray-600">Обзор состояния системы и ключевые метрики</p>
-        </div>
-        
         <div className="flex items-center space-x-4">
           <div className="text-sm text-gray-500">
             Последнее обновление: {lastUpdated.toLocaleTimeString('ru-RU')}
@@ -500,6 +500,7 @@ export default function AnalyticsPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </AdminLayout>
   );
 }

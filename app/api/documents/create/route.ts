@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { canUserCreateDocument } from '@/lib/auth/permissions';
+import jwt from 'jsonwebtoken';
 
 // POST /api/documents/create - Универсальное создание документов с автоматическими связями
 export async function POST(req: NextRequest) {
@@ -16,10 +18,28 @@ export async function POST(req: NextRequest) {
       tax_amount = 0,
       notes,
       prevent_duplicates = true,
-      created_by = 'system'
+      created_by = userId || 'system'
     } = body;
 
     console.log(`🆕 Создание документа типа ${type}, родитель: ${parent_document_id || 'нет'}`);
+
+    // Получаем пользователя из токена
+    const token = req.cookies.get('auth-token')?.value;
+    if (!token) {
+      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const userId = decoded.userId;
+    const userRole = decoded.role;
+
+    // Проверяем права на создание документа
+    if (!canUserCreateDocument(userRole, type)) {
+      return NextResponse.json(
+        { error: 'Недостаточно прав для создания документа данного типа' },
+        { status: 403 }
+      );
+    }
 
     // Валидация
     if (!type || !client_id || !items || !Array.isArray(items)) {

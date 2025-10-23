@@ -3,8 +3,8 @@ import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
 // Пути, которые требуют авторизации
-const protectedPaths = ['/admin', '/complectator', '/executor', '/doors', '/universal'];
-const publicPaths = ['/login', '/', '/catalog'];
+const protectedPaths = ['/admin', '/complectator', '/executor', '/universal'];
+const publicPaths = ['/login', '/', '/catalog', '/doors'];
 
 // Пути только для админов
 const adminOnlyPaths = [

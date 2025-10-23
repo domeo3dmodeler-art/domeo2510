@@ -20,12 +20,6 @@ interface Client {
   invoices: any[];
   orders: any[];
   documents: any[];
-  _count: {
-    quotes: number;
-    invoices: number;
-    orders: number;
-    documents: number;
-  };
 }
 
 export default function ClientDetailPage() {
@@ -234,19 +228,21 @@ export default function ClientDetailPage() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{client._count.quotes}</div>
+                  <div className="text-2xl font-bold text-blue-600">{client.quotes?.length || 0}</div>
                   <div className="text-sm text-gray-600">КП</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">{client._count.invoices}</div>
+                  <div className="text-2xl font-bold text-green-600">{client.invoices?.length || 0}</div>
                   <div className="text-sm text-gray-600">Счета</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">{client._count.orders}</div>
+                  <div className="text-2xl font-bold text-purple-600">{client.orders?.length || 0}</div>
                   <div className="text-sm text-gray-600">Заказы</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-600">{client._count.documents}</div>
+                  <div className="text-2xl font-bold text-gray-600">
+                    {(client.quotes?.length || 0) + (client.invoices?.length || 0) + (client.orders?.length || 0)}
+                  </div>
                   <div className="text-sm text-gray-600">Всего</div>
                 </div>
               </div>
@@ -275,7 +271,7 @@ export default function ClientDetailPage() {
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                КП ({client._count.quotes})
+                КП ({client.quotes?.length || 0})
               </button>
               <button
                 onClick={() => setActiveTab('invoices')}
@@ -285,7 +281,7 @@ export default function ClientDetailPage() {
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                Счета ({client._count.invoices})
+                Счета ({client.invoices?.length || 0})
               </button>
               <button
                 onClick={() => setActiveTab('orders')}
@@ -295,27 +291,32 @@ export default function ClientDetailPage() {
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                Заказы ({client._count.orders})
+                Заказы ({client.orders?.length || 0})
               </button>
             </div>
 
             {/* Documents List */}
             <div className="space-y-4">
               {(() => {
-                let documents = client.documents;
+                let documents = client.documents || [];
                 
                 switch (activeTab) {
                   case 'quotes':
-                    documents = documents.filter(doc => doc.type === 'quote');
+                    documents = (client.quotes || []).map(quote => ({ ...quote, type: 'quote' }));
                     break;
                   case 'invoices':
-                    documents = documents.filter(doc => doc.type === 'invoice');
+                    documents = (client.invoices || []).map(invoice => ({ ...invoice, type: 'invoice' }));
                     break;
                   case 'orders':
-                    documents = documents.filter(doc => doc.type === 'order');
+                    documents = (client.orders || []).map(order => ({ ...order, type: 'order' }));
                     break;
                   default:
-                    documents = client.documents;
+                    // Объединяем все документы
+                    documents = [
+                      ...(client.quotes || []).map(quote => ({ ...quote, type: 'quote' })),
+                      ...(client.invoices || []).map(invoice => ({ ...invoice, type: 'invoice' })),
+                      ...(client.orders || []).map(order => ({ ...order, type: 'order' }))
+                    ];
                 }
 
                 if (documents.length === 0) {
@@ -329,14 +330,14 @@ export default function ClientDetailPage() {
                         <p className="text-gray-600 mb-4">
                           {activeTab === 'documents' 
                             ? 'У этого заказчика пока нет документов'
-                            : `У этого заказчика пока нет документов типа "${getDocumentTypeLabel(activeTab)}"`
+                            : `У этого заказчика пока нет документов типа "${getDocumentTypeLabel(activeTab as 'quote' | 'invoice' | 'order')}"`
                           }
                         </p>
                         <Button
                           variant="primary"
                           onClick={() => handleCreateDocument(activeTab === 'documents' ? 'quote' : activeTab)}
                         >
-                          Создать {activeTab === 'documents' ? 'документ' : getDocumentTypeLabel(activeTab)}
+                          Создать {activeTab === 'documents' ? 'документ' : getDocumentTypeLabel(activeTab as 'quote' | 'invoice' | 'order')}
                         </Button>
                       </div>
                     </Card>

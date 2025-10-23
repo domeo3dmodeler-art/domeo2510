@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button, Card } from '../../../components/ui';
 import StatCard from '../../../components/ui/StatCard';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 import { 
   FileText, 
   Download, 
@@ -1211,12 +1212,11 @@ export default function ComplectatorDashboard() {
                 onChange={(e) => setNewClientData(prev => ({ ...prev, middleName: e.target.value }))}
                 className="col-span-2 px-3 py-2 border border-gray-300 rounded"
               />
-              <input
-                type="tel"
-                placeholder="Телефон"
+              <PhoneInput
+                label="Телефон"
                 value={newClientData.phone}
-                onChange={(e) => setNewClientData(prev => ({ ...prev, phone: e.target.value }))}
-                className="col-span-2 px-3 py-2 border border-gray-300 rounded"
+                onChange={(value) => setNewClientData(prev => ({ ...prev, phone: value }))}
+                placeholder="+7 (999) 123-45-67"
               />
               <input
                 type="text"

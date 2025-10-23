@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { Card, Button } from '../../components/ui';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 
 interface Client {
   id: string;
@@ -288,17 +289,13 @@ export default function ClientsPage() {
                     placeholder="client@example.com"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-black mb-1">Телефон *</label>
-                  <input
-                    type="tel"
-                    required
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 text-black focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                    placeholder="+7 (999) 123-45-67"
-                  />
-                </div>
+                <PhoneInput
+                  label="Телефон"
+                  value={formData.phone}
+                  onChange={(value) => setFormData({ ...formData, phone: value })}
+                  required
+                  placeholder="+7 (999) 123-45-67"
+                />
                 <div>
                   <label className="block text-sm font-medium text-black mb-1">Адрес *</label>
                   <input

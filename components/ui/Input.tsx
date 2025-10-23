@@ -1,58 +1,24 @@
-// components/ui/Input.tsx
-// Унифицированные поля ввода в стиле Domeo
+﻿import * as React from "react"
+import { cn } from "@/lib/utils"
 
-import React, { useId } from 'react';
-import { createComponentStyles } from '../../lib/design/tokens';
+export interface InputProps
+  extends React.InputHTMLAttributes<HTMLInputElement> {}
 
-export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label?: string;
-  error?: string;
-  helperText?: string;
-  variant?: 'base' | 'error';
-}
-
-export function Input({ 
-  label, 
-  error, 
-  helperText, 
-  variant = 'base',
-  className = '',
-  id,
-  ...props 
-}: InputProps) {
-  const generatedId = useId();
-  const inputId = id || generatedId;
-  const styles = createComponentStyles();
-  
-  const inputClasses = error ? styles.input.error : styles.input.base;
-  
-  return (
-    <div className={styles.form.field}>
-      {label && (
-        <label 
-          htmlFor={inputId}
-          className={styles.input.label}
-        >
-          {label}
-        </label>
-      )}
-      
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, type, ...props }, ref) => {
+    return (
       <input
-        id={inputId}
-        className={`${inputClasses} ${className}`}
+        type={type}
+        className={cn(
+          "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          className
+        )}
+        ref={ref}
         {...props}
       />
-      
-      {error && (
-        <p className={styles.input.errorText}>{error}</p>
-      )}
-      
-      {helperText && !error && (
-        <p className={styles.input.helper}>{helperText}</p>
-      )}
-    </div>
-  );
-}
+    )
+  }
+)
+Input.displayName = "Input"
 
-// Экспорт для удобства
-export default Input;
+export { Input }

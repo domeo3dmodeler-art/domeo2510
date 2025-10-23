@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { isValidInternationalPhone, normalizePhoneForStorage } from '@/lib/utils/phone';
 
 const prisma = new PrismaClient();
 
@@ -42,12 +43,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Обязательные поля: имя, фамилия, телефон' }, { status: 400 });
     }
 
+    // Валидация телефона
+    if (!isValidInternationalPhone(phone)) {
+      return NextResponse.json(
+        { error: 'Неверный формат телефона. Используйте международный формат (например: +7 999 123-45-67)' },
+        { status: 400 }
+      );
+    }
+
+    // Нормализуем телефон для хранения
+    const normalizedPhone = normalizePhoneForStorage(phone);
+
     const client = await prisma.client.create({
       data: {
         firstName,
         lastName,
         middleName: middleName || null,
-        phone,
+        phone: normalizedPhone,
         address: address || '',
         objectId: objectId || `object-${Date.now()}`
       },

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { canUserEditClient, canUserDeleteClient } from '@/lib/auth/permissions';
+import { isValidInternationalPhone, normalizePhoneForStorage } from '@/lib/utils/phone';
+import jwt from 'jsonwebtoken';
 
 export async function GET(
   request: NextRequest,
@@ -184,13 +187,41 @@ export async function PUT(
     const data = await request.json();
     const { firstName, lastName, middleName, phone, address, objectId, customFields, isActive } = data;
 
+    // Получаем пользователя из токена
+    const token = request.cookies.get('auth-token')?.value;
+    if (!token) {
+      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "your-super-secret-jwt-key-change-this-in-production-min-32-chars") as any;
+    const userRole = decoded.role;
+
+    // Проверяем права на редактирование клиента
+    if (!canUserEditClient(userRole)) {
+      return NextResponse.json(
+        { error: 'Недостаточно прав для редактирования клиента' },
+        { status: 403 }
+      );
+    }
+
+    // Валидация телефона
+    if (phone && !isValidInternationalPhone(phone)) {
+      return NextResponse.json(
+        { error: 'Неверный формат телефона. Используйте международный формат (например: +7 999 123-45-67)' },
+        { status: 400 }
+      );
+    }
+
+    // Нормализуем телефон для хранения
+    const normalizedPhone = phone ? normalizePhoneForStorage(phone) : phone;
+
     const client = await prisma.client.update({
       where: { id },
       data: {
         firstName,
         lastName,
         middleName,
-        phone,
+        phone: normalizedPhone,
         address,
         objectId,
         customFields: JSON.stringify(customFields || {}),
@@ -221,6 +252,55 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+
+    // Получаем пользователя из токена
+    const token = request.cookies.get('auth-token')?.value;
+    if (!token) {
+      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "your-super-secret-jwt-key-change-this-in-production-min-32-chars") as any;
+    const userRole = decoded.role;
+
+    // Проверяем права на удаление клиента
+    if (!canUserDeleteClient(userRole)) {
+      return NextResponse.json(
+        { error: 'Недостаточно прав для удаления клиента' },
+        { status: 403 }
+      );
+    }
+
+    // Проверяем, что у клиента нет активных документов
+    const [activeInvoices, activeQuotes, activeOrders] = await Promise.all([
+      prisma.invoice.count({
+        where: { 
+          client_id: id,
+          status: { not: 'CANCELLED' }
+        }
+      }),
+      prisma.quote.count({
+        where: { 
+          client_id: id,
+          status: { not: 'CANCELLED' }
+        }
+      }),
+      prisma.order.count({
+        where: { 
+          client_id: id,
+          status: { not: 'CANCELLED' }
+        }
+      })
+    ]);
+
+    const totalActiveDocuments = activeInvoices + activeQuotes + activeOrders;
+
+    if (totalActiveDocuments > 0) {
+      return NextResponse.json(
+        { error: `Нельзя удалить клиента с активными документами (Счетов: ${activeInvoices}, КП: ${activeQuotes}, Заказов: ${activeOrders})` },
+        { status: 400 }
+      );
+    }
+
     await prisma.client.delete({
       where: { id }
     });

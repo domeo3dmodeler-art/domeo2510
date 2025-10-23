@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button, Card, Input, Modal, Alert, LoadingSpinner } from '@/components/ui';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 import Link from 'next/link';
+import AdminLayout from '../../../components/layout/AdminLayout';
 
 interface Client {
   id: string;
@@ -42,7 +44,6 @@ export default function ClientsPage() {
   const [search, setSearch] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -55,31 +56,22 @@ export default function ClientsPage() {
   });
 
   useEffect(() => {
-    if (pagination.page > 0) {
       fetchClients();
-    }
-  }, [pagination.page, search]);
+  }, []);
 
   const fetchClients = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams({
-        page: pagination.page.toString(),
-        limit: pagination.limit.toString(),
-        ...(search && { search })
-      });
-
-      const response = await fetch(`/api/clients?${params}`);
+      const response = await fetch('/api/clients');
       const data = await response.json();
 
-      if (data.success) {
+      if (response.ok && data.clients) {
         setClients(data.clients);
-        setPagination(data.pagination);
       } else {
-        setAlert({ type: 'error', message: 'Ошибка загрузки заказчиков' });
+        alert('Ошибка загрузки заказчиков');
       }
     } catch (error) {
-      setAlert({ type: 'error', message: 'Ошибка загрузки заказчиков' });
+      alert('Ошибка загрузки заказчиков');
     } finally {
       setLoading(false);
     }
@@ -95,16 +87,16 @@ export default function ClientsPage() {
 
       const data = await response.json();
 
-      if (data.success) {
-        setAlert({ type: 'success', message: 'Заказчик создан успешно' });
+      if (response.ok && data.client) {
+        alert('Заказчик создан успешно');
         setShowCreateModal(false);
         resetForm();
         fetchClients();
       } else {
-        setAlert({ type: 'error', message: data.error || 'Ошибка создания заказчика' });
+        alert(data.error || 'Ошибка создания заказчика');
       }
     } catch (error) {
-      setAlert({ type: 'error', message: 'Ошибка создания заказчика' });
+      alert('Ошибка создания заказчика');
     }
   };
 
@@ -121,15 +113,15 @@ export default function ClientsPage() {
       const data = await response.json();
 
       if (data.success) {
-        setAlert({ type: 'success', message: 'Заказчик обновлен успешно' });
+        alert('Заказчик обновлен успешно');
         setEditingClient(null);
         resetForm();
         fetchClients();
       } else {
-        setAlert({ type: 'error', message: data.error || 'Ошибка обновления заказчика' });
+        alert(data.error || 'Ошибка обновления заказчика');
       }
     } catch (error) {
-      setAlert({ type: 'error', message: 'Ошибка обновления заказчика' });
+      alert('Ошибка обновления заказчика');
     }
   };
 
@@ -144,13 +136,13 @@ export default function ClientsPage() {
       const data = await response.json();
 
       if (data.success) {
-        setAlert({ type: 'success', message: 'Заказчик удален успешно' });
+        alert('Заказчик удален успешно');
         fetchClients();
       } else {
-        setAlert({ type: 'error', message: data.error || 'Ошибка удаления заказчика' });
+        alert(data.error || 'Ошибка удаления заказчика');
       }
     } catch (error) {
-      setAlert({ type: 'error', message: 'Ошибка удаления заказчика' });
+      alert('Ошибка удаления заказчика');
     }
   };
 
@@ -194,28 +186,20 @@ export default function ClientsPage() {
   }
 
   return (
+    <AdminLayout 
+      title="Заказчики" 
+      subtitle="Управление заказчиками и их документами"
+    >
     <div className="min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Заказчики</h1>
-            <p className="text-gray-600 mt-2">Управление заказчиками и их документами</p>
-          </div>
+          <div className="flex items-center space-x-4">
           <Button onClick={openCreateModal} variant="primary">
             Добавить заказчика
           </Button>
         </div>
-
-        {/* Alert */}
-        {alert && (
-          <Alert
-            type={alert.type}
-            message={alert.message}
-            onClose={() => setAlert(null)}
-            className="mb-6"
-          />
-        )}
+        </div>
 
         {/* Search */}
         <div className="mb-6">
@@ -229,17 +213,80 @@ export default function ClientsPage() {
         </div>
 
         {/* Clients List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {clients.map((client) => (
-            <Card key={client.id} variant="base" padding="md">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
+        <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Клиент
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Телефон
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Адрес
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  ID объекта
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Создан
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Статус
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Действия
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {clients
+                .filter((client) => {
+                  if (!search) return true;
+                  const searchLower = search.toLowerCase();
+                  return (
+                    client.firstName.toLowerCase().includes(searchLower) ||
+                    client.lastName.toLowerCase().includes(searchLower) ||
+                    (client.middleName && client.middleName.toLowerCase().includes(searchLower)) ||
+                    client.phone.includes(search) ||
+                    client.address.toLowerCase().includes(searchLower)
+                  );
+                })
+                .map((client) => (
+                  <tr key={client.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
                     {client.lastName} {client.firstName} {client.middleName}
-                  </h3>
-                  <p className="text-sm text-gray-600">{client.phone}</p>
-                </div>
-                <div className="flex space-x-2">
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{client.phone}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900 max-w-xs truncate" title={client.address}>
+                        {client.address}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{client.objectId}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {new Date(client.createdAt).toLocaleDateString('ru-RU')}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        client.isActive 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {client.isActive ? 'Активен' : 'Неактивен'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-end space-x-2">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -254,46 +301,18 @@ export default function ClientsPage() {
                   >
                     🗑️
                   </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2 mb-4">
-                <p className="text-sm text-gray-600">
-                  <strong>Адрес:</strong> {client.address}
-                </p>
-                <p className="text-sm text-gray-600">
-                  <strong>ID объекта:</strong> {client.objectId}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{client._count.quotes}</div>
-                  <div className="text-sm text-gray-600">КП</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">{client._count.invoices}</div>
-                  <div className="text-sm text-gray-600">Счета</div>
-                </div>
-              </div>
-
-              <div className="flex justify-between">
                 <Link
                   href={`/admin/clients/${client.id}`}
                   className="text-blue-600 hover:text-blue-800 text-sm"
                 >
-                  Подробнее →
+                          Подробнее
                 </Link>
-                <span className={`px-2 py-1 rounded text-xs ${
-                  client.isActive 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-red-100 text-red-800'
-                }`}>
-                  {client.isActive ? 'Активен' : 'Неактивен'}
-                </span>
               </div>
-            </Card>
+                    </td>
+                  </tr>
           ))}
+            </tbody>
+          </table>
         </div>
 
         {/* Pagination */}
@@ -366,16 +385,13 @@ export default function ClientsPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Телефон *
-              </label>
-              <Input
+            <PhoneInput
+              label="Телефон"
                 value={formData.phone}
-                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+              onChange={(value) => setFormData(prev => ({ ...prev, phone: value }))}
+              required
                 placeholder="+7 (999) 123-45-67"
               />
-            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -422,6 +438,7 @@ export default function ClientsPage() {
         </Modal>
       </div>
     </div>
+    </AdminLayout>
   );
 }
 

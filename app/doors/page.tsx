@@ -11,6 +11,7 @@ import { PhotoGallery } from "../../components/PhotoGallery";
 import { ModernPhotoGallery } from "../../components/ModernPhotoGallery";
 import { priceRecalculationService } from "@/lib/cart/price-recalculation-service";
 import { getCurrentUser } from "@/lib/auth/token-interceptor";
+import { useAuth } from "@/lib/auth/AuthContext";
 import GlobalHeader from "../../components/layout/GlobalHeader";
 import NotificationBell from "../../components/ui/NotificationBell";
 import HandleSelectionModal from "../../components/HandleSelectionModal";
@@ -752,6 +753,7 @@ async function resolveSelectionBySku(sku: string) {
 
 // ===================== Страница Doors =====================
 export default function DoorsPage() {
+  const { user, isAuthenticated } = useAuth();
   const [tab, setTab] = useState<"config" | "admin">("config");
 
   // Состояние конфигуратора
@@ -779,7 +781,7 @@ export default function DoorsPage() {
   const [selectedClient, setSelectedClient] = useState<string>('');
   const [selectedClientName, setSelectedClientName] = useState<string>('');
   const [clients, setClients] = useState<any[]>([]);
-  const [userRole, setUserRole] = useState<string>('');
+  const [userRole, setUserRole] = useState<string>('guest');
   const [clientsLoading, setClientsLoading] = useState(false);
   const [showCreateClientForm, setShowCreateClientForm] = useState(false);
   const [clientSearchInput, setClientSearchInput] = useState('');
@@ -796,11 +798,12 @@ export default function DoorsPage() {
 
   // Получаем роль пользователя
   useEffect(() => {
-    const user = getCurrentUser();
-    if (user) {
+    if (isAuthenticated && user) {
       setUserRole(user.role || 'complectator');
+    } else {
+      setUserRole('guest'); // Неавторизованный пользователь
     }
-  }, []);
+  }, [isAuthenticated, user]);
 
   // Debounce search input
   useEffect(() => {
@@ -1763,19 +1766,21 @@ export default function DoorsPage() {
               <span className="text-lg font-semibold text-black">Doors</span>
             </div>
             <nav className="flex items-center space-x-4 justify-end flex-shrink-0 ml-auto">
-              <NotificationBell userRole="executor" />
+              {isAuthenticated && <NotificationBell userRole={user?.role || "executor"} />}
               <Link 
                 href="/" 
                 className="px-3 py-1 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 text-sm"
               >
               ← Категории
             </Link>
-            <button
-              onClick={() => setShowClientManager(true)}
-              className="px-3 py-1 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 text-sm"
-            >
-              👤 {selectedClientName || 'Заказчик'}
-            </button>
+            {isAuthenticated && (
+              <button
+                onClick={() => setShowClientManager(true)}
+                className="px-3 py-1 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 text-sm"
+              >
+                👤 {selectedClientName || 'Заказчик'}
+              </button>
+            )}
             {tab === "admin" && (
               <button
                 onClick={() => setTab("admin")}
@@ -3319,9 +3324,9 @@ function CartManager({
   const totalPrice = cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
 
   // Проверки разрешений по ролям
-  const canCreateQuote = userRole === 'admin' || userRole === 'complectator' || userRole === 'executor';
-  const canCreateInvoice = userRole === 'admin' || userRole === 'complectator' || userRole === 'executor';
-  const canCreateOrder = userRole === 'admin' || userRole === 'executor';
+  const canCreateQuote = userRole === 'admin' || userRole === 'complectator';
+  const canCreateInvoice = userRole === 'admin' || userRole === 'complectator';
+  const canCreateOrder = userRole === 'admin' || userRole === 'complectator';
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -3332,13 +3337,15 @@ function CartManager({
           
           {/* Кнопки экспорта документов */}
           <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setShowClientManager(true)}
-              className="flex items-center space-x-1 px-3 py-1 text-sm border border-gray-400 text-gray-700 hover:bg-gray-50 transition-all duration-200"
-            >
-              <span>👤</span>
-              <span>{selectedClientName || 'Заказчик'}</span>
-            </button>
+            {userRole !== 'guest' && (
+              <button
+                onClick={() => setShowClientManager(true)}
+                className="flex items-center space-x-1 px-3 py-1 text-sm border border-gray-400 text-gray-700 hover:bg-gray-50 transition-all duration-200"
+              >
+                <span>👤</span>
+                <span>{selectedClientName || 'Заказчик'}</span>
+              </button>
+            )}
             {canCreateQuote && (
             <button
                 onClick={() => generateDocumentFast('quote', 'pdf')}

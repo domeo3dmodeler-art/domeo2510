@@ -164,10 +164,9 @@ export default function CatalogTreeImportPage() {
       <Card className="p-4">
         <div className="flex items-center space-x-3 mb-4">
           <TreePine className="h-6 w-6 text-green-600" />
-          <h2 className="text-xl font-semibold">Импорт дерева каталогов</h2>
+          <h2 className="text-xl font-semibold">Как подготовить файл</h2>
         </div>
         <div className="bg-blue-50 p-4 rounded-lg">
-          <h3 className="font-medium text-blue-900 mb-2">Как подготовить файл:</h3>
           <ul className="text-sm text-blue-700 space-y-1">
             <li>• Каждая строка = одна категория</li>
             <li>• Каждый столбец = уровень вложенности</li>
