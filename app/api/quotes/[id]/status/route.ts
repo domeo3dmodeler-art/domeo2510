@@ -3,6 +3,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { isStatusBlocked } from '@/lib/validation/status-blocking';
+import { getStatusLabel } from '@/lib/utils/status-labels';
 import jwt from 'jsonwebtoken';
 
 const VALID_STATUSES = ['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED'];
@@ -62,13 +64,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       );
     }
 
-    // Проверяем возможность изменения статуса (временно отключено для тестирования)
-    // if (existingQuote.status === 'ACCEPTED' && status !== 'ACCEPTED') {
-    //   return NextResponse.json(
-    //     { error: 'Нельзя изменить статус принятого КП' },
-    //     { status: 400 }
-    //   );
-    // }
+    // Проверяем блокировку статуса
+    const isBlocked = await isStatusBlocked(id, 'quote');
+    if (isBlocked) {
+      console.log('🔒 Статус КП заблокирован для ручного изменения');
+      return NextResponse.json(
+        { 
+          error: 'Статус КП заблокирован для ручного изменения. Статус изменяется автоматически через связанные заказы поставщику.',
+          blocked: true,
+          currentStatus: getStatusLabel(existingQuote.status, 'quote')
+        },
+        { status: 403 }
+      );
+    }
 
     // Получаем старый статус для истории
     const oldQuote = await prisma.quote.findUnique({

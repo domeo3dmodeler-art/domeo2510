@@ -273,26 +273,46 @@ async function synchronizeDocumentStatuses(orderId: string, supplierOrderStatus:
 
     // Обновляем статус связанного счета (если есть)
     if (order.parent_document_id) {
-      await prisma.invoice.updateMany({
+      // Проверяем, что parent_document_id указывает на счет
+      const invoice = await prisma.invoice.findUnique({
         where: { id: order.parent_document_id },
-        data: { 
-          status: mappedStatuses.invoice,
-          updated_at: new Date()
-        }
+        select: { id: true, number: true, status: true }
       });
-      console.log(`✅ Статус счета ${order.parent_document_id} обновлен на ${mappedStatuses.invoice}`);
+      
+      if (invoice) {
+        await prisma.invoice.update({
+          where: { id: invoice.id },
+          data: { 
+            status: mappedStatuses.invoice,
+            updated_at: new Date()
+          }
+        });
+        console.log(`✅ Статус счета ${invoice.number} обновлен на ${mappedStatuses.invoice}`);
+      } else {
+        console.log(`⚠️ Документ ${order.parent_document_id} не является счетом`);
+      }
     }
 
     // Обновляем статус связанного КП (если есть)
     if (order.parent_document_id) {
-      await prisma.quote.updateMany({
+      // Проверяем, что parent_document_id указывает на КП
+      const quote = await prisma.quote.findUnique({
         where: { id: order.parent_document_id },
-        data: { 
-          status: mappedStatuses.quote,
-          updated_at: new Date()
-        }
+        select: { id: true, number: true, status: true }
       });
-      console.log(`✅ Статус КП ${order.parent_document_id} обновлен на ${mappedStatuses.quote}`);
+      
+      if (quote) {
+        await prisma.quote.update({
+          where: { id: quote.id },
+          data: { 
+            status: mappedStatuses.quote,
+            updated_at: new Date()
+          }
+        });
+        console.log(`✅ Статус КП ${quote.number} обновлен на ${mappedStatuses.quote}`);
+      } else {
+        console.log(`⚠️ Документ ${order.parent_document_id} не является КП`);
+      }
     }
 
     // Дополнительно ищем и обновляем все документы по cart_session_id

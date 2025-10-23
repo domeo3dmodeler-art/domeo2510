@@ -4,9 +4,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { notifyUsersByRole, notifyUser } from '@/lib/notifications';
+import { isStatusBlocked } from '@/lib/validation/status-blocking';
+import { getStatusLabel } from '@/lib/utils/status-labels';
 import jwt from 'jsonwebtoken';
 
-const VALID_STATUSES = ['DRAFT', 'SENT', 'PAID', 'CANCELLED', 'IN_PRODUCTION', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED'];
+const VALID_STATUSES = ['DRAFT', 'SENT', 'PAID', 'CANCELLED', 'IN_PRODUCTION', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED', 'ORDERED'];
 
 // PUT /api/invoices/[id]/status - Изменить статус Счета
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -52,13 +54,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       );
     }
 
-    // Проверяем возможность изменения статуса (временно отключено для тестирования)
-    // if (existingInvoice.status === 'COMPLETED' && status !== 'COMPLETED') {
-    //   return NextResponse.json(
-    //     { error: 'Нельзя изменить статус исполненного счета' },
-    //     { status: 400 }
-    //   );
-    // }
+    // Проверяем блокировку статуса
+    const isBlocked = await isStatusBlocked(id, 'invoice');
+    if (isBlocked) {
+      console.log('🔒 Статус счета заблокирован для ручного изменения');
+      return NextResponse.json(
+        { 
+          error: 'Статус счета заблокирован для ручного изменения. Статус изменяется автоматически через связанные заказы поставщику.',
+          blocked: true,
+          currentStatus: getStatusLabel(existingInvoice.status, 'invoice')
+        },
+        { status: 403 }
+      );
+    }
 
     // Подготавливаем данные для обновления
     const updateData: any = {
