@@ -302,13 +302,13 @@ export default function ComplectatorDashboard() {
     }
   };
 
-  const badgeByInvoiceStatus = (s: 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'В производстве'|'Получен от поставщика'|'Исполнен') => {
+  const badgeByInvoiceStatus = (s: 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен') => {
     switch (s) {
       case 'Черновик': return 'border-gray-300 text-gray-700';
       case 'Отправлен': return 'border-blue-300 text-blue-700';
       case 'Оплачен/Заказ': return 'border-green-300 text-green-700';
       case 'Отменен': return 'border-red-300 text-red-700';
-      case 'В производстве': return 'border-yellow-300 text-yellow-800';
+      case 'Заказ размещен': return 'border-yellow-300 text-yellow-800';
       case 'Получен от поставщика': return 'border-purple-300 text-purple-700';
       case 'Исполнен': return 'border-emerald-300 text-emerald-700';
     }
@@ -472,7 +472,7 @@ export default function ComplectatorDashboard() {
         'Отправлен': 'SENT',
         'Оплачен/Заказ': 'PAID',
         'Отменен': 'CANCELLED',
-        'В производстве': 'IN_PRODUCTION',
+        'Заказ размещен': 'ORDERED',
         'Получен от поставщика': 'RECEIVED_FROM_SUPPLIER',
         'Исполнен': 'COMPLETED'
       };
@@ -499,6 +499,7 @@ export default function ComplectatorDashboard() {
           'DRAFT': 'Черновик',
           'SENT': 'Отправлен',
           'PAID': 'Оплачен/Заказ',
+          'ORDERED': 'Заказ размещен',
           'CANCELLED': 'Отменен',
           'IN_PRODUCTION': 'В производстве',
           'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
@@ -1075,7 +1076,7 @@ export default function ComplectatorDashboard() {
                 {clientTab==='invoices' && (
                   <>
                     <div className="mb-3 flex flex-wrap items-center gap-2">
-                      {(['all','Черновик','Отправлен','Оплачен/Заказ','Отменен','В производстве','Получен от поставщика','Исполнен'] as const).map(s => (
+                      {(['all','Черновик','Отправлен','Оплачен/Заказ','Отменен','Заказ размещен','Получен от поставщика','Исполнен'] as const).map(s => (
                         <button key={s}
                           onClick={() => setInvoicesFilter(s)}
                           className={`px-3 py-1 text-sm border ${invoicesFilter===s?'border-black bg-black text-white':'border-gray-300 hover:border-black'}`}
