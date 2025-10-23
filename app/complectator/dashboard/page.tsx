@@ -69,6 +69,7 @@ export default function ComplectatorDashboard() {
     objectId: ''
   });
   const [statusDropdown, setStatusDropdown] = useState<{type: 'quote'|'invoice', id: string, x: number, y: number} | null>(null);
+  const [blockedStatuses, setBlockedStatuses] = useState<Set<string>>(new Set());
   const [showQuoteActions, setShowQuoteActions] = useState<string | null>(null);
   const [showInvoiceActions, setShowInvoiceActions] = useState<string | null>(null);
   
@@ -181,6 +182,11 @@ export default function ComplectatorDashboard() {
           dueAt: invoice.due_date ? new Date(invoice.due_date).toISOString().split('T')[0] : undefined
         }));
         setInvoices(formattedInvoices);
+        
+        // Загружаем информацию о блокировке статусов
+        setTimeout(() => {
+          loadBlockedStatuses();
+        }, 100);
         
         // Загружаем количество комментариев для всех документов
         await fetchAllCommentsCount(formattedQuotes, formattedInvoices);
@@ -370,9 +376,64 @@ export default function ComplectatorDashboard() {
     }
   };
 
+  // Загрузка информации о блокировке статусов для всех документов
+  const loadBlockedStatuses = async () => {
+    const blockedSet = new Set<string>();
+    
+    // Проверяем все счета
+    for (const invoice of invoices) {
+      const isBlocked = await isStatusBlocked(invoice.id, 'invoice');
+      if (isBlocked) {
+        blockedSet.add(invoice.id);
+      }
+    }
+    
+    // Проверяем все КП
+    for (const quote of quotes) {
+      const isBlocked = await isStatusBlocked(quote.id, 'quote');
+      if (isBlocked) {
+        blockedSet.add(quote.id);
+      }
+    }
+    
+    setBlockedStatuses(blockedSet);
+  };
+
+  // Проверка блокировки статуса документа
+  const isStatusBlocked = async (documentId: string, documentType: 'invoice' | 'quote'): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/${documentType}s/${documentId}/status`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Статусы, которые блокируют ручное изменение
+        const blockedStatuses = ['ORDERED', 'IN_PRODUCTION', 'READY', 'COMPLETED'];
+        return blockedStatuses.includes(data.status);
+      }
+      return false;
+    } catch (error) {
+      console.error('Ошибка проверки блокировки статуса:', error);
+      return false;
+    }
+  };
+
   // Показать выпадающее меню статуса
-  const showStatusDropdown = (type: 'quote'|'invoice', id: string, event: React.MouseEvent) => {
+  const showStatusDropdown = async (type: 'quote'|'invoice', id: string, event: React.MouseEvent) => {
     console.log('🎯 Showing status dropdown:', { type, id });
+    
+    // Проверяем блокировку статуса
+    const isBlocked = await isStatusBlocked(id, type);
+    if (isBlocked) {
+      console.log('🔒 Статус заблокирован для изменения:', { type, id });
+      toast.error('Статус документа заблокирован для ручного изменения. Статус изменяется автоматически через связанные заказы поставщику.');
+      return;
+    }
+    
     const rect = event.currentTarget.getBoundingClientRect();
     setStatusDropdown({
       type,
@@ -983,9 +1044,18 @@ export default function ComplectatorDashboard() {
                                 <div className="text-sm text-gray-600">от {q.date}</div>
                                 <button
                                   onClick={(e) => showStatusDropdown('quote', q.id, e)}
-                                  className={`inline-block px-2 py-0.5 text-xs rounded-full border cursor-pointer hover:opacity-80 transition-opacity ${badgeByQuoteStatus(q.status)}`}
+                                  className={`inline-block px-2 py-0.5 text-xs rounded-full border transition-opacity ${
+                                    blockedStatuses.has(q.id) 
+                                      ? 'cursor-not-allowed opacity-50 bg-gray-100 border-gray-300 text-gray-500' 
+                                      : `cursor-pointer hover:opacity-80 ${badgeByQuoteStatus(q.status)}`
+                                  }`}
+                                  disabled={blockedStatuses.has(q.id)}
+                                  title={blockedStatuses.has(q.id) ? 'Статус заблокирован для изменения' : ''}
                                 >
                                   {q.status}
+                                  {blockedStatuses.has(q.id) && (
+                                    <span className="ml-1 text-xs">🔒</span>
+                                  )}
                                 </button>
                               </div>
         </div>
@@ -1093,9 +1163,18 @@ export default function ComplectatorDashboard() {
                                 <div className="text-sm text-gray-600">от {i.date}{i.dueAt?` • оплатить до ${i.dueAt}`:''}</div>
                                 <button
                                   onClick={(e) => showStatusDropdown('invoice', i.id, e)}
-                                  className={`inline-block px-2 py-0.5 text-xs rounded-full border cursor-pointer hover:opacity-80 transition-opacity ${badgeByInvoiceStatus(i.status)}`}
+                                  className={`inline-block px-2 py-0.5 text-xs rounded-full border transition-opacity ${
+                                    blockedStatuses.has(i.id) 
+                                      ? 'cursor-not-allowed opacity-50 bg-gray-100 border-gray-300 text-gray-500' 
+                                      : `cursor-pointer hover:opacity-80 ${badgeByInvoiceStatus(i.status)}`
+                                  }`}
+                                  disabled={blockedStatuses.has(i.id)}
+                                  title={blockedStatuses.has(i.id) ? 'Статус заблокирован для изменения' : ''}
                                 >
                                   {i.status}
+                                  {blockedStatuses.has(i.id) && (
+                                    <span className="ml-1 text-xs">🔒</span>
+                                  )}
                                 </button>
                               </div>
           </div>
