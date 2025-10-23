@@ -7,6 +7,7 @@ import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import NotificationBell from '@/components/ui/NotificationBell';
 import CommentsModal from '@/components/ui/CommentsModal';
 import HistoryModal from '@/components/ui/HistoryModal';
+import { DocumentQuickViewModal } from '@/components/documents/DocumentQuickViewModal';
 import { toast } from 'sonner';
 import { 
   FileText, 
@@ -88,6 +89,10 @@ export default function ExecutorDashboard() {
   
   // Состояние для количества комментариев по документам
   const [commentsCount, setCommentsCount] = useState<Record<string, number>>({});
+  
+  // Состояние для модального окна документа
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
 
   // Функции для открытия модальных окон
   const openCommentsModal = (documentId: string, documentType: 'invoice' | 'supplier_order', documentNumber: string) => {
@@ -1067,7 +1072,17 @@ export default function ExecutorDashboard() {
                       </div>
                               <div className="text-sm text-gray-600 mt-1">
                                 {so.invoiceInfo ? (
-                                  <span>Счет - {so.invoiceInfo.number}</span>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // Открываем модальное окно с правильным ID счета
+                                      setSelectedDocumentId(so.invoiceInfo.id);
+                                      setIsModalOpen(true);
+                                    }}
+                                    className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                                  >
+                                    Счет - {so.invoiceInfo.number}
+                                  </button>
                                 ) : (
                                   <span>Счет не найден</span>
                                 )}
@@ -1410,6 +1425,18 @@ export default function ExecutorDashboard() {
         documentType={selectedDocument?.type === 'supplier_order' ? 'supplier_order' : 'invoice'}
         documentNumber={selectedDocument?.number || ''}
       />
+
+      {/* Модальное окно документа */}
+      {selectedDocumentId && (
+        <DocumentQuickViewModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedDocumentId(null);
+          }}
+          documentId={selectedDocumentId}
+        />
+      )}
     </div>
   );
 }

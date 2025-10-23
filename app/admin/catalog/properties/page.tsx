@@ -1,61 +1,64 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Button, Card, Badge, Input, Dialog, DialogContent, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Checkbox } from '../../../../components/ui';
-import { Plus, Search, Edit, Trash2, CheckCircle, XCircle, AlertCircle, FileText, Calculator, Download, Upload, Settings } from 'lucide-react';
-import { ProductProperty, PropertyType, CreateProductPropertyDto, CatalogCategory, CategoryPropertyAssignment } from '@/lib/types/catalog';
-
-type TabType = 'properties' | 'moderation' | 'assignments' | 'templates';
+import { Button, Card, Badge, Input, Dialog, DialogContent, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui';
+import { Plus, Search, Edit, Trash2, CheckCircle, XCircle, AlertCircle, FileText, Download, ChevronRight, ChevronDown, Folder, FolderOpen } from 'lucide-react';
+import { ProductProperty, PropertyType, CreateProductPropertyDto } from '@/lib/types/catalog';
 
 export default function PropertiesPage() {
-  const [activeTab, setActiveTab] = useState<TabType>('properties');
-  
-  // Состояние для свойств товаров
   const [properties, setProperties] = useState<ProductProperty[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [showAll, setShowAll] = useState(false);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [showCategoryTree, setShowCategoryTree] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [propertyToEdit, setPropertyToEdit] = useState<ProductProperty | null>(null);
-
-  // Состояние для модерации
-  const [selectedProperty, setSelectedProperty] = useState<ProductProperty | null>(null);
-  const [moderateDialogOpen, setModerateDialogOpen] = useState(false);
-
-  // Состояние для назначений
-  const [categories, setCategories] = useState<CatalogCategory[]>([]);
-  const [assignments, setAssignments] = useState<CategoryPropertyAssignment[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
-  const [assignmentToEdit, setAssignmentToEdit] = useState<CategoryPropertyAssignment | null>(null);
-
-  // Состояние для шаблонов
-  const [templates, setTemplates] = useState<any[]>([]);
-  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
-  const [templateToEdit, setTemplateToEdit] = useState<any>(null);
 
   useEffect(() => {
     loadData();
   }, []);
 
+  useEffect(() => {
+    loadProperties();
+  }, [selectedCategory, showAll]);
+
+  // Закрытие дерева категорий при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.category-tree-container')) {
+        setShowCategoryTree(false);
+      }
+    };
+
+    if (showCategoryTree) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showCategoryTree]);
+
   const loadData = async () => {
     try {
       setLoading(true);
-      const [propertiesRes, categoriesRes, templatesRes] = await Promise.all([
+      const [propertiesRes, categoriesRes] = await Promise.all([
         fetch('/api/catalog/properties'),
-        fetch('/api/catalog/categories'),
-        fetch('/api/catalog/templates')
+        fetch('/api/catalog/categories-flat')
       ]);
 
       const propertiesData = await propertiesRes.json();
       const categoriesData = await categoriesRes.json();
-      const templatesData = await templatesRes.json();
 
-      setProperties(propertiesData.properties || []);
-      setCategories(categoriesData.categories || []);
-      setTemplates(templatesData.templates || []);
+      if (propertiesData.success) {
+        setProperties(propertiesData.properties || []);
+      }
+      
+      if (categoriesData.categories) {
+        setCategories(categoriesData.categories || []);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -63,13 +66,121 @@ export default function PropertiesPage() {
     }
   };
 
+  const toggleCategoryExpanded = (categoryId: string) => {
+    setExpandedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(categoryId)) {
+        newSet.delete(categoryId);
+      } else {
+        newSet.add(categoryId);
+      }
+      return newSet;
+    });
+  };
+
+  const buildCategoryTree = (categories: any[], parentId: string | null = null): any[] => {
+    return categories
+      .filter(cat => {
+        if (parentId === null) {
+          return cat.parent_id === null;
+        }
+        return cat.parent_id === parentId;
+      })
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+      .map(cat => {
+        const children = buildCategoryTree(categories, cat.id);
+        return {
+          ...cat,
+          children: children.length > 0 ? children : undefined
+        };
+      });
+  };
+
+  const renderCategoryNode = (category: any, level: number = 0) => {
+    const hasChildren = category.children && category.children.length > 0;
+    const isExpanded = expandedCategories.has(category.id);
+    const isSelected = selectedCategory === category.id;
+
+    return (
+      <div key={category.id} className="select-none">
+        <div
+          className={`
+            flex items-center py-1 px-2 cursor-pointer hover:bg-gray-100 rounded
+            ${isSelected ? 'bg-blue-100 text-blue-700' : 'text-gray-700'}
+          `}
+          style={{ paddingLeft: `${level * 16 + 8}px` }}
+          onClick={() => {
+            setSelectedCategory(category.id);
+            setShowCategoryTree(false);
+          }}
+        >
+          <div
+            className="flex items-center mr-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (hasChildren) {
+                toggleCategoryExpanded(category.id);
+              }
+            }}
+          >
+            {hasChildren ? (
+              isExpanded ? (
+                <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ChevronRight className="w-4 h-4" />
+              )
+            ) : (
+              <div className="w-4 h-4" />
+            )}
+          </div>
+          
+          {isExpanded ? (
+            <FolderOpen className="w-4 h-4 mr-2 text-blue-500" />
+          ) : (
+            <Folder className="w-4 h-4 mr-2 text-gray-500" />
+          )}
+          
+          <span className="text-sm font-medium truncate">{category.name}</span>
+          
+          {category.product_count !== undefined && category.product_count > 0 && (
+            <span className="ml-auto text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+              {category.product_count}
+            </span>
+          )}
+        </div>
+        
+        {hasChildren && isExpanded && (
+          <div>
+            {category.children.map((child: any) => renderCategoryNode(child, level + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const loadProperties = async () => {
     try {
-      const response = await fetch('/api/catalog/properties');
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (selectedCategory) {
+        params.append('categoryId', selectedCategory);
+      }
+      if (showAll) {
+        params.append('showAll', 'true');
+      }
+
+      const response = await fetch(`/api/catalog/properties?${params.toString()}`);
       const data = await response.json();
+      
+      if (data.success) {
       setProperties(data.properties || []);
+      } else {
+        console.error('Error loading properties:', data.error);
+      }
     } catch (error) {
       console.error('Error loading properties:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -81,12 +192,18 @@ export default function PropertiesPage() {
         body: JSON.stringify(data)
       });
 
-      if (response.ok) {
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
         await loadProperties();
         setCreateDialogOpen(false);
+        alert('Свойство успешно создано!');
+      } else {
+        alert(`Ошибка создания свойства: ${result.error || 'Неизвестная ошибка'}`);
       }
     } catch (error) {
       console.error('Error creating property:', error);
+      alert('Ошибка при создании свойства');
     }
   };
 
@@ -100,13 +217,19 @@ export default function PropertiesPage() {
         body: JSON.stringify(data)
       });
 
+      const result = await response.json();
+
       if (response.ok) {
         await loadProperties();
         setEditDialogOpen(false);
         setPropertyToEdit(null);
+        alert('Свойство успешно обновлено!');
+      } else {
+        alert(`Ошибка обновления свойства: ${result.error || 'Неизвестная ошибка'}`);
       }
     } catch (error) {
       console.error('Error updating property:', error);
+      alert('Ошибка при обновлении свойства');
     }
   };
 
@@ -118,11 +241,17 @@ export default function PropertiesPage() {
         method: 'DELETE'
       });
 
+      const result = await response.json();
+
       if (response.ok) {
         await loadProperties();
+        alert('Свойство успешно удалено!');
+      } else {
+        alert(`Ошибка удаления свойства: ${result.error || 'Неизвестная ошибка'}`);
       }
     } catch (error) {
       console.error('Error deleting property:', error);
+      alert('Ошибка при удалении свойства');
     }
   };
 
@@ -142,164 +271,21 @@ export default function PropertiesPage() {
     if (!property.is_active) {
       return <Badge variant="secondary">Неактивно</Badge>;
     }
-    
-    // Здесь можно добавить логику определения статуса модерации
-    // Пока просто показываем активные свойства
     return <Badge variant="default">Активно</Badge>;
-  };
-
-  // Функции для модерации
-  const handleModerateProperty = (property: ProductProperty) => {
-    setSelectedProperty(property);
-    setModerateDialogOpen(true);
-  };
-
-  const handleModerationComplete = async (data: any) => {
-    try {
-      const response = await fetch(`/api/catalog/properties/${selectedProperty?.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-
-      if (response.ok) {
-        await loadProperties();
-        setModerateDialogOpen(false);
-        setSelectedProperty(null);
-      }
-    } catch (error) {
-      console.error('Error updating property moderation:', error);
-    }
-  };
-
-  // Функции для назначений
-  const loadAssignments = async (categoryId: string) => {
-    try {
-      const response = await fetch(`/api/catalog/categories/${categoryId}`);
-      const data = await response.json();
-      setAssignments(data.property_assignments || []);
-    } catch (error) {
-      console.error('Error loading assignments:', error);
-    }
-  };
-
-  const handleCategorySelect = (categoryId: string) => {
-    setSelectedCategory(categoryId);
-    if (categoryId) {
-      loadAssignments(categoryId);
-    }
-  };
-
-  // Функции для шаблонов
-  const handleCreateTemplate = async (data: any) => {
-    try {
-      const response = await fetch('/api/catalog/templates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-
-      if (response.ok) {
-        await loadData();
-        setTemplateDialogOpen(false);
-      }
-    } catch (error) {
-      console.error('Error creating template:', error);
-    }
-  };
-
-  const handleEditTemplate = (template: any) => {
-    setTemplateToEdit(template);
-    setTemplateDialogOpen(true);
-  };
-
-  const handleUpdateTemplate = async (data: any) => {
-    try {
-      const response = await fetch(`/api/catalog/templates/${templateToEdit?.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-
-      if (response.ok) {
-        await loadData();
-        setTemplateDialogOpen(false);
-        setTemplateToEdit(null);
-      }
-    } catch (error) {
-      console.error('Error updating template:', error);
-    }
-  };
-
-  const handleDeleteTemplate = async (template: any) => {
-    if (!confirm(`Удалить шаблон "${template.name}"?`)) return;
-
-    try {
-      const response = await fetch(`/api/catalog/templates/${template.id}`, {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        await loadData();
-      }
-    } catch (error) {
-      console.error('Error deleting template:', error);
-    }
-  };
-
-  const handleDownloadTemplate = async (template: any) => {
-    try {
-      const requiredFields = JSON.parse(template.required_fields || '[]');
-      const calculatorFields = JSON.parse(template.calculator_fields || '[]');
-      const exportFields = JSON.parse(template.export_fields || '[]');
-      
-      // Создаем заголовки для Excel
-      const headers = [
-        'Название товара',
-        'Артикул',
-        'Цена',
-        ...requiredFields,
-        ...calculatorFields.filter((field: string) => !requiredFields.includes(field)),
-        ...exportFields.filter((field: string) => !requiredFields.includes(field) && !calculatorFields.includes(field))
-      ];
-
-      // Создаем пустые строки для заполнения
-      const emptyRows = Array(10).fill(null).map(() => 
-        headers.map(() => '')
-      );
-
-      const data = [headers, ...emptyRows];
-
-      // Создаем Excel файл
-      const XLSX = await import('xlsx');
-      const worksheet = XLSX.utils.aoa_to_sheet(data);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Шаблон');
-
-      // Скачиваем файл
-      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${template.name}_шаблон.xlsx`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error downloading template:', error);
-    }
   };
 
   const filteredProperties = properties.filter(property => {
     const matchesSearch = property.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === 'all' || property.type === filterType;
-    const matchesStatus = filterStatus === 'all' || 
-      (filterStatus === 'active' && property.is_active) ||
-      (filterStatus === 'inactive' && !property.is_active);
+    const matchesStatus = showAll || property.is_active;
     
-    return matchesSearch && matchesType && matchesStatus;
+    // Если категория не выбрана, показываем все свойства
+    if (!selectedCategory) {
+      return matchesSearch && matchesStatus;
+    }
+    
+    // Если категория выбрана, показываем только свойства этой категории
+    const hasCategoryAssignment = property.categories?.some(cat => cat.id === selectedCategory);
+    return matchesSearch && matchesStatus && hasCategoryAssignment;
   });
 
   if (loading) {
@@ -312,50 +298,85 @@ export default function PropertiesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Вкладки */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          {[
-            { id: 'properties', label: 'Свойства товаров', icon: FileText },
-            { id: 'moderation', label: 'Модерация', icon: CheckCircle },
-            { id: 'assignments', label: 'Назначения', icon: Settings },
-            { id: 'templates', label: 'Шаблоны', icon: Download }
-          ].map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as TabType)}
-                className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+      {/* Статистика */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="p-4">
+          <div className="flex items-center space-x-2">
+            <FileText className="h-5 w-5 text-blue-500" />
+            <div>
+              <p className="text-sm text-gray-600">Всего свойств</p>
+              <p className="text-2xl font-bold">{properties.length}</p>
+            </div>
+          </div>
+        </Card>
+        
+        <Card className="p-4">
+          <div className="flex items-center space-x-2">
+            <CheckCircle className="h-5 w-5 text-green-500" />
+            <div>
+              <p className="text-sm text-gray-600">Активных</p>
+              <p className="text-2xl font-bold">{properties.filter(p => p.is_active).length}</p>
+            </div>
+          </div>
+        </Card>
+        
+        <Card className="p-4">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="h-5 w-5 text-yellow-500" />
+            <div>
+              <p className="text-sm text-gray-600">Обязательных</p>
+              <p className="text-2xl font-bold">{properties.filter(p => p.is_required).length}</p>
+            </div>
+          </div>
+        </Card>
+        
+        <Card className="p-4">
+          <div className="flex items-center space-x-2">
+            <Download className="h-5 w-5 text-purple-500" />
+            <div>
+              <p className="text-sm text-gray-600">В категориях</p>
+              <p className="text-2xl font-bold">{properties.filter(p => p.categories && p.categories.length > 0).length}</p>
+            </div>
+          </div>
+        </Card>
       </div>
 
-      {/* Контент вкладок */}
-      {activeTab === 'properties' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-end">
+      {/* Фильтры */}
+      <Card className="p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="relative category-tree-container">
             <Button
-              onClick={() => setCreateDialogOpen(true)}
-              className="flex items-center space-x-1"
+              variant="outline"
+              onClick={() => setShowCategoryTree(!showCategoryTree)}
+              className="w-full justify-between"
             >
-              <Plus className="h-4 w-4" />
-              <span>Добавить свойство</span>
+              <span>
+                {selectedCategory 
+                  ? categories.find(c => c.id === selectedCategory)?.name || 'Выберите категорию'
+                  : 'Выберите категорию'
+                }
+              </span>
+              <ChevronDown className="h-4 w-4" />
             </Button>
+            
+            {showCategoryTree && (
+              <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-y-auto">
+                <div className="p-2">
+                  <div
+                    className="flex items-center py-1 px-2 cursor-pointer hover:bg-gray-100 rounded text-gray-700"
+                    onClick={() => {
+                      setSelectedCategory('');
+                      setShowCategoryTree(false);
+                    }}
+                  >
+                    <span className="text-sm font-medium">Все категории</span>
+                  </div>
+                  {buildCategoryTree(categories).map(category => renderCategoryNode(category))}
+                </div>
+              </div>
+            )}
           </div>
-
-          {/* Фильтры */}
-          <Card className="p-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
@@ -365,48 +386,55 @@ export default function PropertiesPage() {
               className="pl-10"
             />
           </div>
-          
-          <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger>
-              <SelectValue placeholder="Тип свойства" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Все типы</SelectItem>
-              <SelectItem value="text">Текст</SelectItem>
-              <SelectItem value="number">Число</SelectItem>
-              <SelectItem value="select">Список</SelectItem>
-              <SelectItem value="boolean">Да/Нет</SelectItem>
-              <SelectItem value="date">Дата</SelectItem>
-              <SelectItem value="file">Файл</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger>
-              <SelectValue placeholder="Статус" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Все статусы</SelectItem>
-              <SelectItem value="active">Активные</SelectItem>
-              <SelectItem value="inactive">Неактивные</SelectItem>
-            </SelectContent>
-          </Select>
 
           <div className="flex items-center space-x-2">
             <AlertCircle className="h-4 w-4 text-yellow-500" />
             <span className="text-sm text-gray-600">
-              {properties.filter(p => p.is_active).length} активных
+              Найдено: {filteredProperties.length}
             </span>
           </div>
+        </div>
+        
+        {/* Дополнительные опции */}
+        <div className="mt-4 flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="showAll"
+              checked={showAll}
+              onChange={(e) => setShowAll(e.target.checked)}
+              className="rounded"
+            />
+            <label htmlFor="showAll" className="text-sm font-medium">
+              Показать все свойства (включая неактивные)
+            </label>
+          </div>
+          
+          {selectedCategory && (
+            <div className="text-sm text-blue-600">
+              Фильтр по категории: {categories.find(c => c.id === selectedCategory)?.name}
             </div>
-          </Card>
+          )}
+        </div>
+      </Card>
 
-          {/* Список свойств */}
+      {/* Кнопка добавления свойства */}
+      <div className="flex justify-center">
+        <Button
+          onClick={() => setCreateDialogOpen(true)}
+          className="flex items-center space-x-2"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Добавить свойство</span>
+        </Button>
+      </div>
+
+      {/* Список свойств */}
           <Card className="p-4">
             <div className="space-y-2">
           {filteredProperties.length === 0 ? (
             <div className="text-center text-gray-500 py-8">
-              {searchTerm || filterType !== 'all' || filterStatus !== 'all' 
+              {searchTerm || selectedCategory || !showAll
                 ? 'Свойства не найдены' 
                 : 'Свойства не добавлены'
               }
@@ -415,24 +443,60 @@ export default function PropertiesPage() {
             filteredProperties.map(property => (
               <div
                 key={property.id}
-                className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <div className="flex-1">
-                  <div className="flex items-center space-x-3">
-                    <h3 className="font-medium">{property.name}</h3>
+                  <div className="flex items-center space-x-3 mb-2">
+                    <h3 className="font-medium text-lg">{property.name}</h3>
                     <Badge variant="outline">{getPropertyTypeLabel(property.type)}</Badge>
                     {getStatusBadge(property)}
                     {property.is_required && (
-                      <Badge variant="destructive">Обязательное</Badge>
+                      <Badge variant="error">Обязательное</Badge>
                     )}
                   </div>
+                  
                   {property.description && (
-                    <p className="text-sm text-gray-600 mt-1">{property.description}</p>
+                    <p className="text-sm text-gray-600 mb-2">{property.description}</p>
                   )}
-                  <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                  
+                  {property.options && property.options.length > 0 && (
+                    <div className="mb-2">
+                      <p className="text-xs text-gray-500 mb-1">Варианты:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {property.options.slice(0, 3).map((option, index) => (
+                          <Badge key={index} variant="secondary" className="text-xs">
+                            {option}
+                          </Badge>
+                        ))}
+                        {property.options.length > 3 && (
+                          <Badge variant="secondary" className="text-xs">
+                            +{property.options.length - 3} еще
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center space-x-4 text-xs text-gray-500">
                     <span>ID: {property.id}</span>
-                    <span>Создано: {new Date(property.created_at).toLocaleDateString()}</span>
+                    <span>Создано: {property.created_at ? new Date(property.created_at).toLocaleDateString('ru-RU') : 'Неизвестно'}</span>
+                    <span>Обновлено: {property.updated_at ? new Date(property.updated_at).toLocaleDateString('ru-RU') : 'Неизвестно'}</span>
                   </div>
+                  
+                  {/* Категории */}
+                  {property.categories && property.categories.length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-xs text-gray-500 mb-1">Назначено категориям:</div>
+                      <div className="flex flex-wrap gap-1">
+                        {property.categories.map(category => (
+                          <Badge key={category.id} variant="secondary" className="text-xs">
+                            {category.name}
+                            {category.is_required && <span className="ml-1 text-red-500">*</span>}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex items-center space-x-2">
@@ -443,6 +507,7 @@ export default function PropertiesPage() {
                       setPropertyToEdit(property);
                       setEditDialogOpen(true);
                     }}
+                    title="Редактировать"
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
@@ -451,6 +516,7 @@ export default function PropertiesPage() {
                     size="sm"
                     onClick={() => handleDeleteProperty(property)}
                     className="text-red-600 hover:text-red-700"
+                    title="Удалить"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -475,117 +541,11 @@ export default function PropertiesPage() {
             onSubmit={handleEditProperty}
             property={propertyToEdit}
           />
-        </div>
-      )}
-
-      {/* Вкладка модерации */}
-      {activeTab === 'moderation' && (
-        <div className="space-y-6">
-          <div className="text-center text-gray-500 py-8">
-            <CheckCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-            <p className="text-lg font-medium mb-2">Модерация свойств</p>
-            <p className="text-sm">Функция модерации будет добавлена</p>
-          </div>
-        </div>
-      )}
-
-      {/* Вкладка назначений */}
-      {activeTab === 'assignments' && (
-        <div className="space-y-6">
-          <div className="text-center text-gray-500 py-8">
-            <Settings className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-            <p className="text-lg font-medium mb-2">Назначение свойств</p>
-            <p className="text-sm">Функция назначения будет добавлена</p>
-          </div>
-        </div>
-      )}
-
-      {/* Вкладка шаблонов */}
-      {activeTab === 'templates' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Шаблоны загрузки</h3>
-            <Button
-              onClick={() => setTemplateDialogOpen(true)}
-              className="flex items-center space-x-1"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Создать шаблон</span>
-            </Button>
-          </div>
-
-          <Card className="p-4">
-            <div className="space-y-2">
-              {templates.length === 0 ? (
-                <div className="text-center text-gray-500 py-8">
-                  <Download className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p className="text-lg font-medium mb-2">Шаблоны не созданы</p>
-                  <p className="text-sm">Создайте шаблон для загрузки товаров</p>
-                </div>
-              ) : (
-                templates.map(template => (
-                  <div
-                    key={template.id}
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3">
-                        <h3 className="font-medium">{template.name}</h3>
-                        <Badge variant="outline">{template.catalog_category.name}</Badge>
-                      </div>
-                      <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                        <span>Создано: {new Date(template.created_at).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDownloadTemplate(template)}
-                        title="Скачать шаблон Excel"
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEditTemplate(template)}
-                        title="Редактировать"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteTemplate(template)}
-                        className="text-red-600 hover:text-red-700"
-                        title="Удалить"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </Card>
-
-          {/* Диалог создания/редактирования шаблона */}
-          <TemplateDialog
-            open={templateDialogOpen}
-            onOpenChange={setTemplateDialogOpen}
-            onSubmit={templateToEdit ? handleUpdateTemplate : handleCreateTemplate}
-            template={templateToEdit}
-            categories={categories}
-          />
-        </div>
-      )}
     </div>
   );
 }
 
-// Компоненты диалогов
+// Компонент диалога создания свойства
 function CreatePropertyDialog({ 
   open, 
   onOpenChange, 
@@ -643,7 +603,7 @@ function CreatePropertyDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Название</label>
+            <label className="block text-sm font-medium mb-1">Название *</label>
             <Input
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -653,8 +613,8 @@ function CreatePropertyDialog({
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Тип</label>
-            <Select value={formData.type} onValueChange={(value: PropertyType) => setFormData({ ...formData, type: value })}>
+            <label className="block text-sm font-medium mb-1">Тип *</label>
+            <Select value={formData.type} onValueChange={(value: string) => setFormData({ ...formData, type: value as PropertyType })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -680,7 +640,7 @@ function CreatePropertyDialog({
 
           {formData.type === 'select' && (
             <div>
-              <label className="block text-sm font-medium mb-1">Варианты выбора</label>
+              <label className="block text-sm font-medium mb-1">Варианты выбора *</label>
               <div className="space-y-2">
                 <div className="flex space-x-2">
                   <Input
@@ -746,6 +706,7 @@ function CreatePropertyDialog({
   );
 }
 
+// Компонент диалога редактирования свойства
 function EditPropertyDialog({ 
   open, 
   onOpenChange, 
@@ -770,12 +731,22 @@ function EditPropertyDialog({
   useEffect(() => {
     if (property) {
       setFormData({
-        name: property.name,
-        type: property.type,
+        name: property.name || '',
+        type: property.type || 'text',
         description: property.description || '',
-        options: property.options ? JSON.parse(property.options) : [],
-        is_required: property.is_required,
-        is_active: property.is_active
+        options: property.options || [],
+        is_required: property.is_required || false,
+        is_active: property.is_active !== undefined ? property.is_active : true
+      });
+    } else {
+      // Сбрасываем форму если property null
+      setFormData({
+        name: '',
+        type: 'text',
+        description: '',
+        options: [],
+        is_required: false,
+        is_active: true
       });
     }
   }, [property]);
@@ -810,7 +781,7 @@ function EditPropertyDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Название</label>
+            <label className="block text-sm font-medium mb-1">Название *</label>
             <Input
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -820,8 +791,8 @@ function EditPropertyDialog({
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Тип</label>
-            <Select value={formData.type} onValueChange={(value: PropertyType) => setFormData({ ...formData, type: value })}>
+            <label className="block text-sm font-medium mb-1">Тип *</label>
+            <Select value={formData.type} onValueChange={(value: string) => setFormData({ ...formData, type: value as PropertyType })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -847,7 +818,7 @@ function EditPropertyDialog({
 
           {formData.type === 'select' && (
             <div>
-              <label className="block text-sm font-medium mb-1">Варианты выбора</label>
+              <label className="block text-sm font-medium mb-1">Варианты выбора *</label>
               <div className="space-y-2">
                 <div className="flex space-x-2">
                   <Input
@@ -906,239 +877,6 @@ function EditPropertyDialog({
               Отмена
             </Button>
             <Button type="submit">Сохранить</Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// Диалог создания/редактирования шаблона
-function TemplateDialog({ 
-  open, 
-  onOpenChange, 
-  onSubmit, 
-  template, 
-  categories 
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: (data: any) => void;
-  template?: any;
-  categories: CatalogCategory[];
-}) {
-  const [formData, setFormData] = useState({
-    name: '',
-    catalog_category_id: '',
-    required_fields: [] as string[],
-    calculator_fields: [] as string[],
-    export_fields: [] as string[]
-  });
-
-  useEffect(() => {
-    if (template) {
-      setFormData({
-        name: template.name,
-        catalog_category_id: template.catalog_category_id,
-        required_fields: JSON.parse(template.required_fields || '[]'),
-        calculator_fields: JSON.parse(template.calculator_fields || '[]'),
-        export_fields: JSON.parse(template.export_fields || '[]')
-      });
-    } else {
-      setFormData({
-        name: '',
-        catalog_category_id: '',
-        required_fields: [],
-        calculator_fields: [],
-        export_fields: []
-      });
-    }
-  }, [template, open]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit(formData);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>
-            {template ? 'Редактировать шаблон' : 'Создать шаблон'}
-          </DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Название шаблона</label>
-            <Input
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Введите название шаблона"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Категория каталога</label>
-            <Select 
-              value={formData.catalog_category_id} 
-              onValueChange={(value) => setFormData({ ...formData, catalog_category_id: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Выберите категорию" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map(category => (
-                  <SelectItem key={category.id} value={category.id}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {!template && (
-            <div className="text-sm text-gray-600">
-              <p>Шаблон будет создан на основе настроек обязательных полей из конфигуратора.</p>
-              <p>Дополнительные настройки можно будет изменить после создания.</p>
-            </div>
-          )}
-
-          {template && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Обязательные поля</label>
-                <div className="space-y-2">
-                  {formData.required_fields.map((field, index) => (
-                    <div key={index} className="flex items-center space-x-2">
-                      <Input
-                        value={field}
-                        onChange={(e) => {
-                          const newFields = [...formData.required_fields];
-                          newFields[index] = e.target.value;
-                          setFormData({ ...formData, required_fields: newFields });
-                        }}
-                        placeholder="Название поля"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const newFields = formData.required_fields.filter((_, i) => i !== index);
-                          setFormData({ ...formData, required_fields: newFields });
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setFormData({ ...formData, required_fields: [...formData.required_fields, ''] });
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Добавить поле
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Поля для калькулятора</label>
-                <div className="space-y-2">
-                  {formData.calculator_fields.map((field, index) => (
-                    <div key={index} className="flex items-center space-x-2">
-                      <Input
-                        value={field}
-                        onChange={(e) => {
-                          const newFields = [...formData.calculator_fields];
-                          newFields[index] = e.target.value;
-                          setFormData({ ...formData, calculator_fields: newFields });
-                        }}
-                        placeholder="Название поля"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const newFields = formData.calculator_fields.filter((_, i) => i !== index);
-                          setFormData({ ...formData, calculator_fields: newFields });
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setFormData({ ...formData, calculator_fields: [...formData.calculator_fields, ''] });
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Добавить поле
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Поля для экспорта</label>
-                <div className="space-y-2">
-                  {formData.export_fields.map((field, index) => (
-                    <div key={index} className="flex items-center space-x-2">
-                      <Input
-                        value={field}
-                        onChange={(e) => {
-                          const newFields = [...formData.export_fields];
-                          newFields[index] = e.target.value;
-                          setFormData({ ...formData, export_fields: newFields });
-                        }}
-                        placeholder="Название поля"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const newFields = formData.export_fields.filter((_, i) => i !== index);
-                          setFormData({ ...formData, export_fields: newFields });
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setFormData({ ...formData, export_fields: [...formData.export_fields, ''] });
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Добавить поле
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="flex justify-end space-x-2">
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
-              Отмена
-            </Button>
-            <Button type="submit">
-              {template ? 'Сохранить' : 'Создать'}
-            </Button>
           </div>
         </form>
       </DialogContent>

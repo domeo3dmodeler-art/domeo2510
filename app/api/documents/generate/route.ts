@@ -435,10 +435,16 @@ export async function POST(request: NextRequest) {
     let documentId: string | null = null;
     
     if (existingDocument) {
+      // Используем существующий документ, но с новым номером для экспорта
       documentNumber = existingDocument.number;
       documentId = existingDocument.id;
+      
+      // Генерируем новый номер для экспорта с латинскими префиксами
+      const documentNumberPrefix = type === 'quote' ? 'KP' : type === 'invoice' ? 'Invoice' : 'Order';
+      documentNumber = `${documentNumberPrefix}-${Date.now()}`;
     } else {
-      documentNumber = `${type.toUpperCase()}-${Date.now()}`;
+      const documentNumberPrefix = type === 'quote' ? 'KP' : type === 'invoice' ? 'Invoice' : 'Order';
+      documentNumber = `${documentNumberPrefix}-${Date.now()}`;
     }
 
     if (type === 'quote') {
@@ -542,7 +548,7 @@ export async function POST(request: NextRequest) {
       return new NextResponse(pdfBuffer, {
         headers: {
           'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="KP-${documentNumber}.pdf"`
+          'Content-Disposition': `attachment; filename="${documentNumber}.pdf"`
         }
       });
 
@@ -647,7 +653,7 @@ export async function POST(request: NextRequest) {
       return new NextResponse(pdfBuffer, {
       headers: {
           'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="Invoice-${documentNumber}.pdf"`
+          'Content-Disposition': `attachment; filename="${documentNumber}.pdf"`
         }
       });
 
@@ -863,7 +869,7 @@ export async function POST(request: NextRequest) {
       return new NextResponse(excelBuffer, {
         headers: {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'Content-Disposition': `attachment; filename="Order-${documentNumber}.xlsx"`
+          'Content-Disposition': `attachment; filename="${documentNumber}.xlsx"`
         }
       });
     }

@@ -154,7 +154,7 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
       ${data.items.map((item: any, index: number) => `
         <tr>
           <td class="number">${index + 1}</td>
-          <td class="sku">${item.sku || 'N/A'}</td>
+          <td class="sku"></td>
           <td class="name">${item.name}</td>
           <td class="price">${item.unitPrice.toLocaleString('ru-RU')} ₽</td>
           <td class="qty">${item.quantity}</td>
@@ -849,18 +849,39 @@ export async function exportDocumentWithPDF(
   console.log(`🔍 Ищем существующий документ типа ${type} для клиента ${clientId}`);
   const existingDocument = await findExistingDocument(type, clientId, items, totalAmount, parentDocumentId, cartSessionId);
   
-  let documentNumber: string;
   let documentId: string | null = null;
+  let documentNumberForDB: string;
+  let documentNumberForExport: string;
   
   if (existingDocument) {
     // Используем существующий документ
-    documentNumber = existingDocument.number;
+    documentNumberForDB = existingDocument.number;
     documentId = existingDocument.id;
-    console.log(`🔄 Используем существующий документ: ${documentNumber} (ID: ${documentId})`);
+    console.log(`🔄 Используем существующий документ: ${documentNumberForDB} (ID: ${documentId})`);
+    
+    // Для экспорта используем тот же номер, что и в БД, но с латинскими префиксами
+    const exportPrefix = type === 'quote' ? 'KP' : type === 'invoice' ? 'Invoice' : 'Order';
+    // Извлекаем timestamp из номера БД и используем его для экспорта
+    // Обрабатываем как старые префиксы (QUOTE-, INVOICE-), так и новые (КП-, Счет-)
+    let timestamp = documentNumberForDB.split('-')[1];
+    
+    // Если timestamp не найден, генерируем новый
+    if (!timestamp) {
+      timestamp = Date.now().toString();
+    }
+    
+    documentNumberForExport = `${exportPrefix}-${timestamp}`;
+    console.log(`📄 Номер для экспорта (тот же): ${documentNumberForExport}`);
   } else {
-    // Создаем новый документ
-    documentNumber = `${type.toUpperCase()}-${Date.now()}`;
-    console.log(`🆕 Создаем новый документ: ${documentNumber}`);
+    // Создаем новый документ с кириллическими префиксами для БД
+    const dbPrefix = type === 'quote' ? 'КП' : type === 'invoice' ? 'Счет' : 'Заказ';
+    const dbTimestamp = Date.now();
+    documentNumberForDB = `${dbPrefix}-${dbTimestamp}`;
+    
+    // Генерируем номер для экспорта с латинскими префиксами (тот же timestamp)
+    const exportPrefix = type === 'quote' ? 'KP' : type === 'invoice' ? 'Invoice' : 'Order';
+    documentNumberForExport = `${exportPrefix}-${dbTimestamp}`;
+    console.log(`🆕 Создаем новый документ: ${documentNumberForDB} (для экспорта: ${documentNumberForExport})`);
   }
 
   // Получаем данные клиента
@@ -870,20 +891,39 @@ export async function exportDocumentWithPDF(
 
   if (!client) {
     console.log('⚠️ Клиент не найден, создаем тестового клиента');
-    // Создаем тестового клиента для демонстрации
-    client = {
-      id: clientId,
-      firstName: 'Тестовый',
-      lastName: 'Клиент',
-      middleName: null,
-      phone: '+7 (999) 123-45-67',
-      address: 'Тестовый адрес',
-      objectId: 'test-client',
-      customFields: '{}',
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+    // Создаем тестового клиента в базе данных
+    try {
+      client = await prisma.client.create({
+        data: {
+          id: clientId,
+          firstName: 'Тестовый',
+          lastName: 'Клиент',
+          middleName: null,
+          phone: '+7 (999) 123-45-67',
+          address: 'Тестовый адрес',
+          objectId: `test-client-${Date.now()}`,
+          customFields: '{}',
+          isActive: true
+        }
+      });
+      console.log(`✅ Тестовый клиент создан: ${client.firstName} ${client.lastName} (ID: ${client.id})`);
+    } catch (error) {
+      console.error('❌ Ошибка создания тестового клиента:', error);
+      // Если не удалось создать клиента, используем объект в памяти
+      client = {
+        id: clientId,
+        firstName: 'Тестовый',
+        lastName: 'Клиент',
+        middleName: null,
+        phone: '+7 (999) 123-45-67',
+        address: 'Тестовый адрес',
+        objectId: 'test-client',
+        customFields: '{}',
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+    }
   }
 
   // Подготавливаем данные для экспорта
@@ -891,7 +931,7 @@ export async function exportDocumentWithPDF(
   
   const exportData = {
     type,
-    documentNumber,
+    documentNumber: documentNumberForExport,
     client,
     items: items.map((item, i) => {
       // Формируем название товара в правильном формате
@@ -926,7 +966,7 @@ export async function exportDocumentWithPDF(
       
       return {
         rowNumber: i + 1,
-        sku: item.properties_data ? extractSupplierSku(item.properties_data) : (item.sku || item.sku_1c || item.id || 'N/A'),
+        sku: '', // Артикулы не показываем в PDF
         name: name,
         unitPrice: item.unitPrice || item.price || 0,
         quantity: item.qty || item.quantity || 1,
@@ -953,11 +993,28 @@ export async function exportDocumentWithPDF(
   let filename: string;
   let mimeType: string;
 
+  // Убеждаемся, что documentNumberForExport содержит только латинские символы
+  const safeDocumentNumber = documentNumberForExport.replace(/[^\x00-\x7F]/g, (char) => {
+    const charCode = char.charCodeAt(0);
+    if (charCode === 1050) return 'K'; // К
+    if (charCode === 1055) return 'P'; // П
+    if (charCode === 1057) return 'S'; // С
+    if (charCode === 1095) return 'ch'; // ч
+    if (charCode === 1077) return 'e'; // е
+    if (charCode === 1090) return 't'; // т
+    if (charCode === 1079) return 'z'; // з
+    if (charCode === 1072) return 'a'; // а
+    if (charCode === 1082) return 'k'; // к
+    return 'X';
+  });
+  
+  console.log(`🔒 Безопасный номер для экспорта: ${safeDocumentNumber}`);
+
   // Генерируем файл в зависимости от формата
   switch (format) {
     case 'pdf':
       buffer = await generatePDFWithPuppeteer(exportData);
-      filename = `${type}-${documentNumber}.pdf`;
+      filename = `${safeDocumentNumber}.pdf`;
       mimeType = 'application/pdf';
       break;
     
@@ -969,14 +1026,14 @@ export async function exportDocumentWithPDF(
         // Для КП и Счета используем простую функцию
         buffer = await generateExcelFast(exportData);
       }
-      filename = `${type}-${documentNumber}.xlsx`;
+      filename = `${safeDocumentNumber}.xlsx`;
       mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
       break;
     
     case 'csv':
       const csvContent = generateCSVSimple(exportData);
       buffer = Buffer.from(csvContent, 'utf-8');
-      filename = `${type}-${documentNumber}.csv`;
+      filename = `${safeDocumentNumber}.csv`;
       mimeType = 'text/csv';
       break;
     
@@ -988,13 +1045,13 @@ export async function exportDocumentWithPDF(
   let dbResult = null;
   if (!existingDocument) {
     try {
-      dbResult = await createDocumentRecordsSimple(type, clientId, items, totalAmount, documentNumber, parentDocumentId, cartSessionId);
+      dbResult = await createDocumentRecordsSimple(type, clientId, items, totalAmount, documentNumberForDB, parentDocumentId, cartSessionId);
       console.log(`✅ Записи в БД созданы: ${dbResult.type} #${dbResult.id}`);
     } catch (error) {
       console.error('❌ Ошибка создания записей в БД:', error);
     }
   } else {
-    console.log(`✅ Используем существующий документ в БД: ${documentNumber}`);
+    console.log(`✅ Используем существующий документ в БД: ${documentNumberForDB}`);
     dbResult = { id: documentId, type: type };
   }
 
@@ -1005,7 +1062,7 @@ export async function exportDocumentWithPDF(
     buffer,
     filename,
     mimeType,
-    documentNumber,
+    documentNumber: documentNumberForExport,
     documentId: dbResult?.id,
     documentType: dbResult?.type
   };
@@ -1197,7 +1254,7 @@ async function createDocumentRecordsSimple(
         quantity: item.qty || item.quantity || 1,
         unit_price: item.unitPrice || 0,
         total_price: (item.qty || item.quantity || 1) * (item.unitPrice || 0),
-        notes: `${name} | Артикул: ${item.sku_1c || 'N/A'}`
+        notes: name // Убираем артикул из notes
       };
     });
 
@@ -1256,7 +1313,7 @@ async function createDocumentRecordsSimple(
         quantity: item.qty || item.quantity || 1,
         unit_price: item.unitPrice || 0,
         total_price: (item.qty || item.quantity || 1) * (item.unitPrice || 0),
-        notes: `${name} | Артикул: ${item.sku_1c || 'N/A'}`
+        notes: name // Убираем артикул из notes
       };
     });
 
@@ -1315,7 +1372,7 @@ async function createDocumentRecordsSimple(
         quantity: item.qty || item.quantity || 1,
         unit_price: item.unitPrice || 0,
         total_price: (item.qty || item.quantity || 1) * (item.unitPrice || 0),
-        notes: `${name} | Артикул: ${item.sku_1c || 'N/A'}`
+        notes: name // Убираем артикул из notes
       };
     });
 
@@ -1335,5 +1392,4 @@ export async function cleanupExportResources() {
 }
 
 // Экспортируем функции для использования в других модулях
-export { findExistingDocument, createDocumentRecordsSimple as createDocumentRecord };
 export { findExistingDocument, createDocumentRecordsSimple as createDocumentRecord };

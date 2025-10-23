@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Badge, Input, Dialog, DialogContent, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui';
-import { Plus, Search, Edit, Trash2, Upload, Download, Eye, Package } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Upload, Download, Eye, Package, AlertCircle, ChevronRight, ChevronDown, Folder, FolderOpen } from 'lucide-react';
 import { CatalogCategory } from '@/lib/types/catalog';
 
 interface Product {
@@ -44,6 +44,8 @@ export default function ProductsPage() {
   const [total, setTotal] = useState(0);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [selectedCategoryForImport, setSelectedCategoryForImport] = useState<string>('');
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [showCategoryTree, setShowCategoryTree] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -145,16 +147,116 @@ export default function ProductsPage() {
     }
   };
 
-  const formatPrice = (price: number, currency: string) => {
-    return new Intl.NumberFormat('ru-RU', {
-      style: 'currency',
-      currency: currency
-    }).format(price);
+  const formatPrice = (price: number, currency?: string) => {
+    // Если валюта не указана или пустая, используем RUB по умолчанию
+    const currencyCode = currency && currency.trim() ? currency : 'RUB';
+    
+    try {
+      return new Intl.NumberFormat('ru-RU', {
+        style: 'currency',
+        currency: currencyCode
+      }).format(price);
+    } catch (error) {
+      // Если валюта не поддерживается, используем числовой формат
+      return new Intl.NumberFormat('ru-RU').format(price) + ' ₽';
+    }
   };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ru-RU');
   };
+
+  // Функции для работы с деревом каталога
+  const toggleCategoryExpanded = (categoryId: string) => {
+    const newExpanded = new Set(expandedCategories);
+    if (newExpanded.has(categoryId)) {
+      newExpanded.delete(categoryId);
+    } else {
+      newExpanded.add(categoryId);
+    }
+    setExpandedCategories(newExpanded);
+  };
+
+  const buildCategoryTree = (categories: CatalogCategory[]) => {
+    const categoryMap = new Map<string, CatalogCategory & { children: CatalogCategory[] }>();
+    const rootCategories: (CatalogCategory & { children: CatalogCategory[] })[] = [];
+
+    // Создаем карту категорий с пустыми массивами детей
+    categories.forEach(category => {
+      categoryMap.set(category.id, { ...category, children: [] });
+    });
+
+    // Строим дерево
+    categories.forEach(category => {
+      const categoryWithChildren = categoryMap.get(category.id)!;
+      if (category.parent_id && categoryMap.has(category.parent_id)) {
+        const parent = categoryMap.get(category.parent_id)!;
+        parent.children.push(categoryWithChildren);
+      } else {
+        rootCategories.push(categoryWithChildren);
+      }
+    });
+
+    return rootCategories;
+  };
+
+  const renderCategoryNode = (category: CatalogCategory & { children: CatalogCategory[] }, level = 0) => {
+    const isExpanded = expandedCategories.has(category.id);
+    const hasChildren = category.children.length > 0;
+
+    return (
+      <div key={category.id}>
+        <div
+          className="flex items-center py-1 px-2 cursor-pointer hover:bg-gray-100 rounded"
+          style={{ paddingLeft: `${level * 20 + 8}px` }}
+          onClick={() => {
+            if (hasChildren) {
+              toggleCategoryExpanded(category.id);
+            } else {
+              setSelectedCategory(category.id);
+              setShowCategoryTree(false);
+            }
+          }}
+        >
+          {hasChildren ? (
+            isExpanded ? (
+              <ChevronDown className="h-4 w-4 mr-1 text-gray-500" />
+            ) : (
+              <ChevronRight className="h-4 w-4 mr-1 text-gray-500" />
+            )
+          ) : (
+            <div className="w-5 mr-1" />
+          )}
+          {hasChildren ? (
+            isExpanded ? (
+              <FolderOpen className="h-4 w-4 mr-2 text-blue-500" />
+            ) : (
+              <Folder className="h-4 w-4 mr-2 text-blue-500" />
+            )
+          ) : (
+            <div className="w-6 mr-2" />
+          )}
+          <span className="text-sm">{category.name}</span>
+        </div>
+        {isExpanded && category.children.map(child => renderCategoryNode(child, level + 1))}
+      </div>
+    );
+  };
+
+  // Закрытие дерева при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.category-tree-container')) {
+        setShowCategoryTree(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -166,28 +268,86 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-end">
-        <div className="flex items-center space-x-2">
-          <Button
-            onClick={() => setImportDialogOpen(true)}
-            variant="outline"
-            className="flex items-center space-x-1"
-          >
-            <Upload className="h-4 w-4" />
-            <span>Импорт</span>
-          </Button>
-          <Button
-            className="flex items-center space-x-1"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Добавить товар</span>
-          </Button>
-        </div>
+      {/* Статистика */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="p-4">
+          <div className="flex items-center space-x-2">
+            <Package className="h-5 w-5 text-blue-500" />
+            <div>
+              <p className="text-sm text-gray-600">Всего товаров</p>
+              <p className="text-2xl font-bold">{total}</p>
+            </div>
+          </div>
+        </Card>
+        
+        <Card className="p-4">
+          <div className="flex items-center space-x-2">
+            <Eye className="h-5 w-5 text-green-500" />
+            <div>
+              <p className="text-sm text-gray-600">Активных</p>
+              <p className="text-2xl font-bold">{products.filter(p => p.is_active).length}</p>
+            </div>
+          </div>
+        </Card>
+        
+        <Card className="p-4">
+          <div className="flex items-center space-x-2">
+            <Search className="h-5 w-5 text-yellow-500" />
+            <div>
+              <p className="text-sm text-gray-600">В наличии</p>
+              <p className="text-2xl font-bold">{products.filter(p => p.stock_quantity > 0).length}</p>
+            </div>
+          </div>
+        </Card>
+        
+        <Card className="p-4">
+          <div className="flex items-center space-x-2">
+            <Download className="h-5 w-5 text-purple-500" />
+            <div>
+              <p className="text-sm text-gray-600">Категорий</p>
+              <p className="text-2xl font-bold">{catalogCategories.length}</p>
+            </div>
+          </div>
+        </Card>
       </div>
+
 
       {/* Фильтры */}
       <Card className="p-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="relative category-tree-container">
+            <Button
+              variant="outline"
+              onClick={() => setShowCategoryTree(!showCategoryTree)}
+              className="w-full justify-between"
+            >
+              <span>
+                {selectedCategory 
+                  ? catalogCategories.find(c => c.id === selectedCategory)?.name || 'Выберите категорию'
+                  : 'Выберите категорию'
+                }
+              </span>
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+            
+            {showCategoryTree && (
+              <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-y-auto">
+                <div className="p-2">
+                  <div
+                    className="flex items-center py-1 px-2 cursor-pointer hover:bg-gray-100 rounded text-gray-700"
+                    onClick={() => {
+                      setSelectedCategory('');
+                      setShowCategoryTree(false);
+                    }}
+                  >
+                    <span className="text-sm font-medium">Все категории</span>
+                  </div>
+                  {buildCategoryTree(catalogCategories).map(category => renderCategoryNode(category))}
+                </div>
+              </div>
+            )}
+          </div>
+          
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
@@ -197,29 +357,34 @@ export default function ProductsPage() {
               className="pl-10"
             />
           </div>
-          
-          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger>
-              <SelectValue placeholder="Все категории" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">Все категории</SelectItem>
-              {catalogCategories.map(category => (
-                <SelectItem key={category.id} value={category.id}>
-                  {category.name} (L{category.level})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
+
           <div className="flex items-center space-x-2">
-            <Package className="h-4 w-4 text-gray-500" />
+            <AlertCircle className="h-4 w-4 text-yellow-500" />
             <span className="text-sm text-gray-600">
-              {total} товаров
+              Найдено: {products.length}
             </span>
           </div>
         </div>
+        
+        {/* Дополнительные опции */}
+        <div className="mt-4 flex items-center space-x-4">
+          {selectedCategory && (
+            <div className="text-sm text-blue-600">
+              Фильтр по категории: {catalogCategories.find(c => c.id === selectedCategory)?.name}
+            </div>
+          )}
+        </div>
       </Card>
+
+      {/* Кнопка добавления товара */}
+      <div className="flex justify-center">
+        <Button
+          className="flex items-center space-x-1"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Добавить товар</span>
+        </Button>
+      </div>
 
       {/* Список товаров */}
       <Card className="p-4">

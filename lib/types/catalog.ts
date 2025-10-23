@@ -42,6 +42,13 @@ export interface ProductProperty {
   is_active: boolean;
   created_at: Date;
   updated_at: Date;
+  categories?: Array<{
+    id: string;
+    name: string;
+    is_required: boolean;
+    is_for_calculator: boolean;
+    is_for_export: boolean;
+  }>;
 }
 
 export type PropertyType = 'text' | 'number' | 'select' | 'boolean' | 'date' | 'file';

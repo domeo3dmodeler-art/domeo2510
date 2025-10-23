@@ -43,7 +43,8 @@ export async function POST(req: NextRequest) {
       documentId = existingDocument.id;
       console.log(`🔄 Используем существующий документ: ${documentNumber} (ID: ${documentId})`);
     } else {
-      documentNumber = `${type.toUpperCase()}-${Date.now()}`;
+      const documentNumberPrefix = type === 'quote' ? 'КП' : type === 'invoice' ? 'Счет' : type === 'order' ? 'Заказ' : 'Документ';
+      documentNumber = `${documentNumberPrefix}-${Date.now()}`;
       console.log(`🆕 Создаем новый документ: ${documentNumber}`);
     }
 

@@ -52,7 +52,7 @@ export default function CatalogLayout({
     if (pathname.includes('/properties')) {
       return {
         title: 'Свойства товаров',
-        subtitle: 'Модерация и управление свойствами товаров'
+        subtitle: 'Управление характеристиками товаров в каталоге'
       };
     }
     // По умолчанию для корневой страницы каталога

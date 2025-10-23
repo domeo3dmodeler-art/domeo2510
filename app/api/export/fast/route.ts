@@ -98,10 +98,25 @@ export async function POST(request: NextRequest) {
     );
 
     // Возвращаем файл с информацией о документе
+    // Убеждаемся, что filename содержит только латинские символы
+    const safeFilename = result.filename.replace(/[^\x00-\x7F]/g, (char) => {
+      const charCode = char.charCodeAt(0);
+      if (charCode === 1050) return 'K'; // К
+      if (charCode === 1055) return 'P'; // П
+      if (charCode === 1057) return 'S'; // С
+      if (charCode === 1095) return 'ch'; // ч
+      if (charCode === 1077) return 'e'; // е
+      if (charCode === 1090) return 't'; // т
+      if (charCode === 1079) return 'z'; // з
+      if (charCode === 1072) return 'a'; // а
+      if (charCode === 1082) return 'k'; // к
+      return 'X';
+    });
+    
     return new NextResponse(result.buffer, {
       headers: {
         'Content-Type': result.mimeType,
-        'Content-Disposition': `attachment; filename="${result.filename}"`,
+        'Content-Disposition': `attachment; filename="${safeFilename}"`,
         'Content-Length': result.buffer.length.toString(),
         'X-Document-Id': result.documentId || '',
         'X-Document-Type': result.documentType || '',
@@ -119,13 +134,3 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Graceful shutdown
-process.on('SIGINT', async () => {
-  await cleanupExportResources();
-  process.exit(0);
-});
-
-process.on('SIGTERM', async () => {
-  await cleanupExportResources();
-  process.exit(0);
-});

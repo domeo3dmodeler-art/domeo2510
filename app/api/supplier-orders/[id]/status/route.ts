@@ -150,7 +150,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             data: {
               user_id: parentUser.id,
               client_id: order.client.id,
-              document_id: order.id,
+              document_id: order.parent_document_id, // Передаем ID счета, а не заказа
               type: 'STATUS_CHANGE',
               title: 'Изменение статуса заказа',
               message: invoiceInfo,
