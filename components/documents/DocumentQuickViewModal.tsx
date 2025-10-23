@@ -34,6 +34,7 @@ interface DocumentData {
   quote_items?: any[];
   invoice_items?: any[];
   order_items?: any[];
+  supplier_order_items?: any[];
 }
 
 export function DocumentQuickViewModal({ isOpen, onClose, documentId }: DocumentQuickViewModalProps) {
@@ -207,6 +208,68 @@ export function DocumentQuickViewModal({ isOpen, onClose, documentId }: Document
       }
 
       // Создаем заказ у поставщика через API (как в ЛК Исполнителя)
+      console.log('📦 Document data:', documentData);
+      
+      // Извлекаем данные документа из обертки
+      const documentInfo = documentData.document || documentData;
+      console.log('📦 Document:', documentInfo);
+      console.log('📦 Cart data:', documentInfo.cart_data);
+      console.log('📦 Document keys:', Object.keys(documentInfo));
+      console.log('📦 Document items:', documentInfo.items);
+      
+      // Получаем данные корзины из исходного документа
+      let cartData = { items: [] };
+      
+      // Сначала пытаемся получить из cart_data документа
+      if (documentInfo.cart_data) {
+        try {
+          cartData = JSON.parse(documentInfo.cart_data);
+          console.log('✅ Parsed cart data from document:', cartData);
+        } catch (e) {
+          console.error('❌ Error parsing cart_data:', e);
+        }
+      }
+      
+      // Если cart_data пустой, пытаемся получить данные из items документа
+      if (!cartData.items || cartData.items.length === 0) {
+        console.log('📦 Trying to get items from document:', documentInfo);
+        if (documentInfo.items && Array.isArray(documentInfo.items)) {
+          cartData = { items: documentInfo.items };
+          console.log('✅ Using document.items as cart data:', cartData);
+        }
+      }
+      
+      // Если все еще пусто, получаем данные из связанного заказа
+      if (!cartData.items || cartData.items.length === 0) {
+        console.log('📦 Trying to get cart data from related order...');
+        try {
+          const token = localStorage.getItem('token');
+          const orderResponse = await fetch(`/api/orders/${orderId}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          if (orderResponse.ok) {
+            const orderData = await orderResponse.json();
+            console.log('📦 Order data:', orderData);
+            
+            if (orderData.order && orderData.order.cart_data) {
+              const orderCartData = JSON.parse(orderData.order.cart_data);
+              cartData = orderCartData;
+              console.log('✅ Using order cart data:', cartData);
+            }
+          } else {
+            console.warn('⚠️ Order API error:', orderResponse.status, orderResponse.statusText, '- продолжаем без данных заказа');
+          }
+        } catch (e) {
+          console.warn('⚠️ Error getting order cart data:', e, '- продолжаем без данных заказа');
+        }
+      }
+      
+      console.log('📦 Final cart data for supplier order:', cartData);
+      console.log('📦 Final cart data items count:', cartData.items ? cartData.items.length : 0);
+      
       const response = await fetch('/api/supplier-orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -217,7 +280,7 @@ export function DocumentQuickViewModal({ isOpen, onClose, documentId }: Document
           supplierPhone: '',
           expectedDate: null,
           notes: `Создан на основе ${document.type === 'quote' ? 'КП' : document.type === 'invoice' ? 'счета' : 'заказа'} ${document.number}`,
-          cartData: documentData.cart_data ? JSON.parse(documentData.cart_data) : { items: [] }
+          cartData: cartData
         })
       });
 
@@ -229,11 +292,23 @@ export function DocumentQuickViewModal({ isOpen, onClose, documentId }: Document
       const result = await response.json();
       console.log('✅ Supplier Order created:', result);
 
+      // Проверяем, что заказ был создан успешно
+      if (!result.supplierOrder || !result.supplierOrder.id) {
+        throw new Error('Заказ поставщику не был создан или не содержит ID');
+      }
+
+      console.log('📥 Скачиваем Excel для заказа:', result.supplierOrder.id);
+
       // Скачиваем Excel файл (как в ЛК Исполнителя)
       const excelResponse = await fetch(`/api/supplier-orders/${result.supplierOrder.id}/excel`);
 
       if (!excelResponse.ok) {
-        throw new Error('Ошибка при скачивании Excel файла');
+        const errorText = await excelResponse.text();
+        console.error('Excel download error:', errorText);
+        
+        // Показываем пользователю более информативное сообщение
+        toast.error(`Не удалось скачать Excel файл. Заказ создан с ID: ${result.supplierOrder.id}`);
+        return; // Не выбрасываем ошибку, просто показываем уведомление
       }
 
       // Получаем файл и скачиваем (как в ЛК Исполнителя)
@@ -247,7 +322,7 @@ export function DocumentQuickViewModal({ isOpen, onClose, documentId }: Document
       window.URL.revokeObjectURL(url);
       window.document.body.removeChild(a);
       
-      toast.success('Заказ поставщику скачан успешно');
+      toast.success('Excel файл успешно скачан');
     } catch (error) {
       console.error('Ошибка скачивания заказа поставщику:', error);
       toast.error(error instanceof Error ? error.message : 'Ошибка при скачивании заказа поставщику');
@@ -269,7 +344,12 @@ export function DocumentQuickViewModal({ isOpen, onClose, documentId }: Document
       const response = await fetch(`/api/documents/${documentId}`);
       if (response.ok) {
         const data = await response.json();
-        setDocument(data);
+        if (data.success && data.document) {
+          setDocument(data.document);
+        } else {
+          toast.error('Ошибка при загрузке документа');
+          onClose();
+        }
       } else {
         toast.error('Ошибка при загрузке документа');
         onClose();
@@ -325,6 +405,8 @@ export function DocumentQuickViewModal({ isOpen, onClose, documentId }: Document
       return document.invoice_items;
     } else if (document.type === 'order' && document.order_items) {
       return document.order_items;
+    } else if (document.type === 'supplier_order' && document.supplier_order_items) {
+      return document.supplier_order_items;
     } else if (document.items) {
       return document.items;
     }
@@ -418,19 +500,28 @@ export function DocumentQuickViewModal({ isOpen, onClose, documentId }: Document
 
             {/* Информация о клиенте */}
             <div className="mb-4 pb-4 border-b border-gray-200">
-              <div className="flex items-center space-x-2">
-                <User className="h-3 w-3 text-gray-400" />
-                <span className="text-sm font-medium text-gray-900">
-                  {document.client.lastName} {document.client.firstName} {document.client.middleName || ''}
-                </span>
-                {document.client.phone && (
-                  <span className="text-xs text-gray-600">{document.client.phone}</span>
-                )}
-              </div>
-              {document.client.address && (
-                <div className="flex items-center space-x-1 mt-1 ml-5">
-                  <MapPin className="h-3 w-3 text-gray-400" />
-                  <span className="text-xs text-gray-600">{document.client.address}</span>
+              {document.client ? (
+                <>
+                  <div className="flex items-center space-x-2">
+                    <User className="h-3 w-3 text-gray-400" />
+                    <span className="text-sm font-medium text-gray-900">
+                      {document.client.lastName} {document.client.firstName} {document.client.middleName || ''}
+                    </span>
+                    {document.client.phone && (
+                      <span className="text-xs text-gray-600">{document.client.phone}</span>
+                    )}
+                  </div>
+                  {document.client.address && (
+                    <div className="flex items-center space-x-1 mt-1 ml-5">
+                      <MapPin className="h-3 w-3 text-gray-400" />
+                      <span className="text-xs text-gray-600">{document.client.address}</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <User className="h-3 w-3 text-gray-400" />
+                  <span className="text-sm text-gray-500">Клиент не указан</span>
                 </div>
               )}
             </div>

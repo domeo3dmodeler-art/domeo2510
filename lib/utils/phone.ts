@@ -14,20 +14,34 @@ export function cleanPhoneNumber(phone: string): string {
 export function isValidInternationalPhone(phone: string): boolean {
   const cleaned = cleanPhoneNumber(phone);
   
-  // Проверяем длину (от 10 до 15 цифр)
-  if (cleaned.length < 10 || cleaned.length > 15) {
+  // Проверяем, что есть хотя бы цифры
+  if (!cleaned) {
     return false;
   }
   
-  // Проверяем, что номер начинается с кода страны
-  // Российские номера: +7 (10-11 цифр)
-  if (cleaned.startsWith('7') && (cleaned.length === 11)) {
+  // Российские номера: +7 (строго 11 цифр)
+  if (cleaned.startsWith('7') && cleaned.length === 11) {
     return true;
   }
   
-  // Другие международные номера (начинаются с 1-9, длина 10-15)
+  // Российские номера без +7: 8 (строго 11 цифр)
+  if (cleaned.startsWith('8') && cleaned.length === 11) {
+    return true;
+  }
+  
+  // Российские номера без кода страны (строго 10 цифр, не начинаются с 0)
+  if (cleaned.length === 10 && !cleaned.startsWith('0')) {
+    return true;
+  }
+  
+  // Международные номера других стран (10-15 цифр, начинаются с 1-9)
+  // НО НЕ российские номера
   if (cleaned.length >= 10 && cleaned.length <= 15) {
     const firstDigit = parseInt(cleaned[0]);
+    // Исключаем российские коды (7, 8) для номеров длиной больше 11 цифр
+    if ((cleaned.startsWith('7') || cleaned.startsWith('8')) && cleaned.length > 11) {
+      return false;
+    }
     return firstDigit >= 1 && firstDigit <= 9;
   }
   
@@ -42,24 +56,27 @@ export function formatInternationalPhone(phone: string): string {
   
   if (!cleaned) return '';
   
-  // Российские номера
+  // Российские номера: +7 (999) 123-45-67
   if (cleaned.startsWith('7') && cleaned.length === 11) {
     return `+7 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7, 9)}-${cleaned.slice(9)}`;
   }
   
-  // Номера, начинающиеся с 8 (российские без +7)
+  // Российские номера без +7: 8 (999) 123-45-67 -> +7 (999) 123-45-67
   if (cleaned.startsWith('8') && cleaned.length === 11) {
     return `+7 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7, 9)}-${cleaned.slice(9)}`;
   }
   
-  // Номера без кода страны (предполагаем российские)
-  if (cleaned.length === 10) {
+  // Российские номера без кода страны: 999 123-45-67 -> +7 (999) 123-45-67
+  if (cleaned.length === 10 && !cleaned.startsWith('0')) {
     return `+7 (${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 8)}-${cleaned.slice(8)}`;
   }
   
-  // Другие международные номера
-  if (cleaned.length >= 10) {
-    return `+${cleaned}`;
+  // Другие международные номера (не российские)
+  if (cleaned.length >= 10 && cleaned.length <= 15) {
+    // Проверяем, что это не российский номер
+    if (!cleaned.startsWith('7') && !cleaned.startsWith('8')) {
+      return `+${cleaned}`;
+    }
   }
   
   return phone;

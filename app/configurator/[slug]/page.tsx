@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import ConfiguratorMain from '../../../components/configurator/ConfiguratorMain';
+import { useAuth } from '../../../hooks/useAuth';
 
 interface ConfiguratorCategory {
   id: string;
@@ -16,6 +17,7 @@ interface ConfiguratorCategory {
 export default function ConfiguratorPage() {
   const params = useParams();
   const slug = params.slug as string;
+  const { user } = useAuth();
   
   const [configuratorCategory, setConfiguratorCategory] = useState<ConfiguratorCategory | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,6 +90,7 @@ export default function ConfiguratorPage() {
     <ConfiguratorMain
       configuratorCategoryId={configuratorCategory.id}
       configuratorCategory={configuratorCategory}
+      userRole={user?.role || 'guest'}
     />
   );
 }

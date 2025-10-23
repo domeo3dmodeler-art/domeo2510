@@ -47,6 +47,8 @@ interface AdminLayoutProps {
   children: React.ReactNode;
   title?: string;
   subtitle?: string;
+  showBackButton?: boolean;
+  backHref?: string;
 }
 
 interface MenuItem {
@@ -104,7 +106,7 @@ const menuItems: MenuItem[] = [
   }
 ];
 
-export default function AdminLayout({ children, title, subtitle }: AdminLayoutProps) {
+export default function AdminLayout({ children, title, subtitle, showBackButton = false, backHref = '/' }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(['catalog', 'configurator']));
   const pathname = usePathname();
@@ -368,9 +370,17 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
                 </div>
               </div>
               <NotificationBell userRole={currentUser?.role || 'admin'} />
-              <Button variant="ghost" size="sm" onClick={logout}>
-                Выйти
-              </Button>
+              {showBackButton ? (
+                <Link href={backHref}>
+                  <Button variant="ghost" size="sm">
+                    ← Назад
+                  </Button>
+                </Link>
+              ) : (
+                <Button variant="ghost" size="sm" onClick={logout}>
+                  Выйти
+                </Button>
+              )}
             </div>
           </div>
         </div>

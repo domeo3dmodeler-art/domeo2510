@@ -51,11 +51,13 @@ interface CartItem {
 interface ConfiguratorMainProps {
   configuratorCategoryId: string;
   configuratorCategory: ConfiguratorCategory;
+  userRole?: string;
 }
 
 export default function ConfiguratorMain({
   configuratorCategoryId,
-  configuratorCategory
+  configuratorCategory,
+  userRole = 'guest'
 }: ConfiguratorMainProps) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
@@ -229,6 +231,7 @@ export default function ConfiguratorMain({
                   onExport={handleExport}
                   showGrouped={true}
                   configuratorCategoryId={configuratorCategoryId}
+                  userRole={userRole}
                 />
               </div>
             </div>

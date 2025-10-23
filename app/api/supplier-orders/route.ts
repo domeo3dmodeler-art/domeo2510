@@ -8,6 +8,10 @@ export async function POST(request: NextRequest) {
     const { orderId, supplierName, supplierEmail, supplierPhone, expectedDate, notes, cartData } = body;
     
     console.log('🚀 Creating supplier order:', { orderId, supplierName, supplierEmail, supplierPhone, expectedDate, notes });
+    console.log('📦 Received cartData:', cartData);
+    console.log('📦 Received cartData type:', typeof cartData);
+    console.log('📦 Received cartData items:', cartData?.items);
+    console.log('📦 Received cartData items count:', cartData?.items?.length);
 
     if (!orderId) {
       return NextResponse.json({ error: 'orderId is required' }, { status: 400 });
@@ -20,7 +24,8 @@ export async function POST(request: NextRequest) {
         id: true, 
         client_id: true, 
         cart_session_id: true,
-        number: true // Получаем номер заказа
+        number: true, // Получаем номер заказа
+        total_amount: true // Получаем сумму заказа
       }
     });
 
@@ -69,14 +74,24 @@ export async function POST(request: NextRequest) {
       // Генерируем номер заказа у поставщика на основе номера счета
       const supplierOrderNumber = invoiceNumber || `SUPPLIER-${Date.now()}`;
       
-      // Вычисляем общую сумму из данных корзины
+      // Вычисляем общую сумму из данных корзины или используем сумму заказа
       let totalAmount = 0;
-      if (cartData && cartData.items) {
+      if (cartData && cartData.items && cartData.items.length > 0) {
         totalAmount = cartData.items.reduce((sum: number, item: any) => {
           const quantity = item.quantity || item.qty || 1;
           const price = item.unitPrice || item.price || 0;
           return sum + (quantity * price);
         }, 0);
+      }
+      
+      // Если сумма из корзины равна 0 или корзина пустая, используем сумму заказа
+      if (totalAmount === 0 && order.total_amount > 0) {
+        totalAmount = order.total_amount;
+        console.log(`💰 Используем сумму заказа: ${totalAmount}`);
+      } else if (totalAmount > 0) {
+        console.log(`💰 Используем сумму из корзины: ${totalAmount}`);
+      } else {
+        console.log(`⚠️ Сумма не определена: корзина=${cartData?.items?.length || 0}, заказ=${order.total_amount}`);
       }
 
       supplierOrder = await prisma.supplierOrder.create({
@@ -96,6 +111,8 @@ export async function POST(request: NextRequest) {
           total_amount: totalAmount // Сохраняем общую сумму
         }
       });
+      
+      console.log('💾 Saved supplier order with cart_data:', supplierOrder.cart_data);
     }
 
     console.log('✅ Supplier order created:', supplierOrder);

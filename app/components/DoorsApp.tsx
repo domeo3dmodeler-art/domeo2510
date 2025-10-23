@@ -542,7 +542,7 @@ export default function App(){
                           {i.hardwareKitId ? `, Комплект: ${mockData.kits.find(k=>k.id===i.hardwareKitId)?.name}`: ''}
                         </div>
                         <div className="flex items-center justify-between gap-2">
-                          <input type="number" min={1} value={i.qty} className="w-16 border rounded px-2 py-1" onChange={e=>changeQty(i.id, Number((e.target as HTMLInputElement).value)||1)} />
+                          <input type="number" min={1} value={i.qty} className="w-16 border rounded py-1 text-center" onChange={e=>changeQty(i.id, Number((e.target as HTMLInputElement).value)||1)} />
                           <div className="text-xs text-gray-500">Δ {fmtInt(i.unitPrice - i.baseAtAdd)} ₽</div>
                           <div className="flex gap-2">
                             <button className="text-sm underline" onClick={async()=>{ setEditingId(editingId===i.id?null:i.id); if(editingId!==i.id) await ensureItemDomain({ model: i.model as string, style: i.style }) }}>Изменить</button>

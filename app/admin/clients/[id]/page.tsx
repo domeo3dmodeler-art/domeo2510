@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { Button, Card, Alert, LoadingSpinner } from '@/components/ui';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { formatInternationalPhone } from '@/lib/utils/phone';
+import AdminLayout from '@/components/layout/AdminLayout';
 
 interface Client {
   id: string;
@@ -30,6 +32,7 @@ export default function ClientDetailPage() {
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'documents' | 'quotes' | 'invoices' | 'orders'>('documents');
+  const [isEditingStatus, setIsEditingStatus] = useState(false);
 
   useEffect(() => {
     if (clientId) {
@@ -55,32 +58,29 @@ export default function ClientDetailPage() {
     }
   };
 
-  const handleCreateDocument = async (type: string) => {
+  const handleStatusChange = async (newStatus: boolean) => {
+    if (!client) return;
+    
     try {
-      const response = await fetch(`/api/clients/${clientId}/documents`, {
-        method: 'POST',
+      const response = await fetch(`/api/clients/${clientId}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type,
-          content: {
-            clientId,
-            type,
-            items: [],
-            total: 0
-          }
+          isActive: newStatus
         })
       });
 
       const data = await response.json();
 
-      if (data.success) {
-        setAlert({ type: 'success', message: 'Документ создан успешно' });
-        fetchClient();
+      if (response.ok) {
+        setClient({ ...client, isActive: newStatus });
+        setAlert({ type: 'success', message: 'Статус клиента обновлен' });
+        setIsEditingStatus(false);
       } else {
-        setAlert({ type: 'error', message: data.error || 'Ошибка создания документа' });
+        setAlert({ type: 'error', message: data.error || 'Ошибка обновления статуса' });
       }
     } catch (error) {
-      setAlert({ type: 'error', message: 'Ошибка создания документа' });
+      setAlert({ type: 'error', message: 'Ошибка обновления статуса' });
     }
   };
 
@@ -135,41 +135,13 @@ export default function ClientDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <AdminLayout
+      title={`${client.lastName} ${client.firstName} ${client.middleName}`}
+      subtitle="Информация о заказчике и его документах"
+      showBackButton={true}
+      backHref="/admin/clients"
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <Link href="/admin/clients" className="text-blue-600 hover:text-blue-800 mb-2 inline-block">
-              ← Вернуться к списку заказчиков
-            </Link>
-            <h1 className="text-3xl font-bold text-gray-900">
-              {client.lastName} {client.firstName} {client.middleName}
-            </h1>
-            <p className="text-gray-600 mt-2">Информация о заказчике и его документах</p>
-          </div>
-          <div className="flex space-x-3">
-            <Button
-              variant="secondary"
-              onClick={() => handleCreateDocument('quote')}
-            >
-              Создать КП
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => handleCreateDocument('invoice')}
-            >
-              Создать счет
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => handleCreateDocument('order')}
-            >
-              Создать заказ
-            </Button>
-          </div>
-        </div>
-
         {/* Alert */}
         {alert && (
           <Alert
@@ -180,79 +152,80 @@ export default function ClientDetailPage() {
           />
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Client Info */}
           <div className="lg:col-span-1">
-            <Card variant="base" padding="md">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Информация о заказчике</h3>
+            <Card variant="base" padding="sm">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Информация о заказчике</h3>
               
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Телефон</label>
-                  <p className="text-sm text-gray-900">{client.phone}</p>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Телефон</label>
+                  <p className="text-sm text-gray-900">{formatInternationalPhone(client.phone)}</p>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Адрес объекта</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Адрес объекта</label>
                   <p className="text-sm text-gray-900">{client.address}</p>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">ID объекта</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">ID объекта</label>
                   <p className="text-sm text-gray-900">{client.objectId}</p>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Статус</label>
-                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                    client.isActive 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {client.isActive ? 'Активен' : 'Неактивен'}
-                  </span>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Статус</label>
+                  {isEditingStatus ? (
+                    <div className="flex items-center space-x-2">
+                      <select
+                        value={client.isActive ? 'active' : 'inactive'}
+                        onChange={(e) => handleStatusChange(e.target.value === 'active')}
+                        className="text-xs px-2 py-1 border border-gray-300 rounded"
+                      >
+                        <option value="active">Активен</option>
+                        <option value="inactive">Неактивен</option>
+                      </select>
+                      <button
+                        onClick={() => setIsEditingStatus(false)}
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                        client.isActive 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {client.isActive ? 'Активен' : 'Неактивен'}
+                      </span>
+                      <button
+                        onClick={() => setIsEditingStatus(true)}
+                        className="text-xs text-blue-600 hover:text-blue-800"
+                      >
+                        ✏️
+                      </button>
+                    </div>
+                  )}
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Дата создания</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Дата создания</label>
                   <p className="text-sm text-gray-900">
                     {new Date(client.createdAt).toLocaleDateString('ru-RU')}
                   </p>
                 </div>
               </div>
             </Card>
-
-            {/* Statistics */}
-            <Card variant="base" padding="md" className="mt-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Статистика</h3>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{client.quotes?.length || 0}</div>
-                  <div className="text-sm text-gray-600">КП</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">{client.invoices?.length || 0}</div>
-                  <div className="text-sm text-gray-600">Счета</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">{client.orders?.length || 0}</div>
-                  <div className="text-sm text-gray-600">Заказы</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-600">
-                    {(client.quotes?.length || 0) + (client.invoices?.length || 0) + (client.orders?.length || 0)}
-                  </div>
-                  <div className="text-sm text-gray-600">Всего</div>
-                </div>
-              </div>
-            </Card>
           </div>
 
           {/* Documents */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-3">
             {/* Tabs */}
-            <div className="flex space-x-1 mb-6">
+            <div className="flex space-x-1 mb-4">
               <button
                 onClick={() => setActiveTab('documents')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium ${
@@ -327,18 +300,12 @@ export default function ClientDetailPage() {
                         <h3 className="text-lg font-medium text-gray-900 mb-2">
                           Документы не найдены
                         </h3>
-                        <p className="text-gray-600 mb-4">
+                        <p className="text-gray-600">
                           {activeTab === 'documents' 
                             ? 'У этого заказчика пока нет документов'
                             : `У этого заказчика пока нет документов типа "${getDocumentTypeLabel(activeTab as 'quote' | 'invoice' | 'order')}"`
                           }
                         </p>
-                        <Button
-                          variant="primary"
-                          onClick={() => handleCreateDocument(activeTab === 'documents' ? 'quote' : activeTab)}
-                        >
-                          Создать {activeTab === 'documents' ? 'документ' : getDocumentTypeLabel(activeTab as 'quote' | 'invoice' | 'order')}
-                        </Button>
                       </div>
                     </Card>
                   );
@@ -371,7 +338,7 @@ export default function ClientDetailPage() {
           </div>
         </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 }
 

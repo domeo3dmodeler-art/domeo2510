@@ -69,7 +69,7 @@ export const ROLE_PERMISSIONS = {
   ],
   [UserRole.EXECUTOR]: [
     Permission.PRODUCTS_READ, Permission.CATEGORIES_READ, Permission.CLIENTS_READ,
-    Permission.QUOTES_READ, Permission.ORDERS_READ,
+    Permission.QUOTES_READ, Permission.ORDERS_READ, Permission.INVOICES_READ,
     Permission.SUPPLIER_ORDERS_CREATE, Permission.SUPPLIER_ORDERS_READ, Permission.SUPPLIER_ORDERS_UPDATE
   ]
 };

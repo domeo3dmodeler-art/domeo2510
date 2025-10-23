@@ -10,6 +10,7 @@ interface CartSidebarProps {
   onGenerateQuote?: () => void;
   onGenerateInvoice?: () => void;
   onGenerateOrder?: () => void;
+  userRole?: string;
 }
 
 export default function CartSidebar({
@@ -17,7 +18,8 @@ export default function CartSidebar({
   onClose,
   onGenerateQuote,
   onGenerateInvoice,
-  onGenerateOrder
+  onGenerateOrder,
+  userRole = 'guest'
 }: CartSidebarProps) {
   const [cart, setCart] = useState<Cart | null>(null);
   const [calculation, setCalculation] = useState<CartCalculation | null>(null);
@@ -223,15 +225,17 @@ export default function CartSidebar({
                   Создать счет
                 </Button>
                 
-                <Button
-                  onClick={onGenerateOrder}
-                  variant="outline"
-                  className="w-full border-orange-600 text-orange-600 hover:bg-orange-50"
-                  disabled={isLoading}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Заказ поставщику
-                </Button>
+                {(userRole === 'admin' || userRole === 'executor') && (
+                  <Button
+                    onClick={onGenerateOrder}
+                    variant="outline"
+                    className="w-full border-orange-600 text-orange-600 hover:bg-orange-50"
+                    disabled={isLoading}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Заказ поставщику
+                  </Button>
+                )}
                 
                 <Button
                   onClick={handleClearCart}

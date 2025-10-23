@@ -2727,7 +2727,7 @@ export default function DoorsPage() {
                   min="1"
                   value={quantity}
                   onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-16 text-center border border-gray-300 rounded px-2 py-1"
+                  className="w-16 text-center border border-gray-300 rounded py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <button
                   onClick={() => setQuantity(quantity + 1)}
@@ -3326,7 +3326,7 @@ function CartManager({
   // Проверки разрешений по ролям
   const canCreateQuote = userRole === 'admin' || userRole === 'complectator';
   const canCreateInvoice = userRole === 'admin' || userRole === 'complectator';
-  const canCreateOrder = userRole === 'admin' || userRole === 'complectator';
+  const canCreateOrder = userRole === 'admin' || userRole === 'executor';
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

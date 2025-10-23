@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Card, Input, Modal, Alert, LoadingSpinner } from '@/components/ui';
 import { PhoneInput } from '@/components/ui/PhoneInput';
+import { formatInternationalPhone } from '@/lib/utils/phone';
 import Link from 'next/link';
 import AdminLayout from '../../../components/layout/AdminLayout';
 
@@ -122,6 +123,33 @@ export default function ClientsPage() {
       }
     } catch (error) {
       alert('Ошибка обновления заказчика');
+    }
+  };
+
+  const handleToggleStatus = async (clientId: string, currentStatus: boolean) => {
+    try {
+      const response = await fetch(`/api/clients/${clientId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isActive: !currentStatus
+        })
+      });
+
+      if (response.ok) {
+        // Обновляем локальное состояние
+        setClients(clients.map(client => 
+          client.id === clientId 
+            ? { ...client, isActive: !currentStatus }
+            : client
+        ));
+        alert('Статус клиента обновлен');
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Ошибка обновления статуса');
+      }
+    } catch (error) {
+      alert('Ошибка обновления статуса');
     }
   };
 
@@ -261,7 +289,7 @@ export default function ClientsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{client.phone}</div>
+                      <div className="text-sm text-gray-900">{formatInternationalPhone(client.phone)}</div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-900 max-w-xs truncate" title={client.address}>
@@ -277,13 +305,17 @@ export default function ClientsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        client.isActive 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
+                      <button
+                        onClick={() => handleToggleStatus(client.id, client.isActive)}
+                        className={`px-2 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${
+                          client.isActive 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                        title="Нажмите для изменения статуса"
+                      >
                         {client.isActive ? 'Активен' : 'Неактивен'}
-                      </span>
+                      </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">

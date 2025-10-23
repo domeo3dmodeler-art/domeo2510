@@ -46,6 +46,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Supplier order not found' }, { status: 404 });
     }
 
+    console.log('📦 Supplier order cart_data:', supplierOrder.cart_data);
+    console.log('📦 Supplier order ID:', supplierOrder.id);
+
     // Получаем связанный заказ и клиента
     const order = await prisma.order.findUnique({
       where: { id: supplierOrder.parent_document_id },
@@ -73,6 +76,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (supplierOrder.cart_data) {
       try {
         const parsedData = JSON.parse(supplierOrder.cart_data);
+        console.log('📦 Parsed cart data:', parsedData);
         
         // Проверяем, является ли это массивом товаров или объектом с items
         if (Array.isArray(parsedData)) {
@@ -85,6 +89,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           // Если это объект без items, оборачиваем в items
           cartData = { items: [parsedData] };
         }
+        console.log('📦 Final cart data:', cartData);
       } catch (error) {
         console.error('Error parsing cart_data:', error);
       }

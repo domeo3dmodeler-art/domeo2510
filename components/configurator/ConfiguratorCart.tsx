@@ -72,6 +72,7 @@ interface ConfiguratorCartProps {
   onExport: (type: 'quote' | 'invoice' | 'order', exportSettingId?: string) => void;
   showGrouped?: boolean;
   configuratorCategoryId?: string;
+  userRole?: string;
 }
 
 export default function ConfiguratorCart({
@@ -81,7 +82,8 @@ export default function ConfiguratorCart({
   onClearCart,
   onExport,
   showGrouped = false,
-  configuratorCategoryId
+  configuratorCategoryId,
+  userRole = 'guest'
 }: ConfiguratorCartProps) {
   const [groupedItems, setGroupedItems] = useState<GroupedCartItem[]>([]);
   const [totalPrice, setTotalPrice] = useState(0);
@@ -251,14 +253,14 @@ export default function ConfiguratorCart({
           {showGrouped && (
             <div className="flex bg-gray-100 rounded-lg p-1">
               <Button
-                variant={viewMode === 'separated' ? 'default' : 'ghost'}
+                variant={viewMode === 'separated' ? 'primary' : 'ghost'}
                 size="sm"
                 onClick={() => setViewMode('separated')}
               >
                 Раздельно
               </Button>
               <Button
-                variant={viewMode === 'grouped' ? 'default' : 'ghost'}
+                variant={viewMode === 'grouped' ? 'primary' : 'ghost'}
                 size="sm"
                 onClick={() => setViewMode('grouped')}
               >
@@ -466,14 +468,16 @@ export default function ConfiguratorCart({
               <FileText className="h-4 w-4" />
               <span>Счет</span>
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => onExport('order', selectedExportSettings.order)}
-              className="flex items-center space-x-1"
-            >
-              <FileText className="h-4 w-4" />
-              <span>Заказ поставщику</span>
-            </Button>
+            {(userRole === 'admin' || userRole === 'executor') && (
+              <Button
+                variant="outline"
+                onClick={() => onExport('order', selectedExportSettings.order)}
+                className="flex items-center space-x-1"
+              >
+                <FileText className="h-4 w-4" />
+                <span>Заказ поставщику</span>
+              </Button>
+            )}
           </div>
 
           {/* Настройки экспорта */}
