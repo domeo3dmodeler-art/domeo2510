@@ -249,16 +249,18 @@ export default function ComplectatorDashboard() {
       'DRAFT': 'Черновик',
       'SENT': 'Отправлен',
       'PAID': 'Оплачен/Заказ',
+      'ORDERED': 'Заказ размещен',
       'CANCELLED': 'Отменен',
-      'IN_PRODUCTION': 'Заказ размещен',
+      'IN_PRODUCTION': 'В производстве',
       'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
       'COMPLETED': 'Исполнен',
       // Поддержка старых строчных статусов
       'draft': 'Черновик',
       'sent': 'Отправлен',
       'paid': 'Оплачен/Заказ',
+      'ordered': 'Заказ размещен',
       'cancelled': 'Отменен',
-      'in_production': 'Заказ размещен',
+      'in_production': 'В производстве',
       'received': 'Получен от поставщика',
       'completed': 'Исполнен'
     };
