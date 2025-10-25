@@ -1,0 +1,36 @@
+{
+  "timestamp": "2025-10-22T19:19:37.099Z",
+  "performance": {
+    "largeFiles": [
+      {
+        "file": "app/doors/page.tsx",
+        "size": "176.4 KB",
+        "recommendation": "Разбить на отдельные компоненты: DoorList, DoorCard, DoorFilters"
+      },
+      {
+        "file": "components/constructor/UltimateConstructorFixed.tsx",
+        "size": "126.8 KB",
+        "recommendation": "Разбить на модули: ConstructorCore, ConstructorUI, ConstructorLogic"
+      }
+    ],
+    "largeImages": [
+      {
+        "file": "public/uploads/products/cmg50xcgs001cv7mn0tdyk1wo/1760988772632_z9yraj_d5_1.png",
+        "size": "1424.9 KB",
+        "recommendation": "Сжать изображение до 200-300KB, создать WebP версию"
+      }
+    ],
+    "database": {
+      "models": 28,
+      "relations": 21,
+      "recommendation": "Рассмотреть индексы для часто используемых полей"
+    }
+  },
+  "codeQuality": {
+    "consoleLogsRemoved": 41,
+    "recommendation": "Использовать логгер вместо console.log в продакшене"
+  },
+  "security": {
+    "recommendation": "Регулярно обновлять зависимости, использовать npm audit"
+  }
+}
