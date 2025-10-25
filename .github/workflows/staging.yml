@@ -22,6 +22,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
         
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        
       - name: Build for staging
         run: npm run build:staging
         
@@ -33,7 +36,7 @@ jobs:
           echo "$STAGING_SSH_KEY" > staging_key
           chmod 600 staging_key
           ssh -i staging_key -o StrictHostKeyChecking=no ubuntu@$STAGING_HOST "cd /opt/domeo-staging && git pull origin develop"
-          ssh -i staging_key -o StrictHostKeyChecking=no ubuntu@$STAGING_HOST "cd /opt/domeo-staging && npm ci --only=production && npm run build:staging && pm2 restart domeo-staging"
+          ssh -i staging_key -o StrictHostKeyChecking=no ubuntu@$STAGING_HOST "cd /opt/domeo-staging && npm ci --only=production && npx prisma generate && npm run build:staging && pm2 restart domeo-staging"
           rm staging_key
           
       - name: Health check
