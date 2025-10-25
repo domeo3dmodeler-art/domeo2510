@@ -21,6 +21,7 @@ export { LoadingSpinner, type LoadingSpinnerProps } from './LoadingSpinner';
 export { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, type DialogProps, type DialogContentProps, type DialogHeaderProps, type DialogTitleProps, type DialogFooterProps } from './Dialog';
 export { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, type TableProps, type TableHeaderProps, type TableBodyProps, type TableRowProps, type TableHeadProps, type TableCellProps } from './Table';
 export { Accordion, AccordionItem } from './Accordion';
+export { Progress, type ProgressProps } from './Progress';
 
 // Экспорт дизайн-токенов
 export { designTokens, createComponentStyles } from '../../lib/design/tokens';

@@ -1,73 +1,73 @@
-# Multi-stage build для оптимизации размера образа
-FROM node:20-alpine AS deps
+# Multi-stage build for production
+FROM node:20-alpine AS base
+
+# Install dependencies only when needed
+FROM base AS deps
+RUN apk add --no-cache libc6-compat openssl curl
 WORKDIR /app
 
-# Устанавливаем зависимости для сборки
-RUN apk add --no-cache libc6-compat
-
-# Копируем файлы зависимостей
+# Copy package files and Prisma schema
 COPY package.json package-lock.json* ./
+COPY prisma ./prisma/
 
-# Устанавливаем зависимости
-RUN npm ci --only=production --legacy-peer-deps && npm cache clean --force
+# Install all dependencies (including dev for Prisma generation)
+RUN npm ci
 
-# Стадия сборки
-FROM node:20-alpine AS builder
-WORKDIR /app
-
-# Устанавливаем зависимости для сборки
-RUN apk add --no-cache libc6-compat
-
-# Копируем файлы зависимостей
-COPY package.json package-lock.json* ./
-
-# Устанавливаем все зависимости (включая dev)
-RUN npm ci --legacy-peer-deps
-
-# Копируем исходный код
-COPY . .
-
-# Генерируем Prisma клиент
+# Generate Prisma client
 RUN npx prisma generate
 
-# Собираем приложение
-RUN npm run build:prod
+# Rebuild the source code only when needed
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/prisma ./prisma
+COPY . .
 
-# Финальная стадия
-FROM node:20-alpine AS runner
+# Set environment variables for build
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+
+# Build the application
+RUN npm run build
+
+# Production image, copy all the files and run next
+FROM base AS runner
 WORKDIR /app
 
-# Устанавливаем системные зависимости
-RUN apk add --no-cache libc6-compat openssl
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# Создаем пользователя для безопасности
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Копируем production зависимости
-COPY --from=deps /app/node_modules ./node_modules
-
-# Копируем собранное приложение
+# Copy built application
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/prisma ./prisma
 
-# Устанавливаем права доступа
-RUN chown -R nextjs:nodejs /app
+# Set the correct permission for prerender cache
+RUN mkdir .next
+RUN chown nextjs:nodejs .next
+
+# Automatically leverage output traces to reduce image size
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Copy Prisma files and generated client
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+
+# Create necessary directories
+RUN mkdir -p uploads logs
+RUN chown -R nextjs:nodejs uploads logs
+
 USER nextjs
 
-# Переменные окружения
-ENV NODE_ENV=production
+EXPOSE 3000
+
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Открываем порт
-EXPOSE 3000
-
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000/api/health || exit 1
 
-# Запускаем приложение
 CMD ["node", "server.js"]

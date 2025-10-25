@@ -1,9 +1,9 @@
-# Dependencies (keep Prisma engines)
+# Dependencies
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Next.js (keep .next for prebuilt)
+# Next.js
 out/
 
 # Production
@@ -55,10 +55,6 @@ coverage/
 # Dependency directories
 jspm_packages/
 
-# Exclude Windows Prisma Client
-node_modules/.prisma/
-node_modules/@prisma/engines/
-
 # Optional npm cache directory
 .npm
 
@@ -108,3 +104,4 @@ node_modules/@prisma/engines/
 # Temporary folders
 tmp/
 temp/
+

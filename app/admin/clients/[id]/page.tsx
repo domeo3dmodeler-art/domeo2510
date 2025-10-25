@@ -5,7 +5,7 @@ import { Button, Card, Alert, LoadingSpinner } from '@/components/ui';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatInternationalPhone } from '@/lib/utils/phone';
-import AdminLayout from '@/components/layout/AdminLayout';
+import AdminLayout from '../../../../components/layout/AdminLayout';
 
 interface Client {
   id: string;

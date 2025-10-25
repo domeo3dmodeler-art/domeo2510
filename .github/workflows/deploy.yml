@@ -2,153 +2,148 @@ name: Deploy to Yandex Cloud
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, master ]
+    branches: [main]
 
 env:
-  NODE_VERSION: '18'
-  REGISTRY: cr.yandex
-  IMAGE_NAME: ${{ github.repository }}
+  REGISTRY: cr.yandex/your-registry
+  IMAGE_NAME: domeo
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
-        cache-dependency-path: app/package-lock.json
-        
-    - name: Install dependencies
-      working-directory: ./app
-      run: npm ci
-      
-    - name: Run linting
-      working-directory: ./app
-      run: npm run lint
-      
-    - name: Run type checking
-      working-directory: ./app
-      run: npm run build
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  build-and-push:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Build application
+        run: npm run build
+
+      - name: Run type check
+        run: npm run type-check
+
+  deploy-staging:
+    if: github.ref == 'refs/heads/develop'
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    environment: staging
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
-        cache-dependency-path: app/package-lock.json
-        
-    - name: Install dependencies
-      working-directory: ./app
-      run: npm ci
-      
-    - name: Build application
-      working-directory: ./app
-      run: npm run build
-      
-    - name: Configure Docker to use gcloud as a credential helper
-      run: |
-        echo '${{ secrets.YC_SA_KEY }}' | docker login --username json --password-stdin cr.yandex
-        
-    - name: Build and push Docker image
-      working-directory: ./app
-      run: |
-        docker build -f Dockerfile.yandex -t ${{ env.REGISTRY }}/${{ secrets.YC_REGISTRY_ID }}/${{ env.IMAGE_NAME }}:${{ github.sha }} .
-        docker push ${{ env.REGISTRY }}/${{ secrets.YC_REGISTRY_ID }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-        docker tag ${{ env.REGISTRY }}/${{ secrets.YC_REGISTRY_ID }}/${{ env.IMAGE_NAME }}:${{ github.sha }} ${{ env.REGISTRY }}/${{ secrets.YC_REGISTRY_ID }}/${{ env.IMAGE_NAME }}:latest
-        docker push ${{ env.REGISTRY }}/${{ secrets.YC_REGISTRY_ID }}/${{ env.IMAGE_NAME }}:latest
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  deploy:
-    needs: build-and-push
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-${{ github.sha }} .
+          docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-${{ github.sha }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-latest
+
+      - name: Login to Yandex Container Registry
+        run: |
+          echo ${{ secrets.YC_SERVICE_ACCOUNT_KEY }} | docker login --username json_key --password-stdin cr.yandex
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-${{ github.sha }}
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-latest
+
+      - name: Deploy to staging
+        run: |
+          echo "${{ secrets.KUBECONFIG_STAGING }}" | base64 -d > kubeconfig
+          export KUBECONFIG=kubeconfig
+          
+          # Update deployment
+          kubectl set image deployment/domeo-app domeo-app=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-${{ github.sha }} -n domeo-staging
+          
+          # Wait for rollout
+          kubectl rollout status deployment/domeo-app -n domeo-staging
+          
+          # Health check
+          kubectl get pods -n domeo-staging -l app=domeo-app
+
+  deploy-production:
+    if: github.ref == 'refs/heads/main'
+    needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    environment: production
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Yandex Cloud CLI
-      uses: yandex-cloud/yc-cli-action@v1
-      with:
-        yc-sa-json-credentials: ${{ secrets.YC_SA_KEY }}
-        
-    - name: Deploy to Yandex Cloud
-      run: |
-        # Получаем информацию о Compute Instance
-        INSTANCE_ID=$(yc compute instance list --format json | jq -r '.[0].id')
-        
-        # Создаем скрипт развертывания
-        cat > deploy.sh << 'EOF'
-        #!/bin/bash
-        set -e
-        
-        echo "🚀 Обновление приложения..."
-        
-        # Остановка старого контейнера
-        docker stop domeo-doors-app || true
-        docker rm domeo-doors-app || true
-        
-        # Удаление старого образа
-        docker rmi cr.yandex/$YC_REGISTRY_ID/$IMAGE_NAME:latest || true
-        
-        # Авторизация в Container Registry
-        echo "$YC_SA_KEY" | docker login --username json --password-stdin cr.yandex
-        
-        # Загрузка нового образа
-        docker pull cr.yandex/$YC_REGISTRY_ID/$IMAGE_NAME:latest
-        
-        # Запуск нового контейнера
-        docker run -d \
-          --name domeo-doors-app \
-          --restart unless-stopped \
-          -p 3000:3000 \
-          -e DATABASE_URL="$DATABASE_URL" \
-          -e JWT_SECRET="$JWT_SECRET" \
-          -e NODE_ENV=production \
-          -e PORT=3000 \
-          -e NEXT_PUBLIC_APP_URL="$NEXT_PUBLIC_APP_URL" \
-          cr.yandex/$YC_REGISTRY_ID/$IMAGE_NAME:latest
-        
-        echo "✅ Приложение обновлено успешно!"
-        EOF
-        
-        # Передаем переменные окружения
-        export YC_REGISTRY_ID="${{ secrets.YC_REGISTRY_ID }}"
-        export IMAGE_NAME="${{ env.IMAGE_NAME }}"
-        export YC_SA_KEY="${{ secrets.YC_SA_KEY }}"
-        export DATABASE_URL="${{ secrets.DATABASE_URL }}"
-        export JWT_SECRET="${{ secrets.JWT_SECRET }}"
-        export NEXT_PUBLIC_APP_URL="${{ secrets.NEXT_PUBLIC_APP_URL }}"
-        
-        # Выполняем развертывание на сервере
-        yc compute instance execute $INSTANCE_ID --command "bash -s" < deploy.sh
-        
-    - name: Health check
-      run: |
-        # Ждем запуска приложения
-        sleep 30
-        
-        # Получаем внешний IP сервера
-        EXTERNAL_IP=$(yc compute instance list --format json | jq -r '.[0].network_interfaces[0].primary_v4_address.one_to_one_nat.address')
-        
-        # Проверяем здоровье приложения
-        curl -f http://$EXTERNAL_IP:3000/api/health || exit 1
-        
-        echo "✅ Приложение успешно развернуто и работает!"
-        echo "🌐 URL: http://$EXTERNAL_IP:3000"
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production-${{ github.sha }} .
+          docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production-${{ github.sha }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production-latest
+
+      - name: Login to Yandex Container Registry
+        run: |
+          echo ${{ secrets.YC_SERVICE_ACCOUNT_KEY }} | docker login --username json_key --password-stdin cr.yandex
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production-${{ github.sha }}
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production-latest
+
+      - name: Deploy to production
+        run: |
+          echo "${{ secrets.KUBECONFIG_PRODUCTION }}" | base64 -d > kubeconfig
+          export KUBECONFIG=kubeconfig
+          
+          # Update deployment
+          kubectl set image deployment/domeo-app domeo-app=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production-${{ github.sha }} -n domeo-production
+          
+          # Wait for rollout
+          kubectl rollout status deployment/domeo-app -n domeo-production
+          
+          # Health check
+          kubectl get pods -n domeo-production -l app=domeo-app
+
+  notify:
+    if: always()
+    needs: [deploy-staging, deploy-production]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify deployment status
+        run: |
+          if [ "${{ needs.deploy-staging.result }}" == "success" ] || [ "${{ needs.deploy-production.result }}" == "success" ]; then
+            echo "✅ Deployment successful!"
+          else
+            echo "❌ Deployment failed!"
+          fi
