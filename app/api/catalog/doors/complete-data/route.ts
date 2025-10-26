@@ -116,18 +116,15 @@ export async function GET(req: NextRequest) {
         const modelPromises = Array.from(modelMap.entries()).map(async ([modelKey, modelData]) => {
           console.log(`🔍 Получаем фото для модели: ${modelData.model} (ключ: ${modelKey})`);
           
-          // Получаем полное значение "Domeo_Название модели для Web" из первого товара модели
-          const firstProduct = modelData.products[0];
-          const fullModelName = firstProduct?.properties?.['Domeo_Название модели для Web'] || modelKey;
-          
-          console.log(`🔍 Ищем фото для полного названия: ${fullModelName}`);
+          // modelData.modelKey уже содержит полное имя модели (Domeo_Название модели для Web)
+          console.log(`🔍 Ищем фото для полного названия: ${modelData.modelKey}`);
           
           // Получаем фото для этой модели из property_photos
           // Используем "Domeo_Название модели для Web" как свойство, а полное значение как значение
           const modelPhotos = await getPropertyPhotos(
             'cmg50xcgs001cv7mn0tdyk1wo', // ID категории "Межкомнатные двери"
             'Domeo_Название модели для Web',        // Свойство для поиска
-            fullModelName                     // Значение свойства (полное название модели)
+            modelData.modelKey                     // Значение свойства (полное название модели)
           );
 
           console.log(`📸 Найдено ${modelPhotos.length} фото для ${modelData.model}`);
