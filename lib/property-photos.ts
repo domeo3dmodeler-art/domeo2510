@@ -57,8 +57,13 @@ export function structurePropertyPhotos(photos: PropertyPhotoInfo[]): PhotoStruc
     .filter(photo => photo.photoType.startsWith('gallery_'))
     .sort((a, b) => a.photoType.localeCompare(b.photoType));
 
+  // Если обложки нет, используем первое фото из галереи
+  const cover = coverPhoto 
+    ? coverPhoto.photoPath 
+    : (galleryPhotos.length > 0 ? galleryPhotos[0].photoPath : null);
+
   return {
-    cover: coverPhoto ? coverPhoto.photoPath : null,
+    cover,
     gallery: galleryPhotos.map(photo => photo.photoPath)
   };
 }
