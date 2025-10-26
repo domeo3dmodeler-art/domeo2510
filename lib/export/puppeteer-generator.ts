@@ -196,7 +196,7 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
       });
 
       // Дополнительная задержка для стабилизации
-      await page.waitForTimeout(500);
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       console.log('🖨️ Генерируем PDF...');
       // Генерируем PDF
