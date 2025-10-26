@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 import ExcelJS from 'exceljs';
 import { findExistingDocument } from '@/lib/export/puppeteer-generator';
 
@@ -8,32 +9,11 @@ const prisma = new PrismaClient();
 
 // Функция для генерации PDF документа
 async function generatePDF(data: any): Promise<Buffer> {
+  const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || await chromium.executablePath();
   const browser = await puppeteer.launch({
-    headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-accelerated-2d-canvas',
-      '--no-first-run',
-      '--disable-gpu',
-      '--disable-web-security',
-      '--disable-features=VizDisplayCompositor',
-      '--disable-background-timer-throttling',
-      '--disable-backgrounding-occluded-windows',
-      '--disable-renderer-backgrounding',
-      '--disable-extensions',
-      '--disable-plugins',
-      '--disable-default-apps',
-      '--disable-sync',
-      '--disable-translate',
-      '--hide-scrollbars',
-      '--mute-audio',
-      '--no-default-browser-check',
-      '--no-pings',
-      '--password-store=basic',
-      '--use-mock-keychain'
-    ],
+    args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox'],
+    executablePath,
+    headless: chromium.headless,
     timeout: 30000
   });
   

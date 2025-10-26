@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import ExcelJS from 'exceljs';
-import puppeteer, { Browser } from 'puppeteer';
+import puppeteer, { Browser } from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 
 // Кэш для товаров по категориям
 const productsCache = new Map<string, any[]>();
@@ -170,19 +171,15 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
 </body>
 </html>`;
 
-    console.log('🌐 Запускаем Puppeteer браузер...');
+    console.log('🌐 Запускаем Puppeteer браузер с Chromium...');
     
-    // Используем минимальные флаги для стабильности
-    console.log('🆕 Создаем новый браузер (минимальные флаги)...');
+    // Используем @sparticuz/chromium для Docker и безголовых окружений
+    const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || await chromium.executablePath();
+    console.log('🆕 Создаем новый браузер с chromium executablePath...');
     const browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-web-security'
-      ],
+      args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox'],
+      executablePath,
+      headless: chromium.headless,
       timeout: 30000 // Увеличиваем таймаут для стабильности
     });
 
