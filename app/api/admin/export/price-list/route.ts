@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import * as XLSX from 'xlsx';
 import { apiErrorHandler } from '@/lib/api-error-handler';
 import { apiValidator } from '@/lib/api-validator';
-import { fixAllEncoding } from '@/lib/encoding-utils';
+import { validateAndFixData } from '@/lib/encoding-utils';
 
 const prisma = new PrismaClient();
 
@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
           const rawProperties = typeof product.properties_data === 'string' 
             ? JSON.parse(product.properties_data) 
             : product.properties_data;
-          properties = fixAllEncoding(rawProperties);
+          properties = validateAndFixData(rawProperties);
         } catch (e) {
           console.error(`Ошибка парсинга свойств для товара ${product.id}:`, e);
         }
