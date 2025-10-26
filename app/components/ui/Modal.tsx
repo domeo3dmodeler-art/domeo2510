@@ -4,7 +4,7 @@
 // Унифицированные модальные окна в стиле Domeo
 
 import React, { useEffect } from 'react';
-import { createComponentStyles } from '../../lib/design/tokens';
+import { createComponentStyles } from '@/lib/design/tokens';
 
 export interface ModalProps {
   isOpen: boolean;

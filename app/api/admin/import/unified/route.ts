@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import * as XLSX from 'xlsx';
-import { validateDocumentFile } from '../../../../lib/validation/file-validation';
+import { validateDocumentFile } from '@/lib/validation/file-validation';
 import { fixAllEncoding, fixFieldsEncoding } from '@/lib/encoding-utils';
 import { apiErrorHandler } from '@/lib/api-error-handler';
 import { apiValidator } from '@/lib/api-validator';
