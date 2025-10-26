@@ -13,6 +13,10 @@ RUN npm install && npm cache clean --force
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
+
+# Install openssl and libc6-compat for Prisma
+RUN apk add --no-cache openssl libc6-compat
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
