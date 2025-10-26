@@ -169,11 +169,17 @@ export default function PropertiesPage() {
         params.append('showAll', 'true');
       }
 
-      const response = await fetch(`/api/catalog/properties?${params.toString()}`);
+      const url = `/api/catalog/properties?${params.toString()}`;
+      console.log('Loading properties from:', url);
+      
+      const response = await fetch(url);
       const data = await response.json();
       
+      console.log('Properties response:', data);
+      
       if (data.success) {
-      setProperties(data.properties || []);
+        console.log('Setting properties:', data.properties);
+        setProperties(data.properties || []);
       } else {
         console.error('Error loading properties:', data.error);
       }
