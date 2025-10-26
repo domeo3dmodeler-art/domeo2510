@@ -62,9 +62,15 @@ export function structurePropertyPhotos(photos: PropertyPhotoInfo[]): PhotoStruc
     ? coverPhoto.photoPath 
     : (galleryPhotos.length > 0 ? galleryPhotos[0].photoPath : null);
 
+  // Если обложки нет и мы используем первое фото из галереи, 
+  // убираем его из галереи, чтобы избежать дублирования
+  const gallery = coverPhoto 
+    ? galleryPhotos.map(photo => photo.photoPath)
+    : (galleryPhotos.length > 1 ? galleryPhotos.slice(1).map(photo => photo.photoPath) : []);
+
   return {
     cover,
-    gallery: galleryPhotos.map(photo => photo.photoPath)
+    gallery
   };
 }
 
