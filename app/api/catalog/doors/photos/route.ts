@@ -165,18 +165,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Если фото не найдены, добавляем заглушки для известных моделей
-    if (photos.length === 0) {
-      if (model.includes('Moonstone')) {
-        const moonstoneNumber = model.match(/\d+/)?.[0] || '1';
-        photos.push(`/uploads/products/moonstone/moonstone_${moonstoneNumber}.png`);
-        console.log(`🖼️ Добавлена заглушка для ${model}: /uploads/products/moonstone/moonstone_${moonstoneNumber}.png`);
-      } else if (model.includes('Ledoux')) {
-        const ledouxNumber = model.match(/\d+/)?.[0] || '2';
-        photos.push(`/uploads/products/ledoux/ledoux_${ledouxNumber}.png`);
-        console.log(`🖼️ Добавлена заглушка для ${model}: /uploads/products/ledoux/ledoux_${ledouxNumber}.png`);
-      }
-    }
+    // Не добавляем заглушки - используем только фото из базы данных
 
     // Сохраняем в кэш с ограничением размера
     if (photosCache.size >= MAX_PHOTOS_CACHE_SIZE) {
