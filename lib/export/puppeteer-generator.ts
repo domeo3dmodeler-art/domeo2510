@@ -191,12 +191,9 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
       console.log('📝 Устанавливаем HTML контент...');
       // Устанавливаем контент страницы с надежным ожиданием
       await page.setContent(htmlContent, { 
-        waitUntil: 'load', // Используем load вместо networkidle0 для стабильности
-        timeout: 60000 
+        waitUntil: 'domcontentloaded', // Используем domcontentloaded для быстрой стабильности
+        timeout: 30000 
       });
-
-      // Дополнительная задержка для стабилизации
-      await new Promise(resolve => setTimeout(resolve, 500));
 
       console.log('🖨️ Генерируем PDF...');
       // Генерируем PDF
@@ -215,16 +212,21 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
       const endTime = Date.now();
       console.log(`⚡ PDF сгенерирован за ${endTime - startTime}ms`);
 
+      // Закрываем браузер ПОСЛЕ получения PDF, но ДО возврата
+      console.log('🔒 Закрываем браузер...');
+      await browser.close();
+
       return Buffer.from(pdfBuffer);
       
-    } finally {
-      // Закрываем браузер (страница закроется автоматически)
-      console.log('🔒 Закрываем браузер...');
+    } catch (innerError) {
+      // Закрываем браузер при ошибке
+      console.log('🔒 Закрываем браузер после ошибки...');
       try {
         await browser.close();
       } catch (e) {
         console.warn('⚠️ Ошибка при закрытии браузера:', e);
       }
+      throw innerError;
     }
     
   } catch (error) {
