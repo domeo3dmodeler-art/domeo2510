@@ -337,16 +337,25 @@ export async function POST(request: NextRequest) {
 }
 
 // Функция для парсинга имени файла фото
+// Логика:
+// - Если имя заканчивается на _N (где N - число), например "name_1" → это ГАЛЕРЕЯ
+// - Если имя НЕ заканчивается на _N, например "name" → это ОБЛОЖКА
+// Примеры:
+// - "DomeoDoors_Alberti_4" → ОБЛОЖКА
+// - "DomeoDoors_Alberti_4_1" → ГАЛЕРЕЯ
+// - "DomeoDoors_Base_1" → ОБЛОЖКА
+// - "DomeoDoors_Base_1_1" → ГАЛЕРЕЯ
 function parsePhotoFileName(fileName: string) {
   const nameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
 
-  // Проверяем, есть ли суффикс с номером в конце (_1, _2, etc.)
-  // Например: "DomeoDoors_Alberti_4_1" → не обложка
-  // Например: "DomeoDoors_Alberti_4" → обложка
+  // Ищем паттерн: что-то заканчивается на _N где N - число
+  // Например: "DomeoDoors_Base_1_1" → "DomeoDoors_Base_1" и "1"
   const match = nameWithoutExt.match(/^(.+)_(\d+)$/);
 
   if (match) {
-    // Есть суффикс _N → это галерея
+    // Есть суффикс _N → это ГАЛЕРЕЯ
+    // baseName = часть до _N
+    // number = N
     return {
       fileName,
       isCover: false,
@@ -354,7 +363,7 @@ function parsePhotoFileName(fileName: string) {
       baseName: match[1]
     };
   } else {
-    // Нет суффикса → это обложка
+    // Нет суффикса _N → это ОБЛОЖКА
     return {
       fileName,
       isCover: true,
