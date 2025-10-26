@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { fixAllEncoding } from '@/lib/encoding-utils';
+import { validateAndFixData } from '@/lib/encoding-utils';
 
 const prisma = new PrismaClient();
 
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
       if (product.properties_data) {
         const parsed = typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data;
         // Исправляем кодировку в свойствах товара
-        propertiesData = fixAllEncoding(parsed);
+        propertiesData = validateAndFixData(parsed);
         
         specifications = propertiesData;
       }
