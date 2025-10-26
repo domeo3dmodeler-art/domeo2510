@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
               if (!modelMap.has(modelKey)) {
                 modelMap.set(modelKey, {
                   model: displayName, // Используем название модели для отображения
-                  modelKey: modelKey, // Сохраняем ключ для поиска фото
+                  modelKey: modelName, // Сохраняем полное имя модели для поиска фото
                   style: styleString,
                   products: []
                 });
