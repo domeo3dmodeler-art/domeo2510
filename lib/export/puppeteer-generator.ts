@@ -418,9 +418,9 @@ export async function generateExcelOrder(data: any): Promise<Buffer> {
   console.log('🚀 Начинаем генерацию Excel заказа с полными свойствами...');
 
   try {
-    // Получаем шаблон для дверей
-    const template = await getDoorTemplate();
-    console.log('📋 Поля шаблона:', template.exportFields.length);
+    // Получаем шаблон для дверей (пока не используется)
+    // const template = await getDoorTemplate();
+    // console.log('📋 Поля шаблона:', template.exportFields.length);
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Заказ');
