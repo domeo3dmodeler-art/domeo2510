@@ -137,17 +137,14 @@ export async function POST(request: NextRequest) {
         
         await writeFile(filePath, buffer);
         
-        // Парсим имя файла для определения типа фото
-        const photoInfo = parsePhotoFileName(photo.name);
-        
-        // Сохраняем информацию о загруженной фотографии
+        // Сохраняем информацию о загруженной фотографии (будем определять тип позже)
         const uploadedPhoto = {
           originalName: photo.name,
           fileName: fileName,
           filePath: `/uploads/products/${category}/${fileName}`,
           size: photo.size,
           type: photo.type,
-          photoInfo: photoInfo
+          photoInfo: null // Определим после загрузки всех файлов
         };
         
         uploadedPhotos.push(uploadedPhoto);
@@ -157,6 +154,49 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         console.error(`Error uploading photo ${i}:`, error);
         uploadErrors.push(`Ошибка при загрузке ${photo.name}: ${error.message}`);
+      }
+    }
+    
+    // После загрузки всех файлов определяем тип фото (обложка/галерея)
+    // Группируем файлы по базовому имени и определяем самую короткую обложку
+    const photoGroups = new Map<string, any[]>();
+    
+    for (const photo of uploadedPhotos) {
+      const nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "");
+      const match = nameWithoutExt.match(/^(.+)_(\d+)$/);
+      const baseName = match ? match[1] : nameWithoutExt;
+      
+      if (!photoGroups.has(baseName)) {
+        photoGroups.set(baseName, []);
+      }
+      photoGroups.get(baseName)!.push(photo);
+    }
+    
+    // Для каждой группы определяем обложку (самая короткая) и остальные (галерея)
+    for (const [baseName, group] of photoGroups.entries()) {
+      let shortestPhoto = null;
+      let shortestLength = Infinity;
+      
+      for (const photo of group) {
+        const nameLength = photo.originalName.length;
+        if (nameLength < shortestLength) {
+          shortestLength = nameLength;
+          shortestPhoto = photo;
+        }
+      }
+      
+      // Устанавливаем тип для каждого фото в группе
+      for (const photo of group) {
+        const nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "");
+        const match = nameWithoutExt.match(/^(.+)_(\d+)$/);
+        const isCover = photo === shortestPhoto;
+        
+        photo.photoInfo = {
+          fileName: photo.originalName,
+          isCover: isCover,
+          number: match ? parseInt(match[2]) : null,
+          baseName: baseName
+        };
       }
     }
     
@@ -333,42 +373,5 @@ export async function POST(request: NextRequest) {
       { success: false, message: 'Критическая ошибка сервера при загрузке фото' },
       { status: 500 }
     );
-  }
-}
-
-// Функция для парсинга имени файла фото
-// Логика:
-// - Если имя заканчивается на _N (где N - число), например "name_1" → это ГАЛЕРЕЯ
-// - Если имя НЕ заканчивается на _N, например "name" → это ОБЛОЖКА
-// Примеры:
-// - "DomeoDoors_Alberti_4" → ОБЛОЖКА
-// - "DomeoDoors_Alberti_4_1" → ГАЛЕРЕЯ
-// - "DomeoDoors_Base_1" → ОБЛОЖКА
-// - "DomeoDoors_Base_1_1" → ГАЛЕРЕЯ
-function parsePhotoFileName(fileName: string) {
-  const nameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
-
-  // Ищем паттерн: что-то заканчивается на _N где N - число
-  // Например: "DomeoDoors_Base_1_1" → "DomeoDoors_Base_1" и "1"
-  const match = nameWithoutExt.match(/^(.+)_(\d+)$/);
-
-  if (match) {
-    // Есть суффикс _N → это ГАЛЕРЕЯ
-    // baseName = часть до _N
-    // number = N
-    return {
-      fileName,
-      isCover: false,
-      number: parseInt(match[2]),
-      baseName: match[1]
-    };
-  } else {
-    // Нет суффикса _N → это ОБЛОЖКА
-    return {
-      fileName,
-      isCover: true,
-      number: null,
-      baseName: nameWithoutExt
-    };
   }
 }
