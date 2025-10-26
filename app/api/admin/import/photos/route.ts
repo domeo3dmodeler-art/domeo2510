@@ -172,24 +172,35 @@ export async function POST(request: NextRequest) {
       photoGroups.get(baseName)!.push(photo);
     }
     
-    // Для каждой группы определяем обложку (самая короткая) и остальные (галерея)
+    // Для каждой группы определяем обложку и галерею
     for (const [baseName, group] of photoGroups.entries()) {
-      let shortestPhoto = null;
-      let shortestLength = Infinity;
+      // Находим обложку: файл без суффикса _N (самое короткое имя БЕЗ суффикса)
+      let coverPhoto = null;
       
       for (const photo of group) {
-        const nameLength = photo.originalName.length;
-        if (nameLength < shortestLength) {
-          shortestLength = nameLength;
-          shortestPhoto = photo;
+        const nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "");
+        const match = nameWithoutExt.match(/^(.+)_(\d+)$/);
+        
+        // Если файл без суффикса _N, он может быть обложкой
+        if (!match) {
+          if (!coverPhoto || photo.originalName.length < coverPhoto.originalName.length) {
+            coverPhoto = photo;
+          }
         }
+      }
+      
+      // Если нет файла без суффикса, обложкой становится самый короткий
+      if (!coverPhoto) {
+        coverPhoto = group.reduce((shortest, current) => 
+          current.originalName.length < shortest.originalName.length ? current : shortest
+        );
       }
       
       // Устанавливаем тип для каждого фото в группе
       for (const photo of group) {
         const nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "");
         const match = nameWithoutExt.match(/^(.+)_(\d+)$/);
-        const isCover = photo === shortestPhoto;
+        const isCover = photo === coverPhoto;
         
         photo.photoInfo = {
           fileName: photo.originalName,
