@@ -52,21 +52,28 @@ export async function getPropertyPhotos(
  * Структурирует фото в обложку и галерею
  */
 export function structurePropertyPhotos(photos: PropertyPhotoInfo[]): PhotoStructure {
-  const coverPhoto = photos.find(photo => photo.photoType === 'cover');
-  const galleryPhotos = photos
-    .filter(photo => photo.photoType.startsWith('gallery_'))
-    .sort((a, b) => a.photoType.localeCompare(b.photoType));
+  // Сортируем фото по длине пути файла - самое короткое = обложка
+  const sortedPhotos = [...photos].sort((a, b) => {
+    // Получаем имя файла из пути
+    const filenameA = a.photoPath.split('/').pop() || '';
+    const filenameB = b.photoPath.split('/').pop() || '';
+    
+    // Сортируем по длине имени файла (короткое = обложка)
+    if (filenameA.length !== filenameB.length) {
+      return filenameA.length - filenameB.length;
+    }
+    
+    // Если длины равны, сортируем по имени
+    return filenameA.localeCompare(filenameB);
+  });
 
-  // Если обложки нет, используем первое фото из галереи
-  const cover = coverPhoto 
-    ? coverPhoto.photoPath 
-    : (galleryPhotos.length > 0 ? galleryPhotos[0].photoPath : null);
-
-  // Если обложки нет и мы используем первое фото из галереи, 
-  // убираем его из галереи, чтобы избежать дублирования
-  const gallery = coverPhoto 
-    ? galleryPhotos.map(photo => photo.photoPath)
-    : (galleryPhotos.length > 1 ? galleryPhotos.slice(1).map(photo => photo.photoPath) : []);
+  // Первое фото (с самым коротким именем) = обложка
+  const cover = sortedPhotos.length > 0 ? sortedPhotos[0].photoPath : null;
+  
+  // Остальные фото = галерея
+  const gallery = sortedPhotos.length > 1 
+    ? sortedPhotos.slice(1).map(photo => photo.photoPath)
+    : [];
 
   return {
     cover,
