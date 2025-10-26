@@ -340,10 +340,13 @@ export async function POST(request: NextRequest) {
 function parsePhotoFileName(fileName: string) {
   const nameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
 
-  // Проверяем, есть ли номер в конце (_1, _2, etc.)
+  // Проверяем, есть ли суффикс с номером в конце (_1, _2, etc.)
+  // Например: "DomeoDoors_Alberti_4_1" → не обложка
+  // Например: "DomeoDoors_Alberti_4" → обложка
   const match = nameWithoutExt.match(/^(.+)_(\d+)$/);
 
   if (match) {
+    // Есть суффикс _N → это галерея
     return {
       fileName,
       isCover: false,
@@ -351,6 +354,7 @@ function parsePhotoFileName(fileName: string) {
       baseName: match[1]
     };
   } else {
+    // Нет суффикса → это обложка
     return {
       fileName,
       isCover: true,
