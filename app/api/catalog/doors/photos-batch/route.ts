@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
         const photoStructure = structurePropertyPhotos(propertyPhotos);
         
         photosByModel.set(modelName, {
-          modelKey: supplierSku,
+          modelKey: modelName, // Используем полное имя модели для поиска фото
           photo: photoStructure.cover,
           photos: photoStructure,
           hasGallery: photoStructure.gallery.length > 0
