@@ -183,37 +183,56 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
       timeout: 30000 // Увеличиваем таймаут для стабильности
     });
 
-    console.log('📄 Создаем новую страницу...');
-    const page = await browser.newPage();
-    
-    console.log('📝 Устанавливаем HTML контент...');
-    // Устанавливаем контент страницы с надежным ожиданием
-    await page.setContent(htmlContent, { 
-      waitUntil: 'networkidle0', // Возвращаем надежное ожидание
-      timeout: 30000 
-    });
+    let page: any = null;
+    try {
+      console.log('📄 Создаем новую страницу...');
+      page = await browser.newPage();
+      
+      console.log('📝 Устанавливаем HTML контент...');
+      // Устанавливаем контент страницы с надежным ожиданием
+      await page.setContent(htmlContent, { 
+        waitUntil: 'load', // Используем load вместо networkidle0 для стабильности
+        timeout: 60000 
+      });
 
-    console.log('🖨️ Генерируем PDF...');
-    // Генерируем PDF
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: {
-        top: '20mm',
-        right: '20mm',
-        bottom: '20mm',
-        left: '20mm'
-      },
-      timeout: 30000 // Увеличиваем таймаут для стабильности
-    });
+      // Дополнительная задержка для стабилизации
+      await page.waitForTimeout(500);
 
-    console.log('🔒 Закрываем браузер...');
-    await browser.close();
+      console.log('🖨️ Генерируем PDF...');
+      // Генерируем PDF
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: {
+          top: '20mm',
+          right: '20mm',
+          bottom: '20mm',
+          left: '20mm'
+        },
+        timeout: 60000 // Увеличиваем таймаут
+      });
 
-    const endTime = Date.now();
-    console.log(`⚡ PDF сгенерирован за ${endTime - startTime}ms`);
+      const endTime = Date.now();
+      console.log(`⚡ PDF сгенерирован за ${endTime - startTime}ms`);
 
-    return Buffer.from(pdfBuffer);
+      return Buffer.from(pdfBuffer);
+      
+    } finally {
+      // Гарантируем закрытие браузера и страницы в любом случае
+      if (page) {
+        try {
+          await page.close();
+        } catch (e) {
+          console.warn('⚠️ Ошибка при закрытии страницы:', e);
+        }
+      }
+      try {
+        console.log('🔒 Закрываем браузер...');
+        await browser.close();
+      } catch (e) {
+        console.warn('⚠️ Ошибка при закрытии браузера:', e);
+      }
+    }
     
   } catch (error) {
     console.error('❌ Ошибка генерации PDF:', error);
