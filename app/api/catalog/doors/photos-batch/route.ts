@@ -49,29 +49,28 @@ export async function POST(req: NextRequest) {
         }
       });
 
-      // Создаем мапу модель -> артикул поставщика
-      const modelToSupplierSku = new Map<string, string>();
+      // Создаем мапу модель -> само название модели (используем для поиска фото свойств)
+      const modelToValue = new Map<string, string>();
       products.forEach(product => {
         const properties = product.properties_data ?
           (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
         
         const modelName = properties['Domeo_Название модели для Web'];
-        const supplierSku = properties['Артикул поставщика'];
         
-        if (modelName && supplierSku && uncachedModels.includes(modelName)) {
-          modelToSupplierSku.set(modelName, supplierSku);
+        if (modelName && uncachedModels.includes(modelName)) {
+          modelToValue.set(modelName, modelName);
         }
       });
 
       // Получаем фотографии из PropertyPhoto для каждой модели
       const photosByModel = new Map<string, any>();
       
-      for (const [modelName, supplierSku] of modelToSupplierSku.entries()) {
+      for (const [modelName, propertyValue] of modelToValue.entries()) {
         // Получаем фотографии для этой модели из PropertyPhoto
         const propertyPhotos = await getPropertyPhotos(
           'cmg50xcgs001cv7mn0tdyk1wo', // ID категории "Межкомнатные двери"
-          'Артикул поставщика',
-          supplierSku
+          'Domeo_Название модели для Web',
+          propertyValue
         );
 
         // Структурируем фотографии в обложку и галерею
