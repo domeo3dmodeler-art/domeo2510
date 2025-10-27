@@ -108,7 +108,8 @@ export async function POST(req: NextRequest) {
         
         console.log(`📸 Фото для ${modelName}:`, {
           cover: photoStructure.cover,
-          galleryCount: photoStructure.gallery.length
+          galleryCount: photoStructure.gallery.length,
+          finalPhotoPath: photoStructure.cover ? `/uploads/${photoStructure.cover}` : null
         });
         
         photosByModel.set(modelName, {
