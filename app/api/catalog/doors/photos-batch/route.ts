@@ -114,11 +114,19 @@ export async function POST(req: NextRequest) {
           finalPhotoPath: photoStructure.cover ? `/uploads/${photoStructure.cover}` : null
         });
         
+        const finalPhotoPath = photoStructure.cover ? `/uploads/${photoStructure.cover}` : null;
+        
+        console.log(`📸 Формируем результат для ${modelName}:`, {
+          'cover из БД': photoStructure.cover,
+          'final photo path': finalPhotoPath,
+          'starts with /uploads': finalPhotoPath?.startsWith('/uploads')
+        });
+        
         photosByModel.set(modelName, {
           modelKey: modelName, // Используем полное имя модели для поиска фото
-          photo: photoStructure.cover ? `/uploads/${photoStructure.cover}` : null,
+          photo: finalPhotoPath,
           photos: {
-            cover: photoStructure.cover ? `/uploads/${photoStructure.cover}` : null,
+            cover: finalPhotoPath,
             gallery: photoStructure.gallery.map(p => `/uploads/${p}`)
           },
           hasGallery: photoStructure.gallery.length > 0
@@ -145,6 +153,10 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('✅ Batch загрузка завершена');
+    console.log('📊 Пример результата:', {
+      'Первая модель': Object.keys(results)[0],
+      'Данные фото': results[Object.keys(results)[0]]
+    });
 
     return NextResponse.json({
       ok: true,
