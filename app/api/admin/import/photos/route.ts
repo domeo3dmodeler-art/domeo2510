@@ -347,10 +347,14 @@ export async function POST(request: NextRequest) {
           console.log(`\n=== ОБРАБОТКА ФОТО: ${photo.originalName} ===`);
           console.log(`Базовое имя: ${photoInfo.baseName}`);
 
-          // Для поиска по артикулу используем оригинальное имя файла без расширения
-          const searchValue = mappingProperty === 'Артикул поставщика' 
-            ? photo.originalName.replace(/\.[^/.]+$/, "").toLowerCase()
-            : photoInfo.baseName;
+          // Для поиска по выбранному свойству используем имя файла без расширения и префикса
+          // Формат файла: 1761588175210_db5p3e_akcent_bl.png
+          // Нужно извлечь: akcent_bl
+          // Убираем расширение
+          const nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "");
+          // Убираем префикс (первые 2 части через _)
+          const parts = nameWithoutExt.split('_');
+          const searchValue = parts.slice(2).join('_').toLowerCase();
           
           console.log(`Ищем товары по свойству "${mappingProperty}" = "${searchValue}"`);
 
