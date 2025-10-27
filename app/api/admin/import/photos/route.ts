@@ -178,42 +178,54 @@ export async function POST(request: NextRequest) {
       const nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "").toLowerCase();
       
       // НОВАЯ ЛОГИКА:
-      // - Файл БЕЗ суффикса _N = ОБЛОЖКА
-      //   Пример: domeodoors_base1.png → обложка для модели "DomeoDoors_Base1"
-      // - Файл С суффиксом _N = ГАЛЕРЕЯ
-      //   Пример: domeodoors_base1_1.png → галерея 1 для модели "DomeoDoors_Base1"
+      // Фото: DomeoDoors_Alberti4 → модель: DomeoDoors_Alberti_4
+      // Фото: DomeoDoors_Alberti4_1 → галерея для DomeoDoors_Alberti_4
       
-      // Проверяем, есть ли в конце паттерн _<цифра>
+      // Проверяем, есть ли в конце паттерн _<цифра> (для галереи)
       const galleryMatch = nameWithoutExt.match(/^(.+?)_(\d+)$/);
       
-      let baseName;
+      let photoBaseName; // Имя модели в файле (Alberti4)
+      let modelName; // Имя модели в БД (Alberti_4)
       let galleryNumber;
       let isCover;
       
       if (galleryMatch) {
         // Есть суффикс _N в конце - это ГАЛЕРЕЯ
-        baseName = galleryMatch[1]; // Имя модели БЕЗ последнего _N
+        photoBaseName = galleryMatch[1]; // DomeoDoors_Alberti4
         galleryNumber = parseInt(galleryMatch[2]);
         isCover = false;
       } else {
         // НЕТ суффикса _N - это ОБЛОЖКА
-        baseName = nameWithoutExt; // Имя модели как есть
+        photoBaseName = nameWithoutExt;
         galleryNumber = null;
         isCover = true;
+      }
+      
+      // Преобразуем имя фото в имя модели:
+      // DomeoDoors_Alberti4 → DomeoDoors_Alberti_4
+      // Правило: последняя цифра после буквы → _N
+      const modelMatch = photoBaseName.match(/^(.+)([a-z])(\d+)$/);
+      if (modelMatch) {
+        const prefix = modelMatch[1]; // "domeodoors_alberti"
+        const letter = modelMatch[2]; // "i"
+        const number = modelMatch[3]; // "4"
+        modelName = `${prefix}${letter}_${number}`; // "domeodoors_alberti_4"
+      } else {
+        modelName = photoBaseName; // Оставляем как есть, если не найдено
       }
       
       photo.photoInfo = {
         fileName: photo.originalName,
         isCover: isCover,
         number: galleryNumber,
-        baseName: baseName,
+        baseName: modelName, // Используем преобразованное имя модели
         isGallery: !isCover
       };
       
       if (isCover) {
-        console.log(`✅ Обложка: ${photo.originalName} -> модель "${baseName}"`);
+        console.log(`✅ Обложка: ${photo.originalName} -> модель "${modelName}"`);
       } else {
-        console.log(`📸 Галерея ${galleryNumber}: ${photo.originalName} -> модель "${baseName}"`);
+        console.log(`📸 Галерея ${galleryNumber}: ${photo.originalName} -> модель "${modelName}"`);
       }
     }
     

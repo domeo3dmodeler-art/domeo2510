@@ -30,18 +30,26 @@ export async function getPropertyPhotos(
   propertyValue: string
 ): Promise<PropertyPhotoInfo[]> {
   try {
+    // Нормализуем: убираем подчеркивания для сравнения
+    const normalizedValue = propertyValue.replace(/_/g, '');
+    
     const photos = await prisma.propertyPhoto.findMany({
       where: {
         categoryId,
-        propertyName,
-        propertyValue
+        propertyName
       },
       orderBy: {
         photoType: 'asc'
       }
     });
 
-    return photos;
+    // Фильтруем по нормализованному значению (без учета регистра и подчеркиваний)
+    const filteredPhotos = photos.filter(photo => {
+      const photoValue = photo.propertyValue.replace(/_/g, '').toLowerCase();
+      return photoValue === normalizedValue.toLowerCase();
+    });
+
+    return filteredPhotos;
   } catch (error) {
     console.error('Ошибка получения фото свойства:', error);
     return [];
