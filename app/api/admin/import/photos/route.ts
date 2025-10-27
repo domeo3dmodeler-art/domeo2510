@@ -177,44 +177,29 @@ export async function POST(request: NextRequest) {
     for (const photo of uploadedPhotos) {
       const nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "").toLowerCase();
       
-      // Определяем базовое имя и тип фото
-      // ЛОГИКА:
-      // - Если файл содержит ПАТТЕРН: _N_N (два суффикса) = ГАЛЕРЕЯ
-      //   Пример: domeodoors_base_1_1.png → базовое имя: domeodoors_base_1, номер: 1, это ГАЛЕРЕЯ
-      // - Если файл содержит ТОЛЬКО: _N (один суффикс) = ОБЛОЖКА
-      //   Пример: domeodoors_base_1.png → базовое имя: domeodoors_base_1, номер: null, это ОБЛОЖКА
+      // НОВАЯ ЛОГИКА:
+      // - Файл БЕЗ суффикса _N = ОБЛОЖКА
+      //   Пример: domeodoors_base1.png → обложка для модели "DomeoDoors_Base1"
+      // - Файл С суффиксом _N = ГАЛЕРЕЯ
+      //   Пример: domeodoors_base1_1.png → галерея 1 для модели "DomeoDoors_Base1"
       
-      // Проверяем, есть ли паттерн _N_N в конце имени файла
-      // Паттерн: ..._X_Y где Y - последний номер галереи
-      const doubleMatch = nameWithoutExt.match(/^(.+?)_(\d+)_(\d+)$/);
+      // Проверяем, есть ли в конце паттерн _<цифра>
+      const galleryMatch = nameWithoutExt.match(/^(.+?)_(\d+)$/);
       
       let baseName;
       let galleryNumber;
       let isCover;
       
-      if (doubleMatch) {
-        // Есть ДВА суффикса _N_N в конце - это ГАЛЕРЕЯ
-        // doubleMatch[1] = часть до предпоследнего _N
-        // doubleMatch[2] = предпоследний номер (часть названия модели)
-        // doubleMatch[3] = последний номер (номер галереи)
-        baseName = `${doubleMatch[1]}_${doubleMatch[2]}`;
-        galleryNumber = parseInt(doubleMatch[3]);
+      if (galleryMatch) {
+        // Есть суффикс _N в конце - это ГАЛЕРЕЯ
+        baseName = galleryMatch[1]; // Имя модели БЕЗ последнего _N
+        galleryNumber = parseInt(galleryMatch[2]);
         isCover = false;
       } else {
-        // Нет двойного суффикса - проверяем, есть ли ОДИН суффикс
-        const singleMatch = nameWithoutExt.match(/^(.+?)_(\d+)$/);
-        
-        if (singleMatch) {
-          // Есть ОДИН суффикс _N - это ОБЛОЖКА
-          baseName = nameWithoutExt; // Всё имя - это название модели
-          galleryNumber = null;
-          isCover = true;
-        } else {
-          // Нет суффиксов - это ОБЛОЖКА для модели без номера
-          baseName = nameWithoutExt;
-          galleryNumber = null;
-          isCover = true;
-        }
+        // НЕТ суффикса _N - это ОБЛОЖКА
+        baseName = nameWithoutExt; // Имя модели как есть
+        galleryNumber = null;
+        isCover = true;
       }
       
       photo.photoInfo = {
