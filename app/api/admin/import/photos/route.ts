@@ -265,11 +265,18 @@ export async function POST(request: NextRequest) {
             ? 'cover' 
             : (photoInfo.number ? `gallery_${photoInfo.number}` : 'cover');
 
+          // Для propertyValue сохраняем:
+          // - Для обложки: baseName (имя без дополнительного _N)
+          // - Для галереи: полное имя файла с _N
+          const propertyValue = photoInfo.isCover 
+            ? photoInfo.baseName 
+            : nameWithoutExt; // Полное имя файла для галереи
+          
           // Сохраняем фото в property_photos
           const savedPhoto = await upsertPropertyPhoto(
             category,
             mappingProperty,
-            photoInfo.baseName,
+            propertyValue,
             photo.filePath,
             photoType,
             {
