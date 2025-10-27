@@ -49,6 +49,8 @@ export async function POST(req: NextRequest) {
         }
       });
 
+      console.log(`📦 Получено товаров из БД: ${products.length}`);
+
       // Создаем мапу модель -> само название модели (используем для поиска фото свойств)
       const modelToValue = new Map<string, string>();
       
