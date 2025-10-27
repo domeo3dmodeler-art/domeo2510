@@ -59,9 +59,14 @@ export async function POST(req: NextRequest) {
           if (product.properties_data) {
             if (typeof product.properties_data === 'string') {
               try {
+                // Проверяем, что строка не пустая
+                if (product.properties_data.trim().length === 0) {
+                  continue;
+                }
                 properties = JSON.parse(product.properties_data);
               } catch (parseError) {
                 console.error('Ошибка парсинга JSON - пропускаем товар:', parseError);
+                console.error('Данные товара (первые 300 символов):', product.properties_data.substring(0, 300));
                 continue; // Пропускаем этот товар
               }
             } else if (typeof product.properties_data === 'object') {
