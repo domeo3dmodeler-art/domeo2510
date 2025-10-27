@@ -260,6 +260,9 @@ export async function POST(request: NextRequest) {
             continue;
           }
           
+          // Получаем имя файла без расширения
+          const nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "").toLowerCase();
+          
           console.log(`\n=== ОБРАБОТКА ФОТО: ${photo.originalName} ===`);
           console.log(`Тип фото: ${photoInfo.isCover ? 'ОБЛОЖКА' : 'ГАЛЕРЕЯ'}`);
           console.log(`Базовое имя: ${photoInfo.baseName}`);
