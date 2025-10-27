@@ -188,20 +188,44 @@ export async function POST(request: NextRequest) {
       // "domeodoors_base_1" -> модель "domeodoors_base_1" (обложка)
       // "domeodoors_base_1_1" -> модель "domeodoors_base_1" (галерея_1)
       
-      // Проверяем суффикс галереи _N в конце имени файла
-      const galleryMatch = nameWithoutExt.match(/^(.+?)_(\d+)$/);
+      // СТРАТЕГИЯ: Сначала определяем, является ли последний паттерн _N суффиксом галереи
+      // или частью модели (например, "base_1" - это модель, не галерея)
+      // Проверяем последние два паттерна типа _N
+      const parts = nameWithoutExt.split('_');
       
       let baseName; // Базовое имя файла без суффикса галереи
       let galleryNumber;
       let isCover;
       
-      if (galleryMatch) {
-        // Есть суффикс _N в конце - это ГАЛЕРЕЯ
-        baseName = galleryMatch[1]; // Убираем _N из конца
-        galleryNumber = parseInt(galleryMatch[2]);
+      // Если есть минимум 3 части и последняя - цифра
+      if (parts.length >= 3 && /^\d+$/.test(parts[parts.length - 1]) && /^\d+$/.test(parts[parts.length - 2])) {
+        // Последние две части - цифры (_N_1), это точно галерея
+        // Пример: domeodoors_base_1_1 -> domeodoors_base_1 -> галерея_1
+        const penultimateNumber = parts[parts.length - 2];
+        baseName = parts.slice(0, -2).join('_') + '_' + penultimateNumber;
+        galleryNumber = parseInt(parts[parts.length - 1]);
         isCover = false;
+      } else if (parts.length >= 2 && /^\d+$/.test(parts[parts.length - 1])) {
+        // Последняя часть - цифра, нужно определить, это часть модели или галерея
+        // Проверяем, есть ли перед последней цифрой еще одна буква
+        const beforeLast = parts[parts.length - 2];
+        
+        // Если beforeLast - буквы (не цифра), то последняя цифра - это номер модели
+        // Пример: domeodoors_base_1 -> это обложка модели "base_1"
+        if (!/^\d+$/.test(beforeLast)) {
+          // Это часть модели
+          baseName = nameWithoutExt;
+          galleryNumber = null;
+          isCover = true;
+        } else {
+          // Это скорее всего галерея
+          // Пример: domeodoors_alberti4_1 -> domeodoors_alberti4 -> галерея_1
+          baseName = parts.slice(0, -1).join('_');
+          galleryNumber = parseInt(parts[parts.length - 1]);
+          isCover = false;
+        }
       } else {
-        // НЕТ суффикса _N - это ОБЛОЖКА
+        // НЕТ суффикса с цифрой - это ОБЛОЖКА
         baseName = nameWithoutExt;
         galleryNumber = null;
         isCover = true;
