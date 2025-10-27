@@ -22,9 +22,13 @@ export async function GET(
     // Путь к файлу в папке public/uploads
     const fullPath = join(process.cwd(), 'public', 'uploads', filePath);
     
+    console.log(`📁 Ищем файл: ${filePath}`);
+    console.log(`📁 Полный путь: ${fullPath}`);
+    
     // Проверяем существование файла
     if (!existsSync(fullPath)) {
       console.log(`❌ Файл не найден: ${fullPath}`);
+      console.log(`❌ Запрошенный путь: ${filePath}`);
       return NextResponse.json(
         { error: 'File not found' },
         { status: 404 }
