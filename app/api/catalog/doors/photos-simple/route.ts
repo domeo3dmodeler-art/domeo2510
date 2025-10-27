@@ -44,7 +44,19 @@ export async function GET(req: NextRequest) {
           (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
 
         const productModel = properties['Domeo_Название модели для Web'];
-        const productPhotos = properties.photos || [];
+        
+        // Поддерживаем старый формат (массив) и новый (объект с cover/gallery)
+        let productPhotos: string[] = [];
+        if (properties.photos) {
+          if (Array.isArray(properties.photos)) {
+            productPhotos = properties.photos;
+          } else if (properties.photos.cover || properties.photos.gallery) {
+            productPhotos = [
+              properties.photos.cover,
+              ...properties.photos.gallery.filter((p: string) => p !== null)
+            ].filter(Boolean);
+          }
+        }
 
         // Точное совпадение модели
         if (productModel === model && productPhotos.length > 0) {
@@ -65,7 +77,19 @@ export async function GET(req: NextRequest) {
             (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
 
           const productModel = properties['Domeo_Название модели для Web'];
-          const productPhotos = properties.photos || [];
+          
+          // Поддерживаем старый формат (массив) и новый (объект с cover/gallery)
+          let productPhotos: string[] = [];
+          if (properties.photos) {
+            if (Array.isArray(properties.photos)) {
+              productPhotos = properties.photos;
+            } else if (properties.photos.cover || properties.photos.gallery) {
+              productPhotos = [
+                properties.photos.cover,
+                ...properties.photos.gallery.filter((p: string) => p !== null)
+              ].filter(Boolean);
+            }
+          }
 
           // Частичное совпадение
           if (productModel && productModel.includes(model) && productPhotos.length > 0) {

@@ -177,48 +177,56 @@ export async function POST(request: NextRequest) {
     for (const photo of uploadedPhotos) {
       const nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "").toLowerCase();
       
-      // НОВАЯ ЛОГИКА:
-      // Фото: DomeoDoors_Alberti4 → модель: DomeoDoors_Alberti_4
-      // Фото: DomeoDoors_Alberti4_1 → галерея для DomeoDoors_Alberti_4
+      // ЛОГИКА ОПРЕДЕЛЕНИЯ ТИПА ФОТО:
+      // 1. Проверяем, есть ли в конце имя файла суффикс _N (галерея)
+      // 2. Убираем суффикс _N если есть
+      // 3. Преобразуем имя модели из формата фото в формат БД
+      // 
+      // Примеры:
+      // "domeodoors_alberti4" -> модель "domeodoors_alberti_4" (обложка)
+      // "domeodoors_alberti4_1" -> модель "domeodoors_alberti_4" (галерея_1)
+      // "domeodoors_base_1" -> модель "domeodoors_base_1" (обложка)
+      // "domeodoors_base_1_1" -> модель "domeodoors_base_1" (галерея_1)
       
-      // Проверяем, есть ли в конце паттерн _<цифра> (для галереи)
+      // Проверяем суффикс галереи _N в конце имени файла
       const galleryMatch = nameWithoutExt.match(/^(.+?)_(\d+)$/);
       
-      let photoBaseName; // Имя модели в файле (Alberti4)
-      let modelName; // Имя модели в БД (Alberti_4)
+      let baseName; // Базовое имя файла без суффикса галереи
       let galleryNumber;
       let isCover;
       
       if (galleryMatch) {
         // Есть суффикс _N в конце - это ГАЛЕРЕЯ
-        photoBaseName = galleryMatch[1]; // DomeoDoors_Alberti4
+        baseName = galleryMatch[1]; // Убираем _N из конца
         galleryNumber = parseInt(galleryMatch[2]);
         isCover = false;
       } else {
         // НЕТ суффикса _N - это ОБЛОЖКА
-        photoBaseName = nameWithoutExt;
+        baseName = nameWithoutExt;
         galleryNumber = null;
         isCover = true;
       }
       
-      // Преобразуем имя фото в имя модели:
-      // DomeoDoors_Alberti4 → DomeoDoors_Alberti_4
-      // Правило: последняя цифра после буквы → _N
-      const modelMatch = photoBaseName.match(/^(.+)([a-z])(\d+)$/);
+      // Преобразуем имя модели: цифра после буквы → _N
+      // Пример: "domeodoors_alberti4" → "domeodoors_alberti_4"
+      const modelMatch = baseName.match(/^(.+)([a-z])(\d+)$/);
+      let modelName: string;
+      
       if (modelMatch) {
         const prefix = modelMatch[1]; // "domeodoors_alberti"
         const letter = modelMatch[2]; // "i"
         const number = modelMatch[3]; // "4"
         modelName = `${prefix}${letter}_${number}`; // "domeodoors_alberti_4"
       } else {
-        modelName = photoBaseName; // Оставляем как есть, если не найдено
+        // Если паттерн не найден - оставляем как есть
+        modelName = baseName;
       }
       
       photo.photoInfo = {
         fileName: photo.originalName,
         isCover: isCover,
         number: galleryNumber,
-        baseName: modelName, // Используем преобразованное имя модели
+        baseName: modelName,
         isGallery: !isCover
       };
       
@@ -341,16 +349,41 @@ export async function POST(request: NextRequest) {
           for (const product of products) {
             try {
               const properties = JSON.parse(product.properties_data || '{}');
+              
+              // Инициализируем структуру фото
               if (!properties.photos) {
-                properties.photos = [];
+                properties.photos = { cover: null, gallery: [] };
+              } else if (Array.isArray(properties.photos)) {
+                // Миграция старых данных: массив -> объект
+                const oldPhotos = properties.photos;
+                properties.photos = {
+                  cover: oldPhotos[0] || null,
+                  gallery: oldPhotos.slice(1)
+                };
               }
               
-              // Добавляем фото к товару
-              properties.photos.push(photo.filePath);
+              // Определяем, куда добавлять фото
+              if (photo.photoInfo.isCover) {
+                // Обложка - заменяем существующую
+                properties.photos.cover = photo.filePath;
+                console.log(`📸 Обложка для товара ${product.sku}: ${photo.filePath}`);
+              } else if (photo.photoInfo.number) {
+                // Галерея - добавляем в массив
+                const galleryNumber = photo.photoInfo.number;
+                // Заполняем массив null'ами если нужно
+                while (properties.photos.gallery.length < galleryNumber - 1) {
+                  properties.photos.gallery.push(null);
+                }
+                properties.photos.gallery[galleryNumber - 1] = photo.filePath;
+                console.log(`📸 Фото галереи ${galleryNumber} для товара ${product.sku}: ${photo.filePath}`);
+              } else {
+                // Без номера - добавляем в конец галереи
+                properties.photos.gallery.push(photo.filePath);
+              }
                 
-                await prisma.product.update({
-                  where: { id: product.id },
-                  data: {
+              await prisma.product.update({
+                where: { id: product.id },
+                data: {
                   properties_data: JSON.stringify(properties)
                 }
               });

@@ -103,12 +103,27 @@ export async function GET(req: NextRequest) {
         const properties = product.properties_data ?
           (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
         
+        // Поддерживаем старый формат (массив) и новый (объект с cover/gallery)
+        let productPhotos: string[] = [];
+        if (properties.photos) {
+          if (Array.isArray(properties.photos)) {
+            // Старый формат: массив
+            productPhotos = properties.photos;
+          } else if (properties.photos.cover || properties.photos.gallery) {
+            // Новый формат: объект { cover, gallery }
+            productPhotos = [
+              properties.photos.cover,
+              ...properties.photos.gallery.filter((p: string) => p !== null)
+            ].filter(Boolean);
+          }
+        }
+        
         return {
           ...product,
           parsedProperties: properties,
           productModel: properties['Domeo_Название модели для Web'],
           productArticle: properties['Артикул поставщика'],
-          productPhotos: properties.photos || []
+          productPhotos
         };
       } catch (error) {
         console.warn(`Ошибка парсинга properties_data для товара ${product.sku}:`, error);
