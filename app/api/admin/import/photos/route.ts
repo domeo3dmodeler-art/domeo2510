@@ -295,12 +295,19 @@ export async function POST(request: NextRequest) {
           if (savedPhoto) {
             linkedPhotos++;
             
+            // Для поиска по артикулу используем оригинальное имя файла без расширения
+            const searchValue = mappingProperty === 'Артикул поставщика' 
+              ? photo.originalName.replace(/\.[^/.]+$/, "").toLowerCase()
+              : photoInfo.baseName;
+            
+            console.log(`Ищем товары по свойству "${mappingProperty}" = "${searchValue}"`);
+            
             // Находим товары с этим значением свойства для статистики
         const products = await prisma.product.findMany({
           where: {
                 catalog_category_id: category,
                 properties_data: {
-                  contains: `"${mappingProperty}":"${photoInfo.baseName}"`
+                  contains: `"${mappingProperty}":"${searchValue}"`
                 }
           },
           select: {
@@ -341,12 +348,19 @@ export async function POST(request: NextRequest) {
           console.log(`\n=== ОБРАБОТКА ФОТО: ${photo.originalName} ===`);
           console.log(`Базовое имя: ${photoInfo.baseName}`);
 
+          // Для поиска по артикулу используем оригинальное имя файла без расширения
+          const searchValue = mappingProperty === 'Артикул поставщика' 
+            ? photo.originalName.replace(/\.[^/.]+$/, "").toLowerCase()
+            : photoInfo.baseName;
+          
+          console.log(`Ищем товары по свойству "${mappingProperty}" = "${searchValue}"`);
+
           // Находим товары с этим значением свойства
           const products = await prisma.product.findMany({
             where: {
               catalog_category_id: category,
               properties_data: {
-                contains: `"${mappingProperty}":"${photoInfo.baseName}"`
+                contains: `"${mappingProperty}":"${searchValue}"`
               }
             },
             select: {
