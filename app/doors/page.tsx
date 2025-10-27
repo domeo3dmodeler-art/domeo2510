@@ -3810,8 +3810,10 @@ function DoorCard({
                 src={imageSrc}
                 alt={formatModelNameForCard(item.model)}
                 className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
-                onError={() => {
+                onError={(e) => {
                   console.log('❌ Ошибка загрузки изображения:', imageSrc);
+                  console.log('❌ item.photo:', item.photo);
+                  console.log('❌ Тип imageSrc:', typeof imageSrc);
                   setImageSrc(null);
                 }}
               />
