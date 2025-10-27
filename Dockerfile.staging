@@ -50,8 +50,8 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Create necessary directories
-RUN mkdir -p uploads logs
-RUN chown -R nextjs:nodejs uploads logs
+RUN mkdir -p uploads logs public/uploads
+RUN chown -R nextjs:nodejs uploads logs public/uploads
 
 USER nextjs
 
