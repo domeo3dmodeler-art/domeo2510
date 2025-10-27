@@ -65,6 +65,9 @@ export async function POST(req: NextRequest) {
                 if (product.properties_data.trim().length === 0) {
                   continue;
                 }
+                // Добавляем логирование перед парсингом
+                const firstChar = product.properties_data.substring(0, 50);
+                console.log('🔍 Парсим JSON, первые символы:', firstChar);
                 properties = JSON.parse(product.properties_data);
               } catch (parseError) {
                 console.error('Ошибка парсинга JSON - пропускаем товар:', parseError);
