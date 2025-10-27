@@ -3747,7 +3747,10 @@ function DoorCard({
   useEffect(() => {
     // Используем фото напрямую из данных модели
     if (item.photo) {
+      console.log('📷 item.photo:', item.photo);
+      console.log('📷 startsWith("/uploads"):', item.photo.startsWith('/uploads'));
       const imageUrl = item.photo.startsWith('/uploads') ? `/api${item.photo}` : `/api/uploads${item.photo}`;
+      console.log('📷 imageUrl:', imageUrl);
       setImageSrc(imageUrl);
       setIsLoading(false);
     } else if (item.modelKey) {
