@@ -189,44 +189,44 @@ export async function POST(request: NextRequest) {
       // "domeodoors_base_1_1" -> модель "domeodoors_base_1" (галерея_1)
       
       // ЛОГИКА:
-      // 1. Точное совпадение значения свойства и имени фото БЕЗ _N → ОБЛОЖКА
-      // 2. _1, _2, _3... в конце имени фото → ГАЛЕРЕЯ
+      // 1. Если имя файла заканчивается на _N где уже есть _N перед (например, base_1_1) → ГАЛЕРЕЯ
+      // 2. Если имя файла заканчивается на _N без второго _N перед → ОБЛОЖКА
+      // 3. Если имя файла НЕ заканчивается на _N → ОБЛОЖКА
       // 
       // Примеры:
       // "domeodoors_base_1.png" → обложка для модели "domeodoors_base_1"
       // "domeodoors_base_1_1.png" → галерея_1 для модели "domeodoors_base_1"
       // "domeodoors_base_1_2.png" → галерея_2 для модели "domeodoors_base_1"
       
-      // Проверяем суффикс галереи _N в конце имени файла
-      const galleryMatch = nameWithoutExt.match(/^(.+?)_(\d+)$/);
+      // Разбиваем на части по подчеркиванию
+      const parts = nameWithoutExt.split('_');
       
       let baseName: string;
       let galleryNumber: number | null = null;
       let isCover: boolean;
       
-      if (galleryMatch) {
-        // Есть суффикс _N в конце - это ГАЛЕРЕЯ
-        const potentialBaseName = galleryMatch[1]; // Убираем _N из конца
-        const potentialGalleryNum = parseInt(galleryMatch[2]);
+      // Проверяем последнюю и предпоследнюю части
+      const lastPart = parts[parts.length - 1];
+      const secondLastPart = parts[parts.length - 2];
+      
+      // Проверяем, является ли последняя часть цифрой
+      if (/^\d+$/.test(lastPart)) {
+        const lastNumber = parseInt(lastPart);
         
-        // Проверяем, нет ли в potentialBaseName еще суффикса _N
-        // Если есть, то это часть модели (например, "base_1_1" - это галерея для "base_1")
-        const subMatch = potentialBaseName.match(/^(.+?)_(\d+)$/);
-        if (subMatch) {
-          // Есть еще один _N - это точно часть модели
-          // "base_1" + "_1" → галерея для модели "base_1"
-          baseName = potentialBaseName;
-          galleryNumber = potentialGalleryNum;
+        // Если предпоследняя часть тоже цифра (например, "base_1_2"), это ГАЛЕРЕЯ
+        if (secondLastPart && /^\d+$/.test(secondLastPart)) {
+          // base_1_2 → галерея_2 для модели base_1
+          baseName = parts.slice(0, -2).join('_') + '_' + secondLastPart;
+          galleryNumber = lastNumber;
           isCover = false;
         } else {
-          // Нет еще одного _N - это может быть как галерея, так и модель
-          // Для простоты считаем что если последняя часть - цифра, это галерея
-          baseName = potentialBaseName;
-          galleryNumber = potentialGalleryNum;
-          isCover = false;
+          // base_1 → обложка для модели base_1
+          baseName = nameWithoutExt;
+          galleryNumber = null;
+          isCover = true;
         }
       } else {
-        // НЕТ суффикса _N - это ОБЛОЖКА
+        // НЕТ цифры в конце - это ОБЛОЖКА
         baseName = nameWithoutExt;
         galleryNumber = null;
         isCover = true;
