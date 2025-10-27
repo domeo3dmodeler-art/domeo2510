@@ -58,9 +58,16 @@ export async function POST(req: NextRequest) {
           
           if (product.properties_data) {
             if (typeof product.properties_data === 'string') {
-              properties = JSON.parse(product.properties_data);
-            } else {
+              try {
+                properties = JSON.parse(product.properties_data);
+              } catch (parseError) {
+                console.error('Ошибка парсинга JSON:', parseError, 'Данные:', product.properties_data.substring(0, 100));
+                continue; // Пропускаем этот товар
+              }
+            } else if (typeof product.properties_data === 'object') {
               properties = product.properties_data;
+            } else {
+              continue; // Пропускаем невалидные данные
             }
           }
           
@@ -70,7 +77,7 @@ export async function POST(req: NextRequest) {
             modelToValue.set(modelName, modelName);
           }
         } catch (error) {
-          console.error('Ошибка парсинга properties_data для товара:', error);
+          console.error('Ошибка обработки товара:', error);
           // Пропускаем этот товар
         }
       }
