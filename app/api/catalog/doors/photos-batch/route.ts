@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
               try {
                 properties = JSON.parse(product.properties_data);
               } catch (parseError) {
-                console.error('Ошибка парсинга JSON - пропускаем товар');
+                console.error('Ошибка парсинга JSON - пропускаем товар:', parseError);
                 continue; // Пропускаем этот товар
               }
             } else if (typeof product.properties_data === 'object') {
