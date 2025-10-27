@@ -184,11 +184,17 @@ export async function POST(request: NextRequest) {
     }
     
     // Для каждой группы определяем обложку и галерею
+    console.log('\n=== ГРУППИРОВКА ФОТО ===');
+    console.log('Всего групп:', photoGroups.size);
+    
     for (const [baseName, group] of photoGroups.entries()) {
+      console.log(`\nГруппа: ${baseName} (${group.length} файлов)`);
+      
       // Ищем файл с точным совпадением базового имени (без _N) = это обложка
       let coverPhoto = null;
       
       for (const photo of group) {
+        console.log(`  Проверка: ${photo.rawName} === ${baseName}? ${photo.rawName === baseName}`);
         if (photo.rawName === baseName) {
           // Точное совпадение с базовым именем = обложка
           coverPhoto = photo;
@@ -207,6 +213,7 @@ export async function POST(request: NextRequest) {
             baseName: baseName,
             isGallery: false
           };
+          console.log(`  ✅ Обложка: ${photo.originalName}`);
         } else {
           // Есть _N в конце = галерея
           const galleryMatch = photo.rawName.match(/^(.+?)_(\d+)$/);
@@ -218,6 +225,7 @@ export async function POST(request: NextRequest) {
               baseName: baseName,
               isGallery: true
             };
+            console.log(`  ✅ Галерея ${galleryMatch[2]}: ${photo.originalName}`);
           } else {
             // Не должно быть такого случая, но на всякий случай
             photo.photoInfo = {
@@ -227,10 +235,13 @@ export async function POST(request: NextRequest) {
               baseName: baseName,
               isGallery: false
             };
+            console.log(`  ⚠️ Fallback (${coverPhoto ? 'галерея' : 'обложка'}): ${photo.originalName}`);
           }
         }
       }
     }
+    
+    console.log('\n=== КОНЕЦ ГРУППИРОВКИ ===\n');
     
     // Привязываем фото к товарам или свойствам
     let linkedPhotos = 0;
@@ -242,6 +253,12 @@ export async function POST(request: NextRequest) {
         
         for (const photo of uploadedPhotos) {
           const { photoInfo } = photo;
+          
+          // Проверяем, что photoInfo был установлен
+          if (!photoInfo) {
+            console.error(`❌ photoInfo не установлен для ${photo.originalName}`);
+            continue;
+          }
           
           console.log(`\n=== ОБРАБОТКА ФОТО: ${photo.originalName} ===`);
           console.log(`Тип фото: ${photoInfo.isCover ? 'ОБЛОЖКА' : 'ГАЛЕРЕЯ'}`);
@@ -306,6 +323,12 @@ export async function POST(request: NextRequest) {
 
         for (const photo of uploadedPhotos) {
           const { photoInfo } = photo;
+          
+          // Проверяем, что photoInfo был установлен
+          if (!photoInfo) {
+            console.error(`❌ photoInfo не установлен для ${photo.originalName}`);
+            continue;
+          }
           
           console.log(`\n=== ОБРАБОТКА ФОТО: ${photo.originalName} ===`);
           console.log(`Базовое имя: ${photoInfo.baseName}`);
