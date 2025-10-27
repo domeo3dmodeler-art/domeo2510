@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
         const uploadedPhoto = {
           originalName: photo.name,
           fileName: fileName,
-          filePath: `/uploads/products/${category}/${fileName}`,
+          filePath: `products/${category}/${fileName}`, // Без /uploads, т.к. API добавляет это
           size: photo.size,
           type: photo.type,
           photoInfo: null // Определим после загрузки всех файлов
