@@ -188,85 +188,51 @@ export async function POST(request: NextRequest) {
       // "domeodoors_base_1" -> модель "domeodoors_base_1" (обложка)
       // "domeodoors_base_1_1" -> модель "domeodoors_base_1" (галерея_1)
       
-      // СТРАТЕГИЯ: Сначала определяем, является ли последний паттерн _N суффиксом галереи
-      // или частью модели (например, "base_1" - это модель, не галерея)
-      // Проверяем последние два паттерна типа _N
-      const parts = nameWithoutExt.split('_');
+      // ЛОГИКА:
+      // 1. Точное совпадение значения свойства и имени фото БЕЗ _N → ОБЛОЖКА
+      // 2. _1, _2, _3... в конце имени фото → ГАЛЕРЕЯ
+      // 
+      // Примеры:
+      // "domeodoors_base_1.png" → обложка для модели "domeodoors_base_1"
+      // "domeodoors_base_1_1.png" → галерея_1 для модели "domeodoors_base_1"
+      // "domeodoors_base_1_2.png" → галерея_2 для модели "domeodoors_base_1"
       
-      let baseName; // Базовое имя файла без суффикса галереи
-      let galleryNumber;
-      let isCover;
+      // Проверяем суффикс галереи _N в конце имени файла
+      const galleryMatch = nameWithoutExt.match(/^(.+?)_(\d+)$/);
       
-      // Если есть минимум 3 части и ПОСЛЕДНЯЯ - цифра (галерея)
-      if (parts.length >= 3 && /^\d+$/.test(parts[parts.length - 1])) {
-        // Проверяем, является ли предпоследняя тоже цифрой
-        if (/^\d+$/.test(parts[parts.length - 2])) {
-          // Последние две части - цифры (_N_1), это точно галерея
-          // Пример: domeodoors_base_1_1 -> domeodoors_base_1 -> галерея_1
-          const penultimateNumber = parts[parts.length - 2];
-          baseName = parts.slice(0, -2).join('_') + '_' + penultimateNumber;
-          galleryNumber = parseInt(parts[parts.length - 1]);
+      let baseName: string;
+      let galleryNumber: number | null = null;
+      let isCover: boolean;
+      
+      if (galleryMatch) {
+        // Есть суффикс _N в конце - это ГАЛЕРЕЯ
+        const potentialBaseName = galleryMatch[1]; // Убираем _N из конца
+        const potentialGalleryNum = parseInt(galleryMatch[2]);
+        
+        // Проверяем, нет ли в potentialBaseName еще суффикса _N
+        // Если есть, то это часть модели (например, "base_1_1" - это галерея для "base_1")
+        const subMatch = potentialBaseName.match(/^(.+?)_(\d+)$/);
+        if (subMatch) {
+          // Есть еще один _N - это точно часть модели
+          // "base_1" + "_1" → галерея для модели "base_1"
+          baseName = potentialBaseName;
+          galleryNumber = potentialGalleryNum;
           isCover = false;
         } else {
-          // Предпоследняя - буквы, последняя - цифра
-          // Пример: domeodoors_ledoux1_1 -> это галерея_1 для модели domeodoors_ledoux_1
-          const beforeLast = parts[parts.length - 2];
-          // Проверяем, заканчивается ли beforeLast на цифру (Ledoux1)
-          const endsWithDigit = /^\w+(\d+)$/.test(beforeLast);
-          if (endsWithDigit) {
-            // Это галерея
-            baseName = parts.slice(0, -1).join('_'); // domeodoors_ledoux1
-            galleryNumber = parseInt(parts[parts.length - 1]); // 1
-            isCover = false;
-          } else {
-            // Перед последней цифрой - буквы (не заканчиваются на цифру)
-            // Последняя цифра - это номер модели
-            // Пример: domeodoors_base_1 -> это обложка модели "base_1"
-            baseName = nameWithoutExt;
-            galleryNumber = null;
-            isCover = true;
-          }
-        }
-      } else if (parts.length >= 2 && /^\d+$/.test(parts[parts.length - 1])) {
-        // Последняя часть - цифра, нужно определить, это часть модели или галерея
-        // Проверяем, есть ли перед последней цифрой еще одна буква
-        const beforeLast = parts[parts.length - 2];
-        
-        // Если beforeLast - буквы (не цифра), то последняя цифра - это номер модели
-        // Пример: domeodoors_base_1 -> это обложка модели "base_1"
-        if (!/^\d+$/.test(beforeLast)) {
-          // Это часть модели
-          baseName = nameWithoutExt;
-          galleryNumber = null;
-          isCover = true;
-        } else {
-          // Это скорее всего галерея
-          // Пример: domeodoors_alberti4_1 -> domeodoors_alberti4 -> галерея_1
-          baseName = parts.slice(0, -1).join('_');
-          galleryNumber = parseInt(parts[parts.length - 1]);
+          // Нет еще одного _N - это может быть как галерея, так и модель
+          // Для простоты считаем что если последняя часть - цифра, это галерея
+          baseName = potentialBaseName;
+          galleryNumber = potentialGalleryNum;
           isCover = false;
         }
       } else {
-        // НЕТ суффикса с цифрой - это ОБЛОЖКА
+        // НЕТ суффикса _N - это ОБЛОЖКА
         baseName = nameWithoutExt;
         galleryNumber = null;
         isCover = true;
       }
       
-      // Преобразуем имя модели: цифра после буквы → _N
-      // Пример: "domeodoors_alberti4" → "domeodoors_alberti_4"
-      const modelMatch = baseName.match(/^(.+)([a-z])(\d+)$/);
-      let modelName: string;
-      
-      if (modelMatch) {
-        const prefix = modelMatch[1]; // "domeodoors_alberti"
-        const letter = modelMatch[2]; // "i"
-        const number = modelMatch[3]; // "4"
-        modelName = `${prefix}${letter}_${number}`; // "domeodoors_alberti_4"
-      } else {
-        // Если паттерн не найден - оставляем как есть
-        modelName = baseName;
-      }
+      const modelName = baseName;
       
       photo.photoInfo = {
         fileName: photo.originalName,
