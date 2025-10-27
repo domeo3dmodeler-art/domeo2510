@@ -101,8 +101,11 @@ export async function POST(req: NextRequest) {
         
         photosByModel.set(modelName, {
           modelKey: modelName, // Используем полное имя модели для поиска фото
-          photo: photoStructure.cover,
-          photos: photoStructure,
+          photo: photoStructure.cover ? `/uploads/${photoStructure.cover}` : null,
+          photos: {
+            cover: photoStructure.cover ? `/uploads/${photoStructure.cover}` : null,
+            gallery: photoStructure.gallery.map(p => `/uploads/${p}`)
+          },
           hasGallery: photoStructure.gallery.length > 0
         });
       }
