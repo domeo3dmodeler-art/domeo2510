@@ -51,16 +51,29 @@ export async function POST(req: NextRequest) {
 
       // Создаем мапу модель -> само название модели (используем для поиска фото свойств)
       const modelToValue = new Map<string, string>();
-      products.forEach(product => {
-        const properties = product.properties_data ?
-          (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
-        
-        const modelName = properties['Domeo_Название модели для Web'];
-        
-        if (modelName && uncachedModels.includes(modelName)) {
-          modelToValue.set(modelName, modelName);
+      
+      for (const product of products) {
+        try {
+          let properties: any = {};
+          
+          if (product.properties_data) {
+            if (typeof product.properties_data === 'string') {
+              properties = JSON.parse(product.properties_data);
+            } else {
+              properties = product.properties_data;
+            }
+          }
+          
+          const modelName = properties['Domeo_Название модели для Web'];
+          
+          if (modelName && uncachedModels.includes(modelName)) {
+            modelToValue.set(modelName, modelName);
+          }
+        } catch (error) {
+          console.error('Ошибка парсинга properties_data для товара:', error);
+          // Пропускаем этот товар
         }
-      });
+      }
 
       // Получаем фотографии из PropertyPhoto для каждой модели
       const photosByModel = new Map<string, any>();
