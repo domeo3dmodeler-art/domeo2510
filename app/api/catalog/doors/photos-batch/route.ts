@@ -99,11 +99,22 @@ export async function POST(req: NextRequest) {
         const normalizedPropertyValue = propertyValue.toLowerCase();
         
         // Получаем фотографии для этой модели из PropertyPhoto
-        const propertyPhotos = await getPropertyPhotos(
+        // Сначала ищем по "Domeo_Название модели для Web"
+        let propertyPhotos = await getPropertyPhotos(
           'cmg50xcgs001cv7mn0tdyk1wo', // ID категории "Межкомнатные двери"
           'Domeo_Название модели для Web',
           normalizedPropertyValue
         );
+        
+        // Если не найдено, ищем по "Артикул поставщика" (если modelName - это артикул)
+        if (propertyPhotos.length === 0) {
+          console.log(`🔍 Фото не найдено для модели "${modelName}", пробуем поиск по артикулу`);
+          propertyPhotos = await getPropertyPhotos(
+            'cmg50xcgs001cv7mn0tdyk1wo', // ID категории "Межкомнатные двери"
+            'Артикул поставщика',
+            normalizedPropertyValue
+          );
+        }
 
         // Структурируем фотографии в обложку и галерею
         const photoStructure = structurePropertyPhotos(propertyPhotos);
