@@ -3746,6 +3746,13 @@ function DoorCard({
 
   useEffect(() => {
     // Используем фото напрямую из данных модели
+    console.log('🔍 DoorCard useEffect, item:', {
+      model: item.model,
+      modelKey: item.modelKey,
+      photo: item.photo,
+      hasPhoto: !!item.photo
+    });
+    
     if (item.photo) {
       console.log('📷 item.photo:', item.photo);
       console.log('📷 startsWith("/uploads"):', item.photo.startsWith('/uploads'));
