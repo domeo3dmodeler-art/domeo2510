@@ -3756,8 +3756,23 @@ function DoorCard({
     if (item.photo && typeof item.photo === 'string') {
       console.log('📷 item.photo:', item.photo);
       console.log('📷 startsWith("/uploads"):', item.photo.startsWith('/uploads'));
-      // Ensure we always start with /uploads/... not /uploadsproducts/...
-      const imageUrl = item.photo.startsWith('/uploads/') ? `/api${item.photo}` : `/api/uploads/${item.photo}`;
+      
+      // Если фото начинается с /uploads/, используем как есть
+      // Если начинается с products/ или uploads/, добавляем /api
+      let imageUrl: string;
+      if (item.photo.startsWith('/uploads/')) {
+        imageUrl = `/api${item.photo}`;
+      } else if (item.photo.startsWith('/uploads')) {
+        // Корректируем: /uploadsproducts... -> /uploads/products...
+        imageUrl = `/api/uploads/${item.photo.substring(8)}`; // убираем первые 8 символов '/uploads'
+      } else if (item.photo.startsWith('products/')) {
+        imageUrl = `/api/uploads/${item.photo}`;
+      } else if (item.photo.startsWith('uploads/')) {
+        imageUrl = `/api/${item.photo}`;
+      } else {
+        imageUrl = `/api/uploads/${item.photo}`;
+      }
+      
       console.log('📷 imageUrl:', imageUrl);
       setImageSrc(imageUrl);
       setIsLoading(false);
@@ -3870,8 +3885,21 @@ function StickyPreview({ item }: { item: { model: string; modelKey?: string; sku
 
     // Если фото уже предзагружено в item.photo, используем его мгновенно
     if (item.photo && typeof item.photo === 'string') {
-      // Ensure we always start with /uploads/... not /uploadsproducts/...
-      const imageUrl = item.photo.startsWith('/uploads/') ? `/api${item.photo}` : `/api/uploads/${item.photo}`;
+      // Обрабатываем разные форматы путей
+      let imageUrl: string;
+      if (item.photo.startsWith('/uploads/')) {
+        imageUrl = `/api${item.photo}`;
+      } else if (item.photo.startsWith('/uploads')) {
+        // Корректируем: /uploadsproducts... -> /uploads/products...
+        imageUrl = `/api/uploads/${item.photo.substring(8)}`;
+      } else if (item.photo.startsWith('products/')) {
+        imageUrl = `/api/uploads/${item.photo}`;
+      } else if (item.photo.startsWith('uploads/')) {
+        imageUrl = `/api/${item.photo}`;
+      } else {
+        imageUrl = `/api/uploads/${item.photo}`;
+      }
+      
       setImageSrc(imageUrl);
       setIsLoading(false);
       return;
