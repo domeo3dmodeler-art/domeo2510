@@ -189,44 +189,31 @@ export async function POST(request: NextRequest) {
       // "domeodoors_base_1_1" -> модель "domeodoors_base_1" (галерея_1)
       
       // ЛОГИКА:
-      // 1. Если имя файла заканчивается на _N где уже есть _N перед (например, base_1_1) → ГАЛЕРЕЯ
-      // 2. Если имя файла заканчивается на _N без второго _N перед → ОБЛОЖКА
-      // 3. Если имя файла НЕ заканчивается на _N → ОБЛОЖКА
+      // 1. Если имя файла заканчивается на _1, _2 и т.д. (например, base_1_1, base_1_2) → ГАЛЕРЕЯ
+      // 2. Если имя файла НЕ заканчивается на дополнительное _N → ОБЛОЖКА
       // 
       // Примеры:
-      // "domeodoors_base_1.png" → обложка для модели "domeodoors_base_1"
-      // "domeodoors_base_1_1.png" → галерея_1 для модели "domeodoors_base_1"
-      // "domeodoors_base_1_2.png" → галерея_2 для модели "domeodoors_base_1"
+      // "Base_1.png" → обложка (полное совпадение с значением свойства)
+      // "Base_1_1.png" → галерея_1 (дополнительный _1)
+      // "Base_1_2.png" → галерея_2 (дополнительный _2)
       
-      // Разбиваем на части по подчеркиванию
-      const parts = nameWithoutExt.split('_');
+      // Проверяем, есть ли в конце имени файла дополнительный суффикс _N
+      // Например: "Base_1_1" → нашли _1 в конце, значит это галерея
+      const galleryMatch = nameWithoutExt.match(/_(\d+)$/);
       
       let baseName: string;
       let galleryNumber: number | null = null;
       let isCover: boolean;
       
-      // Проверяем последнюю и предпоследнюю части
-      const lastPart = parts[parts.length - 1];
-      const secondLastPart = parts[parts.length - 2];
-      
-      // Проверяем, является ли последняя часть цифрой
-      if (/^\d+$/.test(lastPart)) {
-        const lastNumber = parseInt(lastPart);
-        
-        // Если предпоследняя часть тоже цифра (например, "base_1_2"), это ГАЛЕРЕЯ
-        if (secondLastPart && /^\d+$/.test(secondLastPart)) {
-          // base_1_2 → галерея_2 для модели base_1
-          baseName = parts.slice(0, -2).join('_') + '_' + secondLastPart;
-          galleryNumber = lastNumber;
-          isCover = false;
-        } else {
-          // base_1 → обложка для модели base_1
-          baseName = nameWithoutExt;
-          galleryNumber = null;
-          isCover = true;
-        }
+      if (galleryMatch) {
+        // Есть суффикс _N в конце - проверяем, что он дополнительный
+        // Пример: "Base_1_1" → galleryMatch находит "_1", это галерея
+        // Убираем последний суффикс _N из имени
+        baseName = nameWithoutExt.slice(0, -galleryMatch[0].length);
+        galleryNumber = parseInt(galleryMatch[1]);
+        isCover = false;
       } else {
-        // НЕТ цифры в конце - это ОБЛОЖКА
+        // НЕТ дополнительного суффикса _N - это ОБЛОЖКА
         baseName = nameWithoutExt;
         galleryNumber = null;
         isCover = true;
