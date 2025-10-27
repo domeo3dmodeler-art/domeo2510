@@ -197,14 +197,36 @@ export async function POST(request: NextRequest) {
       let galleryNumber;
       let isCover;
       
-      // Если есть минимум 3 части и последняя - цифра
-      if (parts.length >= 3 && /^\d+$/.test(parts[parts.length - 1]) && /^\d+$/.test(parts[parts.length - 2])) {
-        // Последние две части - цифры (_N_1), это точно галерея
-        // Пример: domeodoors_base_1_1 -> domeodoors_base_1 -> галерея_1
-        const penultimateNumber = parts[parts.length - 2];
-        baseName = parts.slice(0, -2).join('_') + '_' + penultimateNumber;
-        galleryNumber = parseInt(parts[parts.length - 1]);
-        isCover = false;
+      // Если есть минимум 3 части и ПОСЛЕДНЯЯ - цифра (галерея)
+      if (parts.length >= 3 && /^\d+$/.test(parts[parts.length - 1])) {
+        // Проверяем, является ли предпоследняя тоже цифрой
+        if (/^\d+$/.test(parts[parts.length - 2])) {
+          // Последние две части - цифры (_N_1), это точно галерея
+          // Пример: domeodoors_base_1_1 -> domeodoors_base_1 -> галерея_1
+          const penultimateNumber = parts[parts.length - 2];
+          baseName = parts.slice(0, -2).join('_') + '_' + penultimateNumber;
+          galleryNumber = parseInt(parts[parts.length - 1]);
+          isCover = false;
+        } else {
+          // Предпоследняя - буквы, последняя - цифра
+          // Пример: domeodoors_ledoux1_1 -> это галерея_1 для модели domeodoors_ledoux_1
+          const beforeLast = parts[parts.length - 2];
+          // Проверяем, заканчивается ли beforeLast на цифру (Ledoux1)
+          const endsWithDigit = /^\w+(\d+)$/.test(beforeLast);
+          if (endsWithDigit) {
+            // Это галерея
+            baseName = parts.slice(0, -1).join('_'); // domeodoors_ledoux1
+            galleryNumber = parseInt(parts[parts.length - 1]); // 1
+            isCover = false;
+          } else {
+            // Перед последней цифрой - буквы (не заканчиваются на цифру)
+            // Последняя цифра - это номер модели
+            // Пример: domeodoors_base_1 -> это обложка модели "base_1"
+            baseName = nameWithoutExt;
+            galleryNumber = null;
+            isCover = true;
+          }
+        }
       } else if (parts.length >= 2 && /^\d+$/.test(parts[parts.length - 1])) {
         // Последняя часть - цифра, нужно определить, это часть модели или галерея
         // Проверяем, есть ли перед последней цифрой еще одна буква
