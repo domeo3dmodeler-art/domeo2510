@@ -239,6 +239,14 @@ export async function POST(request: NextRequest) {
           }
         }
       }
+      
+      // Синхронизируем photoInfo обратно в исходный массив uploadedPhotos
+      for (const groupPhoto of group) {
+        const originalPhoto = uploadedPhotos.find(p => p.originalName === groupPhoto.originalName);
+        if (originalPhoto) {
+          originalPhoto.photoInfo = groupPhoto.photoInfo;
+        }
+      }
     }
     
     console.log('\n=== КОНЕЦ ГРУППИРОВКИ ===\n');
