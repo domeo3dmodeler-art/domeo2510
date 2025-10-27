@@ -52,9 +52,23 @@ export async function getPropertyPhotos(
  * Структурирует фото в обложку и галерею
  */
 export function structurePropertyPhotos(photos: PropertyPhotoInfo[]): PhotoStructure {
-  // Сортируем фото по длине пути файла - самое короткое = обложка
+  // Сначала ищем фото с явным типом "cover"
+  const coverPhoto = photos.find(photo => photo.photoType === 'cover');
+  
+  if (coverPhoto) {
+    // Если есть явная обложка, остальные фото - галерея
+    const gallery = photos
+      .filter(photo => photo.photoPath !== coverPhoto.photoPath)
+      .map(photo => photo.photoPath);
+    
+    return {
+      cover: coverPhoto.photoPath,
+      gallery
+    };
+  }
+  
+  // Если нет явной обложки, выбираем самое короткое имя файла
   const sortedPhotos = [...photos].sort((a, b) => {
-    // Получаем имя файла из пути
     const filenameA = a.photoPath.split('/').pop() || '';
     const filenameB = b.photoPath.split('/').pop() || '';
     
@@ -72,7 +86,7 @@ export function structurePropertyPhotos(photos: PropertyPhotoInfo[]): PhotoStruc
   
   // Остальные фото = галерея
   const gallery = sortedPhotos.length > 1 
-    ? sortedPhotos.slice(1).map(photo => photo.photoPath)
+    ? sortedPhotos.slice(1).map(photo => photo.photoPath) 
     : [];
 
   return {
