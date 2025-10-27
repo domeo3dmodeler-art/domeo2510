@@ -177,26 +177,37 @@ export async function POST(request: NextRequest) {
     for (const photo of uploadedPhotos) {
       const nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "").toLowerCase();
       
-      // Определяем базовое имя: убираем все суффиксы _N
-      // "domeodoors_base_1_1" -> "domeodoors_base_1"
-      // "domeodoors_base_1_2_3" -> сначала "domeodoors_base_1_2", потом "domeodoors_base_1"
-      let baseName = nameWithoutExt;
-      let galleryNumber = null;
+      // Определяем базовое имя и тип фото
+      // ЛОГИКА: файл БЕЗ _N = обложка, файл С _N = галерея
+      // Базовое имя модели = имя без последнего _N
       
-      // Убираем все суффиксы _N, пока они есть
-      let hasMoreSuffix = true;
-      while (hasMoreSuffix) {
-        const match = baseName.match(/^(.+?)_(\d+)$/);
-        if (match) {
-          galleryNumber = parseInt(match[2]); // Запоминаем последний номер
-          baseName = match[1]; // Базовое имя без последнего суффикса
-        } else {
-          hasMoreSuffix = false;
-        }
+      const match = nameWithoutExt.match(/^(.+?)_(\d+)$/);
+      
+      let baseName;
+      let galleryNumber;
+      let isCover;
+      
+      if (match) {
+        // Есть суффикс _N в конце - это галерея
+        baseName = match[1];
+        galleryNumber = parseInt(match[2]);
+        isCover = false;
+        
+        // Проверяем, может быть это не галерея, а обложка для другой модели
+        // Например: "DomeoDoors_Base_2.png" - это ОБЛОЖКА для модели "DomeoDoors_Base_2"
+        // А "DomeoDoors_Base_2_1.png" - это ГАЛЕРЕЯ для модели "DomeoDoors_Base_2"
+        // НО! Если файл называется "DomeoDoors_Base_1.png" (без _N в конце),
+        // то это ОБЛОЖКА для "DomeoDoors_Base_1"
+        // А "DomeoDoors_Base_1_1.png" - это ГАЛЕРЕЯ для "DomeoDoors_Base_1"
+        
+        // Значит базовое имя = базовое имя файла
+        // Текущий файл с _N = галерея для этого базового имени
+      } else {
+        // Нет суффикса _N в конце - это обложка
+        baseName = nameWithoutExt;
+        galleryNumber = null;
+        isCover = true;
       }
-      
-      // Определяем тип фото
-      const isCover = galleryNumber === null; // Если нет _N, то это обложка
       
       photo.photoInfo = {
         fileName: photo.originalName,
