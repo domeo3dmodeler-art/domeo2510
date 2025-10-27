@@ -3753,10 +3753,11 @@ function DoorCard({
       hasPhoto: !!item.photo
     });
     
-    if (item.photo) {
+    if (item.photo && typeof item.photo === 'string') {
       console.log('📷 item.photo:', item.photo);
       console.log('📷 startsWith("/uploads"):', item.photo.startsWith('/uploads'));
-      const imageUrl = item.photo.startsWith('/uploads') ? `/api${item.photo}` : `/api/uploads${item.photo}`;
+      // Ensure we always start with /uploads/... not /uploadsproducts/...
+      const imageUrl = item.photo.startsWith('/uploads/') ? `/api${item.photo}` : `/api/uploads/${item.photo}`;
       console.log('📷 imageUrl:', imageUrl);
       setImageSrc(imageUrl);
       setIsLoading(false);
@@ -3868,8 +3869,9 @@ function StickyPreview({ item }: { item: { model: string; modelKey?: string; sku
     }
 
     // Если фото уже предзагружено в item.photo, используем его мгновенно
-    if (item.photo) {
-      const imageUrl = item.photo.startsWith('/uploads') ? `/api${item.photo}` : `/api/uploads${item.photo}`;
+    if (item.photo && typeof item.photo === 'string') {
+      // Ensure we always start with /uploads/... not /uploadsproducts/...
+      const imageUrl = item.photo.startsWith('/uploads/') ? `/api${item.photo}` : `/api/uploads/${item.photo}`;
       setImageSrc(imageUrl);
       setIsLoading(false);
       return;
