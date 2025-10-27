@@ -86,11 +86,14 @@ export async function POST(req: NextRequest) {
       const photosByModel = new Map<string, any>();
       
       for (const [modelName, propertyValue] of modelToValue.entries()) {
+        // Приводим propertyValue к нижнему регистру для поиска
+        const normalizedPropertyValue = propertyValue.toLowerCase();
+        
         // Получаем фотографии для этой модели из PropertyPhoto
         const propertyPhotos = await getPropertyPhotos(
           'cmg50xcgs001cv7mn0tdyk1wo', // ID категории "Межкомнатные двери"
           'Domeo_Название модели для Web',
-          propertyValue
+          normalizedPropertyValue
         );
 
         // Структурируем фотографии в обложку и галерею
