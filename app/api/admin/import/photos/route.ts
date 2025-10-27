@@ -158,48 +158,77 @@ export async function POST(request: NextRequest) {
     }
     
     // После загрузки всех файлов определяем тип фото (обложка/галерея)
-    // Группируем файлы по базовому имени и определяем самую короткую обложку
+    // ЛОГИКА:
+    // 1. Группируем файлы по базовому имени (извлекаем, убирая _N в конце)
+    // 2. В каждой группе файл с ИМЕНЕМ БЕЗ _N = обложка (cover)
+    // 3. Файлы с _N (например, _1, _2) = галерея (gallery_N)
+    // 4. Регистр не учитывается
+    
+    // Группируем файлы по базовому имени
     const photoGroups = new Map<string, any[]>();
     
     for (const photo of uploadedPhotos) {
-      const nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "");
-      const match = nameWithoutExt.match(/^(.+)_(\d+)$/);
-      const baseName = match ? match[1] : nameWithoutExt;
+      const nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "").toLowerCase();
+      
+      // Извлекаем базовое имя (убираем _N в конце)
+      const galleryMatch = nameWithoutExt.match(/^(.+?)_(\d+)$/);
+      const baseName = galleryMatch ? galleryMatch[1] : nameWithoutExt;
       
       if (!photoGroups.has(baseName)) {
         photoGroups.set(baseName, []);
       }
-      photoGroups.get(baseName)!.push(photo);
+      photoGroups.get(baseName)!.push({
+        ...photo,
+        rawName: nameWithoutExt
+      });
     }
     
     // Для каждой группы определяем обложку и галерею
     for (const [baseName, group] of photoGroups.entries()) {
-      // Находим обложку: самое короткое имя в группе
+      // Ищем файл с точным совпадением базового имени (без _N) = это обложка
       let coverPhoto = null;
-      let shortestLength = Infinity;
       
       for (const photo of group) {
-        const nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "");
-        const nameLength = nameWithoutExt.length;
-        
-        if (nameLength < shortestLength) {
-          shortestLength = nameLength;
+        if (photo.rawName === baseName) {
+          // Точное совпадение с базовым именем = обложка
           coverPhoto = photo;
+          break;
         }
       }
       
       // Устанавливаем тип для каждого фото в группе
       for (const photo of group) {
-        const nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "");
-        const match = nameWithoutExt.match(/^(.+)_(\d+)$/);
-        const isCover = photo === coverPhoto;
-        
-        photo.photoInfo = {
-          fileName: photo.originalName,
-          isCover: isCover,
-          number: match ? parseInt(match[2]) : null,
-          baseName: baseName
-        };
+        if (photo.rawName === baseName) {
+          // Точное совпадение с базовым именем = обложка
+          photo.photoInfo = {
+            fileName: photo.originalName,
+            isCover: true,
+            number: null,
+            baseName: baseName,
+            isGallery: false
+          };
+        } else {
+          // Есть _N в конце = галерея
+          const galleryMatch = photo.rawName.match(/^(.+?)_(\d+)$/);
+          if (galleryMatch && galleryMatch[1] === baseName) {
+            photo.photoInfo = {
+              fileName: photo.originalName,
+              isCover: false,
+              number: parseInt(galleryMatch[2]),
+              baseName: baseName,
+              isGallery: true
+            };
+          } else {
+            // Не должно быть такого случая, но на всякий случай
+            photo.photoInfo = {
+              fileName: photo.originalName,
+              isCover: !coverPhoto,
+              number: null,
+              baseName: baseName,
+              isGallery: false
+            };
+          }
+        }
       }
     }
     
@@ -220,7 +249,9 @@ export async function POST(request: NextRequest) {
           console.log(`Номер: ${photoInfo.number || 'N/A'}`);
 
           // Определяем тип фото для базы данных
-          const photoType = photoInfo.isCover ? 'cover' : `gallery_${photoInfo.number}`;
+          const photoType = photoInfo.isCover 
+            ? 'cover' 
+            : (photoInfo.number ? `gallery_${photoInfo.number}` : 'cover');
 
           // Сохраняем фото в property_photos
           const savedPhoto = await upsertPropertyPhoto(
