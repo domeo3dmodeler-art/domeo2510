@@ -3789,7 +3789,19 @@ function DoorCard({
             const data = await response.json();
             if (data.photos && data.photos.length > 0) {
               const photoPath = data.photos[0];
-              const imageUrl = photoPath.startsWith('/uploads') ? `/api${photoPath}` : `/api/uploads${photoPath}`;
+              // Обрабатываем разные форматы путей
+              let imageUrl: string;
+              if (photoPath.startsWith('/uploads/')) {
+                imageUrl = `/api${photoPath}`;
+              } else if (photoPath.startsWith('/uploads')) {
+                imageUrl = `/api/uploads/${photoPath.substring(8)}`;
+              } else if (photoPath.startsWith('products/')) {
+                imageUrl = `/api/uploads/${photoPath}`;
+              } else if (photoPath.startsWith('uploads/')) {
+                imageUrl = `/api/${photoPath}`;
+              } else {
+                imageUrl = `/api/uploads/${photoPath}`;
+              }
               setImageSrc(imageUrl);
             } else {
               setImageSrc(null);
@@ -3913,18 +3925,30 @@ function StickyPreview({ item }: { item: { model: string; modelKey?: string; sku
 
         const response = await fetch(`/api/catalog/doors/photos?model=${encodeURIComponent(item.modelKey || item.model)}`);
 
-        if (response.ok) {
-          const data = await response.json();
-          if (data.photos && data.photos.length > 0) {
-            const photoPath = data.photos[0];
-            const imageUrl = photoPath.startsWith('/uploads') ? `/api${photoPath}` : `/api/uploads${photoPath}`;
-            setImageSrc(imageUrl);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.photos && data.photos.length > 0) {
+              const photoPath = data.photos[0];
+              // Обрабатываем разные форматы путей
+              let imageUrl: string;
+              if (photoPath.startsWith('/uploads/')) {
+                imageUrl = `/api${photoPath}`;
+              } else if (photoPath.startsWith('/uploads')) {
+                imageUrl = `/api/uploads/${photoPath.substring(8)}`;
+              } else if (photoPath.startsWith('products/')) {
+                imageUrl = `/api/uploads/${photoPath}`;
+              } else if (photoPath.startsWith('uploads/')) {
+                imageUrl = `/api/${photoPath}`;
+              } else {
+                imageUrl = `/api/uploads/${photoPath}`;
+              }
+              setImageSrc(imageUrl);
+            } else {
+              setImageSrc(null);
+            }
           } else {
             setImageSrc(null);
           }
-        } else {
-          setImageSrc(null);
-        }
       } catch (error) {
         console.error('❌ Ошибка загрузки фото для превью:', error);
         setImageSrc(null);
