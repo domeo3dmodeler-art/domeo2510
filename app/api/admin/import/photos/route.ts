@@ -158,98 +158,62 @@ export async function POST(request: NextRequest) {
     }
     
     // После загрузки всех файлов определяем тип фото (обложка/галерея)
-    // ЛОГИКА:
-    // 1. Группируем файлы по базовому имени (извлекаем, убирая _N в конце)
-    // 2. В каждой группе файл с ИМЕНЕМ БЕЗ _N = обложка (cover)
-    // 3. Файлы с _N (например, _1, _2) = галерея (gallery_N)
+    // НОВАЯ ЛОГИКА:
+    // 1. Для КАЖДОГО файла определяем базовое имя модели, убирая ВСЕ суффиксы _N
+    // 2. Если файл БЕЗ _N (точное совпадение с базовым именем) = обложка (cover)
+    // 3. Если файл с _N (например, X_1, X_2) = галерея (gallery_N)
     // 4. Регистр не учитывается
+    //
+    // Примеры:
+    // "DomeoDoors_Base_1.png" -> базовое имя "domeodoors_base_1" -> обложка
+    // "DomeoDoors_Base_1_1.png" -> базовое имя "domeodoors_base_1" -> галерея_1
+    // "DomeoDoors_Base_1_2.png" -> базовое имя "domeodoors_base_1" -> галерея_2
+    // "DomeoDoors_Base_2.png" -> базовое имя "domeodoors_base_2" -> обложка
+    // "DomeoDoors_Base_2_1.png" -> базовое имя "domeodoors_base_2" -> галерея_1
     
-    // Группируем файлы по базовому имени
-    const photoGroups = new Map<string, any[]>();
+    console.log('\n=== ОПРЕДЕЛЕНИЕ ТИПА ФОТО ===');
+    console.log('Всего файлов:', uploadedPhotos.length);
     
     for (const photo of uploadedPhotos) {
       const nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "").toLowerCase();
       
-      // Извлекаем базовое имя (убираем _N в конце)
-      const galleryMatch = nameWithoutExt.match(/^(.+?)_(\d+)$/);
-      const baseName = galleryMatch ? galleryMatch[1] : nameWithoutExt;
+      // Определяем базовое имя: убираем все суффиксы _N
+      // "domeodoors_base_1_1" -> "domeodoors_base_1"
+      // "domeodoors_base_1_2_3" -> сначала "domeodoors_base_1_2", потом "domeodoors_base_1"
+      let baseName = nameWithoutExt;
+      let galleryNumber = null;
       
-      if (!photoGroups.has(baseName)) {
-        photoGroups.set(baseName, []);
-      }
-      photoGroups.get(baseName)!.push({
-        ...photo,
-        rawName: nameWithoutExt
-      });
-    }
-    
-    // Для каждой группы определяем обложку и галерею
-    console.log('\n=== ГРУППИРОВКА ФОТО ===');
-    console.log('Всего групп:', photoGroups.size);
-    
-    for (const [baseName, group] of photoGroups.entries()) {
-      console.log(`\nГруппа: ${baseName} (${group.length} файлов)`);
-      
-      // Ищем файл с точным совпадением базового имени (без _N) = это обложка
-      let coverPhoto = null;
-      
-      for (const photo of group) {
-        console.log(`  Проверка: ${photo.rawName} === ${baseName}? ${photo.rawName === baseName}`);
-        if (photo.rawName === baseName) {
-          // Точное совпадение с базовым именем = обложка
-          coverPhoto = photo;
-          break;
-        }
-      }
-      
-      // Устанавливаем тип для каждого фото в группе
-      for (const photo of group) {
-        if (photo.rawName === baseName) {
-          // Точное совпадение с базовым именем = обложка
-          photo.photoInfo = {
-            fileName: photo.originalName,
-            isCover: true,
-            number: null,
-            baseName: baseName,
-            isGallery: false
-          };
-          console.log(`  ✅ Обложка: ${photo.originalName}`);
+      // Убираем все суффиксы _N, пока они есть
+      let hasMoreSuffix = true;
+      while (hasMoreSuffix) {
+        const match = baseName.match(/^(.+?)_(\d+)$/);
+        if (match) {
+          galleryNumber = parseInt(match[2]); // Запоминаем последний номер
+          baseName = match[1]; // Базовое имя без последнего суффикса
         } else {
-          // Есть _N в конце = галерея
-          const galleryMatch = photo.rawName.match(/^(.+?)_(\d+)$/);
-          if (galleryMatch && galleryMatch[1] === baseName) {
-            photo.photoInfo = {
-              fileName: photo.originalName,
-              isCover: false,
-              number: parseInt(galleryMatch[2]),
-              baseName: baseName,
-              isGallery: true
-            };
-            console.log(`  ✅ Галерея ${galleryMatch[2]}: ${photo.originalName}`);
-          } else {
-            // Не должно быть такого случая, но на всякий случай
-            photo.photoInfo = {
-              fileName: photo.originalName,
-              isCover: !coverPhoto,
-              number: null,
-              baseName: baseName,
-              isGallery: false
-            };
-            console.log(`  ⚠️ Fallback (${coverPhoto ? 'галерея' : 'обложка'}): ${photo.originalName}`);
-          }
+          hasMoreSuffix = false;
         }
       }
       
-      // Синхронизируем photoInfo обратно в исходный массив uploadedPhotos
-      for (const groupPhoto of group) {
-        const originalPhoto = uploadedPhotos.find(p => p.originalName === groupPhoto.originalName);
-        if (originalPhoto) {
-          originalPhoto.photoInfo = groupPhoto.photoInfo;
-        }
+      // Определяем тип фото
+      const isCover = galleryNumber === null; // Если нет _N, то это обложка
+      
+      photo.photoInfo = {
+        fileName: photo.originalName,
+        isCover: isCover,
+        number: galleryNumber,
+        baseName: baseName,
+        isGallery: !isCover
+      };
+      
+      if (isCover) {
+        console.log(`✅ Обложка: ${photo.originalName} -> модель "${baseName}"`);
+      } else {
+        console.log(`📸 Галерея ${galleryNumber}: ${photo.originalName} -> модель "${baseName}"`);
       }
     }
     
-    console.log('\n=== КОНЕЦ ГРУППИРОВКИ ===\n');
+    console.log('\n=== КОНЕЦ ОПРЕДЕЛЕНИЯ ТИПА ===\n');
     
     // Привязываем фото к товарам или свойствам
     let linkedPhotos = 0;
