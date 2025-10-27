@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 
       console.log(`📦 Получено товаров из БД: ${products.length}`);
 
-      // Создаем мапу модель -> само название модели (используем для поиска фото свойств)
+      // Создаем мапу модель -> артикул (для поиска фото по артикулу)
       const modelToValue = new Map<string, string>();
       
       for (const product of products) {
@@ -81,9 +81,11 @@ export async function POST(req: NextRequest) {
           }
           
           const modelName = properties['Domeo_Название модели для Web'];
+          const article = properties['Артикул поставщика'];
           
           if (modelName && uncachedModels.includes(modelName)) {
-            modelToValue.set(modelName, modelName);
+            // Сохраняем артикул, а не название модели
+            modelToValue.set(modelName, article || modelName);
           }
         } catch (error) {
           console.error('Ошибка обработки товара:', error);
