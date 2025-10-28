@@ -184,6 +184,12 @@ export async function POST(req: NextRequest) {
       'Первая модель': Object.keys(results)[0],
       'Данные фото': results[Object.keys(results)[0]]
     });
+    
+    console.log('🔍 Все результаты для моделей:', {
+      'models requested': models,
+      'models with results': Object.keys(results),
+      'first result sample': results[Object.keys(results)[0]]
+    });
 
     return NextResponse.json({
       ok: true,
@@ -191,7 +197,7 @@ export async function POST(req: NextRequest) {
     }, {
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'public, max-age=1800' // 30 минут кэш в браузере
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
       }
     });
 
