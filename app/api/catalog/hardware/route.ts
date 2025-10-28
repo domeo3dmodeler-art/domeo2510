@@ -70,8 +70,16 @@ export async function GET(request: NextRequest) {
         
         // Получаем фотографии из properties_data
         let photos = [];
-        if (props.photos && Array.isArray(props.photos)) {
-          photos = props.photos;
+        
+        // Проверяем разные форматы хранения фото
+        if (props.photos) {
+          if (typeof props.photos === 'object' && props.photos.cover) {
+            // Формат { cover: "...", gallery: [...] }
+            photos = [props.photos.cover, ...(props.photos.gallery || [])].filter(Boolean);
+          } else if (Array.isArray(props.photos)) {
+            // Массив фото
+            photos = props.photos;
+          }
         }
         
         return {
