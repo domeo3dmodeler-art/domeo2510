@@ -1189,13 +1189,24 @@ export default function DoorsPage() {
               if (photoResponse.ok) {
                 const photoData = await photoResponse.json();
                 console.log('⚡ Batch загрузка фото завершена для', modelNames.length, 'моделей');
+                console.log('📸 photoData:', photoData);
                 
                 // Объединяем данные моделей с фото
-                const modelsWithPhotos = rows.map((model: any) => ({
-                  ...model,
-                  photo: photoData.photos[model.model]?.photo || model.photo,
-                  photos: photoData.photos[model.model]?.photos || model.photos
-                }));
+                const modelsWithPhotos = rows.map((model: any) => {
+                  const photoInfo = photoData.photos[model.model];
+                  console.log(`📸 Model ${model.model}:`, {
+                    'photoInfo': photoInfo,
+                    'model.photo': model.photo,
+                    'final photo': photoInfo?.photo || model.photo
+                  });
+                  return {
+                    ...model,
+                    photo: photoInfo?.photo || model.photo,
+                    photos: photoInfo?.photos || model.photos
+                  };
+                });
+                
+                console.log('📸 Первые 3 модели с фото:', modelsWithPhotos.slice(0, 3));
                 
                 setModels(modelsWithPhotos);
               } else {
