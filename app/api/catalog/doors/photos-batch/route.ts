@@ -110,38 +110,37 @@ export async function POST(req: NextRequest) {
           normalizedPropertyValue
         );
         
-        // Если не найдено по артикулу, ищем фото для вариантов артикула (d2 → d2_1, d2_2, ...)
-        if (propertyPhotos.length === 0) {
-          console.log(`🔍 Фото не найдено по артикулу "${article}" для "${modelName}", пробуем варианты с суффиксами`);
+        console.log(`📸 Найдено ${propertyPhotos.length} фото для базового артикула "${article}"`);
+        
+        // Всегда ищем фото для вариантов артикула (d2 → d2_1, d2_2, ...)
+        console.log(`🔍 Ищем фото для вариантов артикула "${article}"`);
+        
+        // Ищем фото для вариантов: d2 → d2_1, d2_2, d2_3 и т.д.
+        for (let i = 1; i <= 10; i++) {
+          const variantArticle = `${article}_${i}`;
+          const variantPhotos = await getPropertyPhotos(
+            'cmg50xcgs001cv7mn0tdyk1wo',
+            'Артикул поставщика',
+            variantArticle.toLowerCase()
+          );
           
-          // Ищем фото для вариантов: d2 → d2_1, d2_2, d2_3 и т.д.
-          const articleVariants = [];
-          for (let i = 1; i <= 10; i++) {
-            const variantArticle = `${article}_${i}`;
-            const variantPhotos = await getPropertyPhotos(
-              'cmg50xcgs001cv7mn0tdyk1wo',
-              'Артикул поставщика',
-              variantArticle.toLowerCase()
-            );
-            
-            if (variantPhotos.length > 0) {
-              console.log(`  ✅ Найдено ${variantPhotos.length} фото для варианта "${variantArticle}"`);
-              articleVariants.push(...variantPhotos);
-            }
-          }
-          
-          if (articleVariants.length > 0) {
-            propertyPhotos = articleVariants;
-          } else {
-            // Если не найдено в вариантах, ищем по "Domeo_Название модели для Web"
-            console.log(`🔍 Фото не найдено в вариантах, пробуем поиск по названию модели`);
-            propertyPhotos = await getPropertyPhotos(
-              'cmg50xcgs001cv7mn0tdyk1wo', // ID категории "Межкомнатные двери"
-              'Domeo_Название модели для Web',
-              normalizedPropertyValue
-            );
+          if (variantPhotos.length > 0) {
+            console.log(`  ✅ Найдено ${variantPhotos.length} фото для варианта "${variantArticle}"`);
+            propertyPhotos.push(...variantPhotos);
           }
         }
+        
+        // Если не найдено ни по артикулу, ни по вариантам, ищем по "Domeo_Название модели для Web"
+        if (propertyPhotos.length === 0) {
+          console.log(`🔍 Фото не найдено, пробуем поиск по названию модели`);
+          propertyPhotos = await getPropertyPhotos(
+            'cmg50xcgs001cv7mn0tdyk1wo', // ID категории "Межкомнатные двери"
+            'Domeo_Название модели для Web',
+            normalizedPropertyValue
+          );
+        }
+        
+        console.log(`📸 Всего найдено ${propertyPhotos.length} фото для "${modelName}"`);
 
         // Структурируем фотографии в обложку и галерею
         const photoStructure = structurePropertyPhotos(propertyPhotos);
