@@ -365,12 +365,10 @@ export async function POST(request: NextRequest) {
           console.log(`Ищем товары по свойству "${mappingProperty}" = "${searchValue}"`);
 
           // Находим товары с этим значением свойства
-          const products = await prisma.product.findMany({
+          // Парсим все товары категории и сравниваем по свойству
+          const allProducts = await prisma.product.findMany({
             where: {
-              catalog_category_id: category,
-              properties_data: {
-                contains: `"${mappingProperty}":"${searchValue}"`
-              }
+              catalog_category_id: category
             },
             select: {
               id: true,
@@ -379,6 +377,29 @@ export async function POST(request: NextRequest) {
               properties_data: true
             }
           });
+          
+          // Фильтруем товары, где свойство совпадает со значением (с учетом разных типов данных)
+          const products = allProducts.filter(product => {
+            try {
+              const properties = typeof product.properties_data === 'string' 
+                ? JSON.parse(product.properties_data) 
+                : product.properties_data;
+              
+              const propertyValue = properties[mappingProperty];
+              if (propertyValue === undefined) return false;
+              
+              // Сравниваем как строки, приводя к нижнему регистру и убирая пробелы
+              const normalizedSearchValue = searchValue.toLowerCase().trim();
+              const normalizedPropertyValue = String(propertyValue).toLowerCase().trim();
+              
+              return normalizedPropertyValue === normalizedSearchValue;
+            } catch (error) {
+              console.error(`Ошибка парсинга свойств для товара ${product.sku}:`, error);
+              return false;
+            }
+          });
+          
+          console.log(`✅ Найдено товаров: ${products.length}`);
 
           let productsUpdated = 0;
           for (const product of products) {
