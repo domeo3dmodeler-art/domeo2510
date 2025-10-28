@@ -148,3 +148,26 @@ export function validateAndFixData(data: any): any {
   
   return data;
 }
+
+/**
+ * Исправляет кодировку во всех текстовых полях объекта
+ */
+export function fixAllEncoding(data: any): any {
+  if (typeof data === 'string') {
+    return fixFieldEncoding(data);
+  }
+  
+  if (Array.isArray(data)) {
+    return data.map(fixAllEncoding);
+  }
+  
+  if (typeof data === 'object' && data !== null) {
+    const result: any = {};
+    for (const [key, value] of Object.entries(data)) {
+      result[fixFieldEncoding(key)] = fixAllEncoding(value);
+    }
+    return result;
+  }
+  
+  return data;
+}
