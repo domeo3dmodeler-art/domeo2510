@@ -1,8 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { fixFieldsEncoding, validateAndFixData, fixFieldEncoding, fixAllEncoding, fixJSONEncoding } from '@/lib/encoding-utils';
+import { fixFieldsEncoding, validateAndFixData, fixFieldEncoding, fixJSONEncoding } from '@/lib/encoding-utils';
 import { apiErrorHandler } from '@/lib/api-error-handler';
 import { apiValidator } from '@/lib/api-validator';
+
+// Временная реализация функции fixAllEncoding
+function fixAllEncoding(data: any): any {
+  if (typeof data === 'string') {
+    return fixFieldEncoding(data);
+  }
+  
+  if (Array.isArray(data)) {
+    return data.map(fixAllEncoding);
+  }
+  
+  if (typeof data === 'object' && data !== null) {
+    const result: any = {};
+    for (const [key, value] of Object.entries(data)) {
+      result[fixFieldEncoding(key)] = fixAllEncoding(value);
+    }
+    return result;
+  }
+  
+  return data;
+}
 
 const prisma = new PrismaClient();
 
