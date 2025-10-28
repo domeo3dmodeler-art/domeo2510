@@ -3866,7 +3866,12 @@ function DoorCard({
                   console.log('❌ Тип imageSrc:', typeof imageSrc);
                   setImageSrc(null);
                 }}
-                onLoad={() => console.log('✅ Изображение загружено:', imageSrc)}
+                onLoad={() => console.log('✅ Изображение загружено для', item.model, ':', imageSrc)}
+                onError={(e) => {
+                  console.error('❌ ОШИБКА ЗАГРУЗКИ изображения:', imageSrc);
+                  console.error('❌ Event:', e);
+                  console.error('❌ item:', item);
+                }}
               />
               {/* Индикатор галереи */}
               {item.hasGallery && (
