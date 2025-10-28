@@ -1209,26 +1209,56 @@ export default function DoorsPage() {
                 console.log('📸 Первые 3 модели с фото:', modelsWithPhotos.slice(0, 3));
                 
                 setModels(modelsWithPhotos);
+                
+                // Сохраняем в клиентский кэш с фото
+                setModelsCache(prev => {
+                  const newCache = new Map(prev);
+                  newCache.set(styleKey, {
+                    data: modelsWithPhotos,
+                    timestamp: Date.now()
+                  });
+                  return newCache;
+                });
               } else {
                 setModels(rows);
+                
+                // Сохраняем в кэш без фото
+                setModelsCache(prev => {
+                  const newCache = new Map(prev);
+                  newCache.set(styleKey, {
+                    data: rows,
+                    timestamp: Date.now()
+                  });
+                  return newCache;
+                });
               }
             } catch (photoError) {
               console.warn('⚠️ Ошибка batch загрузки фото, используем обычную:', photoError);
               setModels(rows);
+              
+              // Сохраняем в кэш без фото
+              setModelsCache(prev => {
+                const newCache = new Map(prev);
+                newCache.set(styleKey, {
+                  data: rows,
+                  timestamp: Date.now()
+                });
+                return newCache;
+              });
             }
           } else {
             setModels(rows);
-          }
-          
-          // Сохраняем в клиентский кэш с временной меткой
-          setModelsCache(prev => {
-            const newCache = new Map(prev);
-            newCache.set(styleKey, {
-              data: rows,
-              timestamp: Date.now()
+            
+            // Сохраняем в кэш без фото
+            setModelsCache(prev => {
+              const newCache = new Map(prev);
+              newCache.set(styleKey, {
+                data: rows,
+                timestamp: Date.now()
+              });
+              return newCache;
             });
-            return newCache;
-          });
+          }
           
           setIsLoadingModels(false);
         } else if (!c) {
