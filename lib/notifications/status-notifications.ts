@@ -22,56 +22,48 @@ export const STATUS_NOTIFICATIONS = {
       message: 'Вам отправлен счет на оплату'
     },
     'PAID': {
-      recipients: ['complectator'],
-      message: 'Клиент оплатил счет'
-    },
-    'IN_PRODUCTION': {
       recipients: ['executor'],
-      message: 'Счет переведен в производство'
+      message: 'Счет оплачен. Вы можете создать заказ у поставщика.'
+    },
+    'ORDERED': {
+      recipients: ['complectator'],
+      message: 'Заказ размещен у поставщика.'
     },
     'RECEIVED_FROM_SUPPLIER': {
       recipients: ['complectator'],
-      message: 'Товар получен от поставщика'
+      message: 'Товар получен от поставщика.'
     },
     'COMPLETED': {
       recipients: ['complectator', 'client'],
-      message: 'Заказ выполнен'
+      message: 'Заказ выполнен.'
     }
   },
   order: {
     'CONFIRMED': {
       recipients: ['executor'],
-      message: 'Заказ подтвержден'
+      message: 'Заказ подтвержден.'
     },
-    'IN_PRODUCTION': {
+    'RECEIVED_FROM_SUPPLIER': {
       recipients: ['complectator'],
-      message: 'Заказ переведен в производство'
-    },
-    'READY': {
-      recipients: ['complectator'],
-      message: 'Заказ готов к выдаче'
+      message: 'Товар получен от поставщика.'
     },
     'COMPLETED': {
       recipients: ['complectator', 'client'],
-      message: 'Заказ выполнен'
+      message: 'Заказ выполнен.'
     }
   },
   supplier_order: {
     'ORDERED': {
       recipients: ['complectator'],
-      message: 'Заказ размещен у поставщика'
+      message: 'Заказ размещен у поставщика.'
     },
-    'IN_PRODUCTION': {
+    'RECEIVED_FROM_SUPPLIER': {
       recipients: ['complectator'],
-      message: 'Заказ в производстве у поставщика'
-    },
-    'READY': {
-      recipients: ['complectator'],
-      message: 'Заказ готов у поставщика'
+      message: 'Товар получен от поставщика.'
     },
     'COMPLETED': {
       recipients: ['complectator'],
-      message: 'Заказ выполнен поставщиком'
+      message: 'Заказ выполнен поставщиком.'
     }
   }
 };

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { notifyUsersByRole } from '@/lib/notifications';
 
 const VALID_STATUSES = ['PENDING', 'ORDERED', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED', 'CANCELLED'];
 
@@ -124,19 +125,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           const invoiceStatusLabel = invoiceStatusLabels[invoice.status] || invoice.status;
           const invoiceInfo = `Счет ${invoice.number} переведен в статус "${invoiceStatusLabel}"`;
           
-          await prisma.notification.create({
-            data: {
-              user_id: parentUser.id,
-              client_id: invoice.client_id,
-              document_id: invoice.id,
-              type: 'STATUS_CHANGE',
-              title: 'Изменение статуса заказа',
-              message: invoiceInfo,
-              is_read: false
-            }
+          // Уведомляем всех комплектаторов
+          await notifyUsersByRole('COMPLECTATOR', {
+            clientId: invoice.client_id,
+            documentId: invoice.id,
+            type: 'status_changed',
+            title: 'Изменение статуса заказа',
+            message: invoiceInfo
           });
           
-          console.log('✅ API: Notification sent to complettator');
+          console.log('✅ API: Notification sent to all complettators');
         } else {
           console.log('⚠️ API: Could not find invoice or client for notification');
         }

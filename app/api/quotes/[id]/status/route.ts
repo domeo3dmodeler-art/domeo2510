@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isStatusBlocked } from '@/lib/validation/status-blocking';
 import { getStatusLabel } from '@/lib/utils/status-labels';
+import { notifyUsersByRole } from '@/lib/notifications';
 import jwt from 'jsonwebtoken';
 
 const VALID_STATUSES = ['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED'];
@@ -120,6 +121,41 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     console.log('✅ API: Quote updated successfully:', updatedQuote);
+
+    // Отправляем уведомления
+    try {
+      const quoteWithClient = await prisma.quote.findUnique({
+        where: { id },
+        select: {
+          client_id: true,
+          number: true
+        }
+      });
+
+      if (quoteWithClient) {
+        if (status === 'SENT') {
+          // Уведомляем клиента
+          await notifyUsersByRole('client', {
+            clientId: quoteWithClient.client_id,
+            documentId: id,
+            type: 'quote_sent',
+            title: 'КП отправлено',
+            message: `Коммерческое предложение ${quoteWithClient.number} отправлено вам.`
+          });
+        } else if (status === 'ACCEPTED') {
+          // Уведомляем комплектатора
+          await notifyUsersByRole('complectator', {
+            clientId: quoteWithClient.client_id,
+            documentId: id,
+            type: 'quote_accepted',
+            title: 'КП принято',
+            message: `Клиент принял коммерческое предложение ${quoteWithClient.number}.`
+          });
+        }
+      }
+    } catch (notificationError) {
+      console.warn('⚠️ Не удалось отправить уведомление:', notificationError);
+    }
 
     return NextResponse.json({
       success: true,
