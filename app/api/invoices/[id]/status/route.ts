@@ -8,7 +8,7 @@ import { isStatusBlocked } from '@/lib/validation/status-blocking';
 import { getStatusLabel } from '@/lib/utils/status-labels';
 import jwt from 'jsonwebtoken';
 
-const VALID_STATUSES = ['DRAFT', 'SENT', 'PAID', 'CANCELLED', 'IN_PRODUCTION', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED', 'ORDERED'];
+const VALID_STATUSES = ['DRAFT', 'SENT', 'PAID', 'CANCELLED', 'ORDERED', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED'];
 
 // PUT /api/invoices/[id]/status - Изменить статус Счета
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -106,10 +106,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           title: 'Счет оплачен',
           message: `Счет ${existingInvoice.number} переведен в статус "Оплачен/Заказ". Теперь только Исполнитель может изменять статус.`
         });
-      } else if (['IN_PRODUCTION', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED'].includes(status)) {
+      } else if (['ORDERED', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED'].includes(status)) {
         // Уведомляем комплектатора о изменении статуса исполнителем
         const statusNames: Record<string, string> = {
-          'IN_PRODUCTION': 'Заказ размещен',
+          'ORDERED': 'Заказ размещен',
           'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
           'COMPLETED': 'Исполнен'
         };

@@ -5,58 +5,41 @@ import { generateCartSessionId } from '@/lib/utils/cart-session';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { orderId, supplierName, supplierEmail, supplierPhone, expectedDate, notes, cartData } = body;
+    const { invoiceId, supplierName, supplierEmail, supplierPhone, expectedDate, notes, cartData } = body;
     
-    console.log('🚀 Creating supplier order:', { orderId, supplierName, supplierEmail, supplierPhone, expectedDate, notes });
+    console.log('🚀 Creating supplier order:', { invoiceId, supplierName, supplierEmail, supplierPhone, expectedDate, notes });
     console.log('📦 Received cartData:', cartData);
     console.log('📦 Received cartData type:', typeof cartData);
     console.log('📦 Received cartData items:', cartData?.items);
     console.log('📦 Received cartData items count:', cartData?.items?.length);
 
-    if (!orderId) {
-      return NextResponse.json({ error: 'orderId is required' }, { status: 400 });
+    if (!invoiceId) {
+      return NextResponse.json({ error: 'invoiceId is required' }, { status: 400 });
     }
 
-    // Проверяем, что заказ существует и получаем связанный счет
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
+    // Проверяем, что счет существует
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
       select: { 
         id: true, 
         client_id: true, 
         cart_session_id: true,
-        number: true, // Получаем номер заказа
-        total_amount: true // Получаем сумму заказа
+        number: true,
+        total_amount: true
       }
     });
 
-    if (!order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    if (!invoice) {
+      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
 
     // Генерируем cart_session_id для группировки документов
-    const cartSessionId = order.cart_session_id || generateCartSessionId();
+    const cartSessionId = invoice.cart_session_id || generateCartSessionId();
     
-    // Ищем связанный счет для получения его номера
-    let invoiceNumber = null;
-    const relatedInvoice = await prisma.invoice.findFirst({
-      where: { 
-        parent_document_id: orderId // Связь через parent_document_id
-      },
-      select: { number: true },
-      orderBy: { created_at: 'desc' }
-    });
-    
-    if (relatedInvoice) {
-      invoiceNumber = relatedInvoice.number;
-      console.log(`📄 Найден связанный счет: ${invoiceNumber}`);
-    } else {
-      console.log(`⚠️ Связанный счет не найден для заказа: ${orderId}`);
-    }
-    
-    // Проверяем, есть ли уже заказ у поставщика для этого заказа
+    // Проверяем, есть ли уже заказ у поставщика для этого счета
     const existingSupplierOrder = await prisma.supplierOrder.findFirst({
       where: {
-        parent_document_id: orderId,
+        parent_document_id: invoiceId,
         cart_session_id: cartSessionId
       },
       orderBy: { created_at: 'desc' }
@@ -70,11 +53,11 @@ export async function POST(request: NextRequest) {
       supplierOrder = existingSupplierOrder;
     } else {
       // Создаем новый заказ у поставщика
-      console.log(`🆕 Создаем новый заказ у поставщика для заказа: ${orderId}`);
+      console.log(`🆕 Создаем новый заказ у поставщика для счета: ${invoiceId}`);
       // Генерируем номер заказа у поставщика на основе номера счета
-      const supplierOrderNumber = invoiceNumber || `SUPPLIER-${Date.now()}`;
+      const supplierOrderNumber = `SUPPLIER-${invoice.number}`;
       
-      // Вычисляем общую сумму из данных корзины или используем сумму заказа
+      // Вычисляем общую сумму из данных корзины или используем сумму счета
       let totalAmount = 0;
       if (cartData && cartData.items && cartData.items.length > 0) {
         totalAmount = cartData.items.reduce((sum: number, item: any) => {
@@ -84,22 +67,22 @@ export async function POST(request: NextRequest) {
         }, 0);
       }
       
-      // Если сумма из корзины равна 0 или корзина пустая, используем сумму заказа
-      if (totalAmount === 0 && order.total_amount > 0) {
-        totalAmount = order.total_amount;
-        console.log(`💰 Используем сумму заказа: ${totalAmount}`);
+      // Если сумма из корзины равна 0 или корзина пустая, используем сумму счета
+      if (totalAmount === 0 && invoice.total_amount > 0) {
+        totalAmount = invoice.total_amount;
+        console.log(`💰 Используем сумму счета: ${totalAmount}`);
       } else if (totalAmount > 0) {
         console.log(`💰 Используем сумму из корзины: ${totalAmount}`);
       } else {
-        console.log(`⚠️ Сумма не определена: корзина=${cartData?.items?.length || 0}, заказ=${order.total_amount}`);
+        console.log(`⚠️ Сумма не определена: корзина=${cartData?.items?.length || 0}, счет=${invoice.total_amount}`);
       }
 
       supplierOrder = await prisma.supplierOrder.create({
         data: {
-          number: supplierOrderNumber, // Используем номер счета или генерируем новый
-          parent_document_id: orderId,
+          number: supplierOrderNumber,
+          parent_document_id: invoiceId,
           cart_session_id: cartSessionId,
-          executor_id: order.client_id, // Временно используем client_id как executor_id
+          executor_id: invoice.client_id,
           supplier_name: supplierName || 'Поставщик не указан',
           supplier_email: supplierEmail || '',
           supplier_phone: supplierPhone || '',
@@ -107,8 +90,8 @@ export async function POST(request: NextRequest) {
           order_date: new Date(),
           expected_date: expectedDate ? new Date(expectedDate) : null,
           notes: notes || '',
-          cart_data: cartData ? JSON.stringify(cartData) : null, // Сохраняем данные корзины
-          total_amount: totalAmount // Сохраняем общую сумму
+          cart_data: cartData ? JSON.stringify(cartData) : null,
+          total_amount: totalAmount
         }
       });
       
@@ -134,14 +117,14 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const orderId = searchParams.get('orderId');
+    const invoiceId = searchParams.get('invoiceId');
     
-    if (!orderId) {
-      return NextResponse.json({ error: 'orderId is required' }, { status: 400 });
+    if (!invoiceId) {
+      return NextResponse.json({ error: 'invoiceId is required' }, { status: 400 });
     }
 
     const supplierOrders = await prisma.supplierOrder.findMany({
-      where: { parent_document_id: orderId },
+      where: { parent_document_id: invoiceId },
       orderBy: { created_at: 'desc' }
     });
 

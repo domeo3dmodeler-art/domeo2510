@@ -10,10 +10,9 @@ export function getStatusLabel(status: string, documentType: 'invoice' | 'quote'
       'SENT': 'Отправлен',
       'PAID': 'Оплачен/Заказ',
       'CANCELLED': 'Отменен',
-      'IN_PRODUCTION': 'В производстве',
+      'ORDERED': 'Заказ размещен',
       'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
-      'COMPLETED': 'Исполнен',
-      'ORDERED': 'Заказ размещен'
+      'COMPLETED': 'Исполнен'
     },
     quote: {
       'DRAFT': 'Черновик',
@@ -25,16 +24,14 @@ export function getStatusLabel(status: string, documentType: 'invoice' | 'quote'
     order: {
       'PENDING': 'Ожидает',
       'CONFIRMED': 'Подтвержден',
-      'IN_PRODUCTION': 'В производстве',
-      'READY': 'Готов',
+      'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
       'COMPLETED': 'Исполнен',
       'CANCELLED': 'Отменен'
     },
     supplier_order: {
       'PENDING': 'Ожидает',
       'ORDERED': 'Заказ размещен',
-      'IN_PRODUCTION': 'В производстве',
-      'READY': 'Получен от поставщика',
+      'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
       'COMPLETED': 'Исполнен',
       'CANCELLED': 'Отменен'
     }
@@ -53,10 +50,9 @@ export function getEnglishStatus(russianStatus: string, documentType: 'invoice' 
       'Отправлен': 'SENT',
       'Оплачен/Заказ': 'PAID',
       'Отменен': 'CANCELLED',
-      'В производстве': 'IN_PRODUCTION',
+      'Заказ размещен': 'ORDERED',
       'Получен от поставщика': 'RECEIVED_FROM_SUPPLIER',
-      'Исполнен': 'COMPLETED',
-      'Заказ размещен': 'ORDERED'
+      'Исполнен': 'COMPLETED'
     },
     quote: {
       'Черновик': 'DRAFT',
@@ -68,16 +64,14 @@ export function getEnglishStatus(russianStatus: string, documentType: 'invoice' 
     order: {
       'Ожидает': 'PENDING',
       'Подтвержден': 'CONFIRMED',
-      'В производстве': 'IN_PRODUCTION',
-      'Готов': 'READY',
+      'Получен от поставщика': 'RECEIVED_FROM_SUPPLIER',
       'Исполнен': 'COMPLETED',
       'Отменен': 'CANCELLED'
     },
     supplier_order: {
       'Ожидает': 'PENDING',
       'Заказ размещен': 'ORDERED',
-      'В производстве': 'IN_PRODUCTION',
-      'Получен от поставщика': 'READY',
+      'Получен от поставщика': 'RECEIVED_FROM_SUPPLIER',
       'Исполнен': 'COMPLETED',
       'Отменен': 'CANCELLED'
     }
@@ -90,6 +84,6 @@ export function getEnglishStatus(russianStatus: string, documentType: 'invoice' 
  * Проверяет, заблокирован ли статус для ручного изменения
  */
 export function isStatusBlockedForManualChange(status: string): boolean {
-  const blockedStatuses = ['ORDERED', 'IN_PRODUCTION', 'READY', 'COMPLETED'];
+  const blockedStatuses = ['ORDERED', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED'];
   return blockedStatuses.includes(status);
 }
