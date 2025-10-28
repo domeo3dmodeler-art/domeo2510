@@ -34,6 +34,23 @@ export default function HandleSelectionModal({
   const [zoomPhoto, setZoomPhoto] = useState<string | null>(null);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   
+  // Нормализуем путь к фото
+  const getNormalizedPhotoUrl = (photoPath: string) => {
+    if (!photoPath) return '';
+    // Если путь уже начинается с /api, возвращаем как есть
+    if (photoPath.startsWith('/api/')) return photoPath;
+    // Если путь начинается с products/, добавляем /api/uploads/
+    if (photoPath.startsWith('products/')) return `/api/uploads/${photoPath}`;
+    // Если путь начинается с uploads/, добавляем /api/
+    if (photoPath.startsWith('uploads/')) return `/api/${photoPath}`;
+    // Если путь начинается с /uploads/, добавляем /api
+    if (photoPath.startsWith('/uploads/')) return `/api${photoPath}`;
+    // Если путь начинается с /, возвращаем как есть
+    if (photoPath.startsWith('/')) return `/api${photoPath}`;
+    // Иначе добавляем /api/uploads/
+    return `/api/uploads/${photoPath}`;
+  };
+  
   // Получаем все доступные группы из handles в нужном порядке
   const availableGroups = ['Базовый', 'Комфорт', 'Бизнес'].filter(group => 
     handles[group] && handles[group].length > 0
@@ -168,7 +185,7 @@ export default function HandleSelectionModal({
                       <div className="aspect-[4/2.8] mb-3 bg-gray-100 overflow-hidden px-2 py-1">
                         {handle.photos && handle.photos.length > 0 ? (
                           <img
-                            src={handle.photos[0]}
+                            src={getNormalizedPhotoUrl(handle.photos[0])}
                             alt={handle.name}
                             className="w-full h-full object-contain cursor-pointer hover:scale-105 transition-transform duration-200"
                             onClick={(e) => {
@@ -281,7 +298,7 @@ export default function HandleSelectionModal({
             
             {/* Фотография */}
             <img
-              src={zoomPhoto}
+              src={getNormalizedPhotoUrl(zoomPhoto || '')}
               alt="Увеличенное фото ручки"
               className="max-w-full max-h-full object-contain"
               onClick={(e) => e.stopPropagation()}
