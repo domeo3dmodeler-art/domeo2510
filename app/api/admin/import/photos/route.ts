@@ -352,11 +352,12 @@ export async function POST(request: NextRequest) {
           // Нужно извлечь: akcent_bl
           // Убираем расширение
           let nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "");
-          // Убираем префикс (первые 2 части через _)
           const parts = nameWithoutExt.split('_');
-          // Берем все части после префикса и склеиваем обратно
-          const extractedName = parts.slice(2).join('_');
-          // Убираем лишние пробелы
+          
+          // Используем все имя файла (без расширения) как значение для поиска
+          // Т.к. имя файла должно совпадать со значением свойства
+          const extractedName = nameWithoutExt;
+          // Убираем лишние пробелы и приводим к нижнему регистру
           const searchValue = extractedName.replace(/\s+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();
           
           // Логируем для отладки
