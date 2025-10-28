@@ -3850,10 +3850,11 @@ function DoorCard({
     >
         {/* Фото полностью заполняет карточку с правильным соотношением сторон для дверей */}
         <div className="aspect-[16/33] w-full bg-gray-50 relative group">
-          {isLoading ? (
+              {isLoading ? (
             <div className="h-full w-full animate-pulse bg-gray-200" />
           ) : imageSrc ? (
             <>
+              {console.log('🎨 RENDERING IMG with src:', imageSrc)}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={imageSrc}
@@ -3865,6 +3866,7 @@ function DoorCard({
                   console.log('❌ Тип imageSrc:', typeof imageSrc);
                   setImageSrc(null);
                 }}
+                onLoad={() => console.log('✅ Изображение загружено:', imageSrc)}
               />
               {/* Индикатор галереи */}
               {item.hasGallery && (
