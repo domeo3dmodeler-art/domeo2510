@@ -65,7 +65,7 @@ export async function GET(
     return new NextResponse(fileBuffer, {
       headers: {
         'Content-Type': mimeType,
-        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Content-Length': fileBuffer.length.toString(),
       },
     });
