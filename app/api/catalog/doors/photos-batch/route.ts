@@ -123,11 +123,25 @@ export async function POST(req: NextRequest) {
         
         console.log(`📸 Фото для ${modelName}:`, {
           cover: photoStructure.cover,
-          galleryCount: photoStructure.gallery.length,
-          finalPhotoPath: photoStructure.cover ? `/uploads/${photoStructure.cover}` : null
+          galleryCount: photoStructure.gallery.length
         });
         
-        const finalPhotoPath = photoStructure.cover ? `/uploads/${photoStructure.cover}` : null;
+        // Путь из БД может быть с префиксом /uploads/ или без него
+        // Нужно привести к единому формату: /uploads/...
+        let finalPhotoPath = null;
+        if (photoStructure.cover) {
+          if (photoStructure.cover.startsWith('/uploads/')) {
+            finalPhotoPath = photoStructure.cover;
+          } else {
+            finalPhotoPath = `/uploads/${photoStructure.cover}`;
+          }
+        }
+        
+        // То же для галереи
+        const finalGalleryPaths = photoStructure.gallery.map(p => {
+          if (p.startsWith('/uploads/')) return p;
+          return `/uploads/${p}`;
+        });
         
         console.log(`📸 Формируем результат для ${modelName}:`, {
           'cover из БД': photoStructure.cover,
@@ -140,7 +154,7 @@ export async function POST(req: NextRequest) {
           photo: finalPhotoPath,
           photos: {
             cover: finalPhotoPath,
-            gallery: photoStructure.gallery.map(p => `/uploads/${p}`)
+            gallery: finalGalleryPaths
           },
           hasGallery: photoStructure.gallery.length > 0
         });
