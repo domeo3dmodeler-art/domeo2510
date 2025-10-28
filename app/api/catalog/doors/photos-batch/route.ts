@@ -110,14 +110,14 @@ export async function POST(req: NextRequest) {
           normalizedPropertyValue
         );
         
-        console.log(`📸 Найдено ${propertyPhotos.length} фото для базового артикула "${article}"`);
+        console.log(`📸 Найдено ${propertyPhotos.length} фото для базового артикула "${propertyValue}"`);
         
         // Всегда ищем фото для вариантов артикула (d2 → d2_1, d2_2, ...)
-        console.log(`🔍 Ищем фото для вариантов артикула "${article}"`);
+        console.log(`🔍 Ищем фото для вариантов артикула "${propertyValue}"`);
         
         // Ищем фото для вариантов: d2 → d2_1, d2_2, d2_3 и т.д.
         for (let i = 1; i <= 10; i++) {
-          const variantArticle = `${article}_${i}`;
+          const variantArticle = `${propertyValue}_${i}`;
           const variantPhotos = await getPropertyPhotos(
             'cmg50xcgs001cv7mn0tdyk1wo',
             'Артикул поставщика',
