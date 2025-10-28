@@ -83,24 +83,29 @@ export async function sendStatusNotification(
   
   const config = notificationConfig[newStatus as keyof typeof notificationConfig];
   
+  // Импортируем настоящую функцию из lib/notifications
+  const { notifyUsersByRole } = await import('@/lib/notifications');
+  
   for (const recipient of config.recipients) {
     if (recipient === 'client') {
-      await notifyClient(clientId, config.message, documentId);
+      // Клиенты не заходят в систему, пропускаем уведомление
+      console.log(`Уведомление клиенту ${clientId}: ${config.message}`);
     } else if (recipient === 'complectator') {
-      await notifyUsersByRole('COMPLECTATOR', config.message, documentId);
+      await notifyUsersByRole('COMPLECTATOR', {
+        clientId,
+        documentId,
+        type: documentType,
+        title: config.message,
+        message: config.message
+      });
     } else if (recipient === 'executor') {
-      await notifyUsersByRole('EXECUTOR', config.message, documentId);
+      await notifyUsersByRole('EXECUTOR', {
+        clientId,
+        documentId,
+        type: documentType,
+        title: config.message,
+        message: config.message
+      });
     }
   }
-}
-
-// Вспомогательные функции (нужно будет реализовать)
-async function notifyClient(clientId: string, message: string, documentId: string) {
-  // Реализация уведомления клиента
-  console.log(`Уведомление клиенту ${clientId}: ${message}`);
-}
-
-async function notifyUsersByRole(role: string, message: string, documentId: string) {
-  // Реализация уведомления пользователей по роли
-  console.log(`Уведомление роли ${role}: ${message}`);
 }

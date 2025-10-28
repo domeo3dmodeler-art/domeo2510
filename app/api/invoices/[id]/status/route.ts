@@ -99,7 +99,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     try {
       if (status === 'PAID') {
         // Уведомляем всех исполнителей о том, что счет оплачен
-        await notifyUsersByRole('executor', {
+        await notifyUsersByRole('EXECUTOR', {
           clientId: existingInvoice.client_id,
           documentId: id,
           type: 'invoice_paid',
@@ -114,7 +114,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           'COMPLETED': 'Исполнен'
         };
         
-        await notifyUsersByRole('complectator', {
+        await notifyUsersByRole('COMPLECTATOR', {
           clientId: existingInvoice.client_id,
           documentId: id,
           type: 'status_changed',

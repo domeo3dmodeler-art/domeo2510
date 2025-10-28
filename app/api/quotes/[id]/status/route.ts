@@ -134,17 +134,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
       if (quoteWithClient) {
         if (status === 'SENT') {
-          // Уведомляем клиента
-          await notifyUsersByRole('client', {
-            clientId: quoteWithClient.client_id,
-            documentId: id,
-            type: 'quote_sent',
-            title: 'КП отправлено',
-            message: `Коммерческое предложение ${quoteWithClient.number} отправлено вам.`
-          });
+          // Клиенты не заходят в систему, пропускаем уведомление
+          console.log('📧 КП отправлено клиенту:', quoteWithClient.number);
         } else if (status === 'ACCEPTED') {
           // Уведомляем комплектатора
-          await notifyUsersByRole('complectator', {
+          await notifyUsersByRole('COMPLECTATOR', {
             clientId: quoteWithClient.client_id,
             documentId: id,
             type: 'quote_accepted',
