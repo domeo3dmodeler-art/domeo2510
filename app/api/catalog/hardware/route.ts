@@ -75,10 +75,46 @@ export async function GET(request: NextRequest) {
         if (props.photos) {
           if (typeof props.photos === 'object' && props.photos.cover) {
             // Формат { cover: "...", gallery: [...] }
-            photos = [props.photos.cover, ...(props.photos.gallery || [])].filter(Boolean);
+            const coverPhoto = props.photos.cover;
+            const galleryPhotos = props.photos.gallery || [];
+            
+            // Нормализуем пути к фото
+            const normalizePhoto = (photo: string) => {
+              if (!photo) return null;
+              // Если путь начинается с "products/", добавляем "/uploads/"
+              if (photo.startsWith('products/')) {
+                return `/uploads/${photo}`;
+              }
+              // Если уже начинается с "/uploads/", возвращаем как есть
+              if (photo.startsWith('/uploads/')) {
+                return photo;
+              }
+              // Если не начинается с "/", добавляем префикс
+              if (!photo.startsWith('/')) {
+                return `/uploads/products/${photo}`;
+              }
+              return photo;
+            };
+            
+            photos = [
+              normalizePhoto(coverPhoto),
+              ...galleryPhotos.map(normalizePhoto)
+            ].filter(Boolean);
           } else if (Array.isArray(props.photos)) {
-            // Массив фото
-            photos = props.photos;
+            // Массив фото - нормализуем каждый
+            photos = props.photos.map((photo: string) => {
+              if (!photo) return null;
+              if (photo.startsWith('products/')) {
+                return `/uploads/${photo}`;
+              }
+              if (photo.startsWith('/uploads/')) {
+                return photo;
+              }
+              if (!photo.startsWith('/')) {
+                return `/uploads/products/${photo}`;
+              }
+              return photo;
+            }).filter(Boolean);
           }
         }
         
