@@ -1310,15 +1310,66 @@ export default function DoorsPage() {
           const data = await response.json();
           console.log('✅ Все данные предзагружены:', data);
           
-          // Сохраняем в кэш для всех стилей
-          setModelsCache(prev => {
-            const newCache = new Map(prev);
-            newCache.set('all', {
-              data: data.models || [],
-              timestamp: Date.now()
-            });
-            return newCache;
-          });
+          const rows = data?.models || [];
+          
+          // Загружаем фото для всех моделей
+          if (rows.length > 0) {
+            try {
+              const modelNames = rows.map((m: any) => m.model);
+              const photoResponse = await fetch('/api/catalog/doors/photos-batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ models: modelNames })
+              });
+              
+              if (photoResponse.ok) {
+                const photoData = await photoResponse.json();
+                console.log('⚡ Предзагрузка фото завершена для', modelNames.length, 'моделей');
+                
+                // Объединяем данные моделей с фото
+                const modelsWithPhotos = rows.map((model: any) => {
+                  const photoInfo = photoData.photos[model.model];
+                  return {
+                    ...model,
+                    photo: photoInfo?.photo || model.photo,
+                    photos: photoInfo?.photos || model.photos,
+                    hasGallery: photoInfo?.photos?.gallery?.length > 0 || false
+                  };
+                });
+                
+                // Сохраняем в кэш с фото
+                setModelsCache(prev => {
+                  const newCache = new Map(prev);
+                  newCache.set('all', {
+                    data: modelsWithPhotos,
+                    timestamp: Date.now()
+                  });
+                  return newCache;
+                });
+              } else {
+                // Сохраняем без фото
+                setModelsCache(prev => {
+                  const newCache = new Map(prev);
+                  newCache.set('all', {
+                    data: rows,
+                    timestamp: Date.now()
+                  });
+                  return newCache;
+                });
+              }
+            } catch (photoError) {
+              console.warn('⚠️ Ошибка предзагрузки фото:', photoError);
+              // Сохраняем без фото
+              setModelsCache(prev => {
+                const newCache = new Map(prev);
+                newCache.set('all', {
+                  data: rows,
+                  timestamp: Date.now()
+                });
+                return newCache;
+              });
+            }
+          }
         }
       } catch (error) {
         console.log('❌ Ошибка предзагрузки:', error);
