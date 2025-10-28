@@ -351,10 +351,16 @@ export async function POST(request: NextRequest) {
           // Формат файла: 1761588175210_db5p3e_akcent_bl.png
           // Нужно извлечь: akcent_bl
           // Убираем расширение
-          const nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "");
+          let nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "");
           // Убираем префикс (первые 2 части через _)
           const parts = nameWithoutExt.split('_');
-          const searchValue = parts.slice(2).join('_').toLowerCase();
+          // Берем все части после префикса и склеиваем обратно
+          const extractedName = parts.slice(2).join('_');
+          // Убираем лишние пробелы
+          const searchValue = extractedName.replace(/\s+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();
+          
+          // Логируем для отладки
+          console.log(`Файл: ${photo.originalName}, Части: ${parts.join('|')}, Извлеченное имя: "${searchValue}"`);
           
           console.log(`Ищем товары по свойству "${mappingProperty}" = "${searchValue}"`);
 
