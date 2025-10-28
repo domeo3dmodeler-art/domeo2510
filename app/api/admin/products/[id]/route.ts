@@ -100,7 +100,7 @@ export async function PUT(
         ...(properties_data && { properties_data: JSON.stringify(properties_data) }),
         ...(specifications && { specifications: JSON.stringify(specifications) }),
         ...(is_active !== undefined && { is_active: Boolean(is_active) }),
-        ...(sort_order !== undefined && { sort_order: parseInt(sort_order) || 0 }),
+        // sort_order удален из схемы Prisma, поэтому не обновляем его
         updated_at: new Date(),
       },
       include: {
