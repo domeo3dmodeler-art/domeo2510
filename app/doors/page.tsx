@@ -1197,12 +1197,14 @@ export default function DoorsPage() {
                   console.log(`📸 Model ${model.model}:`, {
                     'photoInfo': photoInfo,
                     'model.photo': model.photo,
-                    'final photo': photoInfo?.photo || model.photo
+                    'final photo': photoInfo?.photo || model.photo,
+                    'hasGallery': photoInfo?.photos?.gallery?.length > 0
                   });
                   return {
                     ...model,
                     photo: photoInfo?.photo || model.photo,
-                    photos: photoInfo?.photos || model.photos
+                    photos: photoInfo?.photos || model.photos,
+                    hasGallery: photoInfo?.photos?.gallery?.length > 0 || false
                   };
                 });
                 
