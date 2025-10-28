@@ -267,7 +267,6 @@ export default function ExecutorDashboard() {
       'PAID': 'Оплачен/Заказ',
       'ORDERED': 'Заказ размещен',
       'CANCELLED': 'Отменен',
-      'IN_PRODUCTION': 'В производстве',
       'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
       'COMPLETED': 'Исполнен',
       // Поддержка старых строчных статусов
@@ -288,7 +287,7 @@ export default function ExecutorDashboard() {
     const statusMap: Record<string, 'Черновик'|'Отправлен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'> = {
       'PENDING': 'Черновик',
       'SENT': 'Отправлен',
-      'IN_PRODUCTION': 'Заказ размещен',
+      'ORDERED': 'Заказ размещен',
       'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
       'COMPLETED': 'Исполнен',
       // Поддержка старых строчных статусов
@@ -399,13 +398,24 @@ export default function ExecutorDashboard() {
   // Показать выпадающее меню статуса
   const showStatusDropdown = (type: 'invoice'|'supplier_order', id: string, event: React.MouseEvent) => {
     console.log('🎯 Showing status dropdown:', { type, id });
-    const rect = event.currentTarget.getBoundingClientRect();
-    setStatusDropdown({
-      type,
-      id,
-      x: rect.left,
-      y: rect.bottom + 4
-    });
+    
+    // Проверяем, что элемент существует
+    if (!event.currentTarget) {
+      console.error('❌ event.currentTarget is null');
+      return;
+    }
+    
+    try {
+      const rect = event.currentTarget.getBoundingClientRect();
+      setStatusDropdown({
+        type,
+        id,
+        x: rect.left,
+        y: rect.bottom + 4
+      });
+    } catch (error) {
+      console.error('❌ Error getting bounding rect:', error);
+    }
   };
 
   // Скрыть выпадающее меню
@@ -424,7 +434,7 @@ export default function ExecutorDashboard() {
         'Отправлен': 'SENT',
         'Оплачен/Заказ': 'PAID',
         'Отменен': 'CANCELLED',
-        'В производстве': 'IN_PRODUCTION',
+        'Заказ размещен': 'ORDERED',
         'Получен от поставщика': 'RECEIVED_FROM_SUPPLIER',
         'Исполнен': 'COMPLETED'
       };
@@ -452,7 +462,7 @@ export default function ExecutorDashboard() {
           'SENT': 'Отправлен',
           'PAID': 'Оплачен/Заказ',
           'CANCELLED': 'Отменен',
-          'IN_PRODUCTION': 'В производстве',
+          'ORDERED': 'Заказ размещен',
           'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
           'COMPLETED': 'Исполнен'
         };
@@ -1270,7 +1280,7 @@ export default function ExecutorDashboard() {
                 if (!invoice) return null;
                 
                 const getAllStatuses = () => {
-                  return ['Черновик', 'Отправлен', 'Оплачен/Заказ', 'Отменен'];
+                  return ['Черновик', 'Отправлен', 'Оплачен/Заказ', 'Заказ размещен', 'Получен от поставщика', 'Исполнен', 'Отменен'];
                 };
                 
                 const allStatuses = getAllStatuses();
@@ -1328,7 +1338,7 @@ export default function ExecutorDashboard() {
                         // Маппинг русских статусов на английские для API
                         const statusMap: Record<string, string> = {
                           'Заказ размещен': 'ORDERED',
-                          'Получен от поставщика': 'READY',
+                          'Получен от поставщика': 'RECEIVED_FROM_SUPPLIER',
                           'Исполнен': 'COMPLETED'
                         };
                         
