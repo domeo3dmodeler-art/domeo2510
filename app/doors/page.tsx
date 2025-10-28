@@ -3854,7 +3854,6 @@ function DoorCard({
             <div className="h-full w-full animate-pulse bg-gray-200" />
           ) : imageSrc ? (
             <>
-              {console.log('🎨 RENDERING IMG with src:', imageSrc)}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={imageSrc}
