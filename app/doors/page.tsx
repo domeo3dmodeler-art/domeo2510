@@ -3850,7 +3850,7 @@ function DoorCard({
     >
         {/* Фото полностью заполняет карточку с правильным соотношением сторон для дверей */}
         <div className="aspect-[16/33] w-full bg-gray-50 relative group">
-              {isLoading ? (
+          {isLoading ? (
             <div className="h-full w-full animate-pulse bg-gray-200" />
           ) : imageSrc ? (
             <>
