@@ -3849,16 +3849,16 @@ function DoorCard({
       ].join(" ")}
     >
         {/* Фото полностью заполняет карточку с правильным соотношением сторон для дверей */}
-        <div className="aspect-[16/33] w-full bg-gray-50 relative group">
+        <div className="aspect-[16/33] w-full bg-gray-50 relative group overflow-hidden">
           {isLoading ? (
-            <div className="h-full w-full animate-pulse bg-gray-200" />
+            <div className="absolute inset-0 animate-pulse bg-gray-200" />
           ) : imageSrc ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={imageSrc}
                 alt={formatModelNameForCard(item.model)}
-                className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
+                className="absolute inset-0 w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                 onLoad={() => console.log('✅ Изображение загружено для', item.model, ':', imageSrc)}
                 onError={(e) => {
                   console.error('❌ ОШИБКА ЗАГРУЗКИ изображения:', imageSrc);
