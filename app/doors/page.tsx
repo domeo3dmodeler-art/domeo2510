@@ -3860,17 +3860,13 @@ function DoorCard({
                 src={imageSrc}
                 alt={formatModelNameForCard(item.model)}
                 className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
-                onError={(e) => {
-                  console.log('❌ Ошибка загрузки изображения:', imageSrc);
-                  console.log('❌ item.photo:', item.photo);
-                  console.log('❌ Тип imageSrc:', typeof imageSrc);
-                  setImageSrc(null);
-                }}
                 onLoad={() => console.log('✅ Изображение загружено для', item.model, ':', imageSrc)}
                 onError={(e) => {
                   console.error('❌ ОШИБКА ЗАГРУЗКИ изображения:', imageSrc);
-                  console.error('❌ Event:', e);
+                  console.error('❌ item.photo:', item.photo);
+                  console.error('❌ Тип imageSrc:', typeof imageSrc);
                   console.error('❌ item:', item);
+                  setImageSrc(null);
                 }}
               />
               {/* Индикатор галереи */}
