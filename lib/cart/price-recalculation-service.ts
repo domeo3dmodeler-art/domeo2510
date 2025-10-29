@@ -16,8 +16,10 @@ export interface PriceRecalculationOptions {
   timeout?: number;
 }
 
+type CachedPriceResult = PriceCalculationResult & { timestamp: number };
+
 class PriceRecalculationService {
-  private cache = new Map<string, PriceCalculationResult>();
+  private cache = new Map<string, CachedPriceResult>();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 минут
   private readonly DEFAULT_TIMEOUT = 10000; // 10 секунд
 
