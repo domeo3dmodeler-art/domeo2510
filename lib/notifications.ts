@@ -13,16 +13,24 @@ export interface NotificationData {
 export async function createNotification(data: NotificationData) {
   try {
     // Проверяем дублирование: не создавать уведомление, если такое же уже есть
-    const existingNotification = await prisma.notification.findFirst({
-      where: {
-        user_id: data.userId,
-        document_id: data.documentId || null,
-        type: data.type,
-        is_read: false,
-        created_at: {
-          gte: new Date(Date.now() - 5 * 60 * 1000) // в последние 5 минут
-        }
+    // Для уведомлений о смене статуса учитываем title для более точного определения дубликата
+    const whereClause: any = {
+      user_id: data.userId,
+      document_id: data.documentId || null,
+      type: data.type,
+      is_read: false,
+      created_at: {
+        gte: new Date(Date.now() - 5 * 60 * 1000) // в последние 5 минут
       }
+    };
+    
+    // Если type содержит статус (формат "documentType:status"), проверяем также title для более точного определения
+    if (data.type.includes(':')) {
+      whereClause.title = data.title;
+    }
+    
+    const existingNotification = await prisma.notification.findFirst({
+      where: whereClause
     });
 
     if (existingNotification) {

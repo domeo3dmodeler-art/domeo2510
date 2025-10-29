@@ -113,7 +113,7 @@ export async function sendStatusNotification(
       await notifyUsersByRole('COMPLECTATOR', {
         clientId: clientId || undefined,
         documentId,
-        type: documentType,
+        type: `${documentType}:${newStatus}`, // Включаем статус в type для правильной дедубликации
         title: `${config.message} [${documentNumber}]`,
         message: `${config.message} Документ: ${documentNumber}`
       });
@@ -122,7 +122,7 @@ export async function sendStatusNotification(
       await notifyUsersByRole('EXECUTOR', {
         clientId: clientId || undefined,
         documentId,
-        type: documentType,
+        type: `${documentType}:${newStatus}`, // Включаем статус в type для правильной дедубликации
         title: `${config.message} [${documentNumber}]`,
         message: `${config.message} Документ: ${documentNumber}`
       });
