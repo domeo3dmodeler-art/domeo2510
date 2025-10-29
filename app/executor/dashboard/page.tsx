@@ -635,10 +635,11 @@ export default function ExecutorDashboard() {
       }
 
       // Создаем заказ у поставщика через API
-      const response = await fetch('/api/supplier-orders', {
+      const response = await fetch(`${window.location.origin}/api/supplier-orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          invoiceId: invoiceId,
           orderId: orderId,
           supplierName: 'Поставщик по умолчанию',
           supplierEmail: '',
