@@ -768,6 +768,7 @@ export default function DoorsPage() {
   const [showHandleModal, setShowHandleModal] = useState(false);
   const [hideSidePanels, setHideSidePanels] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const [showHandleInfo, setShowHandleInfo] = useState(false);
   
   // Состояние для редактирования корзины
   const [editingItem, setEditingItem] = useState<string | null>(null);
@@ -2209,10 +2210,7 @@ export default function DoorsPage() {
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
-                              onClick={() => {
-                                // TODO: Добавить функциональность информации о ручке
-                                alert('Информация о ручке');
-                              }}
+                              onClick={() => setShowHandleInfo(!showHandleInfo)}
                               className="text-gray-500 hover:text-gray-700 transition-colors"
                               title="Показать описание"
                             >
@@ -2221,13 +2219,30 @@ export default function DoorsPage() {
                               </svg>
                             </button>
                             <div className="text-sm font-medium text-gray-900 min-w-[80px] text-right">
-                              {Object.values(handles).flat().find(h => h.id === sel.handle?.id)?.price ? 
-                                `${fmtInt(Object.values(handles).flat().find(h => h.id === sel.handle?.id)!.price)} ₽` : 
-                                ''
-                              }
+                              {(() => {
+                                const selectedHandle = Object.values(handles).flat().find(h => h.id === sel.handle?.id);
+                                return selectedHandle?.price ? `${fmtInt(selectedHandle.price)} ₽` : '';
+                              })()}
                             </div>
                           </div>
                         )}
+                        {/* Информация о ручке */}
+                        {showHandleInfo && sel.handle?.id && (() => {
+                          const selectedHandle = Object.values(handles).flat().find(h => h.id === sel.handle?.id);
+                          if (!selectedHandle) return null;
+                          return (
+                            <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded text-sm text-gray-700">
+                              <div className="space-y-1">
+                                <div><span className="font-medium">Группа:</span> {selectedHandle.group || 'Не указана'}</div>
+                                <div><span className="font-medium">Поставщик:</span> {selectedHandle.supplier || 'Не указан'}</div>
+                                <div><span className="font-medium">Наименование:</span> {selectedHandle.factoryName || 'Не указано'}</div>
+                                <div><span className="font-medium">Артикул:</span> {selectedHandle.article || 'Не указан'}</div>
+                                <div><span className="font-medium">Наличие в шоуруме:</span> {selectedHandle.showroom ? 'Да' : 'Нет'}</div>
+                                <div><span className="font-medium">Цена:</span> {fmtInt(selectedHandle.price)} ₽</div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                     </div>
