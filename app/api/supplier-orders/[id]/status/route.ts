@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { notifyUsersByRole } from '@/lib/notifications';
 
 const VALID_STATUSES = ['PENDING', 'ORDERED', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED', 'CANCELLED'];
 
@@ -48,6 +47,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     
     console.log('✅ API: Supplier order updated successfully:', updatedSupplierOrder);
 
+    // Сохраняем старый статус для уведомлений
+    const oldStatus = existingSupplierOrder.status;
+
     // Получаем связанные данные для уведомлений
     let parentUser = null;
     if (updatedSupplierOrder.parent_document_id) {
@@ -85,63 +87,71 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     // Синхронизируем статус со всеми связанными документами
-    if (parentUser && updatedSupplierOrder.parent_document_id) {
+    // SupplierOrder теперь связан напрямую с Invoice через parent_document_id
+    if (updatedSupplierOrder.parent_document_id) {
       try {
         await synchronizeDocumentStatuses(updatedSupplierOrder.parent_document_id, status);
         console.log('✅ API: All document statuses synchronized');
+      } catch (syncError) {
+        console.error('❌ API: Error synchronizing document statuses:', syncError);
+        // Не прерываем выполнение, если синхронизация не удалась
+      }
+    }
 
-        // Создаем уведомление для комплектатора
-        const statusLabels: Record<string, string> = {
-          'ORDERED': 'Заказ размещен',
-          'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
-          'COMPLETED': 'Исполнен'
-        };
+    // Отправляем уведомления через универсальную функцию
+    try {
+      // Получаем данные заказа у поставщика для уведомлений
+      const supplierOrderForNotification = await prisma.supplierOrder.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          number: true,
+          status: true,
+          parent_document_id: true
+        }
+      });
 
-        const statusLabel = statusLabels[status] || status;
-        
-        // Получаем счет
+      if (supplierOrderForNotification && supplierOrderForNotification.parent_document_id) {
+        // Получаем связанный Invoice для client_id
         const invoice = await prisma.invoice.findUnique({
-          where: { id: updatedSupplierOrder.parent_document_id },
+          where: { id: supplierOrderForNotification.parent_document_id },
           select: {
             id: true,
             number: true,
-            status: true,
             client_id: true
           }
         });
+
+        console.log('🔔 Отправка уведомления о смене статуса SupplierOrder:', {
+          documentId: id,
+          documentType: 'supplier_order',
+          documentNumber: supplierOrderForNotification.number,
+          oldStatus,
+          newStatus: status,
+          clientId: invoice?.client_id
+        });
         
-        if (invoice) {
-          // Маппинг статусов счета для отображения
-          const invoiceStatusLabels: Record<string, string> = {
-            'DRAFT': 'Черновик',
-            'SENT': 'Отправлен',
-            'PAID': 'Оплачен',
-            'ORDERED': 'Заказ размещен',
-            'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
-            'COMPLETED': 'Исполнен',
-            'CANCELLED': 'Отменен'
-          };
-          
-          const invoiceStatusLabel = invoiceStatusLabels[invoice.status] || invoice.status;
-          const invoiceInfo = `Счет ${invoice.number} переведен в статус "${invoiceStatusLabel}"`;
-          
-          // Уведомляем всех комплектаторов
-          await notifyUsersByRole('COMPLECTATOR', {
-            clientId: invoice.client_id,
-            documentId: invoice.id,
-            type: 'status_changed',
-            title: 'Изменение статуса заказа',
-            message: invoiceInfo
-          });
-          
-          console.log('✅ API: Notification sent to all complettators');
-        } else {
-          console.log('⚠️ API: Could not find invoice or client for notification');
-        }
-      } catch (notificationError) {
-        console.error('⚠️ API: Error sending notification:', notificationError);
-        // Не прерываем выполнение, если уведомление не отправилось
+        const { sendStatusNotification } = await import('@/lib/notifications/status-notifications');
+        await sendStatusNotification(
+          id,
+          'supplier_order',
+          supplierOrderForNotification.number || supplierOrderForNotification.id,
+          oldStatus,
+          status,
+          invoice?.client_id || ''
+        );
+        
+        console.log('✅ Уведомление SupplierOrder отправлено успешно');
+      } else {
+        console.log('⚠️ API: Could not find supplier order or parent document for notification');
       }
+    } catch (notificationError) {
+      console.error('❌ Не удалось отправить уведомление SupplierOrder:', notificationError);
+      console.error('❌ Детали ошибки:', {
+        message: notificationError instanceof Error ? notificationError.message : String(notificationError),
+        stack: notificationError instanceof Error ? notificationError.stack : undefined
+      });
+      // Не прерываем выполнение, если не удалось отправить уведомление
     }
 
     return NextResponse.json({
