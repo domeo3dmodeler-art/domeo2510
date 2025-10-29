@@ -137,14 +137,9 @@ export function canUserChangeStatus(
           return false;
         }
       }
-      // EXECUTOR может менять Invoice только в статусах ORDERED, RECEIVED, COMPLETED
-      if (userRole === UserRole.EXECUTOR) {
-        const allowedStatuses = ['PAID', 'ORDERED', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED'];
-        if (documentStatus && !allowedStatuses.includes(documentStatus)) {
-          return false; // EXECUTOR может менять только указанные статусы
-        }
-      }
-      return userRole === UserRole.ADMIN || userRole === UserRole.COMPLECTATOR || userRole === UserRole.EXECUTOR;
+      // EXECUTOR НЕ может менять Invoice напрямую
+      // Он меняет SupplierOrder, а Invoice синхронизируется автоматически
+      return userRole === UserRole.ADMIN || userRole === UserRole.COMPLECTATOR;
     
     case 'order':
       return userRole === UserRole.ADMIN || userRole === UserRole.EXECUTOR;

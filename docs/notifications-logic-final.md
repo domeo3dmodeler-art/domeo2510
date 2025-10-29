@@ -86,12 +86,14 @@ COMPLETED:
 |--------|--------------|-------------|-------|
 | DRAFT | ✅ | ❌ | ✅ |
 | SENT | ✅ | ❌ | ✅ |
-| **PAID** | ✅ *(только СТАВИТЬ)* | ✅ *(только СТАВИТЬ)* | ✅ |
-| **ORDERED** | ❌ | ✅ | ✅ |
-| **RECEIVED** | ❌ | ✅ | ✅ |
-| **COMPLETED** | ❌ | ✅ | ✅ |
+| **PAID** | ✅ *(устанавливает)* | ❌ | ✅ |
+| **ORDERED** | ❌ | ❌ *(только через SupplierOrder)* | ✅ |
+| **RECEIVED** | ❌ | ❌ *(только через SupplierOrder)* | ✅ |
+| **COMPLETED** | ❌ | ❌ *(только через SupplierOrder)* | ✅ |
 
 **Жирные статусы** - блокируются для Комплектатора
+
+**Важно:** Исполнитель НЕ может менять Invoice напрямую. Он меняет SupplierOrder, а Invoice синхронизируется автоматически.
 
 ---
 
@@ -118,14 +120,9 @@ export function canUserChangeStatus(
           return false;
         }
       }
-      // EXECUTOR может менять Invoice только в статусах ORDERED, RECEIVED, COMPLETED
-      if (userRole === UserRole.EXECUTOR) {
-        const allowedStatuses = ['PAID', 'ORDERED', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED'];
-        if (documentStatus && !allowedStatuses.includes(documentStatus)) {
-          return false;
-        }
-      }
-      return userRole === UserRole.ADMIN || userRole === UserRole.COMPLECTATOR || userRole === UserRole.EXECUTOR;
+      // EXECUTOR НЕ может менять Invoice напрямую
+      // Он меняет SupplierOrder, а Invoice синхронизируется автоматически
+      return userRole === UserRole.ADMIN || userRole === UserRole.COMPLECTATOR;
   }
 }
 ```
@@ -173,11 +170,10 @@ export function canUserChangeStatus(
 5. ❌ НЕ может менять Invoice после PAID
 
 ### Исполнитель может:
-1. ✅ Переводить Invoice из PAID в ORDERED
-2. ✅ Переводить Invoice из ORDERED в RECEIVED_FROM_SUPPLIER
-3. ✅ Переводить Invoice из RECEIVED в COMPLETED
-4. ✅ Создавать SupplierOrder
-5. ✅ Менять статусы SupplierOrder
+1. ✅ Создавать SupplierOrder
+2. ✅ Менять статусы SupplierOrder
+3. ❌ НЕ может менять Invoice напрямую
+4. ✅ Invoice синхронизируется автоматически при изменении SupplierOrder
 
 ### Автоматическая синхронизация
 ```
