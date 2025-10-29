@@ -2480,12 +2480,14 @@ export default function DoorsPage() {
                     {cart.map((i) => {
                       // Если это ручка, отображаем отдельно
                       if (i.handleId) {
+                        // ИСПРАВЛЕНИЕ: Всегда используем актуальное имя из каталога, а не item.handleName
                         const handle = Object.values(handles).flat().find((h: Handle) => h.id === i.handleId);
+                        const currentHandleName = handle?.name || i.handleName || "Ручка";
                         return (
                           <div key={i.id} className="border border-black/10 p-3">
                         <div className="flex items-center justify-between">
                           <div className="font-medium text-black text-sm">
-                                {handle?.name ? `Ручка ${handle.name}` : "Ручка"}
+                                {currentHandleName ? `Ручка ${currentHandleName}` : "Ручка"}
                           </div>
                               <div className="text-sm">
                                 <span className="text-gray-600">{i.qty}×{fmtInt(i.unitPrice)}</span>
@@ -2503,7 +2505,10 @@ export default function DoorsPage() {
                             <div className="text-sm">
                               <div className="font-medium text-black">
                                 {i.type === 'handle' 
-                                  ? `Ручка ${i.handleName || 'Неизвестная ручка'}`
+                                  ? (() => {
+                                      const displayHandle = i.handleId ? Object.values(handles).flat().find((h: Handle) => h.id === i.handleId) : null;
+                                      return `Ручка ${displayHandle?.name || i.handleName || 'Неизвестная ручка'}`;
+                                    })()
                                   : `Дверь DomeoDoors ${i.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель'}`
                                 }
                               </div>
@@ -3294,18 +3299,25 @@ function CartManager({
       return;
     }
 
-    // Для ручек получаем цену из каталога
+    // Для ручек получаем цену и актуальное название из каталога
     if (updatedItem.handleId) {
       const handle = Object.values(handles).flat().find((h: Handle) => h.id === updatedItem.handleId);
       const newPrice = handle ? handle.price : updatedItem.unitPrice;
-      console.log('🔧 Handle price update:', { handleId: updatedItem.handleId, newPrice });
+      const newHandleName = handle ? handle.name : undefined;
+      console.log('🔧 Handle price update:', { handleId: updatedItem.handleId, newPrice, newHandleName });
+      // ИСПРАВЛЕНИЕ: Обновляем также handleName из актуального каталога
       // ИСПРАВЛЕНИЕ #2: Сохраняем цену ручки для использования при подтверждении
       if (itemId === editingItem) {
         setEditingItemPrice(newPrice);
       }
       
       setCart(prev => prev.map(item => 
-        item.id === itemId ? { ...item, ...changes, unitPrice: newPrice } : item
+        item.id === itemId ? { 
+          ...item, 
+          ...changes, 
+          unitPrice: newPrice,
+          handleName: newHandleName // Обновляем название из актуального каталога
+        } : item
       ));
       return;
     }
@@ -3394,11 +3406,17 @@ function CartManager({
       }
 
       // Обновляем корзину
-      setCart(prev => prev.map(item => 
-        item.id === editingItem 
-          ? { ...item, unitPrice: newPrice }
-          : item
-      ));
+      // ИСПРАВЛЕНИЕ: Для ручек также обновляем handleName из актуального каталога
+      setCart(prev => prev.map(item => {
+        if (item.id === editingItem) {
+          if (currentItem.handleId) {
+            const handle = Object.values(handles).flat().find((h: Handle) => h.id === currentItem.handleId);
+            return { ...item, unitPrice: newPrice, handleName: handle?.name };
+          }
+          return { ...item, unitPrice: newPrice };
+        }
+        return item;
+      }));
 
       // Сохраняем в историю
       // ИСПРАВЛЕНИЕ #1: Используем cartManagerBasePrices вместо originalPrices для единообразия
@@ -3639,13 +3657,31 @@ function CartManager({
                 const isEditing = editingItem === item.id;
                 
                 if (item.handleId) {
+                  // ИСПРАВЛЕНИЕ: Всегда используем актуальное имя из каталога, а не item.handleName
                   const handle = Object.values(handles).flat().find((h: Handle) => h.id === item.handleId);
+                  const currentHandleName = handle?.name || item.handleName || "Ручка";
                   return (
                   <div key={item.id} className="border border-gray-200 rounded-lg p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
+                        {/* ИСПРАВЛЕНИЕ: Отображаем фото ручки при редактировании */}
+                        {isEditing && handle?.photos && handle.photos.length > 0 && (
+                          <div className="mb-2 flex items-center space-x-2">
+                            {handle.photos.slice(0, 3).map((photo, idx) => (
+                              <img
+                                key={idx}
+                                src={photo.startsWith('/uploads') ? `/api${photo}` : `/api/uploads${photo}`}
+                                alt={`${currentHandleName} фото ${idx + 1}`}
+                                className="w-12 h-12 object-cover rounded border border-gray-200"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                            ))}
+                          </div>
+                        )}
                         <div className="font-medium text-black text-sm truncate">
-                          {handle?.name ? `Ручка ${handle.name}` : "Ручка"}
+                          {currentHandleName ? `Ручка ${currentHandleName}` : "Ручка"}
                         </div>
                       </div>
                       <div className="flex items-center space-x-4 ml-6">
@@ -3698,19 +3734,44 @@ function CartManager({
                         <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded">
                           {/* Компактная строка с селектами и кнопками */}
                           <div className="flex items-center space-x-2 mb-4">
-                            {/* Ручка */}
+                            {/* Ручка с фото */}
                             <div className="flex-shrink-0">
                               <label className="block text-xs font-medium text-gray-700 mb-1">Ручка</label>
-                              <select
-                                value={item.handleId || ''}
-                                onChange={(e) => updateCartItem(item.id, { handleId: e.target.value })}
-                                className="w-32 text-xs border border-gray-300 rounded px-1 py-1"
-                              >
-                                <option value="">Выберите</option>
-                                {availableParams.handles?.map((handle: {id: string, name: string, group: string}) => (
-                                  <option key={handle.id} value={handle.id}>Ручка {handle.name}</option>
-                                ))}
-                              </select>
+                              <div className="flex items-center space-x-2">
+                                {/* Фото выбранной ручки */}
+                                {item.handleId && handle?.photos && handle.photos.length > 0 && (
+                                  <div className="flex space-x-1">
+                                    {handle.photos.slice(0, 2).map((photo, idx) => (
+                                      <img
+                                        key={idx}
+                                        src={photo.startsWith('/uploads') ? `/api${photo}` : `/api/uploads${photo}`}
+                                        alt={`${handle.name} фото ${idx + 1}`}
+                                        className="w-10 h-10 object-cover rounded border border-gray-300"
+                                        onError={(e) => {
+                                          (e.target as HTMLImageElement).style.display = 'none';
+                                        }}
+                                      />
+                                    ))}
+                                  </div>
+                                )}
+                                <select
+                                  value={item.handleId || ''}
+                                  onChange={(e) => updateCartItem(item.id, { handleId: e.target.value })}
+                                  className="w-32 text-xs border border-gray-300 rounded px-1 py-1"
+                                >
+                                  <option value="">Выберите</option>
+                                  {availableParams.handles?.map((handleOption: {id: string, name: string, group: string}) => {
+                                    // ИСПРАВЛЕНИЕ: Используем актуальное имя из каталога handles, а не из availableParams
+                                    const fullHandle = Object.values(handles).flat().find((h: Handle) => h.id === handleOption.id);
+                                    const displayName = fullHandle?.name || handleOption.name;
+                                    return (
+                                      <option key={handleOption.id} value={handleOption.id}>
+                                        Ручка {displayName}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              </div>
                             </div>
 
                             {/* Кнопки */}
@@ -3744,7 +3805,10 @@ function CartManager({
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-black text-sm truncate">
                           {item.type === 'handle' 
-                            ? `Ручка ${item.handleName || 'Неизвестная ручка'}`
+                            ? (() => {
+                              const displayHandle = Object.values(handles).flat().find((h: Handle) => h.id === item.handleId);
+                              return `Ручка ${displayHandle?.name || item.handleName || 'Неизвестная ручка'}`;
+                            })()
                             : `Дверь DomeoDoors ${item.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель'}`
                           }
                         </div>
@@ -4016,7 +4080,10 @@ function CartManager({
                                   <div key={itemId} className="text-xs text-gray-700">
                                     <span className="font-medium">
                                       {item?.type === 'handle' 
-                                        ? `Ручка ${item.handleName || itemId}`
+                                        ? (() => {
+                                            const displayHandle = Object.values(handles).flat().find((h: Handle) => h.id === item?.handleId);
+                                            return `Ручка ${displayHandle?.name || item?.handleName || itemId}`;
+                                          })()
                                         : `Дверь ${item?.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || itemId}`}
                                     </span>
                                     {' - Цена: '}
