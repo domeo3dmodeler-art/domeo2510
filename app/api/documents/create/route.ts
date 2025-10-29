@@ -109,18 +109,43 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Нормализация items для сравнения
+// Нормализация items для сравнения (улучшенная версия с учетом всех важных полей)
 function normalizeItems(items: any[]): any[] {
-  return items.map(item => ({
-    id: String(item.id || ''),
-    type: String(item.type || ''),
-    model: String(item.model || item.name || ''),
-    quantity: Number(item.qty || item.quantity || 1),
-    unitPrice: Number(item.unitPrice || item.price || 0)
-  })).sort((a, b) => {
+  return items.map(item => {
+    // Нормализуем основные поля
+    const normalized: any = {
+      type: String(item.type || 'door').toLowerCase(),
+      style: String(item.style || '').toLowerCase().trim(),
+      model: String(item.model || item.name || '').toLowerCase().trim(),
+      finish: String(item.finish || '').toLowerCase().trim(),
+      color: String(item.color || '').toLowerCase().trim(),
+      width: Number(item.width || 0),
+      height: Number(item.height || 0),
+      quantity: Number(item.qty || item.quantity || 1),
+      unitPrice: Number(item.unitPrice || item.price || 0),
+      // Фурнитура и ручки
+      hardwareKitId: String(item.hardwareKitId || '').trim(),
+      handleId: String(item.handleId || '').trim(),
+      // Дополнительные идентификаторы
+      sku_1c: String(item.sku_1c || '').trim()
+    };
+    
+    // Для ручек - сравниваем только handleId и quantity
+    if (normalized.type === 'handle' || item.handleId) {
+      return {
+        type: 'handle',
+        handleId: normalized.handleId,
+        quantity: normalized.quantity,
+        unitPrice: normalized.unitPrice
+      };
+    }
+    
+    // Для дверей - сравниваем все параметры
+    return normalized;
+  }).sort((a, b) => {
     // Сортируем для консистентного сравнения
-    const keyA = `${a.type}:${a.model}:${a.id}`;
-    const keyB = `${b.type}:${b.model}:${b.id}`;
+    const keyA = `${a.type}:${(a.handleId || a.model || '')}:${a.finish}:${a.color}:${a.width}:${a.height}:${a.hardwareKitId}`;
+    const keyB = `${b.type}:${(b.handleId || b.model || '')}:${b.finish}:${b.color}:${b.width}:${b.height}:${b.hardwareKitId}`;
     return keyA.localeCompare(keyB);
   });
 }
@@ -141,9 +166,27 @@ function compareCartContent(items1: any[], items2String: string | null): boolean
       const item1 = normalized1[i];
       const item2 = normalized2[i];
       
-      if (item1.id !== item2.id || 
-          item1.type !== item2.type || 
+      // Для ручек сравниваем только handleId, quantity и unitPrice
+      if (item1.type === 'handle' || item2.type === 'handle') {
+        if (item1.type !== item2.type ||
+            item1.handleId !== item2.handleId ||
+            item1.quantity !== item2.quantity ||
+            Math.abs(item1.unitPrice - item2.unitPrice) > 0.01) {
+          return false;
+        }
+        continue;
+      }
+      
+      // Для дверей сравниваем все важные параметры
+      if (item1.type !== item2.type || 
+          item1.style !== item2.style ||
           item1.model !== item2.model ||
+          item1.finish !== item2.finish ||
+          item1.color !== item2.color ||
+          item1.width !== item2.width ||
+          item1.height !== item2.height ||
+          item1.hardwareKitId !== item2.hardwareKitId ||
+          item1.handleId !== item2.handleId ||
           item1.quantity !== item2.quantity ||
           Math.abs(item1.unitPrice - item2.unitPrice) > 0.01) { // Допуск на округление
         return false;
@@ -458,15 +501,11 @@ async function createDocumentRecord(
 
 // Создание хеша содержимого для сравнения
 function createContentHash(clientId: string, items: any[], totalAmount: number): string {
+  // Используем нормализованные items для создания хеша
+  const normalized = normalizeItems(items);
   const content = {
     client_id: clientId,
-    items: items.map(item => ({
-      id: item.id,
-      type: item.type,
-      quantity: item.qty || item.quantity,
-      unitPrice: item.unitPrice || item.price,
-      name: item.name
-    })),
+    items: normalized,
     total_amount: totalAmount
   };
   
