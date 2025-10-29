@@ -3765,8 +3765,10 @@ function CartManager({
                               <label className="block text-xs font-medium text-gray-700 mb-1">Ручка</label>
                               <button
                                 onClick={() => {
-                                  setEditingHandleItemId(item.id);
-                                  setShowHandleModalInCart(true);
+                                  if (item.id) {
+                                    setEditingHandleItemId(item.id);
+                                    setShowHandleModalInCart(true);
+                                  }
                                 }}
                                 className="w-full text-xs border border-gray-300 rounded px-3 py-2 bg-white hover:bg-gray-50 text-left flex items-center justify-between min-w-[200px]"
                               >
@@ -4166,22 +4168,33 @@ function CartManager({
       )}
 
       {/* Модальное окно выбора ручек для редактирования в корзине */}
-      {showHandleModalInCart && editingHandleItemId && (
-        <HandleSelectionModal
-          handles={handles}
-          selectedHandleId={editingHandleItemId ? cart.find(i => i.id === editingHandleItemId)?.handleId : undefined}
-          onSelect={(handleId: string) => {
-            // Обновляем ручку в товаре корзины
-            updateCartItem(editingHandleItemId, { handleId });
-            setShowHandleModalInCart(false);
-            setEditingHandleItemId(null);
-          }}
-          onClose={() => {
-            setShowHandleModalInCart(false);
-            setEditingHandleItemId(null);
-          }}
-        />
-      )}
+      {showHandleModalInCart && editingHandleItemId && (() => {
+        const editingItem = cart.find(i => i.id === editingHandleItemId);
+        if (!editingItem) {
+          // Если товар не найден, закрываем модальное окно
+          setShowHandleModalInCart(false);
+          setEditingHandleItemId(null);
+          return null;
+        }
+        return (
+          <HandleSelectionModal
+            handles={handles}
+            selectedHandleId={editingItem.handleId}
+            onSelect={(handleId: string) => {
+              // Обновляем ручку в товаре корзины
+              if (editingHandleItemId) {
+                updateCartItem(editingHandleItemId, { handleId });
+              }
+              setShowHandleModalInCart(false);
+              setEditingHandleItemId(null);
+            }}
+            onClose={() => {
+              setShowHandleModalInCart(false);
+              setEditingHandleItemId(null);
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }
