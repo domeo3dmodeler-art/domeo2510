@@ -2220,8 +2220,8 @@ export default function DoorsPage() {
                             </button>
                             <div className="text-sm font-medium text-gray-900 min-w-[80px] text-right">
                               {(() => {
-                                const selectedHandle = Object.values(handles).flat().find(h => h.id === sel.handle?.id);
-                                return selectedHandle?.price ? `${fmtInt(selectedHandle.price)} ₽` : '';
+                                const selectedHandle = sel.handle?.id ? Object.values(handles).flat().find(h => h.id === sel.handle?.id) : undefined;
+                                return selectedHandle?.price !== undefined ? `${fmtInt(selectedHandle.price)} ₽` : '';
                               })()}
                             </div>
                           </div>
@@ -2279,14 +2279,16 @@ export default function DoorsPage() {
                         {sel.handle?.id && (
                           <div className="flex justify-between">
                             <span>
-                              {Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)?.name 
-                                ? `Ручка ${Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)!.name}` 
-                                : "Ручка"}
+                              {(() => {
+                                const selectedHandle = sel.handle?.id ? Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id) : undefined;
+                                return selectedHandle?.name ? `Ручка ${selectedHandle.name}` : "Ручка";
+                              })()}
                             </span>
                             <span>
-                              {Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)?.price 
-                                ? `${fmtInt(Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)!.price)} ₽`
-                                : "—"}
+                              {(() => {
+                                const selectedHandle = sel.handle?.id ? Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id) : undefined;
+                                return selectedHandle?.price !== undefined ? `${fmtInt(selectedHandle.price)} ₽` : "—";
+                              })()}
                             </span>
                           </div>
                         )}
@@ -3146,6 +3148,12 @@ function CartManager({
   const [showHandleModalInCart, setShowHandleModalInCart] = useState(false);
   const [editingHandleItemId, setEditingHandleItemId] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<string | null>(null);
+  
+  // Вспомогательная функция для получения ручки по ID (оптимизация для избежания повторных поисков)
+  const getHandleById = React.useCallback((handleId: string | undefined): Handle | undefined => {
+    if (!handleId) return undefined;
+    return Object.values(handles).flat().find((h: Handle) => h.id === handleId);
+  }, [handles]);
   const [availableParams, setAvailableParams] = useState<any>(null);
   // ИСПРАВЛЕНИЕ #2: Сохраняем пересчитанную цену во время редактирования, чтобы избежать двойного пересчета
   const [editingItemPrice, setEditingItemPrice] = useState<number | null>(null);
@@ -3676,19 +3684,19 @@ function CartManager({
                 
                 if (item.handleId) {
                   // ИСПРАВЛЕНИЕ: Всегда используем актуальное имя из каталога, а не item.handleName
-                  const handle = Object.values(handles).flat().find((h: Handle) => h.id === item.handleId);
+                  const handle = getHandleById(item.handleId);
                   const currentHandleName = handle?.name || item.handleName || "Ручка";
                   return (
                   <div key={item.id} className="border border-gray-200 rounded-lg p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         {/* ИСПРАВЛЕНИЕ: Отображаем фото ручки при редактировании */}
-                        {isEditing && handle?.photos && handle.photos.length > 0 && (
+                        {isEditing && handle && handle.photos && handle.photos.length > 0 && (
                           <div className="mb-2 flex items-center space-x-2">
                             {handle.photos.slice(0, 3).map((photo, idx) => (
                               <img
                                 key={idx}
-                                src={photo.startsWith('/uploads') ? `/api${photo}` : `/api/uploads${photo}`}
+                                src={photo && photo.startsWith('/uploads') ? `/api${photo}` : photo ? `/api/uploads${photo}` : ''}
                                 alt={`${currentHandleName} фото ${idx + 1}`}
                                 className="w-12 h-12 object-cover rounded border border-gray-200"
                                 onError={(e) => {
@@ -3763,11 +3771,11 @@ function CartManager({
                                 className="w-full text-xs border border-gray-300 rounded px-3 py-2 bg-white hover:bg-gray-50 text-left flex items-center justify-between min-w-[200px]"
                               >
                                 <span>
-                                  {handle ? `Ручка ${handle.name}` : 'Выбрать ручку'}
+                                  {handle && handle.name ? `Ручка ${handle.name}` : 'Выбрать ручку'}
                                 </span>
                                 <span className="text-gray-400 ml-2">→</span>
                               </button>
-                              {handle && (
+                              {handle && handle.price !== undefined && (
                                 <div className="text-xs text-gray-600 mt-1">
                                   Цена: {fmtInt(handle.price)} ₽
                                 </div>
@@ -3806,7 +3814,7 @@ function CartManager({
                         <div className="font-medium text-black text-sm truncate">
                           {item.type === 'handle' 
                             ? (() => {
-                              const displayHandle = Object.values(handles).flat().find((h: Handle) => h.id === item.handleId);
+                              const displayHandle = getHandleById(item.handleId);
                               return `Ручка ${displayHandle?.name || item.handleName || 'Неизвестная ручка'}`;
                             })()
                             : `Дверь DomeoDoors ${item.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель'}`
@@ -4161,7 +4169,7 @@ function CartManager({
       {showHandleModalInCart && editingHandleItemId && (
         <HandleSelectionModal
           handles={handles}
-          selectedHandleId={cart.find(i => i.id === editingHandleItemId)?.handleId}
+          selectedHandleId={editingHandleItemId ? cart.find(i => i.id === editingHandleItemId)?.handleId : undefined}
           onSelect={(handleId: string) => {
             // Обновляем ручку в товаре корзины
             updateCartItem(editingHandleItemId, { handleId });
