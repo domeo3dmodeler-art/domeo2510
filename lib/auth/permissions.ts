@@ -125,19 +125,23 @@ export function canUserChangeStatus(
 
   switch (documentType) {
     case 'quote':
-      // Комплектатор может менять КП только до ACCEPTED
-      if (userRole === UserRole.COMPLECTATOR && documentStatus === 'ACCEPTED') {
-        return false; // После ACCEPTED - только ADMIN
-      }
+      // КП НЕ блокируются для Комплектатора
       return userRole === UserRole.ADMIN || userRole === UserRole.COMPLECTATOR;
     
     case 'invoice':
-      // Комплектатор может менять Invoice только до PAID
+      // Комплектатор может менять Invoice только ДО PAID
       if (userRole === UserRole.COMPLECTATOR) {
-        // После PAID - только EXECUTOR и ADMIN могут менять статусы
+        // После PAID, ORDERED, RECEIVED, COMPLETED - только EXECUTOR и ADMIN
         const blockedStatuses = ['PAID', 'ORDERED', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED'];
         if (documentStatus && blockedStatuses.includes(documentStatus)) {
           return false;
+        }
+      }
+      // EXECUTOR может менять Invoice только в статусах ORDERED, RECEIVED, COMPLETED
+      if (userRole === UserRole.EXECUTOR) {
+        const allowedStatuses = ['PAID', 'ORDERED', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED'];
+        if (documentStatus && !allowedStatuses.includes(documentStatus)) {
+          return false; // EXECUTOR может менять только указанные статусы
         }
       }
       return userRole === UserRole.ADMIN || userRole === UserRole.COMPLECTATOR || userRole === UserRole.EXECUTOR;
