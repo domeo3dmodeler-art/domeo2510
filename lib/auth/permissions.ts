@@ -115,7 +115,8 @@ export function canUserDeleteClient(userRole: UserRole): boolean {
 // Проверка прав на изменение статусов
 export function canUserChangeStatus(
   userRole: UserRole,
-  documentType: string
+  documentType: string,
+  documentStatus?: string
 ): boolean {
   // Неавторизованные пользователи не могут изменять статусы
   if (!userRole) {
@@ -124,8 +125,22 @@ export function canUserChangeStatus(
 
   switch (documentType) {
     case 'quote':
-    case 'invoice':
+      // Комплектатор может менять КП только до ACCEPTED
+      if (userRole === UserRole.COMPLECTATOR && documentStatus === 'ACCEPTED') {
+        return false; // После ACCEPTED - только ADMIN
+      }
       return userRole === UserRole.ADMIN || userRole === UserRole.COMPLECTATOR;
+    
+    case 'invoice':
+      // Комплектатор может менять Invoice только до PAID
+      if (userRole === UserRole.COMPLECTATOR) {
+        // После PAID - только EXECUTOR и ADMIN могут менять статусы
+        const blockedStatuses = ['PAID', 'ORDERED', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED'];
+        if (documentStatus && blockedStatuses.includes(documentStatus)) {
+          return false;
+        }
+      }
+      return userRole === UserRole.ADMIN || userRole === UserRole.COMPLECTATOR || userRole === UserRole.EXECUTOR;
     
     case 'order':
       return userRole === UserRole.ADMIN || userRole === UserRole.EXECUTOR;

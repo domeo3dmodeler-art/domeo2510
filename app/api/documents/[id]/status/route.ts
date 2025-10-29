@@ -76,7 +76,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     // Проверяем права на изменение статуса
-    if (!canUserChangeStatus(userRole, documentType)) {
+    if (!canUserChangeStatus(userRole, documentType, document.status)) {
       return NextResponse.json(
         { error: 'Недостаточно прав для изменения статуса' },
         { status: 403 }
