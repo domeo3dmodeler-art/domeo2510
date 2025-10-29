@@ -10,7 +10,7 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --only=production && npm cache clean --force
 
-# Rebuild the source code only压强 needed
+# Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
 
