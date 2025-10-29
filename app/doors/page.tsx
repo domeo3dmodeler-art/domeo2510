@@ -3124,6 +3124,12 @@ function CartManager({
 }) {
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [availableParams, setAvailableParams] = useState<any>(null);
+  // ИСПРАВЛЕНИЕ #2: Сохраняем пересчитанную цену во время редактирования, чтобы избежать двойного пересчета
+  const [editingItemPrice, setEditingItemPrice] = useState<number | null>(null);
+  // ИСПРАВЛЕНИЕ #3: Сохраняем snapshot товара для отката изменений при отмене
+  const [editingItemSnapshot, setEditingItemSnapshot] = useState<CartItem | null>(null);
+  // Состояние для модального окна истории
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   // Простое отображение всех товаров корзины
   const filteredCart = cart;
@@ -3201,6 +3207,10 @@ function CartManager({
     
     if (item && item.style && item.model) {
       setEditingItem(itemId);
+      // ИСПРАВЛЕНИЕ #2: Сбрасываем сохраненную цену при начале редактирования
+      setEditingItemPrice(null);
+      // ИСПРАВЛЕНИЕ #3: Сохраняем snapshot товара для возможного отката
+      setEditingItemSnapshot({ ...item });
       
       // Загружаем доступные параметры
       try {
@@ -3289,6 +3299,10 @@ function CartManager({
       const handle = Object.values(handles).flat().find((h: Handle) => h.id === updatedItem.handleId);
       const newPrice = handle ? handle.price : updatedItem.unitPrice;
       console.log('🔧 Handle price update:', { handleId: updatedItem.handleId, newPrice });
+      // ИСПРАВЛЕНИЕ #2: Сохраняем цену ручки для использования при подтверждении
+      if (itemId === editingItem) {
+        setEditingItemPrice(newPrice);
+      }
       
       setCart(prev => prev.map(item => 
         item.id === itemId ? { ...item, ...changes, unitPrice: newPrice } : item
@@ -3307,6 +3321,10 @@ function CartManager({
 
     if (result.success && result.price !== undefined) {
       console.log('✅ Price calculated successfully:', result.price);
+      // ИСПРАВЛЕНИЕ #2: Сохраняем пересчитанную цену для использования при подтверждении
+      if (itemId === editingItem) {
+        setEditingItemPrice(result.price);
+      }
       setCart(prev => prev.map(item => 
         item.id === itemId ? { 
           ...item, 
@@ -3343,28 +3361,36 @@ function CartManager({
     try {
       let newPrice: number;
       
-      if (currentItem.handleId) {
-        // Для ручек получаем цену из каталога
-        const handle = Object.values(handles).flat().find((h: Handle) => h.id === currentItem.handleId);
-        newPrice = handle ? handle.price : currentItem.unitPrice;
+      // ИСПРАВЛЕНИЕ #2: Используем уже рассчитанную цену, если она есть, чтобы избежать двойного пересчета
+      if (editingItemPrice !== null) {
+        console.log('💾 Используем уже рассчитанную цену из updateCartItem:', editingItemPrice);
+        newPrice = editingItemPrice;
       } else {
-        // Для дверей используем унифицированный сервис расчета цены
-        console.log('🚪 Door price calculation using unified service in confirmCartChanges');
-        
-        const result = await priceRecalculationService.recalculateItemPrice(currentItem, {
-          validateCombination: true,
-          useCache: true,
-          timeout: 10000
-        });
+        // Пересчитываем только если цена еще не была рассчитана
+        if (currentItem.handleId) {
+          // Для ручек получаем цену из каталога
+          const handle = Object.values(handles).flat().find((h: Handle) => h.id === currentItem.handleId);
+          newPrice = handle ? handle.price : currentItem.unitPrice;
+        } else {
+          // Для дверей используем унифицированный сервис расчета цены
+          console.log('🚪 Door price calculation using unified service in confirmCartChanges (fallback)');
+          
+          const result = await priceRecalculationService.recalculateItemPrice(currentItem, {
+            validateCombination: true,
+            useCache: true,
+            timeout: 10000
+          });
 
-        if (!result.success || !result.price) {
-          const errorMessage = result.error || 'Не удалось рассчитать цену';
-          alert(`Ошибка расчета цены: ${errorMessage}`);
-          setEditingItem(null);
-          return;
+          if (!result.success || !result.price) {
+            const errorMessage = result.error || 'Не удалось рассчитать цену';
+            alert(`Ошибка расчета цены: ${errorMessage}`);
+            setEditingItem(null);
+            setEditingItemPrice(null); // Сбрасываем сохраненную цену
+            return;
+          }
+
+          newPrice = result.price;
         }
-
-        newPrice = result.price;
       }
 
       // Обновляем корзину
@@ -3375,27 +3401,62 @@ function CartManager({
       ));
 
       // Сохраняем в историю
-      const originalPrice = originalPrices[editingItem] || 0;
-      const delta = newPrice - originalPrice;
+      // ИСПРАВЛЕНИЕ #1: Используем cartManagerBasePrices вместо originalPrices для единообразия
+      // Это обеспечит совпадение дельты в UI и в истории
+      const basePriceForDelta = cartManagerBasePrices[editingItem] || currentItem.unitPrice || 0;
+      const delta = newPrice - basePriceForDelta;
       
+      // Сохраняем полное состояние товара для возможности отката
       setCartHistory(prev => [...prev, {
         timestamp: new Date(),
-        changes: { [editingItem]: { unitPrice: newPrice } },
+        changes: { 
+          [editingItem]: { 
+            item: { ...currentItem, unitPrice: newPrice }, // Полное состояние товара
+            oldPrice: currentItem.unitPrice,
+            newPrice: newPrice
+          } 
+        },
         totalDelta: delta
       }]);
 
-      console.log('✅ Cart changes confirmed successfully');
+      // ИСПРАВЛЕНИЕ #1: Обновляем cartManagerBasePrices после подтверждения
+      // Теперь следующая дельта будет считаться от новой базовой цены
+      setCartManagerBasePrices(prev => ({
+        ...prev,
+        [editingItem]: newPrice
+      }));
+
+      console.log('✅ Cart changes confirmed successfully', {
+        itemId: editingItem,
+        basePrice: basePriceForDelta,
+        newPrice,
+        delta
+      });
 
     } catch (error) {
       console.error('❌ Error confirming cart changes:', error);
       alert('Произошла ошибка при обновлении товара');
     }
 
+    // ИСПРАВЛЕНИЕ #2: Сбрасываем сохраненную цену после подтверждения
+    // ИСПРАВЛЕНИЕ #3: Сбрасываем snapshot после подтверждения
     setEditingItem(null);
+    setEditingItemPrice(null);
+    setEditingItemSnapshot(null);
   };
 
   const cancelCartChanges = () => {
+    // ИСПРАВЛЕНИЕ #3: Восстанавливаем товар из snapshot при отмене
+    if (editingItem && editingItemSnapshot) {
+      setCart(prev => prev.map(item => 
+        item.id === editingItem ? editingItemSnapshot : item
+      ));
+      console.log('↩️ Изменения отменены, товар восстановлен из snapshot');
+    }
+    // ИСПРАВЛЕНИЕ #2: Сбрасываем сохраненную цену при отмене
     setEditingItem(null);
+    setEditingItemPrice(null);
+    setEditingItemSnapshot(null);
   };
 
   const removeItem = (itemId: string) => {
@@ -3416,6 +3477,93 @@ function CartManager({
   };
 
   const totalPrice = cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
+
+  // Функция для отката корзины к состоянию до указанной записи истории
+  const rollbackToHistory = (historyIndex: number) => {
+    if (historyIndex < 0 || historyIndex >= cartHistory.length) return;
+    
+    // Находим все записи истории до указанного индекса (включительно)
+    const historyToKeep = cartHistory.slice(0, historyIndex + 1);
+    
+    // Применяем все изменения до этой точки
+    // Для правильного отката нужно восстановить состояние каждого товара
+    // из последней записи истории, где он был изменен
+    const itemStates: Record<string, CartItem> = {};
+    
+    // Собираем состояние всех товаров из истории
+    historyToKeep.forEach(entry => {
+      Object.entries(entry.changes).forEach(([itemId, change]: [string, any]) => {
+        if (change.item) {
+          itemStates[itemId] = change.item;
+        }
+      });
+    });
+    
+    // Применяем откат: обновляем товары в корзине
+    setCart(prev => prev.map(item => {
+      if (itemStates[item.id]) {
+        return itemStates[item.id];
+      }
+      return item;
+    }));
+    
+    // Обновляем базовые цены для правильного расчета дельты
+    setCartManagerBasePrices(prev => {
+      const newBasePrices = { ...prev };
+      Object.entries(itemStates).forEach(([itemId, item]) => {
+        newBasePrices[itemId] = item.unitPrice;
+      });
+      return newBasePrices;
+    });
+    
+    // Удаляем записи истории после указанного индекса
+    setCartHistory(historyToKeep);
+    
+    console.log('↩️ Откат корзины к записи истории:', historyIndex);
+  };
+
+  // Функция для отката к состоянию до начала редактирования (полный откат всех изменений)
+  const rollbackAllHistory = () => {
+    if (cartHistory.length === 0) return;
+    
+    // Находим исходное состояние каждого товара (до первого изменения)
+    const originalStates: Record<string, CartItem> = {};
+    
+    // Проходим по истории в обратном порядке, чтобы найти исходное состояние
+    cartHistory.forEach((entry, index) => {
+      Object.entries(entry.changes).forEach(([itemId, change]: [string, any]) => {
+        if (change.oldPrice !== undefined && !originalStates[itemId]) {
+          // Ищем оригинальный товар в корзине или используем данные из истории
+          const originalItem = cart.find(i => i.id === itemId);
+          if (originalItem) {
+            originalStates[itemId] = { ...originalItem, unitPrice: change.oldPrice };
+          }
+        }
+      });
+    });
+    
+    // Восстанавливаем исходные цены
+    setCart(prev => prev.map(item => {
+      if (originalStates[item.id]) {
+        return originalStates[item.id];
+      }
+      return item;
+    }));
+    
+    // Обновляем базовые цены
+    setCartManagerBasePrices(prev => {
+      const newBasePrices = { ...prev };
+      Object.entries(originalStates).forEach(([itemId, item]) => {
+        newBasePrices[itemId] = item.unitPrice;
+      });
+      return newBasePrices;
+    });
+    
+    // Очищаем историю
+    setCartHistory([]);
+    
+    console.log('↩️ Полный откат всех изменений корзины');
+  };
 
   // Проверки разрешений по ролям
   const canCreateQuote = userRole === 'admin' || userRole === 'complectator';
@@ -3793,12 +3941,7 @@ function CartManager({
             <div className="flex space-x-3">
               {cartHistory.length > 0 && (
                 <button
-                  onClick={() => {
-                    const historyText = cartHistory.map(entry => 
-                      `${entry.timestamp.toLocaleString()}: ${Object.keys(entry.changes).length} изменений (${entry.totalDelta > 0 ? '+' : ''}${fmtInt(entry.totalDelta)} ₽)`
-                    ).join('\n');
-                    alert(`История изменений:\n\n${historyText}`);
-                  }}
+                  onClick={() => setShowHistoryModal(true)}
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
                 >
                   История ({cartHistory.length})
@@ -3820,6 +3963,132 @@ function CartManager({
           </div>
         </div>
       </div>
+
+      {/* Модальное окно истории изменений */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-lg w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-black">История изменений корзины</h2>
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Список истории */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {cartHistory.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  История изменений пуста
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {cartHistory.map((entry, index) => {
+                    const itemIds = Object.keys(entry.changes);
+                    return (
+                      <div
+                        key={index}
+                        className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-gray-900 mb-1">
+                              {entry.timestamp.toLocaleString('ru-RU', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                            <div className="text-xs text-gray-600 mb-2">
+                              Изменено товаров: {itemIds.length}
+                            </div>
+                            <div className="space-y-1">
+                              {itemIds.map(itemId => {
+                                const change = entry.changes[itemId];
+                                const item = cart.find(i => i.id === itemId) || change?.item;
+                                return (
+                                  <div key={itemId} className="text-xs text-gray-700">
+                                    <span className="font-medium">
+                                      {item?.type === 'handle' 
+                                        ? `Ручка ${item.handleName || itemId}`
+                                        : `Дверь ${item?.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || itemId}`}
+                                    </span>
+                                    {' - Цена: '}
+                                    {change?.oldPrice && (
+                                      <>
+                                        <span className="line-through text-gray-400">
+                                          {fmtInt(change.oldPrice)}₽
+                                        </span>
+                                        {' → '}
+                                      </>
+                                    )}
+                                    <span className="font-medium text-green-600">
+                                      {fmtInt(change?.newPrice || change?.item?.unitPrice || 0)}₽
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end space-y-2 ml-4">
+                            <div className={`text-sm font-semibold ${entry.totalDelta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {entry.totalDelta >= 0 ? '+' : ''}{fmtInt(entry.totalDelta)} ₽
+                            </div>
+                            <button
+                              onClick={() => {
+                                rollbackToHistory(index);
+                                setShowHistoryModal(false);
+                              }}
+                              className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                              title="Откатить к этому состоянию"
+                            >
+                              Откатить
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                Всего записей: {cartHistory.length}
+              </div>
+              <div className="flex space-x-3">
+                {cartHistory.length > 0 && (
+                  <button
+                    onClick={() => {
+                      if (confirm('Вы уверены, что хотите откатить все изменения?')) {
+                        rollbackAllHistory();
+                        setShowHistoryModal(false);
+                      }
+                    }}
+                    className="px-4 py-2 text-sm bg-red-500 text-white rounded hover:bg-red-600"
+                  >
+                    Откатить все изменения
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowHistoryModal(false)}
+                  className="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                >
+                  Закрыть
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
