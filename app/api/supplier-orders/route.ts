@@ -5,21 +5,25 @@ import { generateCartSessionId } from '@/lib/utils/cart-session';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { invoiceId, supplierName, supplierEmail, supplierPhone, expectedDate, notes, cartData } = body;
+    const { invoiceId, orderId, supplierName, supplierEmail, supplierPhone, expectedDate, notes, cartData } = body;
     
-    console.log('🚀 Creating supplier order:', { invoiceId, supplierName, supplierEmail, supplierPhone, expectedDate, notes });
+    // Поддержка как invoiceId, так и orderId для совместимости
+    const finalInvoiceId = invoiceId || orderId;
+    
+    console.log('🚀 Creating supplier order:', { invoiceId: finalInvoiceId, orderId, supplierName, supplierEmail, supplierPhone, expectedDate, notes });
     console.log('📦 Received cartData:', cartData);
     console.log('📦 Received cartData type:', typeof cartData);
     console.log('📦 Received cartData items:', cartData?.items);
     console.log('📦 Received cartData items count:', cartData?.items?.length);
 
-    if (!invoiceId) {
-      return NextResponse.json({ error: 'invoiceId is required' }, { status: 400 });
+    if (!finalInvoiceId) {
+      console.error('❌ Missing invoiceId or orderId in request body:', body);
+      return NextResponse.json({ error: 'invoiceId or orderId is required' }, { status: 400 });
     }
 
     // Проверяем, что счет существует
     const invoice = await prisma.invoice.findUnique({
-      where: { id: invoiceId },
+      where: { id: finalInvoiceId },
       select: { 
         id: true, 
         client_id: true, 
@@ -39,7 +43,7 @@ export async function POST(request: NextRequest) {
     // Проверяем, есть ли уже заказ у поставщика для этого счета
     const existingSupplierOrder = await prisma.supplierOrder.findFirst({
       where: {
-        parent_document_id: invoiceId,
+        parent_document_id: finalInvoiceId,
         cart_session_id: cartSessionId
       },
       orderBy: { created_at: 'desc' }
@@ -53,7 +57,7 @@ export async function POST(request: NextRequest) {
       supplierOrder = existingSupplierOrder;
     } else {
       // Создаем новый заказ у поставщика
-      console.log(`🆕 Создаем новый заказ у поставщика для счета: ${invoiceId}`);
+      console.log(`🆕 Создаем новый заказ у поставщика для счета: ${finalInvoiceId}`);
       // Генерируем номер заказа у поставщика на основе номера счета
       const supplierOrderNumber = `SUPPLIER-${invoice.number}`;
       
@@ -80,7 +84,7 @@ export async function POST(request: NextRequest) {
       supplierOrder = await prisma.supplierOrder.create({
         data: {
           number: supplierOrderNumber,
-          parent_document_id: invoiceId,
+          parent_document_id: finalInvoiceId,
           cart_session_id: cartSessionId,
           executor_id: invoice.client_id,
           supplier_name: supplierName || 'Поставщик не указан',
