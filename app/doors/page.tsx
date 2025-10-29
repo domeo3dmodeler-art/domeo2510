@@ -3127,6 +3127,9 @@ function CartManager({
   userRole: string;
   onClose: () => void;
 }) {
+  // Состояние для модального окна выбора ручек при редактировании в корзине
+  const [showHandleModalInCart, setShowHandleModalInCart] = useState(false);
+  const [editingHandleItemId, setEditingHandleItemId] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [availableParams, setAvailableParams] = useState<any>(null);
   // ИСПРАВЛЕНИЕ #2: Сохраняем пересчитанную цену во время редактирования, чтобы избежать двойного пересчета
@@ -3730,48 +3733,30 @@ function CartManager({
                           </button>
                         </div>
                       </div>
-                      {isEditing && availableParams && (
+                      {isEditing && (
                         <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded">
-                          {/* Компактная строка с селектами и кнопками */}
+                          {/* Компактная строка с кнопками */}
                           <div className="flex items-center space-x-2 mb-4">
-                            {/* Ручка с фото */}
+                            {/* Ручка - кнопка для открытия модального окна */}
                             <div className="flex-shrink-0">
                               <label className="block text-xs font-medium text-gray-700 mb-1">Ручка</label>
-                              <div className="flex items-center space-x-2">
-                                {/* Фото выбранной ручки */}
-                                {item.handleId && handle?.photos && handle.photos.length > 0 && (
-                                  <div className="flex space-x-1">
-                                    {handle.photos.slice(0, 2).map((photo, idx) => (
-                                      <img
-                                        key={idx}
-                                        src={photo.startsWith('/uploads') ? `/api${photo}` : `/api/uploads${photo}`}
-                                        alt={`${handle.name} фото ${idx + 1}`}
-                                        className="w-10 h-10 object-cover rounded border border-gray-300"
-                                        onError={(e) => {
-                                          (e.target as HTMLImageElement).style.display = 'none';
-                                        }}
-                                      />
-                                    ))}
-                                  </div>
-                                )}
-                                <select
-                                  value={item.handleId || ''}
-                                  onChange={(e) => updateCartItem(item.id, { handleId: e.target.value })}
-                                  className="w-32 text-xs border border-gray-300 rounded px-1 py-1"
-                                >
-                                  <option value="">Выберите</option>
-                                  {availableParams.handles?.map((handleOption: {id: string, name: string, group: string}) => {
-                                    // ИСПРАВЛЕНИЕ: Используем актуальное имя из каталога handles, а не из availableParams
-                                    const fullHandle = Object.values(handles).flat().find((h: Handle) => h.id === handleOption.id);
-                                    const displayName = fullHandle?.name || handleOption.name;
-                                    return (
-                                      <option key={handleOption.id} value={handleOption.id}>
-                                        Ручка {displayName}
-                                      </option>
-                                    );
-                                  })}
-                                </select>
-                              </div>
+                              <button
+                                onClick={() => {
+                                  setEditingHandleItemId(item.id);
+                                  setShowHandleModalInCart(true);
+                                }}
+                                className="w-full text-xs border border-gray-300 rounded px-3 py-2 bg-white hover:bg-gray-50 text-left flex items-center justify-between min-w-[200px]"
+                              >
+                                <span>
+                                  {handle ? `Ручка ${handle.name}` : 'Выбрать ручку'}
+                                </span>
+                                <span className="text-gray-400 ml-2">→</span>
+                              </button>
+                              {handle && (
+                                <div className="text-xs text-gray-600 mt-1">
+                                  Цена: {fmtInt(handle.price)} ₽
+                                </div>
+                              )}
                             </div>
 
                             {/* Кнопки */}
@@ -4155,6 +4140,24 @@ function CartManager({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Модальное окно выбора ручек для редактирования в корзине */}
+      {showHandleModalInCart && editingHandleItemId && (
+        <HandleSelectionModal
+          handles={handles}
+          selectedHandleId={cart.find(i => i.id === editingHandleItemId)?.handleId}
+          onSelect={(handleId: string) => {
+            // Обновляем ручку в товаре корзины
+            updateCartItem(editingHandleItemId, { handleId });
+            setShowHandleModalInCart(false);
+            setEditingHandleItemId(null);
+          }}
+          onClose={() => {
+            setShowHandleModalInCart(false);
+            setEditingHandleItemId(null);
+          }}
+        />
       )}
     </div>
   );
