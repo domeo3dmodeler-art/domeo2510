@@ -8,6 +8,21 @@ const prisma = new PrismaClient();
 const photoCache = new Map<string, { data: any; timestamp: number }>();
 const PHOTO_CACHE_TTL = 30 * 60 * 1000; // 30 минут для фото
 
+// DELETE - очистка кэша
+export async function DELETE() {
+  try {
+    photoCache.clear();
+    console.log('🧹 Кэш photos-batch очищен');
+    return NextResponse.json({ success: true, message: 'Кэш photos-batch очищен' });
+  } catch (error) {
+    console.error('❌ Ошибка очистки кэша photos-batch:', error);
+    return NextResponse.json(
+      { error: 'Ошибка очистки кэша' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { models } = await req.json();
