@@ -95,33 +95,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       console.warn('⚠️ Не удалось получить user_id из токена:', tokenError);
     }
 
-    // Отправляем уведомления в зависимости от статуса
+    // Отправляем уведомления через универсальную функцию
     try {
-      if (status === 'PAID') {
-        // Уведомляем всех исполнителей о том, что счет оплачен
-        await notifyUsersByRole('EXECUTOR', {
-          clientId: existingInvoice.client_id,
-          documentId: id,
-          type: 'invoice_paid',
-          title: 'Счет оплачен',
-          message: `Счет ${existingInvoice.number} переведен в статус "Оплачен/Заказ". Теперь только Исполнитель может изменять статус.`
-        });
-      } else if (['ORDERED', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED'].includes(status)) {
-        // Уведомляем комплектатора о изменении статуса исполнителем
-        const statusNames: Record<string, string> = {
-          'ORDERED': 'Заказ размещен',
-          'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
-          'COMPLETED': 'Исполнен'
-        };
-        
-        await notifyUsersByRole('COMPLECTATOR', {
-          clientId: existingInvoice.client_id,
-          documentId: id,
-          type: 'status_changed',
-          title: 'Статус изменен',
-          message: `Исполнитель изменил статус счета ${existingInvoice.number} на "${statusNames[status]}".`
-        });
-      }
+      const { sendStatusNotification } = await import('@/lib/notifications/status-notifications');
+      await sendStatusNotification(
+        id,
+        'invoice',
+        existingInvoice.number,
+        existingInvoice.status,
+        status,
+        existingInvoice.client_id
+      );
     } catch (notificationError) {
       console.warn('⚠️ Не удалось отправить уведомление:', notificationError);
       // Не прерываем выполнение, если не удалось отправить уведомление

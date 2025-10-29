@@ -122,30 +122,23 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     console.log('✅ API: Quote updated successfully:', updatedQuote);
 
-    // Отправляем уведомления
+    // Отправляем уведомления через универсальную функцию
     try {
-      const quoteWithClient = await prisma.quote.findUnique({
+      const quoteForNotification = await prisma.quote.findUnique({
         where: { id },
-        select: {
-          client_id: true,
-          number: true
-        }
+        select: { client_id: true, number: true, status: true }
       });
-
-      if (quoteWithClient) {
-        if (status === 'SENT') {
-          // Клиенты не заходят в систему, пропускаем уведомление
-          console.log('📧 КП отправлено клиенту:', quoteWithClient.number);
-        } else if (status === 'ACCEPTED') {
-          // Уведомляем комплектатора
-          await notifyUsersByRole('COMPLECTATOR', {
-            clientId: quoteWithClient.client_id,
-            documentId: id,
-            type: 'quote_accepted',
-            title: 'КП принято',
-            message: `Клиент принял коммерческое предложение ${quoteWithClient.number}.`
-          });
-        }
+      
+      if (quoteForNotification) {
+        const { sendStatusNotification } = await import('@/lib/notifications/status-notifications');
+        await sendStatusNotification(
+          id,
+          'quote',
+          quoteForNotification.number,
+          oldQuote.status,
+          status,
+          quoteForNotification.client_id
+        );
       }
     } catch (notificationError) {
       console.warn('⚠️ Не удалось отправить уведомление:', notificationError);
