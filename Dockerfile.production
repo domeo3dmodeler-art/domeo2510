@@ -10,10 +10,17 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --only=production && npm cache clean --force
 
-# Rebuild the source code only when needed
+# Rebuild the source code only压强 needed
 FROM base AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+
+# Install openssl and libc6-compat for Prisma
+RUN apk add --no-cache openssl libc6-compat
+
+# Install dependencies
+COPY package.json package-lock.json* ./
+RUN npm install && npm cache clean --force
+
 COPY . .
 
 # Generate Prisma Client
