@@ -60,7 +60,8 @@ export async function notifyUsersByRole(role: string, data: Omit<NotificationDat
     const roleUpperCase = role.toUpperCase();
     
     // Получаем всех пользователей с указанной ролью
-    const users = await prisma.user.findMany({
+    // Используем case-insensitive поиск: пробуем сначала заглавными буквами, потом строчными
+    let users = await prisma.user.findMany({
       where: { 
         role: roleUpperCase,
         is_active: true
@@ -71,10 +72,24 @@ export async function notifyUsersByRole(role: string, data: Omit<NotificationDat
       }
     });
 
+    // Если не найдено, пробуем искать строчными буквами
+    if (users.length === 0 && roleUpperCase !== role.toLowerCase()) {
+      users = await prisma.user.findMany({
+        where: { 
+          role: role.toLowerCase(),
+          is_active: true
+        },
+        select: { 
+          id: true,
+          email: true 
+        }
+      });
+    }
+
     console.log(`📢 Уведомление роли ${roleUpperCase}: найдено ${users.length} активных пользователей`);
     
     if (users.length === 0) {
-      console.warn(`⚠️ Нет активных пользователей с ролью ${roleUpperCase}. Уведомления не будут отправлены.`);
+      console.warn(`⚠️ Нет активных пользователей с ролью ${roleUpperCase} (пробовали также ${role.toLowerCase()}). Уведомления не будут отправлены.`);
       return [];
     }
 
