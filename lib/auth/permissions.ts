@@ -114,7 +114,7 @@ export function canUserDeleteClient(userRole: UserRole): boolean {
 
 // Проверка прав на изменение статусов
 export function canUserChangeStatus(
-  userRole: UserRole,
+  userRole: UserRole | string,
   documentType: string,
   documentStatus?: string
 ): boolean {
@@ -123,14 +123,17 @@ export function canUserChangeStatus(
     return false;
   }
 
+  // Нормализуем роль к строке для сравнения (enum или строка -> строка)
+  const roleStr = String(userRole).toLowerCase();
+
   switch (documentType) {
     case 'quote':
       // КП НЕ блокируются для Комплектатора
-      return userRole === UserRole.ADMIN || userRole === UserRole.COMPLECTATOR;
+      return roleStr === 'admin' || roleStr === 'complectator';
     
     case 'invoice':
       // Комплектатор может менять Invoice только ДО PAID
-      if (userRole === UserRole.COMPLECTATOR) {
+      if (roleStr === 'complectator') {
         // После PAID, ORDERED, RECEIVED, COMPLETED - только EXECUTOR и ADMIN
         const blockedStatuses = ['PAID', 'ORDERED', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED'];
         if (documentStatus && blockedStatuses.includes(documentStatus)) {
@@ -139,13 +142,13 @@ export function canUserChangeStatus(
       }
       // EXECUTOR НЕ может менять Invoice напрямую
       // Он меняет SupplierOrder, а Invoice синхронизируется автоматически
-      return userRole === UserRole.ADMIN || userRole === UserRole.COMPLECTATOR;
+      return roleStr === 'admin' || roleStr === 'complectator';
     
     case 'order':
-      return userRole === UserRole.ADMIN || userRole === UserRole.EXECUTOR;
+      return roleStr === 'admin' || roleStr === 'executor';
     
     case 'supplier_order':
-      return userRole === UserRole.ADMIN || userRole === UserRole.EXECUTOR;
+      return roleStr === 'admin' || roleStr === 'executor';
     
     default:
       return false;
