@@ -36,15 +36,31 @@ export async function GET(
       );
     }
 
-    // Сначала получаем ID заказов клиента для поиска связанных заказов поставщика
+    // Получаем заказы клиента (для обратной совместимости)
     const orders = await prisma.order.findMany({
       where: { client_id: id },
       select: { id: true }
     });
-    const orderIds = orders.map(order => order.id);
 
-    // Загружаем документы отдельными оптимизированными запросами
-    const [quotes, invoices, supplierOrders] = await Promise.all([
+    // Сначала получаем счета клиента, чтобы использовать их ID для поиска заказов у поставщика
+    // SupplierOrder теперь связан напрямую с Invoice через parent_document_id
+    const invoices = await prisma.invoice.findMany({
+      where: { client_id: id },
+      select: {
+        id: true,
+        number: true,
+        status: true,
+        total_amount: true,
+        created_at: true,
+        due_date: true
+      },
+      orderBy: { created_at: 'desc' },
+      take: 10
+    });
+    const invoiceIds = invoices.map(inv => inv.id);
+
+    // Загружаем остальные документы
+    const [quotes, supplierOrders] = await Promise.all([
       prisma.quote.findMany({
         where: { client_id: id },
         select: {
@@ -57,24 +73,12 @@ export async function GET(
         orderBy: { created_at: 'desc' },
         take: 10
       }),
-      prisma.invoice.findMany({
-        where: { client_id: id },
-        select: {
-          id: true,
-          number: true,
-          status: true,
-          total_amount: true,
-          created_at: true,
-          due_date: true
-        },
-        orderBy: { created_at: 'desc' },
-        take: 10
-      }),
       prisma.supplierOrder.findMany({
         where: { 
-          // Ищем заказы поставщика через связанные заказы клиента
+          // Ищем заказы поставщика через связанные счета клиента
+          // SupplierOrder теперь связан напрямую с Invoice через parent_document_id
           parent_document_id: {
-            in: orderIds
+            in: invoiceIds
           }
         },
         select: {
@@ -99,32 +103,24 @@ export async function GET(
       supplierOrders.map(async (so) => {
         let invoiceInfo = null;
         
-        // Ищем счет через цепочку: SupplierOrder → Order → Invoice
+        // parent_document_id теперь напрямую указывает на Invoice
+        // (SupplierOrder → Invoice, а не SupplierOrder → Order → Invoice)
         if (so.parent_document_id) {
-          const order = await prisma.order.findUnique({
+          const invoice = await prisma.invoice.findUnique({
             where: { id: so.parent_document_id },
             select: {
-              parent_document_id: true
+              id: true,
+              number: true,
+              total_amount: true
             }
           });
           
-          if (order && order.parent_document_id) {
-            const invoice = await prisma.invoice.findUnique({
-              where: { id: order.parent_document_id },
-              select: {
-                id: true,
-                number: true,
-                total_amount: true
-              }
-            });
-            
-            if (invoice) {
-              invoiceInfo = {
-                id: invoice.id,
-                number: invoice.number,
-                total_amount: invoice.total_amount
-              };
-            }
+          if (invoice) {
+            invoiceInfo = {
+              id: invoice.id,
+              number: invoice.number,
+              total_amount: invoice.total_amount
+            };
           }
         }
         
