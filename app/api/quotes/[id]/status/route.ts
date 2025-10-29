@@ -161,11 +161,23 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     console.log('✅ API: Quote updated successfully:', updatedQuote);
 
+    // Сохраняем старый статус для уведомлений
+    const oldStatus = oldQuote.status;
+
     // Отправляем уведомления через универсальную функцию
     try {
       const quoteForNotification = await prisma.quote.findUnique({
         where: { id },
         select: { client_id: true, number: true, status: true }
+      });
+      
+      console.log('🔔 Отправка уведомления о смене статуса Quote:', {
+        documentId: id,
+        documentType: 'quote',
+        documentNumber: quoteForNotification?.number,
+        oldStatus,
+        newStatus: status,
+        clientId: quoteForNotification?.client_id
       });
       
       if (quoteForNotification) {
@@ -174,13 +186,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           id,
           'quote',
           quoteForNotification.number,
-          oldQuote.status,
+          oldStatus,
           status,
-          quoteForNotification.client_id
+          quoteForNotification.client_id || ''
         );
+        console.log('✅ Уведомление Quote отправлено успешно');
       }
     } catch (notificationError) {
-      console.warn('⚠️ Не удалось отправить уведомление:', notificationError);
+      console.error('❌ Не удалось отправить уведомление Quote:', notificationError);
+      console.error('❌ Детали ошибки:', {
+        message: notificationError instanceof Error ? notificationError.message : String(notificationError),
+        stack: notificationError instanceof Error ? notificationError.stack : undefined
+      });
     }
 
     return NextResponse.json({

@@ -134,19 +134,37 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       console.warn('⚠️ Не удалось получить user_id из токена:', tokenError);
     }
 
+    // Сохраняем старый статус для уведомлений
+    const oldStatus = existingInvoice.status;
+
     // Отправляем уведомления через универсальную функцию
     try {
+      console.log('🔔 Отправка уведомления о смене статуса:', {
+        documentId: id,
+        documentType: 'invoice',
+        documentNumber: existingInvoice.number,
+        oldStatus,
+        newStatus: status,
+        clientId: existingInvoice.client_id
+      });
+      
       const { sendStatusNotification } = await import('@/lib/notifications/status-notifications');
       await sendStatusNotification(
         id,
         'invoice',
         existingInvoice.number,
-        existingInvoice.status,
+        oldStatus,
         status,
-        existingInvoice.client_id
+        existingInvoice.client_id || ''
       );
+      
+      console.log('✅ Уведомление отправлено успешно');
     } catch (notificationError) {
-      console.warn('⚠️ Не удалось отправить уведомление:', notificationError);
+      console.error('❌ Не удалось отправить уведомление:', notificationError);
+      console.error('❌ Детали ошибки:', {
+        message: notificationError instanceof Error ? notificationError.message : String(notificationError),
+        stack: notificationError instanceof Error ? notificationError.stack : undefined
+      });
       // Не прерываем выполнение, если не удалось отправить уведомление
     }
 
