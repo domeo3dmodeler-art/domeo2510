@@ -681,7 +681,7 @@ export default function ExecutorDashboard() {
     try {
       console.log('📊 Generating Excel for supplier order:', supplierOrderId);
       
-      const response = await fetch(`/api/supplier-orders/${supplierOrderId}/excel`);
+      const response = await fetch(`${window.location.origin}/api/supplier-orders/${supplierOrderId}/excel`);
 
       if (response.ok) {
         const blob = await response.blob();

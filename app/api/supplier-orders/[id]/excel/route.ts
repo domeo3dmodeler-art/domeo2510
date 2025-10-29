@@ -49,26 +49,35 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     console.log('📦 Supplier order cart_data:', supplierOrder.cart_data);
     console.log('📦 Supplier order ID:', supplierOrder.id);
 
-    // Получаем связанный заказ и клиента
-    const order = await prisma.order.findUnique({
+    // Получаем связанный счет (Invoice) и клиента
+    // SupplierOrder теперь связан с Invoice, а не с Order
+    const invoice = await prisma.invoice.findUnique({
       where: { id: supplierOrder.parent_document_id },
       select: {
         id: true,
-        client: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            middleName: true,
-            phone: true,
-            address: true
-          }
-        }
+        client_id: true
       }
     });
 
-    if (!order) {
-      return NextResponse.json({ error: 'Related order not found' }, { status: 404 });
+    if (!invoice) {
+      return NextResponse.json({ error: 'Related invoice not found' }, { status: 404 });
+    }
+
+    // Получаем клиента по client_id
+    const client = await prisma.client.findUnique({
+      where: { id: invoice.client_id },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        middleName: true,
+        phone: true,
+        address: true
+      }
+    });
+
+    if (!client) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
     }
 
     // Получаем данные корзины
@@ -128,7 +137,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // Генерируем Excel файл с дополнительной информацией
     const buffer = await generateExcel({
       ...excelData,
-      client: order.client,
+      client: client,
       supplier: {
         name: supplierOrder.supplier_name,
         email: supplierOrder.supplier_email,
