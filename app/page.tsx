@@ -111,7 +111,7 @@ export default function Home() {
             {/* Заголовок */}
             <div className="flex items-center space-x-3">
               <div>
-                <h1 className="text-2xl font-bold text-black">Domeo</h1>
+                <h1 className="text-2xl font-bold text-black">Domeo (staging-test)</h1>
                 <p className="text-xs text-gray-500 font-medium">Configurators</p>
               </div>
               <div className="flex items-center">
