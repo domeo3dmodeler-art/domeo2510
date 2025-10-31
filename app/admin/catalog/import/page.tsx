@@ -1269,7 +1269,7 @@ export default function CatalogImportPage() {
               <p className="mt-2 text-gray-600">Загрузка и настройка товаров и фотографий в каталог</p>
             </div>
             {/* Инструкция в правом верхнем углу */}
-            <div className="w-80 flex-shrink-0 ml-6">
+            <div className="flex-shrink-0 ml-6">
               <ImportInstructionsCard />
             </div>
           </div>
