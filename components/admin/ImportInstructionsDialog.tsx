@@ -106,8 +106,9 @@ export default function ImportInstructionsDialog({ open, onOpenChange }: ImportI
                       <strong>Создание нового товара:</strong>
                       <ul className="list-disc list-inside ml-4 mt-1 text-gray-700">
                         <li>Если поле "SKU внутреннее" пустое - товар создается как новый</li>
-                        <li>Все обязательные поля должны быть заполнены</li>
-                        <li>SKU генерируется автоматически</li>
+                        <li>Все обязательные поля из шаблона должны быть заполнены</li>
+                        <li>SKU генерируется автоматически (уникальный во всей БД)</li>
+                        <li>Поля, отсутствующие в шаблоне, игнорируются</li>
                       </ul>
                     </div>
                   </div>
@@ -116,9 +117,21 @@ export default function ImportInstructionsDialog({ open, onOpenChange }: ImportI
                     <div>
                       <strong>Обновление существующего товара:</strong>
                       <ul className="list-disc list-inside ml-4 mt-1 text-gray-700">
-                        <li>Если "SKU внутреннее" заполнено и товар существует - обновляется</li>
-                        <li>Обновляются только заполненные поля</li>
+                        <li>Если "SKU внутреннее" заполнено и товар найден в той же категории - обновляется</li>
+                        <li>Обновляются только заполненные поля (режим merge)</li>
                         <li>Пустые поля в файле не изменяют существующие данные</li>
+                        <li>Обрабатываются только поля из шаблона категории</li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <div className="w-2 h-2 bg-red-600 rounded-full mt-2"></div>
+                    <div>
+                      <strong>⚠️ Запрещено:</strong>
+                      <ul className="list-disc list-inside ml-4 mt-1 text-gray-700">
+                        <li>Импорт товара с SKU из другой категории - будет ошибка</li>
+                        <li>SKU должны быть уникальными во всей базе данных</li>
+                        <li>При обнаружении конфликта импорт прерывается</li>
                       </ul>
                     </div>
                   </div>
@@ -131,10 +144,12 @@ export default function ImportInstructionsDialog({ open, onOpenChange }: ImportI
                   Важные особенности
                 </h4>
                 <ul className="list-disc list-inside space-y-1 text-yellow-800">
-                  <li>Можно загружать частичные файлы (только несколько столбцов)</li>
+                  <li>Можно загружать частичные файлы (только необходимые столбцы для обновления)</li>
                   <li>Система автоматически исправляет кодировку русских символов</li>
                   <li>Числовые поля сохраняются как числа, текстовые как текст</li>
                   <li>Пустые значения отображаются как "-"</li>
+                  <li><strong>Обрабатываются только поля из шаблона категории</strong> - остальные поля игнорируются</li>
+                  <li>В режиме preview показываются предупреждения о несуществующих SKU</li>
                 </ul>
               </div>
             </div>
@@ -163,18 +178,30 @@ export default function ImportInstructionsDialog({ open, onOpenChange }: ImportI
                 <ol className="list-decimal list-inside space-y-1 text-gray-700">
                   <li>Выберите категорию товаров</li>
                   <li>Перейдите на вкладку "Импорт фотографий"</li>
-                  <li>Загрузите ZIP-архив с фотографиями</li>
-                  <li>Система автоматически распределит фотографии по товарам</li>
-                  <li>Проверьте результаты и подтвердите загрузку</li>
+                  <li>Выберите тип загрузки: <strong>Фото товаров</strong> (properties_data) или <strong>Фото свойств</strong> (property_photos)</li>
+                  <li>Выберите свойство для привязки (например, "Артикул поставщика" или "Цвет")</li>
+                  <li>Загрузите фотографии (поддерживается массовая загрузка)</li>
+                  <li>Система автоматически распределит фотографии по товарам/свойствам</li>
+                  <li>Проверьте результаты загрузки</li>
                 </ol>
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 className="font-medium text-blue-900 mb-2">Автоматическое сопоставление</h4>
-                <p className="text-blue-800 text-sm">
-                  Система автоматически сопоставляет фотографии с товарами по названию файла и артикулу поставщика. 
-                  Если точного совпадения нет, фотографии можно назначить вручную.
-                </p>
+                <div className="text-blue-800 text-sm space-y-2">
+                  <p>
+                    Система автоматически сопоставляет фотографии с товарами/свойствами по названию файла и значению выбранного свойства.
+                  </p>
+                  <div>
+                    <strong>Правила именования файлов:</strong>
+                    <ul className="list-disc list-inside ml-2 mt-1 space-y-0.5">
+                      <li><code>model_name.png</code> → обложка товара</li>
+                      <li><code>model_name_1.png</code> → фото галереи #1</li>
+                      <li><code>model_name_2.png</code> → фото галереи #2</li>
+                      <li>Имя файла (без расширения) должно совпадать со значением свойства привязки</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

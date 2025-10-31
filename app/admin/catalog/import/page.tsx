@@ -8,6 +8,7 @@ import { useImportTemplate, useFileAnalysis } from '../../../../hooks/useImportT
 import CatalogTree from '../../../../components/admin/CatalogTree';
 import TemplateManager from '../../../../components/admin/TemplateManager';
 import TemplateEditor from '../../../../components/admin/TemplateEditor';
+import ImportInstructionsCard from '../../../../components/admin/ImportInstructionsCard';
 import { checkAndFixFileEncoding, checkFileEncoding } from '../../../../lib/file-encoding-fixer';
 
 interface ImportHistoryItem {
@@ -341,7 +342,29 @@ export default function CatalogImportPage() {
 
       const result = await response.json();
 
-      // Проверяем наличие несуществующих SKU
+      // ПЕРВОНАЧАЛЬНАЯ ПРОВЕРКА: SKU из других категорий - КРИТИЧЕСКАЯ ОШИБКА
+      if (result.skuCheck && result.skuCheck.crossCategoryWarning) {
+        const crossCategorySkus = result.skuCheck.crossCategorySkus || [];
+        const sampleSkus = crossCategorySkus.slice(0, 10).map((item: any) => 
+          `  • Строка ${item.row}: SKU "${item.sku}" (товар "${item.existingProductName}") в категории "${item.existingCategoryName}"`
+        ).join('\n');
+        
+        const errorMessage = `❌ ОШИБКА: Обнаружены SKU из других категорий!\n\n` +
+          `${result.skuCheck.crossCategoryWarning}\n\n` +
+          (crossCategorySkus.length > 0 ? `Примеры:\n${sampleSkus}\n\n` : '') +
+          `Исправьте SKU в файле и попробуйте снова.\n` +
+          `Импорт товаров из других категорий запрещен.`;
+
+        alert(errorMessage);
+
+        // Отменяем импорт
+        setPriceListData(null);
+        setCurrentStep('upload');
+        setCompletedSteps(prev => prev.filter(s => s !== 'upload'));
+        return;
+      }
+
+      // Проверяем наличие несуществующих SKU (только если нет ошибок с другими категориями)
       if (result.skuCheck && result.skuCheck.notFound > 0) {
         const notFoundCount = result.skuCheck.notFound;
         const notFoundSkus = result.skuCheck.notFoundSkus || [];
@@ -1240,8 +1263,16 @@ export default function CatalogImportPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Заголовок */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Импорт данных</h1>
-          <p className="mt-2 text-gray-600">Загрузка и настройка товаров и фотографий в каталог</p>
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Импорт данных</h1>
+              <p className="mt-2 text-gray-600">Загрузка и настройка товаров и фотографий в каталог</p>
+            </div>
+            {/* Инструкция в правом верхнем углу */}
+            <div className="w-80 flex-shrink-0 ml-6">
+              <ImportInstructionsCard />
+            </div>
+          </div>
         </div>
 
         {/* Вкладки */}
