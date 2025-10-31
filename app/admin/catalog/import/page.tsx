@@ -90,6 +90,7 @@ export default function CatalogImportPage() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [catalogCategories, setCatalogCategories] = useState<CatalogCategory[]>([]);
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
+  const [originalFile, setOriginalFile] = useState<File | null>(null); // Сохраняем оригинальный файл
   const [photoCategorySearchTerm, setPhotoCategorySearchTerm] = useState('');
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [photoMappingProperty, setPhotoMappingProperty] = useState<string>('Артикул товаров');
@@ -292,6 +293,9 @@ export default function CatalogImportPage() {
         setCurrentStep('catalog');
         return;
       }
+
+      // Сохраняем оригинальный файл для дальнейшего использования при импорте
+      setOriginalFile(file);
 
       console.log('📤 Отправка файла на preview:', {
         filename: file.name,
@@ -906,17 +910,21 @@ export default function CatalogImportPage() {
                     return;
                   }
                   
+                  // Используем оригинальный файл, если он сохранен
+                  if (!originalFile) {
+                    alert('Оригинальный файл не найден. Пожалуйста, загрузите файл заново.');
+                    return;
+                  }
+                  
                   try {
                     setIsProcessing(true);
                     
-                    // Создаем CSV из данных
-                    const csvContent = createCSVFromPriceListData(priceListData.rows, priceListData.headers);
-                    
-                     // Отправляем на импорт через унифицированный API
-                     const formData = new FormData();
-                     formData.append('file', new Blob([csvContent], { type: 'text/csv' }), 'import.csv');
-                     formData.append('category', selectedCatalogCategoryId);
-                     formData.append('mode', 'import');
+                    // Используем оригинальный файл вместо конвертации в CSV
+                    // Это сохраняет кодировку и правильный формат
+                    const formData = new FormData();
+                    formData.append('file', originalFile);
+                    formData.append('category', selectedCatalogCategoryId);
+                    formData.append('mode', 'import');
                      
                      const response = await fetch('/api/admin/import/unified', {
                        method: 'POST',

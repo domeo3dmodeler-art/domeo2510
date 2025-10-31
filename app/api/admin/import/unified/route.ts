@@ -153,8 +153,11 @@ export async function POST(req: NextRequest) {
       availableFields: fixedHeaders
     });
 
-    // Если нет ни одного обязательного поля из шаблона - ошибка
-    if (availableRequiredFields.length === 0) {
+    // Проверяем наличие SKU внутреннее - это минимальное требование для обновления товаров
+    const hasInternalSku = fixedHeaders.includes('SKU внутреннее');
+    
+    // Если нет ни одного обязательного поля из шаблона И нет SKU внутреннее - ошибка
+    if (availableRequiredFields.length === 0 && !hasInternalSku) {
       return NextResponse.json({
         error: "Файл не соответствует шаблону категории",
         details: {
@@ -162,10 +165,15 @@ export async function POST(req: NextRequest) {
           missingFields: missingFields,
           availableFields: fixedHeaders,
           templateRequiredFields: requiredFields,
-          suggestion: "Скачайте актуальный шаблон для этой категории и используйте его структуру"
+          suggestion: "Файл должен содержать хотя бы 'SKU внутреннее' для обновления товаров, или все обязательные поля из шаблона. Скачайте актуальный шаблон для этой категории и используйте его структуру."
         },
-        message: `Отсутствуют обязательные поля: ${missingFields.join(', ')}. Скачайте шаблон для категории "${template.catalog_category?.name || 'неизвестной'}" и используйте его структуру.`
+        message: `Отсутствуют обязательные поля. Файл должен содержать хотя бы 'SKU внутреннее' для обновления товаров, или все обязательные поля из шаблона: ${missingFields.slice(0, 5).join(', ')}.`
       }, { status: 400 });
+    }
+    
+    // Если нет обязательных полей, но есть SKU внутреннее - это режим обновления цен/свойств
+    if (availableRequiredFields.length === 0 && hasInternalSku) {
+      console.log('ℹ️ Режим обновления: найдено только SKU внутреннее, разрешаем импорт для обновления цен/свойств');
     }
 
     // Обрабатываем данные
@@ -182,12 +190,22 @@ export async function POST(req: NextRequest) {
           row_number: i + 2
         };
 
-        // Заполняем свойства товара - используем только доступные обязательные поля из шаблона
+        // Заполняем свойства товара
+        // Если есть обязательные поля из шаблона - используем их
+        // Если нет обязательных полей, но есть SKU внутреннее - используем все поля из файла (режим обновления)
         const properties: any = {};
-        availableRequiredFields.forEach(field => {
+        const fieldsToProcess = availableRequiredFields.length > 0 
+          ? availableRequiredFields 
+          : fixedHeaders; // Если нет обязательных полей, используем все поля из файла
+        
+        fieldsToProcess.forEach(field => {
           const headerIndex = fixedHeaders.indexOf(field);
           if (headerIndex !== -1 && row[headerIndex] !== undefined) {
-            properties[field] = row[headerIndex];
+            const value = row[headerIndex];
+            // Игнорируем пустые значения
+            if (value !== undefined && value !== null && value !== '' && value !== '-') {
+              properties[field] = value;
+            }
           }
         });
 
