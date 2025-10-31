@@ -106,7 +106,7 @@ export default function ImportInstructionsDialog({ open, onOpenChange }: ImportI
                       <strong>Создание нового товара:</strong>
                       <ul className="list-disc list-inside ml-4 mt-1 text-gray-700">
                         <li>Если поле "SKU внутреннее" пустое - товар создается как новый</li>
-                        <li>Все обязательные поля из шаблона должны быть заполнены</li>
+                        <li><strong>Все обязательные поля из шаблона должны быть заполнены</strong></li>
                         <li>SKU генерируется автоматически (уникальный во всей БД)</li>
                         <li>Поля, отсутствующие в шаблоне, игнорируются</li>
                       </ul>
@@ -118,8 +118,10 @@ export default function ImportInstructionsDialog({ open, onOpenChange }: ImportI
                       <strong>Обновление существующего товара:</strong>
                       <ul className="list-disc list-inside ml-4 mt-1 text-gray-700">
                         <li>Если "SKU внутреннее" заполнено и товар найден в той же категории - обновляется</li>
+                        <li><strong>Требуется только SKU внутреннее, остальные поля опциональны</strong></li>
                         <li>Обновляются только заполненные поля (режим merge)</li>
                         <li>Пустые поля в файле не изменяют существующие данные</li>
+                        <li>Если название не указано в файле, сохраняется текущее из БД</li>
                         <li>Обрабатываются только поля из шаблона категории</li>
                       </ul>
                     </div>
