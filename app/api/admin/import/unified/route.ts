@@ -211,6 +211,14 @@ export async function POST(req: NextRequest) {
           // При создании: может быть ошибка валидации, если поле обязательное
         });
 
+        // Логирование для диагностики (только для первых 3 строк)
+        if (i < 3) {
+          console.log(`📋 Строка ${i + 2}: Обработано полей из шаблона: ${Object.keys(properties).length}`);
+          console.log(`  Поля из шаблона (${requiredFields.length}):`, requiredFields);
+          console.log(`  Поля найдены в файле (${Object.keys(properties).length}):`, Object.keys(properties));
+          console.log(`  Все поля в файле (${fixedHeaders.length}):`, fixedHeaders);
+        }
+
         // Исправляем кодировку свойств
         product.properties_data = fixAllEncoding(properties);
 
@@ -314,7 +322,13 @@ export async function POST(req: NextRequest) {
 
     console.log('📦 Обработано товаров:', {
       total: products.length,
-      errors: errors.length
+      errors: errors.length,
+      sampleProducts: products.slice(0, 3).map(p => ({
+        sku: p.sku,
+        name: p.name,
+        propertiesCount: Object.keys(p.properties_data).length,
+        properties: Object.keys(p.properties_data)
+      }))
     });
 
     // Если режим preview, возвращаем предварительный просмотр
@@ -448,6 +462,8 @@ export async function POST(req: NextRequest) {
 
         if (existingProduct) {
           // Обновляем существующий товар - только заполненные поля
+          console.log(`🔄 Обновление товара: SKU="${product.sku}", ID=${existingProduct.id}`);
+          
           const updateData: any = {
             updated_at: new Date()
           };
@@ -455,6 +471,7 @@ export async function POST(req: NextRequest) {
           // Обновляем название, если оно указано
           if (product.name && product.name !== 'Без названия') {
             updateData.name = product.name;
+            console.log(`  📝 Обновление названия: "${product.name}"`);
           }
 
           // Обновляем только заполненные свойства
@@ -465,16 +482,24 @@ export async function POST(req: NextRequest) {
 
           const newProperties = { ...existingProperties };
           
+          console.log(`  📊 Поля из файла (${Object.keys(product.properties_data).length}):`, Object.keys(product.properties_data));
+          
           // Обновляем только те поля, которые не пустые в файле
           // Исправляем кодировку полей перед обновлением
           const fixedKeys = fixFieldsEncoding(Object.keys(product.properties_data));
+          let updatedFieldsCount = 0;
           Object.keys(product.properties_data).forEach((originalKey, index) => {
             const fixedKey = fixedKeys[index];
             const value = product.properties_data[originalKey];
             if (value !== undefined && value !== null && value !== '' && value !== '-') {
+              const oldValue = newProperties[fixedKey];
               newProperties[fixedKey] = value;
+              updatedFieldsCount++;
+              console.log(`  ✅ Обновление поля "${fixedKey}": "${oldValue}" → "${value}"`);
             }
           });
+
+          console.log(`  📈 Обновлено полей: ${updatedFieldsCount}`);
 
           updateData.properties_data = JSON.stringify(newProperties);
           updateData.specifications = JSON.stringify(newProperties);
@@ -484,6 +509,7 @@ export async function POST(req: NextRequest) {
             data: updateData
           });
 
+          console.log(`  ✅ Товар успешно обновлен`);
           updatedCount++;
         } else {
           // Создаем новый товар - все обязательные поля должны быть заполнены
@@ -546,13 +572,24 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    console.log('✅ Импорт завершен:', {
-      imported: importedCount,
-      created: createdCount,
-      updated: updatedCount,
-      errors: errorCount,
-      validationErrors: errors.length
-    });
+           console.log('✅ Импорт завершен:', {
+             imported: importedCount,
+             created: createdCount,
+             updated: updatedCount,
+             errors: errorCount,
+             validationErrors: errors.length
+           });
+           
+           // Дополнительное логирование для диагностики
+           if (updatedCount > 0) {
+             console.log(`📊 Обновлено товаров: ${updatedCount}`);
+           }
+           if (createdCount > 0) {
+             console.log(`➕ Создано товаров: ${createdCount}`);
+           }
+           if (errorCount > 0) {
+             console.log(`❌ Ошибок при импорте: ${errorCount}`);
+           }
 
     return NextResponse.json({
       success: true,
