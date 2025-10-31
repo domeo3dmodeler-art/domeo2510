@@ -17,7 +17,10 @@ export function formatUserName(user: User | null): string {
   if (!user) return 'Пользователь';
   
   const firstName = user.firstName.charAt(0).toUpperCase();
-  const middleName = user.middleName ? user.middleName.charAt(0).toUpperCase() + '.' : '';
+  // Показываем отчество только если оно заполнено (не пустое)
+  const middleName = (user.middleName && user.middleName.trim()) 
+    ? user.middleName.charAt(0).toUpperCase() + '.' 
+    : '';
   
   return `${user.lastName} ${firstName}.${middleName}`;
 }

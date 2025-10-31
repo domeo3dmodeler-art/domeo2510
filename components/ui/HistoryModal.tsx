@@ -60,7 +60,8 @@ export default function HistoryModal({
   const formatUserName = (user: HistoryEntry['user']) => {
     const lastName = user.last_name;
     const firstName = user.first_name.charAt(0) + '.';
-    const middleName = user.middle_name ? user.middle_name.charAt(0) + '.' : '';
+    // Показываем отчество только если оно заполнено (не пустое)
+    const middleName = (user.middle_name && user.middle_name.trim()) ? user.middle_name.charAt(0) + '.' : '';
     return `${lastName} ${firstName}${middleName}`;
   };
 
