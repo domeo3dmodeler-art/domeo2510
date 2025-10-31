@@ -2,7 +2,28 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { apiErrorHandler } from '@/lib/api-error-handler';
 import { apiValidator } from '@/lib/api-validator';
-import { fixAllEncoding } from '@/lib/encoding-utils';
+import { fixFieldEncoding } from '@/lib/encoding-utils';
+
+// Временная реализация функции fixAllEncoding
+function fixAllEncoding(data: any): any {
+  if (typeof data === 'string') {
+    return fixFieldEncoding(data);
+  }
+  
+  if (Array.isArray(data)) {
+    return data.map(fixAllEncoding);
+  }
+  
+  if (typeof data === 'object' && data !== null) {
+    const result: any = {};
+    for (const [key, value] of Object.entries(data)) {
+      result[fixFieldEncoding(key)] = fixAllEncoding(value);
+    }
+    return result;
+  }
+  
+  return data;
+}
 
 const prisma = new PrismaClient();
 
@@ -79,7 +100,7 @@ export async function PUT(
         ...(properties_data && { properties_data: JSON.stringify(properties_data) }),
         ...(specifications && { specifications: JSON.stringify(specifications) }),
         ...(is_active !== undefined && { is_active: Boolean(is_active) }),
-        ...(sort_order !== undefined && { sort_order: parseInt(sort_order) || 0 }),
+        // sort_order удален из схемы Prisma, поэтому не обновляем его
         updated_at: new Date(),
       },
       include: {

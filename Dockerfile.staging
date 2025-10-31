@@ -8,11 +8,15 @@ WORKDIR /app
 
 # Install dependencies
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production && npm cache clean --force
+RUN npm install && npm cache clean --force
 
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
+
+# Install openssl and libc6-compat for Prisma
+RUN apk add --no-cache openssl libc6-compat
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
@@ -31,6 +35,8 @@ WORKDIR /app
 ENV NODE_ENV=staging
 ENV NEXT_TELEMETRY_DISABLED=1
 
+RUN apk add --no-cache openssl libc6-compat curl nss chromium
+
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
@@ -44,8 +50,8 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Create necessary directories
-RUN mkdir -p uploads logs
-RUN chown -R nextjs:nodejs uploads logs
+RUN mkdir -p uploads logs public/uploads
+RUN chown -R nextjs:nodejs uploads logs public/uploads
 
 USER nextjs
 

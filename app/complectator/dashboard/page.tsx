@@ -426,6 +426,14 @@ export default function ComplectatorDashboard() {
   const showStatusDropdown = async (type: 'quote'|'invoice', id: string, event: React.MouseEvent) => {
     console.log('🎯 Showing status dropdown:', { type, id });
     
+    // Сохраняем элемент ДО async операций
+    if (!event.currentTarget) {
+      console.error('❌ event.currentTarget is null');
+      return;
+    }
+    
+    const element = event.currentTarget as HTMLElement;
+    
     // Проверяем блокировку статуса
     const isBlocked = await isStatusBlocked(id, type);
     if (isBlocked) {
@@ -434,13 +442,18 @@ export default function ComplectatorDashboard() {
       return;
     }
     
-    const rect = event.currentTarget.getBoundingClientRect();
-    setStatusDropdown({
-      type,
-      id,
-      x: rect.left,
-      y: rect.bottom + 4
-    });
+    // Получаем координаты элемента
+    try {
+      const rect = element.getBoundingClientRect();
+      setStatusDropdown({
+        type,
+        id,
+        x: rect.left,
+        y: rect.bottom + 4
+      });
+    } catch (error) {
+      console.error('❌ Error getting bounding rect:', error);
+    }
   };
 
   // Скрыть выпадающее меню

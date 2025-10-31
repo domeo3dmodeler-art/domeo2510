@@ -6,9 +6,11 @@ import { prisma } from '@/lib/prisma';
 import { notifyUsersByRole, notifyUser } from '@/lib/notifications';
 import { isStatusBlocked } from '@/lib/validation/status-blocking';
 import { getStatusLabel } from '@/lib/utils/status-labels';
+import { canUserChangeStatus } from '@/lib/auth/permissions';
+import { UserRole } from '@/lib/auth/roles';
 import jwt from 'jsonwebtoken';
 
-const VALID_STATUSES = ['DRAFT', 'SENT', 'PAID', 'CANCELLED', 'IN_PRODUCTION', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED', 'ORDERED'];
+const VALID_STATUSES = ['DRAFT', 'SENT', 'PAID', 'CANCELLED', 'ORDERED', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED'];
 
 // PUT /api/invoices/[id]/status - Изменить статус Счета
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -54,6 +56,43 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       );
     }
 
+    // Получаем роль пользователя из токена
+    let userRole: UserRole | null = null;
+    try {
+      const authHeader = req.headers.get('authorization');
+      const token = req.cookies.get('auth-token')?.value;
+      const authToken = authHeader && authHeader.startsWith('Bearer ') 
+        ? authHeader.substring(7) 
+        : token;
+      
+      if (authToken) {
+        const decoded: any = jwt.verify(authToken, process.env.JWT_SECRET || "your-super-secret-jwt-key-change-this-in-production-min-32-chars");
+        userRole = decoded.role as UserRole;
+        console.log('👤 API: User role from token:', userRole);
+      }
+    } catch (tokenError) {
+      console.warn('⚠️ Не удалось получить роль из токена:', tokenError);
+    }
+
+    // Проверяем права на изменение статуса по роли
+    if (userRole) {
+      const canChange = canUserChangeStatus(userRole, 'invoice', existingInvoice.status);
+      if (!canChange) {
+        console.log('🔒 API: User does not have permission to change status:', { userRole, currentStatus: existingInvoice.status });
+        return NextResponse.json(
+          { 
+            error: 'Недостаточно прав для изменения статуса',
+            details: {
+              userRole,
+              currentStatus: existingInvoice.status,
+              reason: 'Статус счета заблокирован для вашей роли'
+            }
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     // Проверяем блокировку статуса
     const isBlocked = await isStatusBlocked(id, 'invoice');
     if (isBlocked) {
@@ -95,35 +134,37 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       console.warn('⚠️ Не удалось получить user_id из токена:', tokenError);
     }
 
-    // Отправляем уведомления в зависимости от статуса
+    // Сохраняем старый статус для уведомлений
+    const oldStatus = existingInvoice.status;
+
+    // Отправляем уведомления через универсальную функцию
     try {
-      if (status === 'PAID') {
-        // Уведомляем всех исполнителей о том, что счет оплачен
-        await notifyUsersByRole('executor', {
-          clientId: existingInvoice.client_id,
-          documentId: id,
-          type: 'invoice_paid',
-          title: 'Счет оплачен',
-          message: `Счет ${existingInvoice.number} переведен в статус "Оплачен/Заказ". Теперь только Исполнитель может изменять статус.`
-        });
-      } else if (['IN_PRODUCTION', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED'].includes(status)) {
-        // Уведомляем комплектатора о изменении статуса исполнителем
-        const statusNames: Record<string, string> = {
-          'IN_PRODUCTION': 'Заказ размещен',
-          'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
-          'COMPLETED': 'Исполнен'
-        };
-        
-        await notifyUsersByRole('complectator', {
-          clientId: existingInvoice.client_id,
-          documentId: id,
-          type: 'status_changed',
-          title: 'Статус изменен',
-          message: `Исполнитель изменил статус счета ${existingInvoice.number} на "${statusNames[status]}".`
-        });
-      }
+      console.log('🔔 Отправка уведомления о смене статуса:', {
+        documentId: id,
+        documentType: 'invoice',
+        documentNumber: existingInvoice.number,
+        oldStatus,
+        newStatus: status,
+        clientId: existingInvoice.client_id
+      });
+      
+      const { sendStatusNotification } = await import('@/lib/notifications/status-notifications');
+      await sendStatusNotification(
+        id,
+        'invoice',
+        existingInvoice.number,
+        oldStatus,
+        status,
+        existingInvoice.client_id || ''
+      );
+      
+      console.log('✅ Уведомление отправлено успешно');
     } catch (notificationError) {
-      console.warn('⚠️ Не удалось отправить уведомление:', notificationError);
+      console.error('❌ Не удалось отправить уведомление:', notificationError);
+      console.error('❌ Детали ошибки:', {
+        message: notificationError instanceof Error ? notificationError.message : String(notificationError),
+        stack: notificationError instanceof Error ? notificationError.stack : undefined
+      });
       // Не прерываем выполнение, если не удалось отправить уведомление
     }
 

@@ -5,6 +5,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isStatusBlocked } from '@/lib/validation/status-blocking';
 import { getStatusLabel } from '@/lib/utils/status-labels';
+import { notifyUsersByRole } from '@/lib/notifications';
+import { canUserChangeStatus } from '@/lib/auth/permissions';
+import { UserRole } from '@/lib/auth/roles';
 import jwt from 'jsonwebtoken';
 
 const VALID_STATUSES = ['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED'];
@@ -64,6 +67,43 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       );
     }
 
+    // Получаем роль пользователя из токена
+    let userRole: UserRole | null = null;
+    try {
+      const authHeader = req.headers.get('authorization');
+      const token = req.cookies.get('auth-token')?.value;
+      const authToken = authHeader && authHeader.startsWith('Bearer ') 
+        ? authHeader.substring(7) 
+        : token;
+      
+      if (authToken) {
+        const decoded: any = jwt.verify(authToken, process.env.JWT_SECRET || "your-super-secret-jwt-key-change-this-in-production-min-32-chars");
+        userRole = decoded.role as UserRole;
+        console.log('👤 API: User role from token:', userRole);
+      }
+    } catch (tokenError) {
+      console.warn('⚠️ Не удалось получить роль из токена:', tokenError);
+    }
+
+    // Проверяем права на изменение статуса по роли
+    if (userRole) {
+      const canChange = canUserChangeStatus(userRole, 'quote', existingQuote.status);
+      if (!canChange) {
+        console.log('🔒 API: User does not have permission to change status:', { userRole, currentStatus: existingQuote.status });
+        return NextResponse.json(
+          { 
+            error: 'Недостаточно прав для изменения статуса',
+            details: {
+              userRole,
+              currentStatus: existingQuote.status,
+              reason: 'Статус КП заблокирован для вашей роли'
+            }
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     // Проверяем блокировку статуса
     const isBlocked = await isStatusBlocked(id, 'quote');
     if (isBlocked) {
@@ -120,6 +160,45 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     console.log('✅ API: Quote updated successfully:', updatedQuote);
+
+    // Сохраняем старый статус для уведомлений
+    const oldStatus = oldQuote.status;
+
+    // Отправляем уведомления через универсальную функцию
+    try {
+      const quoteForNotification = await prisma.quote.findUnique({
+        where: { id },
+        select: { client_id: true, number: true, status: true }
+      });
+      
+      console.log('🔔 Отправка уведомления о смене статуса Quote:', {
+        documentId: id,
+        documentType: 'quote',
+        documentNumber: quoteForNotification?.number,
+        oldStatus,
+        newStatus: status,
+        clientId: quoteForNotification?.client_id
+      });
+      
+      if (quoteForNotification) {
+        const { sendStatusNotification } = await import('@/lib/notifications/status-notifications');
+        await sendStatusNotification(
+          id,
+          'quote',
+          quoteForNotification.number,
+          oldStatus,
+          status,
+          quoteForNotification.client_id || ''
+        );
+        console.log('✅ Уведомление Quote отправлено успешно');
+      }
+    } catch (notificationError) {
+      console.error('❌ Не удалось отправить уведомление Quote:', notificationError);
+      console.error('❌ Детали ошибки:', {
+        message: notificationError instanceof Error ? notificationError.message : String(notificationError),
+        stack: notificationError instanceof Error ? notificationError.stack : undefined
+      });
+    }
 
     return NextResponse.json({
       success: true,

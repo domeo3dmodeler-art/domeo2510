@@ -59,12 +59,14 @@ export async function GET(req: NextRequest) {
       },
       message: "Для полного расчета цены используйте POST запрос"
     });
-  } catch (error) {
-    console.error('Error in GET /api/price/doors:', error);
+  } catch (error: any) {
+    console.error('❌ Error in GET /api/price/doors:', error);
     return NextResponse.json(
-      { error: "Ошибка получения информации о ценах" },
+      { error: "Ошибка получения информации о ценах", details: error?.message || String(error) },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
@@ -311,11 +313,19 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/json; charset=utf-8',
       },
     });
-  } catch (error) {
-    console.error('Error calculating door price:', error);
+  } catch (error: any) {
+    console.error('❌ Error calculating door price:', error);
+    console.error('❌ Error stack:', error?.stack);
+    console.error('❌ Error message:', error?.message);
     return NextResponse.json(
-      { error: "Ошибка расчета цены" },
+      { 
+        error: "Ошибка расчета цены",
+        details: error?.message || String(error),
+        selection: body?.selection || body
+      },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

@@ -8,6 +8,21 @@ const prisma = new PrismaClient();
 const photoCache = new Map<string, { data: any; timestamp: number }>();
 const PHOTO_CACHE_TTL = 30 * 60 * 1000; // 30 минут для фото
 
+// DELETE - очистка кэша
+export async function DELETE() {
+  try {
+    photoCache.clear();
+    console.log('🧹 Кэш photos-batch очищен');
+    return NextResponse.json({ success: true, message: 'Кэш photos-batch очищен' });
+  } catch (error) {
+    console.error('❌ Ошибка очистки кэша photos-batch:', error);
+    return NextResponse.json(
+      { error: 'Ошибка очистки кэша' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { models } = await req.json();
@@ -49,38 +64,137 @@ export async function POST(req: NextRequest) {
         }
       });
 
-      // Создаем мапу модель -> артикул поставщика
-      const modelToSupplierSku = new Map<string, string>();
-      products.forEach(product => {
-        const properties = product.properties_data ?
-          (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
-        
-        const modelName = properties['Domeo_Название модели для Web'];
-        const supplierSku = properties['Артикул поставщика'];
-        
-        if (modelName && supplierSku && uncachedModels.includes(modelName)) {
-          modelToSupplierSku.set(modelName, supplierSku);
+      console.log(`📦 Получено товаров из БД: ${products.length}`);
+
+      // Создаем мапу модель -> артикул (для поиска фото по артикулу)
+      const modelToValue = new Map<string, string>();
+      
+      for (const product of products) {
+        try {
+          let properties: any = {};
+          
+          if (product.properties_data) {
+            if (typeof product.properties_data === 'string') {
+              try {
+                // Проверяем, что строка не пустая
+                if (product.properties_data.trim().length === 0) {
+                  continue;
+                }
+                properties = JSON.parse(product.properties_data);
+              } catch (parseError) {
+                console.error('❌ ОШИБКА ПАРСИНГА JSON:', parseError);
+                console.error('🔍 Тип данных:', typeof product.properties_data);
+                console.error('🔍 Длина строки:', product.properties_data?.length);
+                console.error('🔍 Первые 200 символов:', product.properties_data?.substring(0, 200));
+                continue; // Пропускаем этот товар
+              }
+            } else if (typeof product.properties_data === 'object') {
+              properties = product.properties_data;
+            } else {
+              continue; // Пропускаем невалидные данные
+            }
+          }
+          
+          const modelName = properties['Domeo_Название модели для Web'];
+          const article = properties['Артикул поставщика'];
+          
+          if (modelName && uncachedModels.includes(modelName)) {
+            // Сохраняем артикул, а не название модели
+            modelToValue.set(modelName, article || modelName);
+          }
+        } catch (error) {
+          console.error('Ошибка обработки товара:', error);
+          // Пропускаем этот товар
         }
-      });
+      }
 
       // Получаем фотографии из PropertyPhoto для каждой модели
       const photosByModel = new Map<string, any>();
       
-      for (const [modelName, supplierSku] of modelToSupplierSku.entries()) {
+      for (const [modelName, propertyValue] of modelToValue.entries()) {
+        // Приводим propertyValue к нижнему регистру для поиска
+        const normalizedPropertyValue = propertyValue.toLowerCase();
+        
+        console.log(`🔍 Ищем фото для модели "${modelName}" по артикулу "${propertyValue}" (normalized: "${normalizedPropertyValue}")`);
+        
         // Получаем фотографии для этой модели из PropertyPhoto
-        const propertyPhotos = await getPropertyPhotos(
+        // Сначала ищем по "Артикул поставщика" (т.к. фото привязаны по артикулу)
+        let propertyPhotos = await getPropertyPhotos(
           'cmg50xcgs001cv7mn0tdyk1wo', // ID категории "Межкомнатные двери"
           'Артикул поставщика',
-          supplierSku
+          normalizedPropertyValue
         );
+        
+        console.log(`📸 Найдено ${propertyPhotos.length} фото для базового артикула "${propertyValue}"`);
+        
+        // Всегда ищем фото для вариантов артикула (d2 → d2_1, d2_2, ...)
+        console.log(`🔍 Ищем фото для вариантов артикула "${propertyValue}"`);
+        
+        // Ищем фото для вариантов: d2 → d2_1, d2_2, d2_3 и т.д.
+        for (let i = 1; i <= 10; i++) {
+          const variantArticle = `${propertyValue}_${i}`;
+          const variantPhotos = await getPropertyPhotos(
+            'cmg50xcgs001cv7mn0tdyk1wo',
+            'Артикул поставщика',
+            variantArticle.toLowerCase()
+          );
+          
+          if (variantPhotos.length > 0) {
+            console.log(`  ✅ Найдено ${variantPhotos.length} фото для варианта "${variantArticle}"`);
+            propertyPhotos.push(...variantPhotos);
+          }
+        }
+        
+        // Если не найдено ни по артикулу, ни по вариантам, ищем по "Domeo_Название модели для Web"
+        if (propertyPhotos.length === 0) {
+          console.log(`🔍 Фото не найдено, пробуем поиск по названию модели`);
+          propertyPhotos = await getPropertyPhotos(
+            'cmg50xcgs001cv7mn0tdyk1wo', // ID категории "Межкомнатные двери"
+            'Domeo_Название модели для Web',
+            normalizedPropertyValue
+          );
+        }
+        
+        console.log(`📸 Всего найдено ${propertyPhotos.length} фото для "${modelName}"`);
 
         // Структурируем фотографии в обложку и галерею
         const photoStructure = structurePropertyPhotos(propertyPhotos);
         
+        console.log(`📸 Фото для ${modelName}:`, {
+          cover: photoStructure.cover,
+          galleryCount: photoStructure.gallery.length
+        });
+        
+        // Путь из БД может быть с префиксом /uploads/ или без него
+        // Нужно привести к единому формату: /uploads/...
+        let finalPhotoPath = null;
+        if (photoStructure.cover) {
+          if (photoStructure.cover.startsWith('/uploads/')) {
+            finalPhotoPath = photoStructure.cover;
+          } else {
+            finalPhotoPath = `/uploads/${photoStructure.cover}`;
+          }
+        }
+        
+        // То же для галереи
+        const finalGalleryPaths = photoStructure.gallery.map(p => {
+          if (p.startsWith('/uploads/')) return p;
+          return `/uploads/${p}`;
+        });
+        
+        console.log(`📸 Формируем результат для ${modelName}:`, {
+          'cover из БД': photoStructure.cover,
+          'final photo path': finalPhotoPath,
+          'starts with /uploads': finalPhotoPath?.startsWith('/uploads')
+        });
+        
         photosByModel.set(modelName, {
-          modelKey: supplierSku,
-          photo: photoStructure.cover,
-          photos: photoStructure,
+          modelKey: modelName, // Используем полное имя модели для поиска фото
+          photo: finalPhotoPath,
+          photos: {
+            cover: finalPhotoPath,
+            gallery: finalGalleryPaths
+          },
           hasGallery: photoStructure.gallery.length > 0
         });
       }
@@ -105,6 +219,16 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('✅ Batch загрузка завершена');
+    console.log('📊 Пример результата:', {
+      'Первая модель': Object.keys(results)[0],
+      'Данные фото': results[Object.keys(results)[0]]
+    });
+    
+    console.log('🔍 Все результаты для моделей:', {
+      'models requested': models,
+      'models with results': Object.keys(results),
+      'first result sample': results[Object.keys(results)[0]]
+    });
 
     return NextResponse.json({
       ok: true,
@@ -112,7 +236,7 @@ export async function POST(req: NextRequest) {
     }, {
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'public, max-age=1800' // 30 минут кэш в браузере
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
       }
     });
 

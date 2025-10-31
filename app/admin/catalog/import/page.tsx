@@ -8,6 +8,7 @@ import { useImportTemplate, useFileAnalysis } from '../../../../hooks/useImportT
 import CatalogTree from '../../../../components/admin/CatalogTree';
 import TemplateManager from '../../../../components/admin/TemplateManager';
 import TemplateEditor from '../../../../components/admin/TemplateEditor';
+import ImportInstructionsCard from '../../../../components/admin/ImportInstructionsCard';
 import { checkAndFixFileEncoding, checkFileEncoding } from '../../../../lib/file-encoding-fixer';
 
 interface ImportHistoryItem {
@@ -90,6 +91,7 @@ export default function CatalogImportPage() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [catalogCategories, setCatalogCategories] = useState<CatalogCategory[]>([]);
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
+  const [originalFile, setOriginalFile] = useState<File | null>(null); // Сохраняем оригинальный файл
   const [photoCategorySearchTerm, setPhotoCategorySearchTerm] = useState('');
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [photoMappingProperty, setPhotoMappingProperty] = useState<string>('Артикул товаров');
@@ -285,6 +287,108 @@ export default function CatalogImportPage() {
 
   const processFile = async (file: File) => {
     try {
+      // Проверяем наличие выбранной категории
+      if (!selectedCatalogCategoryId) {
+        const errorMsg = 'Пожалуйста, выберите категорию перед загрузкой файла.\n\nВернитесь на шаг "Выбор категории" и выберите категорию для импорта.';
+        alert(errorMsg);
+        setCurrentStep('catalog');
+        return;
+      }
+
+      // Сохраняем оригинальный файл для дальнейшего использования при импорте
+      setOriginalFile(file);
+
+      console.log('📤 Отправка файла на preview:', {
+        filename: file.name,
+        categoryId: selectedCatalogCategoryId,
+        fileSize: file.size,
+        fileType: file.type
+      });
+
+      // Отправляем файл на preview для проверки SKU
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('category', selectedCatalogCategoryId);
+      formData.append('mode', 'preview');
+
+      const response = await fetch('/api/admin/import/unified', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorData.details?.message || errorMessage;
+          
+          // Детальная информация об ошибке
+          if (errorData.details) {
+            if (errorData.details.missingFields) {
+              errorMessage += `\n\nОтсутствуют обязательные поля: ${errorData.details.missingFields.join(', ')}`;
+            }
+            if (errorData.details.availableFields) {
+              errorMessage += `\n\nДоступные поля в файле: ${errorData.details.availableFields.slice(0, 10).join(', ')}`;
+            }
+            if (errorData.details.suggestion) {
+              errorMessage += `\n\n${errorData.details.suggestion}`;
+            }
+          }
+        } catch (e) {
+          // Если не удалось распарсить JSON, используем базовое сообщение
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+
+      // ПЕРВОНАЧАЛЬНАЯ ПРОВЕРКА: SKU из других категорий - КРИТИЧЕСКАЯ ОШИБКА
+      if (result.skuCheck && result.skuCheck.crossCategoryWarning) {
+        const crossCategorySkus = result.skuCheck.crossCategorySkus || [];
+        const sampleSkus = crossCategorySkus.slice(0, 10).map((item: any) => 
+          `  • Строка ${item.row}: SKU "${item.sku}" (товар "${item.existingProductName}") в категории "${item.existingCategoryName}"`
+        ).join('\n');
+        
+        const errorMessage = `❌ ОШИБКА: Обнаружены SKU из других категорий!\n\n` +
+          `${result.skuCheck.crossCategoryWarning}\n\n` +
+          (crossCategorySkus.length > 0 ? `Примеры:\n${sampleSkus}\n\n` : '') +
+          `Исправьте SKU в файле и попробуйте снова.\n` +
+          `Импорт товаров из других категорий запрещен.`;
+
+        alert(errorMessage);
+
+        // Отменяем импорт
+        setPriceListData(null);
+        setCurrentStep('upload');
+        setCompletedSteps(prev => prev.filter(s => s !== 'upload'));
+        return;
+      }
+
+      // Проверяем наличие несуществующих SKU (только если нет ошибок с другими категориями)
+      if (result.skuCheck && result.skuCheck.notFound > 0) {
+        const notFoundCount = result.skuCheck.notFound;
+        const notFoundSkus = result.skuCheck.notFoundSkus || [];
+        const sampleSkus = notFoundSkus.slice(0, 10).map((item: any) => `  • Строка ${item.row}: ${item.sku}`).join('\n');
+        
+        const warningMessage = `⚠️ ПРЕДУПРЕЖДЕНИЕ: Обнаружено несуществующих SKU: ${notFoundCount}\n\n` +
+          `Эти товары будут созданы как новые при импорте.\n\n` +
+          (notFoundSkus.length > 0 ? `Примеры:\n${sampleSkus}\n\n` : '') +
+          `Продолжить импорт?\n\n` +
+          `• Нажмите "OK" - продолжить импорт (товары будут созданы)\n` +
+          `• Нажмите "Отмена" - отменить импорт`;
+
+        const shouldContinue = confirm(warningMessage);
+
+        if (!shouldContinue) {
+          // Отменяем импорт
+          setPriceListData(null);
+          setCurrentStep('upload');
+          setCompletedSteps(prev => prev.filter(s => s !== 'upload'));
+          return;
+        }
+      }
+
+      // Парсим файл для отображения
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: 'array' });
       const sheetName = workbook.SheetNames[0];
@@ -298,11 +402,13 @@ export default function CatalogImportPage() {
 
       const headers = jsonData[0] as string[];
       const rows = jsonData.slice(1) as any[][];
-        console.log('📄 Файл загружен:', {
-          filename: file.name,
+      
+      console.log('📄 Файл загружен:', {
+        filename: file.name,
         headers: headers.length,
         rows: rows.length,
-        sampleHeaders: headers.slice(0, 5)
+        sampleHeaders: headers.slice(0, 5),
+        skuCheck: result.skuCheck
       });
 
       setPriceListData({
@@ -315,6 +421,7 @@ export default function CatalogImportPage() {
       setCurrentStep('validation');
     } catch (error) {
       console.error('❌ Ошибка при обработке файла:', error);
+      alert(`Ошибка при обработке файла: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
       throw error;
     }
   };
@@ -826,17 +933,21 @@ export default function CatalogImportPage() {
                     return;
                   }
                   
+                  // Используем оригинальный файл, если он сохранен
+                  if (!originalFile) {
+                    alert('Оригинальный файл не найден. Пожалуйста, загрузите файл заново.');
+                    return;
+                  }
+                  
                   try {
                     setIsProcessing(true);
                     
-                    // Создаем CSV из данных
-                    const csvContent = createCSVFromPriceListData(priceListData.rows, priceListData.headers);
-                    
-                     // Отправляем на импорт через унифицированный API
-                     const formData = new FormData();
-                     formData.append('file', new Blob([csvContent], { type: 'text/csv' }), 'import.csv');
-                     formData.append('category', selectedCatalogCategoryId);
-                     formData.append('mode', 'import');
+                    // Используем оригинальный файл вместо конвертации в CSV
+                    // Это сохраняет кодировку и правильный формат
+                    const formData = new FormData();
+                    formData.append('file', originalFile);
+                    formData.append('category', selectedCatalogCategoryId);
+                    formData.append('mode', 'import');
                      
                      const response = await fetch('/api/admin/import/unified', {
                        method: 'POST',
@@ -1152,8 +1263,16 @@ export default function CatalogImportPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Заголовок */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Импорт данных</h1>
-          <p className="mt-2 text-gray-600">Загрузка и настройка товаров и фотографий в каталог</p>
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Импорт данных</h1>
+              <p className="mt-2 text-gray-600">Загрузка и настройка товаров и фотографий в каталог</p>
+            </div>
+            {/* Инструкция в правом верхнем углу */}
+            <div className="flex-shrink-0 ml-6">
+              <ImportInstructionsCard />
+            </div>
+          </div>
         </div>
 
         {/* Вкладки */}

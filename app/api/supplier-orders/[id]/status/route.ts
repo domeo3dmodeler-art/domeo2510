@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-const VALID_STATUSES = ['PENDING', 'ORDERED', 'IN_PRODUCTION', 'READY', 'COMPLETED', 'CANCELLED'];
+const VALID_STATUSES = ['PENDING', 'ORDERED', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED', 'CANCELLED'];
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -47,6 +47,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     
     console.log('✅ API: Supplier order updated successfully:', updatedSupplierOrder);
 
+    // Сохраняем старый статус для уведомлений
+    const oldStatus = existingSupplierOrder.status;
+
     // Получаем связанные данные для уведомлений
     let parentUser = null;
     if (updatedSupplierOrder.parent_document_id) {
@@ -84,72 +87,71 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     // Синхронизируем статус со всеми связанными документами
-    if (parentUser) {
+    // SupplierOrder теперь связан напрямую с Invoice через parent_document_id
+    if (updatedSupplierOrder.parent_document_id) {
       try {
         await synchronizeDocumentStatuses(updatedSupplierOrder.parent_document_id, status);
         console.log('✅ API: All document statuses synchronized');
+      } catch (syncError) {
+        console.error('❌ API: Error synchronizing document statuses:', syncError);
+        // Не прерываем выполнение, если синхронизация не удалась
+      }
+    }
 
-        // Создаем уведомление для комплектатора
-        const statusLabels: Record<string, string> = {
-          'ORDERED': 'Заказ размещен',
-          'READY': 'Получен от поставщика',
-          'COMPLETED': 'Исполнен'
-        };
+    // Отправляем уведомления через универсальную функцию
+    try {
+      // Получаем данные заказа у поставщика для уведомлений
+      const supplierOrderForNotification = await prisma.supplierOrder.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          number: true,
+          status: true,
+          parent_document_id: true
+        }
+      });
 
-        const statusLabel = statusLabels[status] || status;
-        
-        // Получаем заказ с клиентом для уведомления
-        const order = await prisma.order.findUnique({
-          where: { id: updatedSupplierOrder.parent_document_id },
-          include: { client: true }
+      if (supplierOrderForNotification && supplierOrderForNotification.parent_document_id) {
+        // Получаем связанный Invoice для client_id
+        const invoice = await prisma.invoice.findUnique({
+          where: { id: supplierOrderForNotification.parent_document_id },
+          select: {
+            id: true,
+            number: true,
+            client_id: true
+          }
+        });
+
+        console.log('🔔 Отправка уведомления о смене статуса SupplierOrder:', {
+          documentId: id,
+          documentType: 'supplier_order',
+          documentNumber: supplierOrderForNotification.number,
+          oldStatus,
+          newStatus: status,
+          clientId: invoice?.client_id
         });
         
-        if (order && order.client) {
-          // Получаем связанный счет для отображения в уведомлении
-          let invoiceInfo = '';
-          if (order.parent_document_id) {
-            const invoice = await prisma.invoice.findUnique({
-              where: { id: order.parent_document_id },
-              select: { number: true, status: true }
-            });
-            
-            if (invoice) {
-              // Маппинг статусов счета для отображения
-              const invoiceStatusLabels: Record<string, string> = {
-                'DRAFT': 'Черновик',
-                'SENT': 'Отправлен',
-                'PAID': 'Оплачен',
-                'ORDERED': 'Заказ размещен',
-                'READY': 'Получен от поставщика',
-                'COMPLETED': 'Исполнен',
-                'CANCELLED': 'Отменен'
-              };
-              
-              const invoiceStatusLabel = invoiceStatusLabels[invoice.status] || invoice.status;
-              invoiceInfo = `Счет ${invoice.number} переведен в статус "${invoiceStatusLabel}"`;
-            }
-          }
-          
-          await prisma.notification.create({
-            data: {
-              user_id: parentUser.id,
-              client_id: order.client.id,
-              document_id: order.parent_document_id, // Передаем ID счета, а не заказа
-              type: 'STATUS_CHANGE',
-              title: 'Изменение статуса заказа',
-              message: invoiceInfo,
-              is_read: false
-            }
-          });
-          
-          console.log('✅ API: Notification sent to complettator');
-        } else {
-          console.log('⚠️ API: Could not find order or client for notification');
-        }
-      } catch (notificationError) {
-        console.error('⚠️ API: Error sending notification:', notificationError);
-        // Не прерываем выполнение, если уведомление не отправилось
+        const { sendStatusNotification } = await import('@/lib/notifications/status-notifications');
+        await sendStatusNotification(
+          id,
+          'supplier_order',
+          supplierOrderForNotification.number || supplierOrderForNotification.id,
+          oldStatus,
+          status,
+          invoice?.client_id || ''
+        );
+        
+        console.log('✅ Уведомление SupplierOrder отправлено успешно');
+      } else {
+        console.log('⚠️ API: Could not find supplier order or parent document for notification');
       }
+    } catch (notificationError) {
+      console.error('❌ Не удалось отправить уведомление SupplierOrder:', notificationError);
+      console.error('❌ Детали ошибки:', {
+        message: notificationError instanceof Error ? notificationError.message : String(notificationError),
+        stack: notificationError instanceof Error ? notificationError.stack : undefined
+      });
+      // Не прерываем выполнение, если не удалось отправить уведомление
     }
 
     return NextResponse.json({
@@ -206,34 +208,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 // Функция синхронизации статусов всех связанных документов
-async function synchronizeDocumentStatuses(orderId: string, supplierOrderStatus: string) {
+async function synchronizeDocumentStatuses(invoiceId: string, supplierOrderStatus: string) {
   try {
-    console.log(`🔄 Синхронизация статусов для заказа ${orderId} с статусом ${supplierOrderStatus}`);
+    console.log(`🔄 Синхронизация статусов для счета ${invoiceId} с статусом ${supplierOrderStatus}`);
 
     // Маппинг статусов заказа поставщику на статусы других документов
-    const statusMapping: Record<string, { order: string; invoice: string; quote: string }> = {
+    const statusMapping: Record<string, { invoice: string; quote: string }> = {
       'ORDERED': {
-        order: 'CONFIRMED',
         invoice: 'ORDERED', 
         quote: 'ACCEPTED'
       },
-      'IN_PRODUCTION': {
-        order: 'IN_PRODUCTION',
-        invoice: 'IN_PRODUCTION',
-        quote: 'ACCEPTED'
-      },
-      'READY': {
-        order: 'READY',
-        invoice: 'READY',
+      'RECEIVED_FROM_SUPPLIER': {
+        invoice: 'RECEIVED_FROM_SUPPLIER',
         quote: 'ACCEPTED'
       },
       'COMPLETED': {
-        order: 'COMPLETED',
         invoice: 'COMPLETED',
         quote: 'ACCEPTED'
       },
       'CANCELLED': {
-        order: 'CANCELLED',
         invoice: 'CANCELLED',
         quote: 'REJECTED'
       }
@@ -245,9 +238,9 @@ async function synchronizeDocumentStatuses(orderId: string, supplierOrderStatus:
       return;
     }
 
-    // Получаем заказ и его связи
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
+    // Получаем счет и его связи
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
       select: {
         id: true,
         parent_document_id: true,
@@ -256,48 +249,25 @@ async function synchronizeDocumentStatuses(orderId: string, supplierOrderStatus:
       }
     });
 
-    if (!order) {
-      console.log(`❌ Заказ ${orderId} не найден`);
+    if (!invoice) {
+      console.log(`❌ Счет ${invoiceId} не найден`);
       return;
     }
 
-    // Обновляем статус самого заказа
-    await prisma.order.update({
-      where: { id: orderId },
+    // Обновляем статус счета
+    await prisma.invoice.update({
+      where: { id: invoiceId },
       data: { 
-        status: mappedStatuses.order,
+        status: mappedStatuses.invoice,
         updated_at: new Date()
       }
     });
-    console.log(`✅ Статус заказа ${orderId} обновлен на ${mappedStatuses.order}`);
-
-    // Обновляем статус связанного счета (если есть)
-    if (order.parent_document_id) {
-      // Проверяем, что parent_document_id указывает на счет
-      const invoice = await prisma.invoice.findUnique({
-        where: { id: order.parent_document_id },
-        select: { id: true, number: true, status: true }
-      });
-      
-      if (invoice) {
-        await prisma.invoice.update({
-          where: { id: invoice.id },
-          data: { 
-            status: mappedStatuses.invoice,
-            updated_at: new Date()
-          }
-        });
-        console.log(`✅ Статус счета ${invoice.number} обновлен на ${mappedStatuses.invoice}`);
-      } else {
-        console.log(`⚠️ Документ ${order.parent_document_id} не является счетом`);
-      }
-    }
+    console.log(`✅ Статус счета ${invoiceId} обновлен на ${mappedStatuses.invoice}`);
 
     // Обновляем статус связанного КП (если есть)
-    if (order.parent_document_id) {
-      // Проверяем, что parent_document_id указывает на КП
+    if (invoice.parent_document_id) {
       const quote = await prisma.quote.findUnique({
-        where: { id: order.parent_document_id },
+        where: { id: invoice.parent_document_id },
         select: { id: true, number: true, status: true }
       });
       
@@ -310,18 +280,16 @@ async function synchronizeDocumentStatuses(orderId: string, supplierOrderStatus:
           }
         });
         console.log(`✅ Статус КП ${quote.number} обновлен на ${mappedStatuses.quote}`);
-      } else {
-        console.log(`⚠️ Документ ${order.parent_document_id} не является КП`);
       }
     }
 
     // Дополнительно ищем и обновляем все документы по cart_session_id
-    if (order.cart_session_id) {
+    if (invoice.cart_session_id) {
       // Обновляем все счета с той же сессией корзины
       const invoiceUpdateResult = await prisma.invoice.updateMany({
         where: { 
-          cart_session_id: order.cart_session_id,
-          id: { not: order.parent_document_id || '' } // Исключаем уже обновленный счет
+          cart_session_id: invoice.cart_session_id,
+          id: { not: invoiceId }
         },
         data: { 
           status: mappedStatuses.invoice,
@@ -336,8 +304,8 @@ async function synchronizeDocumentStatuses(orderId: string, supplierOrderStatus:
       // Обновляем все КП с той же сессией корзины
       const quoteUpdateResult = await prisma.quote.updateMany({
         where: { 
-          cart_session_id: order.cart_session_id,
-          id: { not: order.parent_document_id || '' } // Исключаем уже обновленный КП
+          cart_session_id: invoice.cart_session_id,
+          id: { not: invoice.parent_document_id || '' }
         },
         data: { 
           status: mappedStatuses.quote,
@@ -350,7 +318,7 @@ async function synchronizeDocumentStatuses(orderId: string, supplierOrderStatus:
       }
     }
 
-    console.log(`🎉 Синхронизация статусов завершена для заказа ${orderId}`);
+    console.log(`🎉 Синхронизация статусов завершена для счета ${invoiceId}`);
 
   } catch (error) {
     console.error('❌ Ошибка синхронизации статусов:', error);

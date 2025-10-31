@@ -137,17 +137,14 @@ export async function POST(request: NextRequest) {
         
         await writeFile(filePath, buffer);
         
-        // Парсим имя файла для определения типа фото
-        const photoInfo = parsePhotoFileName(photo.name);
-        
-        // Сохраняем информацию о загруженной фотографии
+        // Сохраняем информацию о загруженной фотографии (будем определять тип позже)
         const uploadedPhoto = {
           originalName: photo.name,
           fileName: fileName,
-          filePath: `/uploads/products/${category}/${fileName}`,
+          filePath: `products/${category}/${fileName}`, // Без /uploads, т.к. API добавляет это
           size: photo.size,
           type: photo.type,
-          photoInfo: photoInfo
+          photoInfo: null // Определим после загрузки всех файлов
         };
         
         uploadedPhotos.push(uploadedPhoto);
@@ -160,6 +157,92 @@ export async function POST(request: NextRequest) {
       }
     }
     
+    // После загрузки всех файлов определяем тип фото (обложка/галерея)
+    // НОВАЯ ЛОГИКА:
+    // 1. Для КАЖДОГО файла определяем базовое имя модели, убирая ВСЕ суффиксы _N
+    // 2. Если файл БЕЗ _N (точное совпадение с базовым именем) = обложка (cover)
+    // 3. Если файл с _N (например, X_1, X_2) = галерея (gallery_N)
+    // 4. Регистр не учитывается
+    //
+    // Примеры:
+    // "DomeoDoors_Base_1.png" -> базовое имя "domeodoors_base_1" -> обложка
+    // "DomeoDoors_Base_1_1.png" -> базовое имя "domeodoors_base_1" -> галерея_1
+    // "DomeoDoors_Base_1_2.png" -> базовое имя "domeodoors_base_1" -> галерея_2
+    // "DomeoDoors_Base_2.png" -> базовое имя "domeodoors_base_2" -> обложка
+    // "DomeoDoors_Base_2_1.png" -> базовое имя "domeodoors_base_2" -> галерея_1
+    
+    console.log('\n=== ОПРЕДЕЛЕНИЕ ТИПА ФОТО ===');
+    console.log('Всего файлов:', uploadedPhotos.length);
+    
+    for (const photo of uploadedPhotos) {
+      const nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "").toLowerCase();
+      
+      // ЛОГИКА ОПРЕДЕЛЕНИЯ ТИПА ФОТО:
+      // 1. Проверяем, есть ли в конце имя файла суффикс _N (галерея)
+      // 2. Убираем суффикс _N если есть
+      // 3. Преобразуем имя модели из формата фото в формат БД
+      // 
+      // Примеры:
+      // "domeodoors_alberti4" -> модель "domeodoors_alberti_4" (обложка)
+      // "domeodoors_alberti4_1" -> модель "domeodoors_alberti_4" (галерея_1)
+      // "domeodoors_base_1" -> модель "domeodoors_base_1" (обложка)
+      // "domeodoors_base_1_1" -> модель "domeodoors_base_1" (галерея_1)
+      
+      // ЛОГИКА:
+      // 1. Если имя файла заканчивается на _1, _2 и т.д. (например, base_1_1, base_1_2) → ГАЛЕРЕЯ
+      // 2. Если имя файла НЕ заканчивается на дополнительное _N → ОБЛОЖКА
+      // 
+      // Примеры:
+      // "Base_1.png" → обложка (полное совпадение с значением свойства)
+      // "Base_1_1.png" → галерея_1 (дополнительный _1)
+      // "Base_1_2.png" → галерея_2 (дополнительный _2)
+      
+      // Проверяем, есть ли в конце имени файла дополнительный суффикс _N
+      // Например: "d29_1" → нашли "_1" в конце, значит это галерея
+      // Важно: ищем именно "_N" (подчеркивание + цифра), а не просто цифру
+      const galleryMatch = nameWithoutExt.match(/_(\d+)$/);
+      
+      let baseName: string;
+      let galleryNumber: number | null = null;
+      let isCover: boolean;
+      
+      if (galleryMatch) {
+        // Есть суффикс _N в конце - это галерея
+        // Пример: "d29_1" → galleryMatch находит "_1", это галерея
+        // Убираем последний суффикс _N из имени
+        baseName = nameWithoutExt.slice(0, -galleryMatch[0].length);
+        galleryNumber = parseInt(galleryMatch[1]);
+        isCover = false;
+        
+        console.log(`📸 ГАЛЕРЕЯ: ${nameWithoutExt} → база "${baseName}", номер ${galleryNumber}`);
+      } else {
+        // НЕТ дополнительного суффикса _N - это ОБЛОЖКА
+        baseName = nameWithoutExt;
+        galleryNumber = null;
+        isCover = true;
+        
+        console.log(`📷 ОБЛОЖКА: ${nameWithoutExt}`);
+      }
+      
+      const modelName = baseName;
+      
+      photo.photoInfo = {
+        fileName: photo.originalName,
+        isCover: isCover,
+        number: galleryNumber,
+        baseName: modelName,
+        isGallery: !isCover
+      };
+      
+      if (isCover) {
+        console.log(`✅ Обложка: ${photo.originalName} -> модель "${modelName}"`);
+      } else {
+        console.log(`📸 Галерея ${galleryNumber}: ${photo.originalName} -> модель "${modelName}"`);
+      }
+    }
+    
+    console.log('\n=== КОНЕЦ ОПРЕДЕЛЕНИЯ ТИПА ===\n');
+    
     // Привязываем фото к товарам или свойствам
     let linkedPhotos = 0;
     const linkedDetails: any[] = [];
@@ -171,19 +254,34 @@ export async function POST(request: NextRequest) {
         for (const photo of uploadedPhotos) {
           const { photoInfo } = photo;
           
+          // Проверяем, что photoInfo был установлен
+          if (!photoInfo) {
+            console.error(`❌ photoInfo не установлен для ${photo.originalName}`);
+            continue;
+          }
+          
+          // Получаем имя файла без расширения
+          const nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "").toLowerCase();
+          
           console.log(`\n=== ОБРАБОТКА ФОТО: ${photo.originalName} ===`);
           console.log(`Тип фото: ${photoInfo.isCover ? 'ОБЛОЖКА' : 'ГАЛЕРЕЯ'}`);
           console.log(`Базовое имя: ${photoInfo.baseName}`);
           console.log(`Номер: ${photoInfo.number || 'N/A'}`);
 
           // Определяем тип фото для базы данных
-          const photoType = photoInfo.isCover ? 'cover' : `gallery_${photoInfo.number}`;
+          const photoType = photoInfo.isCover 
+            ? 'cover' 
+            : (photoInfo.number ? `gallery_${photoInfo.number}` : 'cover');
 
+          // Для propertyValue ВСЕГДА сохраняем полное имя файла
+          // Оно должно полностью совпадать со значением выбранного свойства
+          const propertyValue = nameWithoutExt;
+          
           // Сохраняем фото в property_photos
           const savedPhoto = await upsertPropertyPhoto(
             category,
             mappingProperty,
-            photoInfo.baseName,
+            propertyValue,
             photo.filePath,
             photoType,
             {
@@ -196,12 +294,19 @@ export async function POST(request: NextRequest) {
           if (savedPhoto) {
             linkedPhotos++;
             
+            // Для поиска по артикулу используем оригинальное имя файла без расширения
+            const searchValue = mappingProperty === 'Артикул поставщика' 
+              ? photo.originalName.replace(/\.[^/.]+$/, "").toLowerCase()
+              : photoInfo.baseName;
+            
+            console.log(`Ищем товары по свойству "${mappingProperty}" = "${searchValue}"`);
+            
             // Находим товары с этим значением свойства для статистики
         const products = await prisma.product.findMany({
           where: {
                 catalog_category_id: category,
                 properties_data: {
-                  contains: `"${mappingProperty}":"${photoInfo.baseName}"`
+                  contains: `"${mappingProperty}":"${searchValue}"`
                 }
           },
           select: {
@@ -233,16 +338,38 @@ export async function POST(request: NextRequest) {
         for (const photo of uploadedPhotos) {
           const { photoInfo } = photo;
           
+          // Проверяем, что photoInfo был установлен
+          if (!photoInfo) {
+            console.error(`❌ photoInfo не установлен для ${photo.originalName}`);
+            continue;
+          }
+          
           console.log(`\n=== ОБРАБОТКА ФОТО: ${photo.originalName} ===`);
           console.log(`Базовое имя: ${photoInfo.baseName}`);
 
+          // Для поиска по выбранному свойству используем имя файла без расширения и префикса
+          // Формат файла: 1761588175210_db5p3e_akcent_bl.png
+          // Нужно извлечь: akcent_bl
+          // Убираем расширение
+          let nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "");
+          const parts = nameWithoutExt.split('_');
+          
+          // Используем все имя файла (без расширения) как значение для поиска
+          // Т.к. имя файла должно совпадать со значением свойства
+          const extractedName = nameWithoutExt;
+          // Убираем лишние пробелы и приводим к нижнему регистру
+          const searchValue = extractedName.replace(/\s+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();
+          
+          // Логируем для отладки
+          console.log(`Файл: ${photo.originalName}, Части: ${parts.join('|')}, Извлеченное имя: "${searchValue}"`);
+          
+          console.log(`Ищем товары по свойству "${mappingProperty}" = "${searchValue}"`);
+
           // Находим товары с этим значением свойства
-          const products = await prisma.product.findMany({
+          // Парсим все товары категории и сравниваем по свойству
+          const allProducts = await prisma.product.findMany({
             where: {
-              catalog_category_id: category,
-              properties_data: {
-                contains: `"${mappingProperty}":"${photoInfo.baseName}"`
-              }
+              catalog_category_id: category
             },
             select: {
               id: true,
@@ -251,21 +378,69 @@ export async function POST(request: NextRequest) {
               properties_data: true
             }
           });
+          
+          // Фильтруем товары, где свойство совпадает со значением (с учетом разных типов данных)
+          const products = allProducts.filter(product => {
+            try {
+              const properties = typeof product.properties_data === 'string' 
+                ? JSON.parse(product.properties_data) 
+                : product.properties_data;
+              
+              const propertyValue = properties[mappingProperty];
+              if (propertyValue === undefined) return false;
+              
+              // Сравниваем как строки, приводя к нижнему регистру и убирая пробелы
+              const normalizedSearchValue = searchValue.toLowerCase().trim();
+              const normalizedPropertyValue = String(propertyValue).toLowerCase().trim();
+              
+              return normalizedPropertyValue === normalizedSearchValue;
+            } catch (error) {
+              console.error(`Ошибка парсинга свойств для товара ${product.sku}:`, error);
+              return false;
+            }
+          });
+          
+          console.log(`✅ Найдено товаров: ${products.length}`);
 
           let productsUpdated = 0;
           for (const product of products) {
             try {
               const properties = JSON.parse(product.properties_data || '{}');
+              
+              // Инициализируем структуру фото
               if (!properties.photos) {
-                properties.photos = [];
+                properties.photos = { cover: null, gallery: [] };
+              } else if (Array.isArray(properties.photos)) {
+                // Миграция старых данных: массив -> объект
+                const oldPhotos = properties.photos;
+                properties.photos = {
+                  cover: oldPhotos[0] || null,
+                  gallery: oldPhotos.slice(1)
+                };
               }
               
-              // Добавляем фото к товару
-              properties.photos.push(photo.filePath);
+              // Определяем, куда добавлять фото
+              if (photo.photoInfo.isCover) {
+                // Обложка - заменяем существующую
+                properties.photos.cover = photo.filePath;
+                console.log(`📸 Обложка для товара ${product.sku}: ${photo.filePath}`);
+              } else if (photo.photoInfo.number) {
+                // Галерея - добавляем в массив
+                const galleryNumber = photo.photoInfo.number;
+                // Заполняем массив null'ами если нужно
+                while (properties.photos.gallery.length < galleryNumber - 1) {
+                  properties.photos.gallery.push(null);
+                }
+                properties.photos.gallery[galleryNumber - 1] = photo.filePath;
+                console.log(`📸 Фото галереи ${galleryNumber} для товара ${product.sku}: ${photo.filePath}`);
+              } else {
+                // Без номера - добавляем в конец галереи
+                properties.photos.gallery.push(photo.filePath);
+              }
                 
-                await prisma.product.update({
-                  where: { id: product.id },
-                  data: {
+              await prisma.product.update({
+                where: { id: product.id },
+                data: {
                   properties_data: JSON.stringify(properties)
                 }
               });
@@ -333,29 +508,5 @@ export async function POST(request: NextRequest) {
       { success: false, message: 'Критическая ошибка сервера при загрузке фото' },
       { status: 500 }
     );
-  }
-}
-
-// Функция для парсинга имени файла фото
-function parsePhotoFileName(fileName: string) {
-  const nameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
-
-  // Проверяем, есть ли номер в конце (_1, _2, etc.)
-  const match = nameWithoutExt.match(/^(.+)_(\d+)$/);
-
-  if (match) {
-    return {
-      fileName,
-      isCover: false,
-      number: parseInt(match[2]),
-      baseName: match[1]
-    };
-  } else {
-    return {
-      fileName,
-      isCover: true,
-      number: null,
-      baseName: nameWithoutExt
-    };
   }
 }

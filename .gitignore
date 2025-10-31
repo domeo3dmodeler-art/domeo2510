@@ -110,3 +110,48 @@ temp/
 
 # Test files
 TEST_WORKFLOW.md
+
+# Temporary audit and check scripts
+check-*.js
+CHECK_*.ps1
+test-*.js
+test-*.ps1
+clear-*.js
+delete-*.js
+clean-*.js
+
+# Temporary analysis scripts
+audit-*.js
+investigate-*.js
+fix-*.js
+find-*.js
+*-monitor.js
+optimize-*.js
+
+# Temporary reports
+*REPORT*.md
+*ANALYSIS*.md
+*PLAN*.md
+*FIX*.md
+*STATUS*.md
+*SOLUTION*.md
+*DIAGNOSTIC*.md
+
+# Temporary JSON reports
+*report.json
+*audit*.json
+*optimization*.json
+action-plan.json
+
+# Temporary SQL files in root
+fix_*.sql
+users_data.sql
+schema.sql
+
+# Cleanup scripts
+cleanup-*.ps1
+cleanup-*.txt
+cleanup-report.json
+
+# Temporary feature scripts
+create-*-report.js

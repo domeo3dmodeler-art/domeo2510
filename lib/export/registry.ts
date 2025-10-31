@@ -1,7 +1,7 @@
 // lib/export/registry.ts
 // Реестр адаптеров экспорта по категориям
 
-import { doorsExportAdapter } from './adapters/doors';
+import { doorsExportAdapter } from '@/app/lib/export/adapters/doors';
 
 const registry: Record<string, any> = {
   doors: doorsExportAdapter,

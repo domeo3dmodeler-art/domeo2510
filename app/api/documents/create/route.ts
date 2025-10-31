@@ -109,6 +109,97 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// Нормализация items для сравнения (улучшенная версия с учетом всех важных полей)
+function normalizeItems(items: any[]): any[] {
+  return items.map(item => {
+    // Нормализуем основные поля
+    const normalized: any = {
+      type: String(item.type || 'door').toLowerCase(),
+      style: String(item.style || '').toLowerCase().trim(),
+      model: String(item.model || item.name || '').toLowerCase().trim(),
+      finish: String(item.finish || '').toLowerCase().trim(),
+      color: String(item.color || '').toLowerCase().trim(),
+      width: Number(item.width || 0),
+      height: Number(item.height || 0),
+      quantity: Number(item.qty || item.quantity || 1),
+      unitPrice: Number(item.unitPrice || item.price || 0),
+      // Фурнитура и ручки
+      hardwareKitId: String(item.hardwareKitId || '').trim(),
+      handleId: String(item.handleId || '').trim(),
+      // Дополнительные идентификаторы
+      sku_1c: String(item.sku_1c || '').trim()
+    };
+    
+    // Для ручек - сравниваем только handleId и quantity
+    if (normalized.type === 'handle' || item.handleId) {
+      return {
+        type: 'handle',
+        handleId: normalized.handleId,
+        quantity: normalized.quantity,
+        unitPrice: normalized.unitPrice
+      };
+    }
+    
+    // Для дверей - сравниваем все параметры
+    return normalized;
+  }).sort((a, b) => {
+    // Сортируем для консистентного сравнения
+    const keyA = `${a.type}:${(a.handleId || a.model || '')}:${a.finish}:${a.color}:${a.width}:${a.height}:${a.hardwareKitId}`;
+    const keyB = `${b.type}:${(b.handleId || b.model || '')}:${b.finish}:${b.color}:${b.width}:${b.height}:${b.hardwareKitId}`;
+    return keyA.localeCompare(keyB);
+  });
+}
+
+// Сравнение содержимого корзины
+function compareCartContent(items1: any[], items2String: string | null): boolean {
+  try {
+    if (!items2String) return false;
+    
+    const normalized1 = normalizeItems(items1);
+    const items2 = JSON.parse(items2String);
+    const normalized2 = normalizeItems(Array.isArray(items2) ? items2 : []);
+    
+    if (normalized1.length !== normalized2.length) return false;
+    
+    // Сравниваем каждый элемент
+    for (let i = 0; i < normalized1.length; i++) {
+      const item1 = normalized1[i];
+      const item2 = normalized2[i];
+      
+      // Для ручек сравниваем только handleId, quantity и unitPrice
+      if (item1.type === 'handle' || item2.type === 'handle') {
+        if (item1.type !== item2.type ||
+            item1.handleId !== item2.handleId ||
+            item1.quantity !== item2.quantity ||
+            Math.abs(item1.unitPrice - item2.unitPrice) > 0.01) {
+          return false;
+        }
+        continue;
+      }
+      
+      // Для дверей сравниваем все важные параметры
+      if (item1.type !== item2.type || 
+          item1.style !== item2.style ||
+          item1.model !== item2.model ||
+          item1.finish !== item2.finish ||
+          item1.color !== item2.color ||
+          item1.width !== item2.width ||
+          item1.height !== item2.height ||
+          item1.hardwareKitId !== item2.hardwareKitId ||
+          item1.handleId !== item2.handleId ||
+          item1.quantity !== item2.quantity ||
+          Math.abs(item1.unitPrice - item2.unitPrice) > 0.01) { // Допуск на округление
+        return false;
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.warn('⚠️ Ошибка сравнения содержимого корзины:', error);
+    return false;
+  }
+}
+
 // Поиск существующего документа
 async function findExistingDocument(
   type: 'quote' | 'invoice' | 'order' | 'supplier_order',
@@ -125,8 +216,8 @@ async function findExistingDocument(
     const contentHash = createContentHash(clientId, items, totalAmount);
 
     if (type === 'quote') {
-      // Строгая логика поиска существующего КП - точное совпадение всех полей
-      const existingQuote = await prisma.quote.findFirst({
+      // Этап 1: Строгий поиск по всем критериям
+      let existingQuote = await prisma.quote.findFirst({
         where: {
           parent_document_id: parentDocumentId,
           cart_session_id: cartSessionId,
@@ -135,13 +226,42 @@ async function findExistingDocument(
         } as any,
         orderBy: { created_at: 'desc' }
       });
+      
       if (existingQuote) {
-        console.log(`✅ Найден существующий КП: ${existingQuote.number} (ID: ${existingQuote.id})`);
-        return existingQuote;
+        // Проверяем содержимое
+        if (compareCartContent(items, existingQuote.cart_data)) {
+          console.log(`✅ Найден существующий КП (строгое совпадение): ${existingQuote.number} (ID: ${existingQuote.id})`);
+          return existingQuote;
+        }
       }
+      
+      // Этап 2: Поиск по содержимому корзины, если строгое совпадение не найдено
+      // ВАЖНО: Ищем только в документах ТОГО ЖЕ клиента (client_id) - разные клиенты могут иметь одинаковые товары
+      const candidates = await prisma.quote.findMany({
+        where: {
+          client_id: clientId, // Только для того же клиента!
+          parent_document_id: parentDocumentId,
+          // Допуск на округление суммы (0.01)
+          total_amount: {
+            gte: totalAmount - 0.01,
+            lte: totalAmount + 0.01
+          }
+        } as any,
+        orderBy: { created_at: 'desc' },
+        take: 10 // Ограничиваем поиск последними 10 документами
+      });
+      
+      // Проверяем содержимое каждого кандидата
+      for (const candidate of candidates) {
+        if (compareCartContent(items, candidate.cart_data)) {
+          console.log(`✅ Найден существующий КП (по содержимому): ${candidate.number} (ID: ${candidate.id})`);
+          return candidate;
+        }
+      }
+      
     } else if (type === 'invoice') {
-      // Строгая логика поиска существующего счета - точное совпадение всех полей
-      const existingInvoice = await prisma.invoice.findFirst({
+      // Этап 1: Строгий поиск по всем критериям
+      let existingInvoice = await prisma.invoice.findFirst({
         where: {
           parent_document_id: parentDocumentId,
           cart_session_id: cartSessionId,
@@ -150,13 +270,40 @@ async function findExistingDocument(
         } as any,
         orderBy: { created_at: 'desc' }
       });
+      
       if (existingInvoice) {
-        console.log(`✅ Найден существующий счет: ${existingInvoice.number} (ID: ${existingInvoice.id})`);
-        return existingInvoice;
+        // Проверяем содержимое
+        if (compareCartContent(items, existingInvoice.cart_data)) {
+          console.log(`✅ Найден существующий счет (строгое совпадение): ${existingInvoice.number} (ID: ${existingInvoice.id})`);
+          return existingInvoice;
+        }
       }
+      
+      // Этап 2: Поиск по содержимому корзины
+      // ВАЖНО: Ищем только в документах ТОГО ЖЕ клиента - разные клиенты могут иметь одинаковые товары
+      const candidates = await prisma.invoice.findMany({
+        where: {
+          client_id: clientId, // Только для того же клиента!
+          parent_document_id: parentDocumentId,
+          total_amount: {
+            gte: totalAmount - 0.01,
+            lte: totalAmount + 0.01
+          }
+        } as any,
+        orderBy: { created_at: 'desc' },
+        take: 10
+      });
+      
+      for (const candidate of candidates) {
+        if (compareCartContent(items, candidate.cart_data)) {
+          console.log(`✅ Найден существующий счет (по содержимому): ${candidate.number} (ID: ${candidate.id})`);
+          return candidate;
+        }
+      }
+      
     } else if (type === 'order') {
-      // Строгая логика поиска существующего заказа - точное совпадение всех полей
-      const existingOrder = await prisma.order.findFirst({
+      // Этап 1: Строгий поиск по всем критериям
+      let existingOrder = await prisma.order.findFirst({
         where: {
           parent_document_id: parentDocumentId,
           cart_session_id: cartSessionId,
@@ -165,22 +312,51 @@ async function findExistingDocument(
         } as any,
         orderBy: { created_at: 'desc' }
       });
+      
       if (existingOrder) {
-        console.log(`✅ Найден существующий заказ: ${existingOrder.number} (ID: ${existingOrder.id})`);
-        return existingOrder;
+        if (compareCartContent(items, existingOrder.cart_data)) {
+          console.log(`✅ Найден существующий заказ (строгое совпадение): ${existingOrder.number} (ID: ${existingOrder.id})`);
+          return existingOrder;
+        }
+      }
+      
+      // Этап 2: Поиск по содержимому корзины
+      // ВАЖНО: Ищем только в документах ТОГО ЖЕ клиента - разные клиенты могут иметь одинаковые товары
+      const candidates = await prisma.order.findMany({
+        where: {
+          client_id: clientId, // Только для того же клиента!
+          parent_document_id: parentDocumentId,
+          total_amount: {
+            gte: totalAmount - 0.01,
+            lte: totalAmount + 0.01
+          }
+        } as any,
+        orderBy: { created_at: 'desc' },
+        take: 10
+      });
+      
+      for (const candidate of candidates) {
+        if (compareCartContent(items, candidate.cart_data)) {
+          console.log(`✅ Найден существующий заказ (по содержимому): ${candidate.number} (ID: ${candidate.id})`);
+          return candidate;
+        }
       }
     } else if (type === 'supplier_order') {
+      // Для supplier_order используем более простую логику
       const existingSupplierOrder = await prisma.supplierOrder.findFirst({
         where: {
           parent_document_id: parentDocumentId,
-          cart_session_id: cartSessionId,
-          cart_data: { contains: contentHash }
+          cart_session_id: cartSessionId
         } as any,
         orderBy: { created_at: 'desc' }
       });
+      
       if (existingSupplierOrder) {
-        console.log(`✅ Найден существующий заказ у поставщика: ${existingSupplierOrder.id}`);
-        return existingSupplierOrder;
+        // Проверяем содержимое
+        if (compareCartContent(items, existingSupplierOrder.cart_data)) {
+          console.log(`✅ Найден существующий заказ у поставщика: ${existingSupplierOrder.id}`);
+          return existingSupplierOrder;
+        }
       }
     }
 
@@ -325,15 +501,11 @@ async function createDocumentRecord(
 
 // Создание хеша содержимого для сравнения
 function createContentHash(clientId: string, items: any[], totalAmount: number): string {
+  // Используем нормализованные items для создания хеша
+  const normalized = normalizeItems(items);
   const content = {
     client_id: clientId,
-    items: items.map(item => ({
-      id: item.id,
-      type: item.type,
-      quantity: item.qty || item.quantity,
-      unitPrice: item.unitPrice || item.price,
-      name: item.name
-    })),
+    items: normalized,
     total_amount: totalAmount
   };
   

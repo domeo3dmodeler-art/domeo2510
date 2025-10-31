@@ -59,6 +59,15 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
     if (e.key === 'ArrowLeft') prevPhoto();
   };
 
+  // Сбрасываем индекс и зум при смене модели/продукта
+  useEffect(() => {
+    setCurrentIndex(0);
+    setIsZoomed(false);
+    setIsLoading(true);
+    const timer = setTimeout(() => setIsLoading(false), 300);
+    return () => clearTimeout(timer);
+  }, [productName, photos.cover]); // Сбрасываем при смене продукта или обложки
+
   useEffect(() => {
     setIsLoading(true);
     const timer = setTimeout(() => setIsLoading(false), 300);

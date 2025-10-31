@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getStatusLabel } from '@/lib/utils/status-labels';
 
 // Статусы, которые блокируют ручное изменение
-const BLOCKED_STATUSES = ['ORDERED', 'IN_PRODUCTION', 'READY', 'COMPLETED'];
+const BLOCKED_STATUSES = ['ORDERED', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED'];
 
 /**
  * Проверяет, заблокирован ли статус для ручного изменения
@@ -37,7 +37,7 @@ export async function isStatusBlocked(documentId: string, documentType: 'invoice
     }
 
     // Блокируем статусы из списка заблокированных
-    // Статусы ORDERED, IN_PRODUCTION, READY, COMPLETED блокируются автоматически
+    // Статусы ORDERED, RECEIVED_FROM_SUPPLIER, COMPLETED блокируются автоматически
     console.log(`🔒 Статус ${document.status} заблокирован для ручного изменения`);
     return true;
 

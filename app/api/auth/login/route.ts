@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SignJWT } from 'jose';
 import bcrypt from 'bcryptjs';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { authRateLimiter, getClientIP, createRateLimitResponse } from '../../../../lib/security/rate-limiter';
-
-const prisma = new PrismaClient();
 
 export async function POST(req: NextRequest) {
   try {
@@ -122,7 +120,5 @@ export async function POST(req: NextRequest) {
       { error: 'Ошибка сервера' },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }

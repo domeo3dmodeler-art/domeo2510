@@ -37,6 +37,8 @@ services:
       dockerfile: Dockerfile.staging
     container_name: domeo-staging-app
     restart: unless-stopped
+    user: root
+    command: sh -c "mkdir -p /app/public/uploads /app/uploads /app/logs && chown -R nextjs:nodejs /app/public/uploads /app/uploads /app/logs && su -s /bin/sh nextjs -c 'cd /app && node server.js'"
     environment:
       NODE_ENV: staging
       DATABASE_URL: postgresql://staging_user:staging_password@staging-postgres:5432/domeo_staging
@@ -45,7 +47,7 @@ services:
       NEXTAUTH_URL: https://staging.yourdomain.com
       JWT_SECRET: staging_jwt_secret_key_minimum_32_characters
     volumes:
-      - staging_uploads:/app/uploads
+      - staging_uploads:/app/public/uploads
       - staging_logs:/app/logs
     ports:
       - "3001:3001"

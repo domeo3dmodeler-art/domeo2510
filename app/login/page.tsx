@@ -162,16 +162,6 @@ export default function LoginPage() {
             </Link>
           </div>
         </form>
-
-        {/* Demo Credentials */}
-        <div className="mt-8 p-4 bg-gray-50 border border-gray-200 rounded">
-          <h3 className="text-sm font-medium text-black mb-2">Демо-доступы:</h3>
-          <div className="text-xs text-gray-600 space-y-1">
-            <div><strong>Админ:</strong> admin@domeo.ru / admin123</div>
-            <div><strong>Комплектатор:</strong> complectator@domeo.ru / complectator123</div>
-            <div><strong>Исполнитель:</strong> executor@domeo.ru / executor123</div>
-          </div>
-        </div>
       </div>
     </div>
   );

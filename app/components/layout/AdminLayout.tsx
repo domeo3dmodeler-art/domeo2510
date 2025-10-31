@@ -6,8 +6,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Button } from '../ui';
-import { useAuth } from '../../hooks/useAuth';
+import { Button } from '@/components/ui';
+import { useAuth } from '@/hooks/useAuth';
 
 // Функция для получения заголовка страницы
 function getPageTitle(pathname: string): string {

@@ -1,6 +1,8 @@
 // app/analytics/page.tsx
 // Страница дашборда аналитики
 
+'use client';
+
 import AdminLayout from '../../components/layout/AdminLayout';
 import { Card, Button } from '../../components/ui';
 

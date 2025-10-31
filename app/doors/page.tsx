@@ -768,6 +768,7 @@ export default function DoorsPage() {
   const [showHandleModal, setShowHandleModal] = useState(false);
   const [hideSidePanels, setHideSidePanels] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const [showHandleInfo, setShowHandleInfo] = useState(false);
   
   // Состояние для редактирования корзины
   const [editingItem, setEditingItem] = useState<string | null>(null);
@@ -1189,35 +1190,78 @@ export default function DoorsPage() {
               if (photoResponse.ok) {
                 const photoData = await photoResponse.json();
                 console.log('⚡ Batch загрузка фото завершена для', modelNames.length, 'моделей');
+                console.log('📸 photoData:', photoData);
                 
                 // Объединяем данные моделей с фото
-                const modelsWithPhotos = rows.map((model: any) => ({
-                  ...model,
-                  photo: photoData.photos[model.model]?.photo || model.photo,
-                  photos: photoData.photos[model.model]?.photos || model.photos
-                }));
+                const modelsWithPhotos = rows.map((model: any) => {
+                  const photoInfo = photoData.photos[model.model];
+                  console.log(`📸 Model ${model.model}:`, {
+                    'photoInfo': photoInfo,
+                    'model.photo': model.photo,
+                    'final photo': photoInfo?.photo || model.photo,
+                    'hasGallery': photoInfo?.photos?.gallery?.length > 0
+                  });
+                  return {
+                    ...model,
+                    photo: photoInfo?.photo || model.photo,
+                    photos: photoInfo?.photos || model.photos,
+                    hasGallery: photoInfo?.photos?.gallery?.length > 0 || false
+                  };
+                });
+                
+                console.log('📸 Первые 3 модели с фото:', modelsWithPhotos.slice(0, 3));
                 
                 setModels(modelsWithPhotos);
+                
+                // Сохраняем в клиентский кэш с фото
+                setModelsCache(prev => {
+                  const newCache = new Map(prev);
+                  newCache.set(styleKey, {
+                    data: modelsWithPhotos,
+                    timestamp: Date.now()
+                  });
+                  return newCache;
+                });
               } else {
                 setModels(rows);
+                
+                // Сохраняем в кэш без фото
+                setModelsCache(prev => {
+                  const newCache = new Map(prev);
+                  newCache.set(styleKey, {
+                    data: rows,
+                    timestamp: Date.now()
+                  });
+                  return newCache;
+                });
               }
             } catch (photoError) {
               console.warn('⚠️ Ошибка batch загрузки фото, используем обычную:', photoError);
               setModels(rows);
+              
+              // Сохраняем в кэш без фото
+              setModelsCache(prev => {
+                const newCache = new Map(prev);
+                newCache.set(styleKey, {
+                  data: rows,
+                  timestamp: Date.now()
+                });
+                return newCache;
+              });
             }
           } else {
             setModels(rows);
-          }
-          
-          // Сохраняем в клиентский кэш с временной меткой
-          setModelsCache(prev => {
-            const newCache = new Map(prev);
-            newCache.set(styleKey, {
-              data: rows,
-              timestamp: Date.now()
+            
+            // Сохраняем в кэш без фото
+            setModelsCache(prev => {
+              const newCache = new Map(prev);
+              newCache.set(styleKey, {
+                data: rows,
+                timestamp: Date.now()
+              });
+              return newCache;
             });
-            return newCache;
-          });
+          }
           
           setIsLoadingModels(false);
         } else if (!c) {
@@ -1267,15 +1311,66 @@ export default function DoorsPage() {
           const data = await response.json();
           console.log('✅ Все данные предзагружены:', data);
           
-          // Сохраняем в кэш для всех стилей
-          setModelsCache(prev => {
-            const newCache = new Map(prev);
-            newCache.set('all', {
-              data: data.models || [],
-              timestamp: Date.now()
-            });
-            return newCache;
-          });
+          const rows = data?.models || [];
+          
+          // Загружаем фото для всех моделей
+          if (rows.length > 0) {
+            try {
+              const modelNames = rows.map((m: any) => m.model);
+              const photoResponse = await fetch('/api/catalog/doors/photos-batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ models: modelNames })
+              });
+              
+              if (photoResponse.ok) {
+                const photoData = await photoResponse.json();
+                console.log('⚡ Предзагрузка фото завершена для', modelNames.length, 'моделей');
+                
+                // Объединяем данные моделей с фото
+                const modelsWithPhotos = rows.map((model: any) => {
+                  const photoInfo = photoData.photos[model.model];
+                  return {
+                    ...model,
+                    photo: photoInfo?.photo || model.photo,
+                    photos: photoInfo?.photos || model.photos,
+                    hasGallery: photoInfo?.photos?.gallery?.length > 0 || false
+                  };
+                });
+                
+                // Сохраняем в кэш с фото
+                setModelsCache(prev => {
+                  const newCache = new Map(prev);
+                  newCache.set('all', {
+                    data: modelsWithPhotos,
+                    timestamp: Date.now()
+                  });
+                  return newCache;
+                });
+              } else {
+                // Сохраняем без фото
+                setModelsCache(prev => {
+                  const newCache = new Map(prev);
+                  newCache.set('all', {
+                    data: rows,
+                    timestamp: Date.now()
+                  });
+                  return newCache;
+                });
+              }
+            } catch (photoError) {
+              console.warn('⚠️ Ошибка предзагрузки фото:', photoError);
+              // Сохраняем без фото
+              setModelsCache(prev => {
+                const newCache = new Map(prev);
+                newCache.set('all', {
+                  data: rows,
+                  timestamp: Date.now()
+                });
+                return newCache;
+              });
+            }
+          }
         }
       } catch (error) {
         console.log('❌ Ошибка предзагрузки:', error);
@@ -2115,10 +2210,7 @@ export default function DoorsPage() {
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
-                              onClick={() => {
-                                // TODO: Добавить функциональность информации о ручке
-                                alert('Информация о ручке');
-                              }}
+                              onClick={() => setShowHandleInfo(!showHandleInfo)}
                               className="text-gray-500 hover:text-gray-700 transition-colors"
                               title="Показать описание"
                             >
@@ -2127,13 +2219,30 @@ export default function DoorsPage() {
                               </svg>
                             </button>
                             <div className="text-sm font-medium text-gray-900 min-w-[80px] text-right">
-                              {Object.values(handles).flat().find(h => h.id === sel.handle?.id)?.price ? 
-                                `${fmtInt(Object.values(handles).flat().find(h => h.id === sel.handle?.id)!.price)} ₽` : 
-                                ''
-                              }
+                              {(() => {
+                                const selectedHandle = sel.handle?.id ? Object.values(handles).flat().find(h => h.id === sel.handle?.id) : undefined;
+                                return selectedHandle?.price !== undefined ? `${fmtInt(selectedHandle.price)} ₽` : '';
+                              })()}
                             </div>
                           </div>
                         )}
+                        {/* Информация о ручке */}
+                        {showHandleInfo && sel.handle?.id && (() => {
+                          const selectedHandle = Object.values(handles).flat().find(h => h.id === sel.handle?.id);
+                          if (!selectedHandle) return null;
+                          return (
+                            <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded text-sm text-gray-700">
+                              <div className="space-y-1">
+                                <div><span className="font-medium">Группа:</span> {selectedHandle.group || 'Не указана'}</div>
+                                <div><span className="font-medium">Поставщик:</span> {selectedHandle.supplier || 'Не указан'}</div>
+                                <div><span className="font-medium">Наименование:</span> {selectedHandle.factoryName || 'Не указано'}</div>
+                                <div><span className="font-medium">Артикул:</span> {selectedHandle.article || 'Не указан'}</div>
+                                <div><span className="font-medium">Наличие в шоуруме:</span> {selectedHandle.showroom ? 'Да' : 'Нет'}</div>
+                                <div><span className="font-medium">Цена:</span> {fmtInt(selectedHandle.price)} ₽</div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                     </div>
@@ -2170,14 +2279,16 @@ export default function DoorsPage() {
                         {sel.handle?.id && (
                           <div className="flex justify-between">
                             <span>
-                              {Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)?.name 
-                                ? `Ручка ${Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)!.name}` 
-                                : "Ручка"}
+                              {(() => {
+                                const selectedHandle = sel.handle?.id ? Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id) : undefined;
+                                return selectedHandle?.name ? `Ручка ${selectedHandle.name}` : "Ручка";
+                              })()}
                             </span>
                             <span>
-                              {Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)?.price 
-                                ? `${fmtInt(Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)!.price)} ₽`
-                                : "—"}
+                              {(() => {
+                                const selectedHandle = sel.handle?.id ? Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id) : undefined;
+                                return selectedHandle?.price !== undefined ? `${fmtInt(selectedHandle.price)} ₽` : "—";
+                              })()}
                             </span>
                           </div>
                         )}
@@ -2386,12 +2497,14 @@ export default function DoorsPage() {
                     {cart.map((i) => {
                       // Если это ручка, отображаем отдельно
                       if (i.handleId) {
+                        // ИСПРАВЛЕНИЕ: Всегда используем актуальное имя из каталога, а не item.handleName
                         const handle = Object.values(handles).flat().find((h: Handle) => h.id === i.handleId);
+                        const currentHandleName = handle?.name || i.handleName || "Ручка";
                         return (
                           <div key={i.id} className="border border-black/10 p-3">
                         <div className="flex items-center justify-between">
                           <div className="font-medium text-black text-sm">
-                                {handle?.name ? `Ручка ${handle.name}` : "Ручка"}
+                                {currentHandleName ? `Ручка ${currentHandleName}` : "Ручка"}
                           </div>
                               <div className="text-sm">
                                 <span className="text-gray-600">{i.qty}×{fmtInt(i.unitPrice)}</span>
@@ -2409,7 +2522,10 @@ export default function DoorsPage() {
                             <div className="text-sm">
                               <div className="font-medium text-black">
                                 {i.type === 'handle' 
-                                  ? `Ручка ${i.handleName || 'Неизвестная ручка'}`
+                                  ? (() => {
+                                      const displayHandle = i.handleId ? Object.values(handles).flat().find((h: Handle) => h.id === i.handleId) : null;
+                                      return `Ручка ${displayHandle?.name || i.handleName || 'Неизвестная ручка'}`;
+                                    })()
                                   : `Дверь DomeoDoors ${i.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель'}`
                                 }
                               </div>
@@ -3028,8 +3144,23 @@ function CartManager({
   userRole: string;
   onClose: () => void;
 }) {
+  // Состояние для модального окна выбора ручек при редактировании в корзине
+  const [showHandleModalInCart, setShowHandleModalInCart] = useState(false);
+  const [editingHandleItemId, setEditingHandleItemId] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<string | null>(null);
+  
+  // Вспомогательная функция для получения ручки по ID (оптимизация для избежания повторных поисков)
+  const getHandleById = React.useCallback((handleId: string | undefined): Handle | undefined => {
+    if (!handleId) return undefined;
+    return Object.values(handles).flat().find((h: Handle) => h.id === handleId);
+  }, [handles]);
   const [availableParams, setAvailableParams] = useState<any>(null);
+  // ИСПРАВЛЕНИЕ #2: Сохраняем пересчитанную цену во время редактирования, чтобы избежать двойного пересчета
+  const [editingItemPrice, setEditingItemPrice] = useState<number | null>(null);
+  // ИСПРАВЛЕНИЕ #3: Сохраняем snapshot товара для отката изменений при отмене
+  const [editingItemSnapshot, setEditingItemSnapshot] = useState<CartItem | null>(null);
+  // Состояние для модального окна истории
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   // Простое отображение всех товаров корзины
   const filteredCart = cart;
@@ -3105,8 +3236,31 @@ function CartManager({
     console.log('🔍 Item style:', JSON.stringify(item?.style));
     console.log('🔍 Item model:', JSON.stringify(item?.model));
     
-    if (item && item.style && item.model) {
+    if (!item) return;
+    
+    // Для ручек просто переводим в режим редактирования без загрузки параметров
+    if (item.handleId || item.type === 'handle') {
       setEditingItem(itemId);
+      // ИСПРАВЛЕНИЕ #2: Сбрасываем сохраненную цену при начале редактирования
+      setEditingItemPrice(null);
+      // ИСПРАВЛЕНИЕ #3: Сохраняем snapshot товара для возможного отката
+      setEditingItemSnapshot({ ...item });
+      // Для ручек не загружаем доступные параметры и не открываем модальное окно
+      // Модальное окно откроется только при нажатии на кнопку выбора ручки
+      setAvailableParams(null);
+      // Убеждаемся, что модальное окно закрыто при начале редактирования
+      setShowHandleModalInCart(false);
+      setEditingHandleItemId(null);
+      return;
+    }
+    
+    // Для дверей загружаем доступные параметры
+    if (item.style && item.model) {
+      setEditingItem(itemId);
+      // ИСПРАВЛЕНИЕ #2: Сбрасываем сохраненную цену при начале редактирования
+      setEditingItemPrice(null);
+      // ИСПРАВЛЕНИЕ #3: Сохраняем snapshot товара для возможного отката
+      setEditingItemSnapshot({ ...item });
       
       // Загружаем доступные параметры
       try {
@@ -3190,14 +3344,25 @@ function CartManager({
       return;
     }
 
-    // Для ручек получаем цену из каталога
+    // Для ручек получаем цену и актуальное название из каталога
     if (updatedItem.handleId) {
       const handle = Object.values(handles).flat().find((h: Handle) => h.id === updatedItem.handleId);
       const newPrice = handle ? handle.price : updatedItem.unitPrice;
-      console.log('🔧 Handle price update:', { handleId: updatedItem.handleId, newPrice });
+      const newHandleName = handle ? handle.name : undefined;
+      console.log('🔧 Handle price update:', { handleId: updatedItem.handleId, newPrice, newHandleName });
+      // ИСПРАВЛЕНИЕ: Обновляем также handleName из актуального каталога
+      // ИСПРАВЛЕНИЕ #2: Сохраняем цену ручки для использования при подтверждении
+      if (itemId === editingItem) {
+        setEditingItemPrice(newPrice);
+      }
       
       setCart(prev => prev.map(item => 
-        item.id === itemId ? { ...item, ...changes, unitPrice: newPrice } : item
+        item.id === itemId ? { 
+          ...item, 
+          ...changes, 
+          unitPrice: newPrice,
+          handleName: newHandleName // Обновляем название из актуального каталога
+        } : item
       ));
       return;
     }
@@ -3213,6 +3378,10 @@ function CartManager({
 
     if (result.success && result.price !== undefined) {
       console.log('✅ Price calculated successfully:', result.price);
+      // ИСПРАВЛЕНИЕ #2: Сохраняем пересчитанную цену для использования при подтверждении
+      if (itemId === editingItem) {
+        setEditingItemPrice(result.price);
+      }
       setCart(prev => prev.map(item => 
         item.id === itemId ? { 
           ...item, 
@@ -3249,59 +3418,108 @@ function CartManager({
     try {
       let newPrice: number;
       
-      if (currentItem.handleId) {
-        // Для ручек получаем цену из каталога
-        const handle = Object.values(handles).flat().find((h: Handle) => h.id === currentItem.handleId);
-        newPrice = handle ? handle.price : currentItem.unitPrice;
+      // ИСПРАВЛЕНИЕ #2: Используем уже рассчитанную цену, если она есть, чтобы избежать двойного пересчета
+      if (editingItemPrice !== null) {
+        console.log('💾 Используем уже рассчитанную цену из updateCartItem:', editingItemPrice);
+        newPrice = editingItemPrice;
       } else {
-        // Для дверей используем унифицированный сервис расчета цены
-        console.log('🚪 Door price calculation using unified service in confirmCartChanges');
-        
-        const result = await priceRecalculationService.recalculateItemPrice(currentItem, {
-          validateCombination: true,
-          useCache: true,
-          timeout: 10000
-        });
+        // Пересчитываем только если цена еще не была рассчитана
+        if (currentItem.handleId) {
+          // Для ручек получаем цену из каталога
+          const handle = Object.values(handles).flat().find((h: Handle) => h.id === currentItem.handleId);
+          newPrice = handle ? handle.price : currentItem.unitPrice;
+        } else {
+          // Для дверей используем унифицированный сервис расчета цены
+          console.log('🚪 Door price calculation using unified service in confirmCartChanges (fallback)');
+          
+          const result = await priceRecalculationService.recalculateItemPrice(currentItem, {
+            validateCombination: true,
+            useCache: true,
+            timeout: 10000
+          });
 
-        if (!result.success || !result.price) {
-          const errorMessage = result.error || 'Не удалось рассчитать цену';
-          alert(`Ошибка расчета цены: ${errorMessage}`);
-          setEditingItem(null);
-          return;
+          if (!result.success || !result.price) {
+            const errorMessage = result.error || 'Не удалось рассчитать цену';
+            alert(`Ошибка расчета цены: ${errorMessage}`);
+            setEditingItem(null);
+            setEditingItemPrice(null); // Сбрасываем сохраненную цену
+            return;
+          }
+
+          newPrice = result.price;
         }
-
-        newPrice = result.price;
       }
 
       // Обновляем корзину
-      setCart(prev => prev.map(item => 
-        item.id === editingItem 
-          ? { ...item, unitPrice: newPrice }
-          : item
-      ));
+      // ИСПРАВЛЕНИЕ: Для ручек также обновляем handleName из актуального каталога
+      setCart(prev => prev.map(item => {
+        if (item.id === editingItem) {
+          if (currentItem.handleId) {
+            const handle = Object.values(handles).flat().find((h: Handle) => h.id === currentItem.handleId);
+            return { ...item, unitPrice: newPrice, handleName: handle?.name };
+          }
+          return { ...item, unitPrice: newPrice };
+        }
+        return item;
+      }));
 
       // Сохраняем в историю
-      const originalPrice = originalPrices[editingItem] || 0;
-      const delta = newPrice - originalPrice;
+      // ИСПРАВЛЕНИЕ #1: Используем cartManagerBasePrices вместо originalPrices для единообразия
+      // Это обеспечит совпадение дельты в UI и в истории
+      const basePriceForDelta = cartManagerBasePrices[editingItem] || currentItem.unitPrice || 0;
+      const delta = newPrice - basePriceForDelta;
       
+      // Сохраняем полное состояние товара для возможности отката
       setCartHistory(prev => [...prev, {
         timestamp: new Date(),
-        changes: { [editingItem]: { unitPrice: newPrice } },
+        changes: { 
+          [editingItem]: { 
+            item: { ...currentItem, unitPrice: newPrice }, // Полное состояние товара
+            oldPrice: currentItem.unitPrice,
+            newPrice: newPrice
+          } 
+        },
         totalDelta: delta
       }]);
 
-      console.log('✅ Cart changes confirmed successfully');
+      // ИСПРАВЛЕНИЕ #1: Обновляем cartManagerBasePrices после подтверждения
+      // Теперь следующая дельта будет считаться от новой базовой цены
+      setCartManagerBasePrices(prev => ({
+        ...prev,
+        [editingItem]: newPrice
+      }));
+
+      console.log('✅ Cart changes confirmed successfully', {
+        itemId: editingItem,
+        basePrice: basePriceForDelta,
+        newPrice,
+        delta
+      });
 
     } catch (error) {
       console.error('❌ Error confirming cart changes:', error);
       alert('Произошла ошибка при обновлении товара');
     }
 
+    // ИСПРАВЛЕНИЕ #2: Сбрасываем сохраненную цену после подтверждения
+    // ИСПРАВЛЕНИЕ #3: Сбрасываем snapshot после подтверждения
     setEditingItem(null);
+    setEditingItemPrice(null);
+    setEditingItemSnapshot(null);
   };
 
   const cancelCartChanges = () => {
+    // ИСПРАВЛЕНИЕ #3: Восстанавливаем товар из snapshot при отмене
+    if (editingItem && editingItemSnapshot) {
+      setCart(prev => prev.map(item => 
+        item.id === editingItem ? editingItemSnapshot : item
+      ));
+      console.log('↩️ Изменения отменены, товар восстановлен из snapshot');
+    }
+    // ИСПРАВЛЕНИЕ #2: Сбрасываем сохраненную цену при отмене
     setEditingItem(null);
+    setEditingItemPrice(null);
+    setEditingItemSnapshot(null);
   };
 
   const removeItem = (itemId: string) => {
@@ -3322,6 +3540,93 @@ function CartManager({
   };
 
   const totalPrice = cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
+
+  // Функция для отката корзины к состоянию до указанной записи истории
+  const rollbackToHistory = (historyIndex: number) => {
+    if (historyIndex < 0 || historyIndex >= cartHistory.length) return;
+    
+    // Находим все записи истории до указанного индекса (включительно)
+    const historyToKeep = cartHistory.slice(0, historyIndex + 1);
+    
+    // Применяем все изменения до этой точки
+    // Для правильного отката нужно восстановить состояние каждого товара
+    // из последней записи истории, где он был изменен
+    const itemStates: Record<string, CartItem> = {};
+    
+    // Собираем состояние всех товаров из истории
+    historyToKeep.forEach(entry => {
+      Object.entries(entry.changes).forEach(([itemId, change]: [string, any]) => {
+        if (change.item) {
+          itemStates[itemId] = change.item;
+        }
+      });
+    });
+    
+    // Применяем откат: обновляем товары в корзине
+    setCart(prev => prev.map(item => {
+      if (itemStates[item.id]) {
+        return itemStates[item.id];
+      }
+      return item;
+    }));
+    
+    // Обновляем базовые цены для правильного расчета дельты
+    setCartManagerBasePrices(prev => {
+      const newBasePrices = { ...prev };
+      Object.entries(itemStates).forEach(([itemId, item]) => {
+        newBasePrices[itemId] = item.unitPrice;
+      });
+      return newBasePrices;
+    });
+    
+    // Удаляем записи истории после указанного индекса
+    setCartHistory(historyToKeep);
+    
+    console.log('↩️ Откат корзины к записи истории:', historyIndex);
+  };
+
+  // Функция для отката к состоянию до начала редактирования (полный откат всех изменений)
+  const rollbackAllHistory = () => {
+    if (cartHistory.length === 0) return;
+    
+    // Находим исходное состояние каждого товара (до первого изменения)
+    const originalStates: Record<string, CartItem> = {};
+    
+    // Проходим по истории в обратном порядке, чтобы найти исходное состояние
+    cartHistory.forEach((entry, index) => {
+      Object.entries(entry.changes).forEach(([itemId, change]: [string, any]) => {
+        if (change.oldPrice !== undefined && !originalStates[itemId]) {
+          // Ищем оригинальный товар в корзине или используем данные из истории
+          const originalItem = cart.find(i => i.id === itemId);
+          if (originalItem) {
+            originalStates[itemId] = { ...originalItem, unitPrice: change.oldPrice };
+          }
+        }
+      });
+    });
+    
+    // Восстанавливаем исходные цены
+    setCart(prev => prev.map(item => {
+      if (originalStates[item.id]) {
+        return originalStates[item.id];
+      }
+      return item;
+    }));
+    
+    // Обновляем базовые цены
+    setCartManagerBasePrices(prev => {
+      const newBasePrices = { ...prev };
+      Object.entries(originalStates).forEach(([itemId, item]) => {
+        newBasePrices[itemId] = item.unitPrice;
+      });
+      return newBasePrices;
+    });
+    
+    // Очищаем историю
+    setCartHistory([]);
+    
+    console.log('↩️ Полный откат всех изменений корзины');
+  };
 
   // Проверки разрешений по ролям
   const canCreateQuote = userRole === 'admin' || userRole === 'complectator';
@@ -3397,13 +3702,31 @@ function CartManager({
                 const isEditing = editingItem === item.id;
                 
                 if (item.handleId) {
-                  const handle = Object.values(handles).flat().find((h: Handle) => h.id === item.handleId);
+                  // ИСПРАВЛЕНИЕ: Всегда используем актуальное имя из каталога, а не item.handleName
+                  const handle = getHandleById(item.handleId);
+                  const currentHandleName = handle?.name || item.handleName || "Ручка";
                   return (
                   <div key={item.id} className="border border-gray-200 rounded-lg p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
+                        {/* ИСПРАВЛЕНИЕ: Отображаем фото ручки при редактировании */}
+                        {isEditing && handle && handle.photos && handle.photos.length > 0 && (
+                          <div className="mb-2 flex items-center space-x-2">
+                            {handle.photos.slice(0, 3).map((photo, idx) => (
+                              <img
+                                key={idx}
+                                src={photo && photo.startsWith('/uploads') ? `/api${photo}` : photo ? `/api/uploads${photo}` : ''}
+                                alt={`${currentHandleName} фото ${idx + 1}`}
+                                className="w-12 h-12 object-cover rounded border border-gray-200"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                            ))}
+                          </div>
+                        )}
                         <div className="font-medium text-black text-sm truncate">
-                          {handle?.name ? `Ручка ${handle.name}` : "Ручка"}
+                          {currentHandleName ? `Ручка ${currentHandleName}` : "Ручка"}
                         </div>
                       </div>
                       <div className="flex items-center space-x-4 ml-6">
@@ -3452,23 +3775,32 @@ function CartManager({
                           </button>
                         </div>
                       </div>
-                      {isEditing && availableParams && (
+                      {isEditing && (
                         <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded">
-                          {/* Компактная строка с селектами и кнопками */}
+                          {/* Компактная строка с кнопками */}
                           <div className="flex items-center space-x-2 mb-4">
-                            {/* Ручка */}
+                            {/* Ручка - кнопка для открытия модального окна */}
                             <div className="flex-shrink-0">
                               <label className="block text-xs font-medium text-gray-700 mb-1">Ручка</label>
-                              <select
-                                value={item.handleId || ''}
-                                onChange={(e) => updateCartItem(item.id, { handleId: e.target.value })}
-                                className="w-32 text-xs border border-gray-300 rounded px-1 py-1"
+                              <button
+                                onClick={() => {
+                                  if (item.id) {
+                                    setEditingHandleItemId(item.id);
+                                    setShowHandleModalInCart(true);
+                                  }
+                                }}
+                                className="w-full text-xs border border-gray-300 rounded px-3 py-2 bg-white hover:bg-gray-50 text-left flex items-center justify-between min-w-[200px]"
                               >
-                                <option value="">Выберите</option>
-                                {availableParams.handles?.map((handle: {id: string, name: string, group: string}) => (
-                                  <option key={handle.id} value={handle.id}>Ручка {handle.name}</option>
-                                ))}
-                              </select>
+                                <span>
+                                  {handle && handle.name ? `Ручка ${handle.name}` : 'Выбрать ручку'}
+                                </span>
+                                <span className="text-gray-400 ml-2">→</span>
+                              </button>
+                              {handle && handle.price !== undefined && (
+                                <div className="text-xs text-gray-600 mt-1">
+                                  Цена: {fmtInt(handle.price)} ₽
+                                </div>
+                              )}
                             </div>
 
                             {/* Кнопки */}
@@ -3502,7 +3834,10 @@ function CartManager({
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-black text-sm truncate">
                           {item.type === 'handle' 
-                            ? `Ручка ${item.handleName || 'Неизвестная ручка'}`
+                            ? (() => {
+                              const displayHandle = getHandleById(item.handleId);
+                              return `Ручка ${displayHandle?.name || item.handleName || 'Неизвестная ручка'}`;
+                            })()
                             : `Дверь DomeoDoors ${item.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель'}`
                           }
                         </div>
@@ -3699,12 +4034,7 @@ function CartManager({
             <div className="flex space-x-3">
               {cartHistory.length > 0 && (
                 <button
-                  onClick={() => {
-                    const historyText = cartHistory.map(entry => 
-                      `${entry.timestamp.toLocaleString()}: ${Object.keys(entry.changes).length} изменений (${entry.totalDelta > 0 ? '+' : ''}${fmtInt(entry.totalDelta)} ₽)`
-                    ).join('\n');
-                    alert(`История изменений:\n\n${historyText}`);
-                  }}
+                  onClick={() => setShowHistoryModal(true)}
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
                 >
                   История ({cartHistory.length})
@@ -3726,6 +4056,164 @@ function CartManager({
           </div>
         </div>
       </div>
+
+      {/* Модальное окно истории изменений */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-lg w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-black">История изменений корзины</h2>
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Список истории */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {cartHistory.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  История изменений пуста
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {cartHistory.map((entry, index) => {
+                    const itemIds = Object.keys(entry.changes);
+                    return (
+                      <div
+                        key={index}
+                        className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-gray-900 mb-1">
+                              {entry.timestamp.toLocaleString('ru-RU', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                            <div className="text-xs text-gray-600 mb-2">
+                              Изменено товаров: {itemIds.length}
+                            </div>
+                            <div className="space-y-1">
+                              {itemIds.map(itemId => {
+                                const change = entry.changes[itemId];
+                                const item = cart.find(i => i.id === itemId) || change?.item;
+                                return (
+                                  <div key={itemId} className="text-xs text-gray-700">
+                                    <span className="font-medium">
+                                      {item?.type === 'handle' 
+                                        ? (() => {
+                                            const displayHandle = Object.values(handles).flat().find((h: Handle) => h.id === item?.handleId);
+                                            return `Ручка ${displayHandle?.name || item?.handleName || itemId}`;
+                                          })()
+                                        : `Дверь ${item?.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || itemId}`}
+                                    </span>
+                                    {' - Цена: '}
+                                    {change?.oldPrice && (
+                                      <>
+                                        <span className="line-through text-gray-400">
+                                          {fmtInt(change.oldPrice)}₽
+                                        </span>
+                                        {' → '}
+                                      </>
+                                    )}
+                                    <span className="font-medium text-green-600">
+                                      {fmtInt(change?.newPrice || change?.item?.unitPrice || 0)}₽
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end space-y-2 ml-4">
+                            <div className={`text-sm font-semibold ${entry.totalDelta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {entry.totalDelta >= 0 ? '+' : ''}{fmtInt(entry.totalDelta)} ₽
+                            </div>
+                            <button
+                              onClick={() => {
+                                rollbackToHistory(index);
+                                setShowHistoryModal(false);
+                              }}
+                              className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                              title="Откатить к этому состоянию"
+                            >
+                              Откатить
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                Всего записей: {cartHistory.length}
+              </div>
+              <div className="flex space-x-3">
+                {cartHistory.length > 0 && (
+                  <button
+                    onClick={() => {
+                      if (confirm('Вы уверены, что хотите откатить все изменения?')) {
+                        rollbackAllHistory();
+                        setShowHistoryModal(false);
+                      }
+                    }}
+                    className="px-4 py-2 text-sm bg-red-500 text-white rounded hover:bg-red-600"
+                  >
+                    Откатить все изменения
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowHistoryModal(false)}
+                  className="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                >
+                  Закрыть
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно выбора ручек для редактирования в корзине */}
+      {showHandleModalInCart && editingHandleItemId && (() => {
+        const editingItem = cart.find(i => i.id === editingHandleItemId);
+        if (!editingItem) {
+          // Если товар не найден, закрываем модальное окно
+          setShowHandleModalInCart(false);
+          setEditingHandleItemId(null);
+          return null;
+        }
+        return (
+          <HandleSelectionModal
+            handles={handles}
+            selectedHandleId={editingItem.handleId}
+            onSelect={(handleId: string) => {
+              // Обновляем ручку в товаре корзины
+              if (editingHandleItemId) {
+                updateCartItem(editingHandleItemId, { handleId });
+              }
+              setShowHandleModalInCart(false);
+              setEditingHandleItemId(null);
+            }}
+            onClose={() => {
+              setShowHandleModalInCart(false);
+              setEditingHandleItemId(null);
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -3746,8 +4234,34 @@ function DoorCard({
 
   useEffect(() => {
     // Используем фото напрямую из данных модели
-    if (item.photo) {
-      const imageUrl = item.photo.startsWith('/uploads') ? `/api${item.photo}` : `/api/uploads${item.photo}`;
+    console.log('🔍 DoorCard useEffect, item:', {
+      model: item.model,
+      modelKey: item.modelKey,
+      photo: item.photo,
+      hasPhoto: !!item.photo
+    });
+    
+    if (item.photo && typeof item.photo === 'string') {
+      console.log('📷 item.photo:', item.photo);
+      console.log('📷 startsWith("/uploads"):', item.photo.startsWith('/uploads'));
+      
+      // Если фото начинается с /uploads/, используем как есть
+      // Если начинается с products/ или uploads/, добавляем /api
+      let imageUrl: string;
+      if (item.photo.startsWith('/uploads/')) {
+        imageUrl = `/api${item.photo}`;
+      } else if (item.photo.startsWith('/uploads')) {
+        // Корректируем: /uploadsproducts... -> /uploads/products...
+        imageUrl = `/api/uploads/${item.photo.substring(8)}`; // убираем первые 8 символов '/uploads'
+      } else if (item.photo.startsWith('products/')) {
+        imageUrl = `/api/uploads/${item.photo}`;
+      } else if (item.photo.startsWith('uploads/')) {
+        imageUrl = `/api/${item.photo}`;
+      } else {
+        imageUrl = `/api/uploads/${item.photo}`;
+      }
+      
+      console.log('📷 imageUrl:', imageUrl);
       setImageSrc(imageUrl);
       setIsLoading(false);
     } else if (item.modelKey) {
@@ -3763,7 +4277,19 @@ function DoorCard({
             const data = await response.json();
             if (data.photos && data.photos.length > 0) {
               const photoPath = data.photos[0];
-              const imageUrl = photoPath.startsWith('/uploads') ? `/api${photoPath}` : `/api/uploads${photoPath}`;
+              // Обрабатываем разные форматы путей
+              let imageUrl: string;
+              if (photoPath.startsWith('/uploads/')) {
+                imageUrl = `/api${photoPath}`;
+              } else if (photoPath.startsWith('/uploads')) {
+                imageUrl = `/api/uploads/${photoPath.substring(8)}`;
+              } else if (photoPath.startsWith('products/')) {
+                imageUrl = `/api/uploads/${photoPath}`;
+              } else if (photoPath.startsWith('uploads/')) {
+                imageUrl = `/api/${photoPath}`;
+              } else {
+                imageUrl = `/api/uploads/${photoPath}`;
+              }
               setImageSrc(imageUrl);
             } else {
               setImageSrc(null);
@@ -3800,18 +4326,22 @@ function DoorCard({
       ].join(" ")}
     >
         {/* Фото полностью заполняет карточку с правильным соотношением сторон для дверей */}
-        <div className="aspect-[16/33] w-full bg-gray-50 relative group">
+        <div className="aspect-[16/33] w-full bg-gray-50 relative group overflow-hidden">
           {isLoading ? (
-            <div className="h-full w-full animate-pulse bg-gray-200" />
+            <div className="absolute inset-0 animate-pulse bg-gray-200" />
           ) : imageSrc ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={imageSrc}
                 alt={formatModelNameForCard(item.model)}
-                className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
-                onError={() => {
-                  console.log('❌ Ошибка загрузки изображения:', imageSrc);
+                className="absolute inset-0 w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                onLoad={() => console.log('✅ Изображение загружено для', item.model, ':', imageSrc)}
+                onError={(e) => {
+                  console.error('❌ ОШИБКА ЗАГРУЗКИ изображения:', imageSrc);
+                  console.error('❌ item.photo:', item.photo);
+                  console.error('❌ Тип imageSrc:', typeof imageSrc);
+                  console.error('❌ item:', item);
                   setImageSrc(null);
                 }}
               />
@@ -3856,8 +4386,22 @@ function StickyPreview({ item }: { item: { model: string; modelKey?: string; sku
     }
 
     // Если фото уже предзагружено в item.photo, используем его мгновенно
-    if (item.photo) {
-      const imageUrl = item.photo.startsWith('/uploads') ? `/api${item.photo}` : `/api/uploads${item.photo}`;
+    if (item.photo && typeof item.photo === 'string') {
+      // Обрабатываем разные форматы путей
+      let imageUrl: string;
+      if (item.photo.startsWith('/uploads/')) {
+        imageUrl = `/api${item.photo}`;
+      } else if (item.photo.startsWith('/uploads')) {
+        // Корректируем: /uploadsproducts... -> /uploads/products...
+        imageUrl = `/api/uploads/${item.photo.substring(8)}`;
+      } else if (item.photo.startsWith('products/')) {
+        imageUrl = `/api/uploads/${item.photo}`;
+      } else if (item.photo.startsWith('uploads/')) {
+        imageUrl = `/api/${item.photo}`;
+      } else {
+        imageUrl = `/api/uploads/${item.photo}`;
+      }
+      
       setImageSrc(imageUrl);
       setIsLoading(false);
       return;
@@ -3871,18 +4415,30 @@ function StickyPreview({ item }: { item: { model: string; modelKey?: string; sku
 
         const response = await fetch(`/api/catalog/doors/photos?model=${encodeURIComponent(item.modelKey || item.model)}`);
 
-        if (response.ok) {
-          const data = await response.json();
-          if (data.photos && data.photos.length > 0) {
-            const photoPath = data.photos[0];
-            const imageUrl = photoPath.startsWith('/uploads') ? `/api${photoPath}` : `/api/uploads${photoPath}`;
-            setImageSrc(imageUrl);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.photos && data.photos.length > 0) {
+              const photoPath = data.photos[0];
+              // Обрабатываем разные форматы путей
+              let imageUrl: string;
+              if (photoPath.startsWith('/uploads/')) {
+                imageUrl = `/api${photoPath}`;
+              } else if (photoPath.startsWith('/uploads')) {
+                imageUrl = `/api/uploads/${photoPath.substring(8)}`;
+              } else if (photoPath.startsWith('products/')) {
+                imageUrl = `/api/uploads/${photoPath}`;
+              } else if (photoPath.startsWith('uploads/')) {
+                imageUrl = `/api/${photoPath}`;
+              } else {
+                imageUrl = `/api/uploads/${photoPath}`;
+              }
+              setImageSrc(imageUrl);
+            } else {
+              setImageSrc(null);
+            }
           } else {
             setImageSrc(null);
           }
-        } else {
-          setImageSrc(null);
-        }
       } catch (error) {
         console.error('❌ Ошибка загрузки фото для превью:', error);
         setImageSrc(null);

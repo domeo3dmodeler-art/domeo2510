@@ -270,10 +270,11 @@ export function DocumentQuickViewModal({ isOpen, onClose, documentId }: Document
       console.log('📦 Final cart data for supplier order:', cartData);
       console.log('📦 Final cart data items count:', cartData.items ? cartData.items.length : 0);
       
-      const response = await fetch('/api/supplier-orders', {
+      const response = await fetch(`${window.location.origin}/api/supplier-orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          invoiceId: documentId,
           orderId: orderId, // Используем orderId как в ЛК Исполнителя
           supplierName: 'Поставщик по умолчанию',
           supplierEmail: '',

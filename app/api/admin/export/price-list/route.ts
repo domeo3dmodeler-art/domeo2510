@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import * as XLSX from 'xlsx';
 import { apiErrorHandler } from '@/lib/api-error-handler';
 import { apiValidator } from '@/lib/api-validator';
-import { fixAllEncoding } from '@/lib/encoding-utils';
+import { validateAndFixData } from '@/lib/encoding-utils';
 
 const prisma = new PrismaClient();
 
@@ -84,10 +84,49 @@ export async function GET(req: NextRequest) {
     });
 
     // Сортируем поля для консистентности
-    const sortedPropertyFields = Array.from(allPropertyFields).sort();
+    let sortedPropertyFields = Array.from(allPropertyFields).sort();
     
-    // Создаем заголовки: SKU внутреннее + все поля свойств
-    const headers = ['SKU внутреннее', ...sortedPropertyFields];
+    // Проверяем, есть ли "SKU внутреннее" в properties
+    const skuInternalField = 'SKU внутреннее';
+    const hasSkuInternal = sortedPropertyFields.includes(skuInternalField);
+    
+    // Убираем "SKU внутреннее" из сортированного списка (если есть)
+    if (hasSkuInternal) {
+      sortedPropertyFields = sortedPropertyFields.filter(field => field !== skuInternalField);
+    }
+    
+    // Проверяем, есть ли поля цен в properties
+    // Варианты названий для цены РРЦ
+    const priceRrcVariants = [
+      'Цена ррц (включая цену полотна, короба, наличников, доборов)',
+      'Цена РРЦ',
+      'Цена ррц',
+      'Цена розница',
+      'РРЦ'
+    ];
+    
+    // Варианты названий для цены опт
+    const priceOptVariants = [
+      'Цена опт',
+      'Цена оптовая',
+      'Опт'
+    ];
+    
+    // Проверяем, есть ли уже эти поля в properties
+    // НЕ удаляем их из sortedPropertyFields - они должны остаться в экспорте
+    const hasPriceRrc = priceRrcVariants.some(variant => sortedPropertyFields.includes(variant));
+    const hasPriceOpt = priceOptVariants.some(variant => sortedPropertyFields.includes(variant));
+    
+    // Создаем заголовки
+    // "SKU внутреннее" всегда в начале (из properties, если есть, иначе из product.sku)
+    // Затем все остальные поля свойств (ВКЛЮЧАЯ поля цен, если они есть в properties)
+    // Затем добавляем стандартные поля цен в конце ТОЛЬКО если их нет в properties
+    const headers = [
+      skuInternalField, // Всегда в начале
+      ...sortedPropertyFields, // Все поля свойств (включая цены, если они есть)
+      ...(hasPriceRrc ? [] : ['Цена ррц (включая цену полотна, короба, наличников, доборов)']),
+      ...(hasPriceOpt ? [] : ['Цена опт'])
+    ];
     
     const data = [];
 
@@ -95,9 +134,6 @@ export async function GET(req: NextRequest) {
     products.forEach((product, index) => {
       const row = [];
       
-      // SKU внутреннее (первая колонка)
-      row.push(product.sku || '');
-
       // Парсим свойства товара с исправлением кодировки
       let properties = {};
       if (product.properties_data) {
@@ -105,13 +141,19 @@ export async function GET(req: NextRequest) {
           const rawProperties = typeof product.properties_data === 'string' 
             ? JSON.parse(product.properties_data) 
             : product.properties_data;
-          properties = fixAllEncoding(rawProperties);
+          properties = validateAndFixData(rawProperties);
         } catch (e) {
           console.error(`Ошибка парсинга свойств для товара ${product.id}:`, e);
         }
       }
 
-      // Добавляем все поля свойств в том же порядке, что и заголовки
+      // SKU внутреннее всегда первое - берем из properties, если есть, иначе из product.sku
+      const skuValue = hasSkuInternal 
+        ? (properties[skuInternalField] || product.sku || '')
+        : (product.sku || '');
+      row.push(skuValue || '-');
+
+      // Добавляем все поля свойств в том же порядке (без "SKU внутреннее" и цен, если они были)
       sortedPropertyFields.forEach(field => {
         const value = properties[field];
         
@@ -127,6 +169,22 @@ export async function GET(req: NextRequest) {
           }
         }
       });
+
+      // Добавляем цену ррц только если её нет в properties
+      if (!hasPriceRrc) {
+        const priceRrcFull = properties['Цена ррц (включая цену полотна, короба, наличников, доборов)'] 
+          || properties['Цена РРЦ'] 
+          || properties['Цена ррц']
+          || properties['Цена розница']
+          || '';
+        row.push(priceRrcFull && !isNaN(Number(priceRrcFull)) ? Number(priceRrcFull) : '-');
+      }
+
+      // Добавляем цену опт только если её нет в properties
+      if (!hasPriceOpt) {
+        const priceOpt = properties['Цена опт'] || properties['Цена оптовая'] || '';
+        row.push(priceOpt && !isNaN(Number(priceOpt)) ? Number(priceOpt) : '-');
+      }
 
       data.push(row);
     });

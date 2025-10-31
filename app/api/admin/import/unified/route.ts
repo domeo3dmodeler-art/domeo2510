@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import * as XLSX from 'xlsx';
-import { validateDocumentFile } from '../../../../lib/validation/file-validation';
+import { validateDocumentFile } from '@/lib/validation/file-validation';
 import { fixAllEncoding, fixFieldsEncoding } from '@/lib/encoding-utils';
 import { apiErrorHandler } from '@/lib/api-error-handler';
 import { apiValidator } from '@/lib/api-validator';
@@ -11,6 +11,9 @@ const prisma = new PrismaClient();
 // ===================== УНИФИЦИРОВАННЫЙ ИМПОРТ =====================
 
 export async function POST(req: NextRequest) {
+  console.log('🚀 === НАЧАЛО УНИФИЦИРОВАННОГО ИМПОРТА ===');
+  console.log('📅 Время:', new Date().toISOString());
+  
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File;
@@ -18,19 +21,43 @@ export async function POST(req: NextRequest) {
     const mode = formData.get("mode") as string || 'preview'; // 'preview' или 'import'
     const templateId = formData.get("templateId") as string;
 
+    console.log('📦 Получены параметры:', {
+      hasFile: !!file,
+      fileName: file?.name,
+      fileSize: file?.size,
+      categoryId,
+      mode,
+      templateId: templateId || 'auto'
+    });
+
     // Валидация входных данных
     if (!file) {
+      console.error('❌ Файл не предоставлен');
       return NextResponse.json({ error: "Файл не предоставлен" }, { status: 400 });
     }
 
     if (!categoryId) {
+      console.error('❌ Категория не указана');
       return NextResponse.json({ error: "Категория не указана" }, { status: 400 });
     }
 
     // Валидация файла
     const validation = validateDocumentFile(file);
     if (!validation.isValid) {
-      return NextResponse.json({ error: validation.error }, { status: 400 });
+      console.error('❌ Валидация файла не пройдена:', {
+        filename: file.name,
+        size: file.size,
+        type: file.type,
+        error: validation.error
+      });
+      return NextResponse.json({ 
+        error: validation.error,
+        details: {
+          filename: file.name,
+          size: file.size,
+          type: file.type
+        }
+      }, { status: 400 });
     }
 
     console.log('🔍 Унифицированный импорт:', {
@@ -57,9 +84,28 @@ export async function POST(req: NextRequest) {
     }
 
     if (!template) {
+      console.error('❌ Шаблон не найден для категории:', categoryId);
+      
+      // Проверяем, существует ли категория
+      const category = await prisma.catalogCategory.findUnique({
+        where: { id: categoryId },
+        select: { name: true }
+      });
+
+      const errorMessage = category 
+        ? `Шаблон не найден для категории "${category.name}". Создайте шаблон для этой категории перед импортом.`
+        : `Категория с ID "${categoryId}" не найдена.`;
+
       return NextResponse.json(
-        { error: "Шаблон не найден для данной категории" },
-        { status: 404 }
+        { 
+          error: errorMessage,
+          details: {
+            categoryId,
+            categoryName: category?.name || null,
+            message: "Создайте шаблон импорта для этой категории через раздел 'Шаблоны' в интерфейсе импорта."
+          }
+        },
+        { status: 400 }
       );
     }
 
@@ -121,8 +167,11 @@ export async function POST(req: NextRequest) {
       availableFields: fixedHeaders
     });
 
-    // Если нет ни одного обязательного поля из шаблона - ошибка
-    if (availableRequiredFields.length === 0) {
+    // Проверяем наличие SKU внутреннее - это минимальное требование для обновления товаров
+    const hasInternalSku = fixedHeaders.includes('SKU внутреннее');
+    
+    // Если нет ни одного обязательного поля из шаблона И нет SKU внутреннее - ошибка
+    if (availableRequiredFields.length === 0 && !hasInternalSku) {
       return NextResponse.json({
         error: "Файл не соответствует шаблону категории",
         details: {
@@ -130,10 +179,15 @@ export async function POST(req: NextRequest) {
           missingFields: missingFields,
           availableFields: fixedHeaders,
           templateRequiredFields: requiredFields,
-          suggestion: "Скачайте актуальный шаблон для этой категории и используйте его структуру"
+          suggestion: "Файл должен содержать хотя бы 'SKU внутреннее' для обновления товаров, или все обязательные поля из шаблона. Скачайте актуальный шаблон для этой категории и используйте его структуру."
         },
-        message: `Отсутствуют обязательные поля: ${missingFields.join(', ')}. Скачайте шаблон для категории "${template.catalog_category?.name || 'неизвестной'}" и используйте его структуру.`
+        message: `Отсутствуют обязательные поля. Файл должен содержать хотя бы 'SKU внутреннее' для обновления товаров, или все обязательные поля из шаблона: ${missingFields.slice(0, 5).join(', ')}.`
       }, { status: 400 });
+    }
+    
+    // Если нет обязательных полей, но есть SKU внутреннее - это режим обновления цен/свойств
+    if (availableRequiredFields.length === 0 && hasInternalSku) {
+      console.log('ℹ️ Режим обновления: найдено только SKU внутреннее, разрешаем импорт для обновления цен/свойств');
     }
 
     // Обрабатываем данные
@@ -150,14 +204,34 @@ export async function POST(req: NextRequest) {
           row_number: i + 2
         };
 
-        // Заполняем свойства товара - используем только доступные обязательные поля из шаблона
+        // Заполняем свойства товара
+        // Обрабатываем ТОЛЬКО поля из шаблона (requiredFields)
+        // Поля, которые есть в файле, но отсутствуют в шаблоне - ИГНОРИРУЮТСЯ
         const properties: any = {};
-        availableRequiredFields.forEach(field => {
+        
+        // Обрабатываем только поля из шаблона
+        requiredFields.forEach(field => {
+          // Проверяем, есть ли это поле в файле
           const headerIndex = fixedHeaders.indexOf(field);
           if (headerIndex !== -1 && row[headerIndex] !== undefined) {
-            properties[field] = row[headerIndex];
+            const value = row[headerIndex];
+            // Игнорируем пустые значения
+            if (value !== undefined && value !== null && value !== '' && value !== '-') {
+              properties[field] = value;
+            }
           }
+          // Если поле из шаблона отсутствует в файле - пропускаем
+          // При обновлении: старое значение останется в БД
+          // При создании: может быть ошибка валидации, если поле обязательное
         });
+
+        // Логирование для диагностики (только для первых 3 строк)
+        if (i < 3) {
+          console.log(`📋 Строка ${i + 2}: Обработано полей из шаблона: ${Object.keys(properties).length}`);
+          console.log(`  Поля из шаблона (${requiredFields.length}):`, requiredFields);
+          console.log(`  Поля найдены в файле (${Object.keys(properties).length}):`, Object.keys(properties));
+          console.log(`  Все поля в файле (${fixedHeaders.length}):`, fixedHeaders);
+        }
 
         // Исправляем кодировку свойств
         product.properties_data = fixAllEncoding(properties);
@@ -166,61 +240,194 @@ export async function POST(req: NextRequest) {
         const internalSku = properties['SKU внутреннее'];
         if (internalSku && internalSku.trim() !== '') {
           product.sku = internalSku.trim();
+          
+          // Проверяем уникальность SKU во всей БД
+          // Если в режиме preview - предупредим позже
+          // Если в режиме import - проверим перед созданием/обновлением
         } else {
-          // Генерируем автоматически, если не указан
+          // Генерируем автоматически уникальный SKU
+          // Используем оптимизированный подход: timestamp (миллисекунды) + наносекунды + случайное число + индекс строки
+          // Это обеспечивает очень высокую вероятность уникальности без проверки в БД
           const supplierSku = properties['Артикул поставщика'] || `ITEM_${i + 1}`;
-          product.sku = `SKU_${Date.now()}_${supplierSku}`;
+          
+          // Генерируем уникальный SKU с оптимизированным подходом
+          // Используем timestamp + наносекунды + случайное число + индекс строки для максимальной уникальности
+          const timestamp = Date.now();
+          
+          // Получаем наносекунды через process.hrtime для высокой точности
+          let nanoSeconds = '';
+          try {
+            if (typeof process !== 'undefined' && process.hrtime) {
+              const hrtime = process.hrtime();
+              // hrtime возвращает [секунды, наносекунды]
+              // Используем наносекунды как дополнительную компоненту уникальности
+              nanoSeconds = hrtime[1].toString().padStart(9, '0').slice(-6); // Последние 6 цифр
+            } else {
+              // Fallback: используем случайное число для имитации наносекунд
+              nanoSeconds = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+            }
+          } catch (e) {
+            // Если process.hrtime недоступен, используем случайное число
+            nanoSeconds = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+          }
+          
+          // Дополнительная случайная компонента (8 символов)
+          const randomSuffix = Math.random().toString(36).substring(2, 10);
+          // Индекс строки с padding (6 цифр)
+          const rowIndex = (i + 1).toString().padStart(6, '0');
+          // Ограничиваем артикул поставщика (20 символов)
+          const supplierSkuShort = supplierSku.substring(0, 20);
+          
+          // Формат: SKU_timestamp_nanoSeconds_random_rowIndex_supplierSku
+          // Комбинации: ~2^48 (timestamp) * 2^20 (nanoSeconds) * 2^48 (random) * 2^20 (rowIndex) = ~2^136
+          // Вероятность коллизии крайне мала (< 10^-40)
+          product.sku = `SKU_${timestamp}_${nanoSeconds}_${randomSuffix}_${rowIndex}_${supplierSkuShort}`;
+          
+          // Убираем проверку уникальности в цикле для оптимизации производительности
+          // Вероятность коллизии с таким форматом практически нулевая
+          // Если коллизия произойдет (крайне маловероятно), Prisma выбросит ошибку P2002 при создании
         }
 
-        // Определяем название - ищем поле с названием в доступных полях
-        const nameField = availableRequiredFields.find(field => 
-          field.toLowerCase().includes('название') || 
-          field.toLowerCase().includes('наименование') ||
-          field.toLowerCase().includes('имя')
-        );
-        
-        if (nameField) {
-          product.name = properties[nameField] || 'Без названия';
-        } else {
-          product.name = 'Без названия';
-        }
-
-        // Валидация обязательных полей для нового товара
+        // ВАЖНО: Если SKU внутреннее заполнено - это режим обновления
+        // В режиме обновления требуется ТОЛЬКО SKU внутреннее - все остальное опционально
         if (!internalSku || internalSku.trim() === '') {
-          // Если SKU внутреннее пустое, проверяем только доступные обязательные поля из шаблона
-          const missingRequiredFields = availableRequiredFields.filter(field => {
+          // Если SKU внутреннее пустое - создается новый товар
+          // Для нового товара требуется ВСЕ обязательные поля из шаблона
+          
+          // Определяем название - ищем поле с названием во всех полях шаблона
+          const nameField = requiredFields.find(field => 
+            field.toLowerCase().includes('название') || 
+            field.toLowerCase().includes('наименование') ||
+            field.toLowerCase().includes('имя')
+          );
+          
+          if (nameField && properties[nameField]) {
+            product.name = properties[nameField];
+          } else {
+            product.name = 'Без названия';
+          }
+          
+          // Проверяем ВСЕ обязательные поля из шаблона для нового товара
+          const missingRequiredFields = requiredFields.filter(field => {
+            // Проверяем, есть ли поле в файле И заполнено ли оно
+            const hasFieldInFile = fixedHeaders.includes(field);
             const value = properties[field];
-            return !value || value.toString().trim() === '' || value === '-';
+            return !hasFieldInFile || !value || value.toString().trim() === '' || value === '-';
           });
 
           if (missingRequiredFields.length > 0) {
             throw new Error(`Отсутствуют обязательные поля из шаблона: ${missingRequiredFields.join(', ')}`);
           }
         } else {
-          // Если SKU внутреннее заполнено, проверяем только название
-          if (!product.name || product.name === 'Без названия') {
-            throw new Error('Не указано название товара');
+          // РЕЖИМ ОБНОВЛЕНИЯ: SKU внутреннее заполнено
+          // В этом режиме требуется ТОЛЬКО SKU - все остальное опционально
+          // Название и другие поля можно взять из БД, если их нет в файле
+          
+          // Определяем название - если есть в файле, используем, иначе возьмем из БД позже
+          const nameField = requiredFields.find(field => 
+            field.toLowerCase().includes('название') || 
+            field.toLowerCase().includes('наименование') ||
+            field.toLowerCase().includes('имя')
+          );
+          
+          if (nameField && properties[nameField]) {
+            product.name = properties[nameField];
+          } else {
+            // Название не указано в файле - будет взято из БД при обновлении
+            product.name = 'Без названия';
           }
+          
+          // В режиме обновления НЕ проверяем обязательные поля - они опциональны
+          // Главное - наличие SKU внутреннее, по нему найдем товар в БД
         }
 
         products.push(product);
 
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
+        console.error(`❌ Ошибка обработки строки ${i + 2}:`, errorMessage);
         errors.push({
           row: i + 2,
-          error: error instanceof Error ? error.message : 'Неизвестная ошибка',
+          error: errorMessage,
           data: row
         });
       }
     }
+    
+    console.log(`\n📊 Результат обработки файла:`);
+    console.log(`  Успешно обработано товаров: ${products.length}`);
+    console.log(`  Ошибок валидации: ${errors.length}`);
+    
+    if (errors.length > 0 && errors.length <= 10) {
+      console.log(`  Примеры ошибок:`, errors.slice(0, 5));
+    }
 
     console.log('📦 Обработано товаров:', {
       total: products.length,
-      errors: errors.length
+      errors: errors.length,
+      sampleProducts: products.slice(0, 3).map(p => ({
+        sku: p.sku,
+        name: p.name,
+        propertiesCount: Object.keys(p.properties_data).length,
+        properties: Object.keys(p.properties_data)
+      }))
     });
 
     // Если режим preview, возвращаем предварительный просмотр
     if (mode === 'preview') {
+      // Проверяем существование товаров в БД для предупреждения о несуществующих SKU
+      // SKU проверяются во всей БД (не только в категории), так как SKU должны быть уникальными глобально
+      const skuChecks: Array<{ 
+        sku: string; 
+        exists: boolean; 
+        row: number; 
+        existingCategoryId?: string | null;
+        existingCategoryName?: string | null;
+        existingProductName?: string | null;
+      }> = [];
+      
+      for (const product of products) {
+        if (product.sku) {
+          // Проверяем уникальность SKU во всей БД (не только в категории)
+          const existingProduct = await prisma.product.findUnique({
+            where: {
+              sku: product.sku
+            },
+            select: { 
+              id: true, 
+              catalog_category_id: true,
+              name: true,
+              catalog_category: {
+                select: {
+                  id: true,
+                  name: true
+                }
+              }
+            }
+          });
+          
+          skuChecks.push({
+            sku: product.sku,
+            exists: !!existingProduct,
+            row: product.row_number || 0,
+            // Добавляем информацию о категории существующего товара (если найден)
+            existingCategoryId: existingProduct?.catalog_category_id || null,
+            existingCategoryName: existingProduct?.catalog_category?.name || null,
+            existingProductName: existingProduct?.name || null
+          });
+        }
+      }
+      
+      const notFoundSkus = skuChecks.filter(check => !check.exists);
+      const foundSkus = skuChecks.filter(check => check.exists);
+      
+      // Проверяем, есть ли SKU в других категориях (для предупреждения)
+      const skusInOtherCategories = skuChecks.filter(check => 
+        check.exists && 
+        check.existingCategoryId && 
+        check.existingCategoryId !== categoryId
+      );
+      
       return NextResponse.json({
         success: true,
         mode: 'preview',
@@ -236,35 +443,86 @@ export async function POST(req: NextRequest) {
           errors: errors.length,
           sampleProducts: products.slice(0, 5),
           sampleErrors: errors.slice(0, 5)
+        },
+        skuCheck: {
+          total: skuChecks.length,
+          found: foundSkus.length,
+          notFound: notFoundSkus.length,
+          notFoundSkus: notFoundSkus.slice(0, 20), // Первые 20 для показа
+          skusInOtherCategories: skusInOtherCategories.length > 0 ? skusInOtherCategories.slice(0, 20) : [], // SKU в других категориях
+          warning: notFoundSkus.length > 0 
+            ? `Обнаружено ${notFoundSkus.length} несуществующих SKU. Эти товары будут созданы как новые при импорте.` 
+            : null,
+          crossCategoryWarning: skusInOtherCategories.length > 0
+            ? `ОШИБКА: Обнаружено ${skusInOtherCategories.length} SKU, которые уже существуют в других категориях. Импорт товаров из других категорий запрещен. Исправьте SKU в файле и попробуйте снова.`
+            : null,
+          crossCategorySkus: skusInOtherCategories.length > 0 
+            ? skusInOtherCategories.map(check => ({
+                sku: check.sku,
+                row: check.row,
+                existingCategoryName: check.existingCategoryName || 'Неизвестная категория',
+                existingCategoryId: check.existingCategoryId,
+                existingProductName: check.existingProductName || 'Без названия'
+              }))
+            : []
         }
       });
     }
 
     // Режим импорта - сохраняем в базу
+    console.log(`\n🚀 === РЕЖИМ ИМПОРТА (${mode}) ===`);
+    console.log(`📦 Товаров к обработке: ${products.length}`);
+    
     let importedCount = 0;
     let updatedCount = 0;
     let createdCount = 0;
     let errorCount = 0;
 
     for (const product of products) {
+      console.log(`\n📦 Обработка товара ${importedCount + 1}/${products.length}: SKU="${product.sku}"`);
       try {
-        // Проверяем существование товара по SKU внутреннему
-        const existingProduct = await prisma.product.findFirst({
+        // Проверяем существование товара по SKU внутреннему во всей БД (не только в категории)
+        // SKU должен быть уникальным во всей БД товаров
+        const existingProduct = await prisma.product.findUnique({
           where: {
-            sku: product.sku,
-            catalog_category_id: categoryId
+            sku: product.sku
+          },
+          include: {
+            catalog_category: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
           }
         });
+        
+        // Если товар найден в другой категории - ЗАПРЕЩАЕМ обновление и выдаем ошибку
+        if (existingProduct && existingProduct.catalog_category_id !== categoryId) {
+          const existingCategoryName = existingProduct.catalog_category?.name || 'Неизвестная категория';
+          const errorMessage = `SKU "${product.sku}" (товар "${existingProduct.name}") уже существует в категории "${existingCategoryName}" (ID: ${existingProduct.catalog_category_id}). Импорт товаров из других категорий запрещен. Удалите или измените SKU в файле.`;
+          
+          console.error(`❌ ${errorMessage}`);
+          throw new Error(errorMessage);
+        }
 
         if (existingProduct) {
           // Обновляем существующий товар - только заполненные поля
+          console.log(`  🔄 Товар найден в БД: ID=${existingProduct.id}, категория=${existingProduct.catalog_category_id}`);
+          console.log(`  📝 Текущее название: "${existingProduct.name}"`);
+          
           const updateData: any = {
             updated_at: new Date()
           };
 
-          // Обновляем название, если оно указано
+          // Обновляем название, если оно указано в файле (и не "Без названия")
+          // Если название не указано в файле - оставляем существующее название из БД
           if (product.name && product.name !== 'Без названия') {
             updateData.name = product.name;
+            console.log(`  📝 Обновление названия: "${existingProduct.name}" → "${product.name}"`);
+          } else {
+            // Название не указано в файле - оставляем существующее из БД
+            console.log(`  ⏭️ Название не указано в файле - оставляем существующее: "${existingProduct.name}"`);
           }
 
           // Обновляем только заполненные свойства
@@ -273,30 +531,46 @@ export async function POST(req: NextRequest) {
               JSON.parse(existingProduct.properties_data) : 
               existingProduct.properties_data) : {};
 
+          console.log(`  📊 Существующие поля в БД (${Object.keys(existingProperties).length}):`, Object.keys(existingProperties));
+
           const newProperties = { ...existingProperties };
+          
+          console.log(`  📊 Поля из файла (${Object.keys(product.properties_data).length}):`, Object.keys(product.properties_data));
           
           // Обновляем только те поля, которые не пустые в файле
           // Исправляем кодировку полей перед обновлением
           const fixedKeys = fixFieldsEncoding(Object.keys(product.properties_data));
+          let updatedFieldsCount = 0;
           Object.keys(product.properties_data).forEach((originalKey, index) => {
             const fixedKey = fixedKeys[index];
             const value = product.properties_data[originalKey];
             if (value !== undefined && value !== null && value !== '' && value !== '-') {
+              const oldValue = newProperties[fixedKey];
               newProperties[fixedKey] = value;
+              updatedFieldsCount++;
+              console.log(`  ✅ Обновление поля "${fixedKey}": "${oldValue}" → "${value}"`);
+            } else {
+              console.log(`  ⏭️ Пропуск пустого поля "${fixedKey}"`);
             }
           });
+
+          console.log(`  📈 Обновлено полей: ${updatedFieldsCount}`);
 
           updateData.properties_data = JSON.stringify(newProperties);
           updateData.specifications = JSON.stringify(newProperties);
 
-          await prisma.product.update({
+          console.log(`  💾 Выполняем UPDATE в БД...`);
+          const updateResult = await prisma.product.update({
             where: { id: existingProduct.id },
             data: updateData
           });
 
+          console.log(`  ✅ Товар успешно обновлен в БД. ID=${updateResult.id}`);
           updatedCount++;
         } else {
           // Создаем новый товар - все обязательные поля должны быть заполнены
+          console.log(`  ➕ Товар не найден в БД - создаем новый товар`);
+          
           // Исправляем кодировку полей перед сохранением
           const fixedProperties = fixFieldsEncoding(Object.keys(product.properties_data)).reduce((acc, fixedKey, index) => {
             const originalKey = Object.keys(product.properties_data)[index];
@@ -304,29 +578,50 @@ export async function POST(req: NextRequest) {
             return acc;
           }, {} as Record<string, any>);
           
-          await prisma.product.create({
-            data: {
-              sku: product.sku,
-              name: product.name,
-              catalog_category_id: categoryId,
-              properties_data: JSON.stringify(fixedProperties),
-              specifications: JSON.stringify(fixedProperties),
-              base_price: 0,
-              stock_quantity: 0,
-              is_active: true
-            }
-          });
+          console.log(`  📊 Поля для создания (${Object.keys(fixedProperties).length}):`, Object.keys(fixedProperties));
+          
+          try {
+            const newProduct = await prisma.product.create({
+              data: {
+                sku: product.sku,
+                name: product.name,
+                catalog_category_id: categoryId,
+                properties_data: JSON.stringify(fixedProperties),
+                specifications: JSON.stringify(fixedProperties),
+                base_price: 0,
+                stock_quantity: 0,
+                is_active: true
+              }
+            });
 
-          createdCount++;
+            console.log(`  ✅ Новый товар создан. ID=${newProduct.id}, SKU=${newProduct.sku}`);
+            createdCount++;
+          } catch (createError: any) {
+            // Обрабатываем ошибку уникальности SKU
+            if (createError.code === 'P2002' && createError.meta?.target?.includes('sku')) {
+              console.error(`❌ SKU "${product.sku}" уже существует в БД (конфликт уникальности)`);
+              throw new Error(`SKU "${product.sku}" уже существует в базе данных. SKU должны быть уникальными во всей БД товаров.`);
+            }
+            console.error(`❌ Ошибка при создании товара:`, createError);
+            throw createError; // Пробрасываем другие ошибки
+          }
         }
 
         importedCount++;
+        console.log(`  ✅ Товар обработан (${importedCount}/${products.length})`);
 
       } catch (error) {
-        console.error(`Ошибка импорта товара ${product.sku}:`, error);
+        console.error(`❌ Ошибка импорта товара ${product.sku}:`, error);
+        console.error(`  Детали ошибки:`, error instanceof Error ? error.message : String(error));
         errorCount++;
       }
     }
+    
+    console.log(`\n📊 === ИТОГИ ИМПОРТА ===`);
+    console.log(`  Всего обработано: ${importedCount}`);
+    console.log(`  Обновлено: ${updatedCount}`);
+    console.log(`  Создано: ${createdCount}`);
+    console.log(`  Ошибок: ${errorCount}`);
 
     // Сохраняем историю импорта
     await prisma.importHistory.create({
@@ -347,13 +642,24 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    console.log('✅ Импорт завершен:', {
-      imported: importedCount,
-      created: createdCount,
-      updated: updatedCount,
-      errors: errorCount,
-      validationErrors: errors.length
-    });
+           console.log('✅ Импорт завершен:', {
+             imported: importedCount,
+             created: createdCount,
+             updated: updatedCount,
+             errors: errorCount,
+             validationErrors: errors.length
+           });
+           
+           // Дополнительное логирование для диагностики
+           if (updatedCount > 0) {
+             console.log(`📊 Обновлено товаров: ${updatedCount}`);
+           }
+           if (createdCount > 0) {
+             console.log(`➕ Создано товаров: ${createdCount}`);
+           }
+           if (errorCount > 0) {
+             console.log(`❌ Ошибок при импорте: ${errorCount}`);
+           }
 
     return NextResponse.json({
       success: true,

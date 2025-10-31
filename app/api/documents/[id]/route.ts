@@ -91,25 +91,44 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           documentType = 'order';
         } else {
           // Проверяем в таблице supplierOrders
+          // SupplierOrder не имеет прямой связи с client, получаем через Invoice
           const supplierOrder = await prisma.supplierOrder.findUnique({
             where: { id },
             include: {
-              client: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  middleName: true,
-                  phone: true,
-                  address: true
-                }
-              },
               supplier_order_items: true
             }
           });
 
           if (supplierOrder) {
-            document = supplierOrder;
+            // Получаем клиента через связанный Invoice
+            let client = null;
+            if (supplierOrder.parent_document_id) {
+              const invoice = await prisma.invoice.findUnique({
+                where: { id: supplierOrder.parent_document_id },
+                include: {
+                  client: {
+                    select: {
+                      id: true,
+                      firstName: true,
+                      lastName: true,
+                      middleName: true,
+                      phone: true,
+                      address: true
+                    }
+                  }
+                }
+              });
+              
+              if (invoice && invoice.client) {
+                client = invoice.client;
+              }
+            }
+            
+            // Добавляем клиента к документу
+            document = {
+              ...supplierOrder,
+              client
+            };
             documentType = 'supplier_order';
           }
         }
