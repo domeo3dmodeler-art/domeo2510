@@ -84,10 +84,26 @@ export async function GET(req: NextRequest) {
     });
 
     // Сортируем поля для консистентности
-    const sortedPropertyFields = Array.from(allPropertyFields).sort();
+    let sortedPropertyFields = Array.from(allPropertyFields).sort();
     
-    // Создаем заголовки: SKU внутреннее + все поля свойств
-    const headers = ['SKU внутреннее', ...sortedPropertyFields];
+    // Проверяем, есть ли "SKU внутреннее" в properties
+    const skuInternalField = 'SKU внутреннее';
+    const hasSkuInternal = sortedPropertyFields.includes(skuInternalField);
+    
+    // Убираем "SKU внутреннее" из сортированного списка (если есть)
+    if (hasSkuInternal) {
+      sortedPropertyFields = sortedPropertyFields.filter(field => field !== skuInternalField);
+    }
+    
+    // Создаем заголовки
+    // "SKU внутреннее" всегда в начале (из properties, если есть, иначе из product.sku)
+    // Затем все остальные поля свойств, затем цены
+    const headers = [
+      skuInternalField, // Всегда в начале
+      ...sortedPropertyFields,
+      'Цена ррц (включая цену полотна, короба, наличников, доборов)',
+      'Цена опт'
+    ];
     
     const data = [];
 
@@ -95,9 +111,6 @@ export async function GET(req: NextRequest) {
     products.forEach((product, index) => {
       const row = [];
       
-      // SKU внутреннее (первая колонка)
-      row.push(product.sku || '');
-
       // Парсим свойства товара с исправлением кодировки
       let properties = {};
       if (product.properties_data) {
@@ -111,7 +124,13 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Добавляем все поля свойств в том же порядке, что и заголовки
+      // SKU внутреннее всегда первое - берем из properties, если есть, иначе из product.sku
+      const skuValue = hasSkuInternal 
+        ? (properties[skuInternalField] || product.sku || '')
+        : (product.sku || '');
+      row.push(skuValue || '-');
+
+      // Добавляем все поля свойств в том же порядке (без "SKU внутреннее", если оно было)
       sortedPropertyFields.forEach(field => {
         const value = properties[field];
         
@@ -127,6 +146,18 @@ export async function GET(req: NextRequest) {
           }
         }
       });
+
+      // Добавляем цену ррц (из properties или вычисляем)
+      const priceRrcFull = properties['Цена ррц (включая цену полотна, короба, наличников, доборов)'] 
+        || properties['Цена РРЦ'] 
+        || properties['Цена ррц']
+        || properties['Цена розница']
+        || '';
+      row.push(priceRrcFull && !isNaN(Number(priceRrcFull)) ? Number(priceRrcFull) : '-');
+
+      // Добавляем цену опт (из properties)
+      const priceOpt = properties['Цена опт'] || properties['Цена оптовая'] || '';
+      row.push(priceOpt && !isNaN(Number(priceOpt)) ? Number(priceOpt) : '-');
 
       data.push(row);
     });
