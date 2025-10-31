@@ -116,18 +116,54 @@ export async function GET(req: NextRequest) {
         const modelPromises = Array.from(modelMap.entries()).map(async ([modelKey, modelData]) => {
           console.log(`🔍 Получаем фото для модели: ${modelData.model} (ключ: ${modelKey})`);
           
-          // modelData.modelKey уже содержит полное имя модели (Domeo_Название модели для Web)
-          console.log(`🔍 Ищем фото для полного названия: ${modelData.modelKey}`);
+          // modelKey содержит артикул поставщика (например, "d23")
+          // modelData.modelKey содержит полное имя модели (Domeo_Название модели для Web)
           
-          // Получаем фото для этой модели из property_photos
-          // Используем "Domeo_Название модели для Web" как свойство, а полное значение как значение
-          const modelPhotos = await getPropertyPhotos(
-            'cmg50xcgs001cv7mn0tdyk1wo', // ID категории "Межкомнатные двери"
-            'Domeo_Название модели для Web',        // Свойство для поиска
-            modelData.modelKey                     // Значение свойства (полное название модели)
-          );
+          let modelPhotos: any[] = [];
+          
+          // Сначала ищем фото по "Артикул поставщика" (т.к. фото могут быть привязаны по артикулу)
+          if (modelKey && typeof modelKey === 'string' && modelKey.trim() !== '') {
+            const normalizedArticle = modelKey.toLowerCase();
+            console.log(`🔍 Ищем фото по артикулу поставщика: "${normalizedArticle}"`);
+            
+            // Ищем по базовому артикулу
+            let propertyPhotos = await getPropertyPhotos(
+              'cmg50xcgs001cv7mn0tdyk1wo', // ID категории "Межкомнатные двери"
+              'Артикул поставщика',
+              normalizedArticle
+            );
+            
+            console.log(`📸 Найдено ${propertyPhotos.length} фото для базового артикула "${modelKey}"`);
+            
+            // Ищем фото для вариантов артикула (d23 → d23_1, d23_2, ...)
+            for (let i = 1; i <= 10; i++) {
+              const variantArticle = `${normalizedArticle}_${i}`;
+              const variantPhotos = await getPropertyPhotos(
+                'cmg50xcgs001cv7mn0tdyk1wo',
+                'Артикул поставщика',
+                variantArticle
+              );
+              
+              if (variantPhotos.length > 0) {
+                console.log(`  ✅ Найдено ${variantPhotos.length} фото для варианта "${variantArticle}"`);
+                propertyPhotos.push(...variantPhotos);
+              }
+            }
+            
+            modelPhotos = propertyPhotos;
+          }
+          
+          // Если не найдено по артикулу, ищем по названию модели
+          if (modelPhotos.length === 0 && modelData.modelKey) {
+            console.log(`🔍 Фото не найдено по артикулу, ищем по названию модели: "${modelData.modelKey}"`);
+            modelPhotos = await getPropertyPhotos(
+              'cmg50xcgs001cv7mn0tdyk1wo', // ID категории "Межкомнатные двери"
+              'Domeo_Название модели для Web',        // Свойство для поиска
+              modelData.modelKey                     // Значение свойства (полное название модели)
+            );
+          }
 
-          console.log(`📸 Найдено ${modelPhotos.length} фото для ${modelData.model}`);
+          console.log(`📸 Всего найдено ${modelPhotos.length} фото для ${modelData.model}`);
           console.log(`📸 Детали фото для ${modelData.model}:`, modelPhotos.map(p => ({ 
             photoType: p.photoType, 
             photoPath: p.photoPath,
