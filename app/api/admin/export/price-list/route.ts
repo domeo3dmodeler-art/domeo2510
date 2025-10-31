@@ -113,24 +113,17 @@ export async function GET(req: NextRequest) {
     ];
     
     // Проверяем, есть ли уже эти поля в properties
+    // НЕ удаляем их из sortedPropertyFields - они должны остаться в экспорте
     const hasPriceRrc = priceRrcVariants.some(variant => sortedPropertyFields.includes(variant));
     const hasPriceOpt = priceOptVariants.some(variant => sortedPropertyFields.includes(variant));
     
-    // Убираем поля цен из сортированного списка, если они есть
-    if (hasPriceRrc) {
-      sortedPropertyFields = sortedPropertyFields.filter(field => !priceRrcVariants.includes(field));
-    }
-    if (hasPriceOpt) {
-      sortedPropertyFields = sortedPropertyFields.filter(field => !priceOptVariants.includes(field));
-    }
-    
     // Создаем заголовки
     // "SKU внутреннее" всегда в начале (из properties, если есть, иначе из product.sku)
-    // Затем все остальные поля свойств (без дублирования цен)
-    // Затем цены (только если их нет в properties)
+    // Затем все остальные поля свойств (ВКЛЮЧАЯ поля цен, если они есть в properties)
+    // Затем добавляем стандартные поля цен в конце ТОЛЬКО если их нет в properties
     const headers = [
       skuInternalField, // Всегда в начале
-      ...sortedPropertyFields,
+      ...sortedPropertyFields, // Все поля свойств (включая цены, если они есть)
       ...(hasPriceRrc ? [] : ['Цена ррц (включая цену полотна, короба, наличников, доборов)']),
       ...(hasPriceOpt ? [] : ['Цена опт'])
     ];
