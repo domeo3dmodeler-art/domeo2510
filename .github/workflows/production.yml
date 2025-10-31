@@ -31,6 +31,14 @@ jobs:
           echo "$PROD_SSH_KEY" > production_key
           chmod 600 production_key
           ssh -i production_key -o StrictHostKeyChecking=no ubuntu@$PROD_HOST "cd /opt/domeo && tar -czf production-backup-$(date +%Y%m%d_%H%M%S).tar.gz .next package.json package-lock.json prisma"
+          # Optional DB backup (if pg_dump is available and DATABASE_URL is set on the server)
+          ssh -i production_key -o StrictHostKeyChecking=no ubuntu@$PROD_HOST 'set -e; \
+            cd /opt/domeo; \
+            if command -v pg_dump >/dev/null 2>&1 && [ -n "${DATABASE_URL}" ]; then \
+              mkdir -p backups && pg_dump "${DATABASE_URL}" > backups/prod_$(date +%Y%m%d_%H%M%S).sql || echo "::warning::pg_dump failed (prod)"; \
+            else \
+              echo "::warning::Skip DB backup: pg_dump or DATABASE_URL not available"; \
+            fi'
           rm production_key
           
       - name: Deploy to production server
@@ -41,7 +49,12 @@ jobs:
           echo "$PROD_SSH_KEY" > production_key
           chmod 600 production_key
           ssh -i production_key -o StrictHostKeyChecking=no ubuntu@$PROD_HOST "cd /opt/domeo && git pull origin main"
-          ssh -i production_key -o StrictHostKeyChecking=no ubuntu@$PROD_HOST "cd /opt/domeo && npm ci --only=production && npm run build:prod && pm2 restart domeo"
+          # Install deps and build
+          ssh -i production_key -o StrictHostKeyChecking=no ubuntu@$PROD_HOST "cd /opt/domeo && npm ci --only=production && npm run build:prod"
+          # Apply Prisma migrations (idempotent) before restart
+          ssh -i production_key -o StrictHostKeyChecking=no ubuntu@$PROD_HOST "cd /opt/domeo && npx prisma migrate deploy || { echo '::error::Prisma migrate deploy failed'; exit 1; }"
+          # Restart app
+          ssh -i production_key -o StrictHostKeyChecking=no ubuntu@$PROD_HOST "pm2 restart domeo"
           rm production_key
           
       - name: Health check
