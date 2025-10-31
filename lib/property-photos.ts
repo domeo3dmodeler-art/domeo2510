@@ -65,14 +65,29 @@ export async function getPropertyPhotos(
  * Структурирует фото в обложку и галерею
  */
 export function structurePropertyPhotos(photos: PropertyPhotoInfo[]): PhotoStructure {
+  if (photos.length === 0) {
+    return {
+      cover: null,
+      gallery: []
+    };
+  }
+
   // Сначала ищем фото с явным типом "cover"
   const coverPhoto = photos.find(photo => photo.photoType === 'cover');
   
+  // Сортируем фото галереи по номеру (gallery_1, gallery_2, ...)
+  const galleryPhotos = photos
+    .filter(photo => photo.photoType.startsWith('gallery_'))
+    .sort((a, b) => {
+      // Извлекаем номер из photoType: "gallery_1" -> 1, "gallery_2" -> 2
+      const numA = parseInt(a.photoType.replace('gallery_', '')) || 0;
+      const numB = parseInt(b.photoType.replace('gallery_', '')) || 0;
+      return numA - numB;
+    });
+  
   if (coverPhoto) {
     // Если есть явная обложка, остальные фото - галерея
-    const gallery = photos
-      .filter(photo => photo.photoPath !== coverPhoto.photoPath)
-      .map(photo => photo.photoPath);
+    const gallery = galleryPhotos.map(photo => photo.photoPath);
     
     return {
       cover: coverPhoto.photoPath,
@@ -80,31 +95,50 @@ export function structurePropertyPhotos(photos: PropertyPhotoInfo[]): PhotoStruc
     };
   }
   
-  // Если нет явной обложки, выбираем самое короткое имя файла
-  const sortedPhotos = [...photos].sort((a, b) => {
-    const filenameA = a.photoPath.split('/').pop() || '';
-    const filenameB = b.photoPath.split('/').pop() || '';
+  // Если нет явной обложки, но есть фото галереи - первое фото галереи становится обложкой
+  if (galleryPhotos.length > 0) {
+    const cover = galleryPhotos[0].photoPath;
+    const gallery = galleryPhotos.slice(1).map(photo => photo.photoPath);
     
-    // Сортируем по длине имени файла (короткое = обложка)
-    if (filenameA.length !== filenameB.length) {
-      return filenameA.length - filenameB.length;
-    }
-    
-    // Если длины равны, сортируем по имени
-    return filenameA.localeCompare(filenameB);
-  });
-
-  // Первое фото (с самым коротким именем) = обложка
-  const cover = sortedPhotos.length > 0 ? sortedPhotos[0].photoPath : null;
+    return {
+      cover,
+      gallery
+    };
+  }
   
-  // Остальные фото = галерея
-  const gallery = sortedPhotos.length > 1 
-    ? sortedPhotos.slice(1).map(photo => photo.photoPath) 
-    : [];
+  // Если остались фото без типа (legacy), используем старую логику
+  const otherPhotos = photos.filter(photo => 
+    photo.photoType !== 'cover' && !photo.photoType.startsWith('gallery_')
+  );
+  
+  if (otherPhotos.length > 0) {
+    // Сортируем по длине имени файла (короткое = обложка)
+    const sortedPhotos = [...otherPhotos].sort((a, b) => {
+      const filenameA = a.photoPath.split('/').pop() || '';
+      const filenameB = b.photoPath.split('/').pop() || '';
+      
+      if (filenameA.length !== filenameB.length) {
+        return filenameA.length - filenameB.length;
+      }
+      
+      return filenameA.localeCompare(filenameB);
+    });
 
+    const cover = sortedPhotos.length > 0 ? sortedPhotos[0].photoPath : null;
+    const gallery = sortedPhotos.length > 1 
+      ? sortedPhotos.slice(1).map(photo => photo.photoPath) 
+      : [];
+
+    return {
+      cover,
+      gallery
+    };
+  }
+
+  // Если ничего не найдено
   return {
-    cover,
-    gallery
+    cover: null,
+    gallery: []
   };
 }
 
