@@ -11,6 +11,9 @@ const prisma = new PrismaClient();
 // ===================== УНИФИЦИРОВАННЫЙ ИМПОРТ =====================
 
 export async function POST(req: NextRequest) {
+  console.log('🚀 === НАЧАЛО УНИФИЦИРОВАННОГО ИМПОРТА ===');
+  console.log('📅 Время:', new Date().toISOString());
+  
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File;
@@ -18,12 +21,23 @@ export async function POST(req: NextRequest) {
     const mode = formData.get("mode") as string || 'preview'; // 'preview' или 'import'
     const templateId = formData.get("templateId") as string;
 
+    console.log('📦 Получены параметры:', {
+      hasFile: !!file,
+      fileName: file?.name,
+      fileSize: file?.size,
+      categoryId,
+      mode,
+      templateId: templateId || 'auto'
+    });
+
     // Валидация входных данных
     if (!file) {
+      console.error('❌ Файл не предоставлен');
       return NextResponse.json({ error: "Файл не предоставлен" }, { status: 400 });
     }
 
     if (!categoryId) {
+      console.error('❌ Категория не указана');
       return NextResponse.json({ error: "Категория не указана" }, { status: 400 });
     }
 
@@ -428,12 +442,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Режим импорта - сохраняем в базу
+    console.log(`\n🚀 === РЕЖИМ ИМПОРТА (${mode}) ===`);
+    console.log(`📦 Товаров к обработке: ${products.length}`);
+    
     let importedCount = 0;
     let updatedCount = 0;
     let createdCount = 0;
     let errorCount = 0;
 
     for (const product of products) {
+      console.log(`\n📦 Обработка товара ${importedCount + 1}/${products.length}: SKU="${product.sku}"`);
       try {
         // Проверяем существование товара по SKU внутреннему во всей БД (не только в категории)
         // SKU должен быть уникальным во всей БД товаров
@@ -462,7 +480,8 @@ export async function POST(req: NextRequest) {
 
         if (existingProduct) {
           // Обновляем существующий товар - только заполненные поля
-          console.log(`🔄 Обновление товара: SKU="${product.sku}", ID=${existingProduct.id}`);
+          console.log(`  🔄 Товар найден в БД: ID=${existingProduct.id}, категория=${existingProduct.catalog_category_id}`);
+          console.log(`  📝 Текущее название: "${existingProduct.name}"`);
           
           const updateData: any = {
             updated_at: new Date()
@@ -471,7 +490,7 @@ export async function POST(req: NextRequest) {
           // Обновляем название, если оно указано
           if (product.name && product.name !== 'Без названия') {
             updateData.name = product.name;
-            console.log(`  📝 Обновление названия: "${product.name}"`);
+            console.log(`  📝 Обновление названия: "${existingProduct.name}" → "${product.name}"`);
           }
 
           // Обновляем только заполненные свойства
@@ -479,6 +498,8 @@ export async function POST(req: NextRequest) {
             (typeof existingProduct.properties_data === 'string' ? 
               JSON.parse(existingProduct.properties_data) : 
               existingProduct.properties_data) : {};
+
+          console.log(`  📊 Существующие поля в БД (${Object.keys(existingProperties).length}):`, Object.keys(existingProperties));
 
           const newProperties = { ...existingProperties };
           
@@ -496,6 +517,8 @@ export async function POST(req: NextRequest) {
               newProperties[fixedKey] = value;
               updatedFieldsCount++;
               console.log(`  ✅ Обновление поля "${fixedKey}": "${oldValue}" → "${value}"`);
+            } else {
+              console.log(`  ⏭️ Пропуск пустого поля "${fixedKey}"`);
             }
           });
 
@@ -504,15 +527,18 @@ export async function POST(req: NextRequest) {
           updateData.properties_data = JSON.stringify(newProperties);
           updateData.specifications = JSON.stringify(newProperties);
 
-          await prisma.product.update({
+          console.log(`  💾 Выполняем UPDATE в БД...`);
+          const updateResult = await prisma.product.update({
             where: { id: existingProduct.id },
             data: updateData
           });
 
-          console.log(`  ✅ Товар успешно обновлен`);
+          console.log(`  ✅ Товар успешно обновлен в БД. ID=${updateResult.id}`);
           updatedCount++;
         } else {
           // Создаем новый товар - все обязательные поля должны быть заполнены
+          console.log(`  ➕ Товар не найден в БД - создаем новый товар`);
+          
           // Исправляем кодировку полей перед сохранением
           const fixedProperties = fixFieldsEncoding(Object.keys(product.properties_data)).reduce((acc, fixedKey, index) => {
             const originalKey = Object.keys(product.properties_data)[index];
@@ -520,8 +546,10 @@ export async function POST(req: NextRequest) {
             return acc;
           }, {} as Record<string, any>);
           
+          console.log(`  📊 Поля для создания (${Object.keys(fixedProperties).length}):`, Object.keys(fixedProperties));
+          
           try {
-            await prisma.product.create({
+            const newProduct = await prisma.product.create({
               data: {
                 sku: product.sku,
                 name: product.name,
@@ -534,6 +562,7 @@ export async function POST(req: NextRequest) {
               }
             });
 
+            console.log(`  ✅ Новый товар создан. ID=${newProduct.id}, SKU=${newProduct.sku}`);
             createdCount++;
           } catch (createError: any) {
             // Обрабатываем ошибку уникальности SKU
@@ -541,17 +570,26 @@ export async function POST(req: NextRequest) {
               console.error(`❌ SKU "${product.sku}" уже существует в БД (конфликт уникальности)`);
               throw new Error(`SKU "${product.sku}" уже существует в базе данных. SKU должны быть уникальными во всей БД товаров.`);
             }
+            console.error(`❌ Ошибка при создании товара:`, createError);
             throw createError; // Пробрасываем другие ошибки
           }
         }
 
         importedCount++;
+        console.log(`  ✅ Товар обработан (${importedCount}/${products.length})`);
 
       } catch (error) {
-        console.error(`Ошибка импорта товара ${product.sku}:`, error);
+        console.error(`❌ Ошибка импорта товара ${product.sku}:`, error);
+        console.error(`  Детали ошибки:`, error instanceof Error ? error.message : String(error));
         errorCount++;
       }
     }
+    
+    console.log(`\n📊 === ИТОГИ ИМПОРТА ===`);
+    console.log(`  Всего обработано: ${importedCount}`);
+    console.log(`  Обновлено: ${updatedCount}`);
+    console.log(`  Создано: ${createdCount}`);
+    console.log(`  Ошибок: ${errorCount}`);
 
     // Сохраняем историю импорта
     await prisma.importHistory.create({
