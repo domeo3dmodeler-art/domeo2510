@@ -30,7 +30,20 @@ export async function POST(req: NextRequest) {
     // Валидация файла
     const validation = validateDocumentFile(file);
     if (!validation.isValid) {
-      return NextResponse.json({ error: validation.error }, { status: 400 });
+      console.error('❌ Валидация файла не пройдена:', {
+        filename: file.name,
+        size: file.size,
+        type: file.type,
+        error: validation.error
+      });
+      return NextResponse.json({ 
+        error: validation.error,
+        details: {
+          filename: file.name,
+          size: file.size,
+          type: file.type
+        }
+      }, { status: 400 });
     }
 
     console.log('🔍 Унифицированный импорт:', {
@@ -57,9 +70,28 @@ export async function POST(req: NextRequest) {
     }
 
     if (!template) {
+      console.error('❌ Шаблон не найден для категории:', categoryId);
+      
+      // Проверяем, существует ли категория
+      const category = await prisma.catalogCategory.findUnique({
+        where: { id: categoryId },
+        select: { name: true }
+      });
+
+      const errorMessage = category 
+        ? `Шаблон не найден для категории "${category.name}". Создайте шаблон для этой категории перед импортом.`
+        : `Категория с ID "${categoryId}" не найдена.`;
+
       return NextResponse.json(
-        { error: "Шаблон не найден для данной категории" },
-        { status: 404 }
+        { 
+          error: errorMessage,
+          details: {
+            categoryId,
+            categoryName: category?.name || null,
+            message: "Создайте шаблон импорта для этой категории через раздел 'Шаблоны' в интерфейсе импорта."
+          }
+        },
+        { status: 400 }
       );
     }
 

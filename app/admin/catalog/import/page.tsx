@@ -287,9 +287,18 @@ export default function CatalogImportPage() {
     try {
       // Проверяем наличие выбранной категории
       if (!selectedCatalogCategoryId) {
-        alert('Пожалуйста, выберите категорию перед загрузкой файла');
+        const errorMsg = 'Пожалуйста, выберите категорию перед загрузкой файла.\n\nВернитесь на шаг "Выбор категории" и выберите категорию для импорта.';
+        alert(errorMsg);
+        setCurrentStep('catalog');
         return;
       }
+
+      console.log('📤 Отправка файла на preview:', {
+        filename: file.name,
+        categoryId: selectedCatalogCategoryId,
+        fileSize: file.size,
+        fileType: file.type
+      });
 
       // Отправляем файл на preview для проверки SKU
       const formData = new FormData();
@@ -303,8 +312,27 @@ export default function CatalogImportPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || errorData.message || `HTTP ${response.status}`);
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorData.details?.message || errorMessage;
+          
+          // Детальная информация об ошибке
+          if (errorData.details) {
+            if (errorData.details.missingFields) {
+              errorMessage += `\n\nОтсутствуют обязательные поля: ${errorData.details.missingFields.join(', ')}`;
+            }
+            if (errorData.details.availableFields) {
+              errorMessage += `\n\nДоступные поля в файле: ${errorData.details.availableFields.slice(0, 10).join(', ')}`;
+            }
+            if (errorData.details.suggestion) {
+              errorMessage += `\n\n${errorData.details.suggestion}`;
+            }
+          }
+        } catch (e) {
+          // Если не удалось распарсить JSON, используем базовое сообщение
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
