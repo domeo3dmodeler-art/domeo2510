@@ -221,6 +221,30 @@ export async function POST(req: NextRequest) {
 
     // Если режим preview, возвращаем предварительный просмотр
     if (mode === 'preview') {
+      // Проверяем существование товаров в БД для предупреждения о несуществующих SKU
+      const skuChecks: Array<{ sku: string; exists: boolean; row: number }> = [];
+      
+      for (const product of products) {
+        if (product.sku) {
+          const existingProduct = await prisma.product.findFirst({
+            where: {
+              sku: product.sku,
+              catalog_category_id: categoryId
+            },
+            select: { id: true }
+          });
+          
+          skuChecks.push({
+            sku: product.sku,
+            exists: !!existingProduct,
+            row: product.row_number || 0
+          });
+        }
+      }
+      
+      const notFoundSkus = skuChecks.filter(check => !check.exists);
+      const foundSkus = skuChecks.filter(check => check.exists);
+      
       return NextResponse.json({
         success: true,
         mode: 'preview',
@@ -236,6 +260,13 @@ export async function POST(req: NextRequest) {
           errors: errors.length,
           sampleProducts: products.slice(0, 5),
           sampleErrors: errors.slice(0, 5)
+        },
+        skuCheck: {
+          total: skuChecks.length,
+          found: foundSkus.length,
+          notFound: notFoundSkus.length,
+          notFoundSkus: notFoundSkus.slice(0, 20), // Первые 20 для показа
+          warning: notFoundSkus.length > 0 ? `Обнаружено ${notFoundSkus.length} несуществующих SKU. Эти товары будут созданы как новые при импорте.` : null
         }
       });
     }

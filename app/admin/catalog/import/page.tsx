@@ -285,6 +285,55 @@ export default function CatalogImportPage() {
 
   const processFile = async (file: File) => {
     try {
+      // Проверяем наличие выбранной категории
+      if (!selectedCatalogCategoryId) {
+        alert('Пожалуйста, выберите категорию перед загрузкой файла');
+        return;
+      }
+
+      // Отправляем файл на preview для проверки SKU
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('category', selectedCatalogCategoryId);
+      formData.append('mode', 'preview');
+
+      const response = await fetch('/api/admin/import/unified', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || `HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      // Проверяем наличие несуществующих SKU
+      if (result.skuCheck && result.skuCheck.notFound > 0) {
+        const notFoundCount = result.skuCheck.notFound;
+        const notFoundSkus = result.skuCheck.notFoundSkus || [];
+        const sampleSkus = notFoundSkus.slice(0, 10).map((item: any) => `  • Строка ${item.row}: ${item.sku}`).join('\n');
+        
+        const warningMessage = `⚠️ ПРЕДУПРЕЖДЕНИЕ: Обнаружено несуществующих SKU: ${notFoundCount}\n\n` +
+          `Эти товары будут созданы как новые при импорте.\n\n` +
+          (notFoundSkus.length > 0 ? `Примеры:\n${sampleSkus}\n\n` : '') +
+          `Продолжить импорт?\n\n` +
+          `• Нажмите "OK" - продолжить импорт (товары будут созданы)\n` +
+          `• Нажмите "Отмена" - отменить импорт`;
+
+        const shouldContinue = confirm(warningMessage);
+
+        if (!shouldContinue) {
+          // Отменяем импорт
+          setPriceListData(null);
+          setCurrentStep('upload');
+          setCompletedSteps(prev => prev.filter(s => s !== 'upload'));
+          return;
+        }
+      }
+
+      // Парсим файл для отображения
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: 'array' });
       const sheetName = workbook.SheetNames[0];
@@ -298,11 +347,13 @@ export default function CatalogImportPage() {
 
       const headers = jsonData[0] as string[];
       const rows = jsonData.slice(1) as any[][];
-        console.log('📄 Файл загружен:', {
-          filename: file.name,
+      
+      console.log('📄 Файл загружен:', {
+        filename: file.name,
         headers: headers.length,
         rows: rows.length,
-        sampleHeaders: headers.slice(0, 5)
+        sampleHeaders: headers.slice(0, 5),
+        skuCheck: result.skuCheck
       });
 
       setPriceListData({
@@ -315,6 +366,7 @@ export default function CatalogImportPage() {
       setCurrentStep('validation');
     } catch (error) {
       console.error('❌ Ошибка при обработке файла:', error);
+      alert(`Ошибка при обработке файла: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
       throw error;
     }
   };
