@@ -134,7 +134,7 @@ export async function GET(req: NextRequest) {
             );
             
             console.log(`📸 Найдено ${propertyPhotos.length} фото для базового артикула "${modelKey}"`);
-            
+          
             // Ищем фото для вариантов артикула (d23 → d23_1, d23_2, ...)
             for (let i = 1; i <= 10; i++) {
               const variantArticle = `${normalizedArticle}_${i}`;
@@ -157,10 +157,10 @@ export async function GET(req: NextRequest) {
           if (modelPhotos.length === 0 && modelData.modelKey) {
             console.log(`🔍 Фото не найдено по артикулу, ищем по названию модели: "${modelData.modelKey}"`);
             modelPhotos = await getPropertyPhotos(
-              'cmg50xcgs001cv7mn0tdyk1wo', // ID категории "Межкомнатные двери"
-              'Domeo_Название модели для Web',        // Свойство для поиска
-              modelData.modelKey                     // Значение свойства (полное название модели)
-            );
+            'cmg50xcgs001cv7mn0tdyk1wo', // ID категории "Межкомнатные двери"
+            'Domeo_Название модели для Web',        // Свойство для поиска
+            modelData.modelKey                     // Значение свойства (полное название модели)
+          );
           }
 
           console.log(`📸 Всего найдено ${modelPhotos.length} фото для ${modelData.model}`);

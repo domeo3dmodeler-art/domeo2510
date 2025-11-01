@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDrag } from 'react-dnd';
 import { Trash2, Move, RotateCcw, RotateCw } from 'lucide-react';
 import { Button } from '../ui';
@@ -94,7 +94,7 @@ const ProfessionalBlock: React.FC<ProfessionalBlockProps> = ({
   };
 
   // Обработчик изменения размера
-  const handleResizeMove = (e: MouseEvent) => {
+  const handleResizeMove = useCallback((e: MouseEvent) => {
     if (!isResizing) return;
     
     const deltaX = e.clientX - resizeStart.x;
@@ -113,12 +113,12 @@ const ProfessionalBlock: React.FC<ProfessionalBlockProps> = ({
       width: newWidth,
       height: newHeight
     });
-  };
+  }, [isResizing, resizeStart, block, onUpdate]);
 
   // Обработчик окончания изменения размера
-  const handleResizeEnd = () => {
+  const handleResizeEnd = useCallback(() => {
     setIsResizing(false);
-  };
+  }, []);
 
   // Добавляем обработчики событий
   useEffect(() => {
@@ -135,7 +135,7 @@ const ProfessionalBlock: React.FC<ProfessionalBlockProps> = ({
         document.body.style.userSelect = '';
       };
     }
-  }, [isDragging, dragStart]);
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   useEffect(() => {
     if (isResizing) {
@@ -151,7 +151,7 @@ const ProfessionalBlock: React.FC<ProfessionalBlockProps> = ({
         document.body.style.userSelect = '';
       };
     }
-  }, [isResizing, resizeStart]);
+  }, [isResizing, handleResizeMove, handleResizeEnd]);
 
   return (
     <div

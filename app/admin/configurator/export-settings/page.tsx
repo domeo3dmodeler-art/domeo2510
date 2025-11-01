@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Input, Select, Alert, LoadingSpinner } from '@/components/ui';
 import { Plus, Trash2, Settings, FileText, Download } from 'lucide-react';
 
@@ -55,17 +55,7 @@ export default function ExportSettingsPage() {
     }
   });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    if (selectedConfiguratorCategory) {
-      fetchExportSettings();
-    }
-  }, [selectedConfiguratorCategory]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch('/api/categories');
@@ -76,9 +66,13 @@ export default function ExportSettingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchExportSettings = async () => {
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const fetchExportSettings = useCallback(async () => {
     if (!selectedConfiguratorCategory) return;
 
     try {
@@ -93,7 +87,13 @@ export default function ExportSettingsPage() {
     } catch (error) {
       setAlert({ type: 'error', message: 'Ошибка загрузки настроек экспорта' });
     }
-  };
+  }, [selectedConfiguratorCategory]);
+
+  useEffect(() => {
+    if (selectedConfiguratorCategory) {
+      fetchExportSettings();
+    }
+  }, [selectedConfiguratorCategory, fetchExportSettings]);
 
   const handleCreateSetting = async () => {
     if (!selectedConfiguratorCategory || !newSetting.name) {
@@ -203,11 +203,12 @@ export default function ExportSettingsPage() {
         {/* Alert */}
         {alert && (
           <Alert
-            type={alert.type}
-            message={alert.message}
+            variant={alert.type === 'error' ? 'error' : 'success'}
             onClose={() => setAlert(null)}
             className="mb-6"
-          />
+          >
+            {alert.message}
+          </Alert>
         )}
 
         {/* Выбор категории конфигуратора */}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '../../../components/ui';
 import { 
   FileText, 
@@ -38,7 +38,7 @@ export default function SimpleDocumentList({ clientId, onDocumentSelect, onCreat
   const [loading, setLoading] = useState(true);
 
   // Загрузка документов клиента
-  const fetchDocuments = async () => {
+  const fetchDocuments = useCallback(async () => {
     try {
       const response = await fetch(`/api/clients/${clientId}`);
       if (response.ok) {
@@ -109,13 +109,13 @@ export default function SimpleDocumentList({ clientId, onDocumentSelect, onCreat
     } finally {
       setLoading(false);
     }
-  };
+  }, [clientId]);
 
   useEffect(() => {
     if (clientId) {
       fetchDocuments();
     }
-  }, [clientId]);
+  }, [clientId, fetchDocuments]);
 
   const mapStatus = (status: string) => {
     const statusMap: { [key: string]: string } = {

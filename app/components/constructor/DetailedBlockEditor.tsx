@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Input, Checkbox, Badge, Accordion, AccordionItem } from '../ui';
 import { 
   X, 
@@ -150,23 +150,23 @@ const DetailedBlockEditor: React.FC<DetailedBlockEditorProps> = ({
         });
       }
     }
-  }, [editedBlock?.catalogCategoryInfo]);
+  }, [editedBlock?.catalogCategoryInfo, editedBlock?.type, editedBlock?.name, handleBlockUpdate]);
 
   // Сохранение в историю
-  const saveToHistory = (blockState: BlockSettings) => {
+  const saveToHistory = useCallback((blockState: BlockSettings) => {
     const newHistory = [...history.slice(0, historyIndex + 1), blockState];
     if (newHistory.length > 5) {
       newHistory.shift();
     }
     setHistory(newHistory);
     setHistoryIndex(Math.min(newHistory.length - 1, 4));
-  };
+  }, [history, historyIndex]);
 
   // Обновление блока с сохранением в историю
-  const handleBlockUpdate = (updatedBlock: BlockSettings) => {
+  const handleBlockUpdate = useCallback((updatedBlock: BlockSettings) => {
     saveToHistory(editedBlock);
     setEditedBlock(updatedBlock);
-  };
+  }, [editedBlock, saveToHistory]);
 
   // Отмена действия
   const handleUndo = () => {
@@ -666,7 +666,7 @@ const DetailedBlockEditor: React.FC<DetailedBlockEditorProps> = ({
                   <AccordionItem 
                     value="images" 
                     title="Изображения" 
-                    icon={<Image className="w-4 h-4" />}
+                    icon={<Image className="w-4 h-4" aria-label="Иконка изображения" />}
                   >
                     <div className="space-y-4">
                       <div>

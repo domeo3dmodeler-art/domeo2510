@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Filter, Search, SlidersHorizontal, X, ChevronDown, ChevronUp,
   Package, Tag, DollarSign, Star, Calendar, Grid, List
@@ -71,11 +71,26 @@ export const ProductFilterRenderer: React.FC<ProductFilterRendererProps> = ({
     viewMode: element.props.viewMode || 'grid'
   });
 
+  const loadProperties = useCallback(async () => {
+    if (!element.props.categoryId) return;
+    
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/products/category/${element.props.categoryId}?limit=100`);
+      const data = await response.json();
+      setProperties(data.availableProperties || []);
+    } catch (error) {
+      console.error('Error loading properties:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [element.props.categoryId]);
+
   useEffect(() => {
     if (element.props.categoryId) {
       loadProperties();
     }
-  }, [element.props.categoryId]);
+  }, [element.props.categoryId, loadProperties]);
 
   useEffect(() => {
     // Обновляем элемент при изменении состояния фильтров
@@ -91,22 +106,7 @@ export const ProductFilterRenderer: React.FC<ProductFilterRendererProps> = ({
         viewMode: filterState.viewMode
       }
     });
-  }, [filterState, collapsed]);
-
-  const loadProperties = async () => {
-    if (!element.props.categoryId) return;
-    
-    setLoading(true);
-    try {
-      const response = await fetch(`/api/products/category/${element.props.categoryId}?limit=100`);
-      const data = await response.json();
-      setProperties(data.availableProperties || []);
-    } catch (error) {
-      console.error('Error loading properties:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [filterState, collapsed, element.id, element.props, onUpdate]);
 
   const handleSearchChange = (value: string) => {
     setFilterState(prev => ({ ...prev, search: value }));

@@ -163,7 +163,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Создаем заголовки для Excel
-    const headers = allFields.map(field => {
+    const headers = allFields.map((field: any) => {
       if (typeof field === 'string') {
         return field;
       }
@@ -181,7 +181,7 @@ export async function GET(req: NextRequest) {
     const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
 
     // Настраиваем ширину колонок
-    const columnWidths = headers.map(header => ({ 
+    const columnWidths = headers.map((header: any) => ({ 
       wch: Math.max(15, Math.min(30, String(header).length + 5)) 
     }));
     worksheet['!cols'] = columnWidths;

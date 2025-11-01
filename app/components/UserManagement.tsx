@@ -4,7 +4,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { roleService, Role, RoleDefinition } from '@/lib/auth/roles';
+import { roleService, Role, RoleDefinition, UserRole } from '@/lib/auth/roles';
 
 type User = {
   id: string;
@@ -29,7 +29,7 @@ export default function UserManagement({ currentUserRole }: Props) {
   const [newUser, setNewUser] = useState({
     email: '',
     name: '',
-    role: 'sales' as Role,
+    role: UserRole.COMPLECTATOR as Role,
     password: ''
   });
 
@@ -58,30 +58,21 @@ export default function UserManagement({ currentUserRole }: Props) {
         },
         {
           id: 'user-2',
-          email: 'manager@company.ru',
-          name: 'Менеджер',
-          role: 'manager',
+          email: 'complectator@company.ru',
+          name: 'Комплектатор',
+          role: UserRole.COMPLECTATOR,
           createdAt: '2025-01-02T00:00:00Z',
           lastLoginAt: '2025-01-15T09:15:00Z',
           isActive: true
         },
         {
           id: 'user-3',
-          email: 'sales@company.ru',
-          name: 'Продавец',
-          role: 'sales',
+          email: 'executor@company.ru',
+          name: 'Исполнитель',
+          role: UserRole.EXECUTOR,
           createdAt: '2025-01-03T00:00:00Z',
           lastLoginAt: '2025-01-14T16:45:00Z',
           isActive: true
-        },
-        {
-          id: 'user-4',
-          email: 'viewer@company.ru',
-          name: 'Наблюдатель',
-          role: 'viewer',
-          createdAt: '2025-01-04T00:00:00Z',
-          lastLoginAt: '2025-01-13T14:20:00Z',
-          isActive: false
         }
       ];
 
@@ -126,7 +117,7 @@ export default function UserManagement({ currentUserRole }: Props) {
       
       setUsers(prev => [...prev, createdUser]);
       setShowCreateForm(false);
-      setNewUser({ email: '', name: '', role: 'sales', password: '' });
+      setNewUser({ email: '', name: '', role: UserRole.COMPLECTATOR, password: '' });
     } catch (err: any) {
       setError(err.message);
     }
@@ -156,13 +147,17 @@ export default function UserManagement({ currentUserRole }: Props) {
   };
 
   const getRoleColor = (role: Role) => {
-    const colors = {
-      admin: 'bg-red-100 text-red-800',
-      manager: 'bg-blue-100 text-blue-800',
-      sales: 'bg-green-100 text-green-800',
-      viewer: 'bg-gray-100 text-gray-800'
+    const roleDef = roleService.getRole(role);
+    if (!roleDef) return 'bg-gray-100 text-gray-800';
+    
+    const colorMap: Record<string, string> = {
+      red: 'bg-red-100 text-red-800',
+      blue: 'bg-blue-100 text-blue-800',
+      green: 'bg-green-100 text-green-800',
+      gray: 'bg-gray-100 text-gray-800'
     };
-    return colors[role];
+    
+    return colorMap[roleDef.color] || 'bg-gray-100 text-gray-800';
   };
 
   if (loading) {

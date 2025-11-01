@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { History, Clock, User, ArrowRight } from 'lucide-react';
 
 interface HistoryEntry {
@@ -36,13 +36,7 @@ export default function HistoryModal({
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchHistory();
-    }
-  }, [isOpen, documentId]);
-
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/documents/${documentId}/history`);
@@ -55,7 +49,13 @@ export default function HistoryModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, [documentId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchHistory();
+    }
+  }, [isOpen, documentId, fetchHistory]);
 
   const formatUserName = (user: HistoryEntry['user']) => {
     const lastName = user.last_name;

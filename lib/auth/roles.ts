@@ -104,3 +104,87 @@ export function getRoleIcon(role: string): string {
   };
   return icons[role as UserRole] || '👤';
 }
+
+// Типы для обратной совместимости
+export type Role = UserRole | 'admin' | 'complectator' | 'executor' | 'manager' | 'sales' | 'viewer' | string;
+
+export interface RoleDefinition {
+  id: Role;
+  name: string;
+  description: string;
+  permissions: string[];
+  color: string;
+}
+
+// Вспомогательная функция для проверки роли администратора
+function isAdminRole(role: Role): boolean {
+  return role === UserRole.ADMIN || role === 'admin';
+}
+
+// Сервис для работы с ролями
+export const roleService = {
+  getAllRoles(): RoleDefinition[] {
+    return [
+      {
+        id: UserRole.ADMIN,
+        name: 'Администратор',
+        description: 'Полный доступ ко всем функциям системы',
+        permissions: getRolePermissions(UserRole.ADMIN),
+        color: 'red'
+      },
+      {
+        id: UserRole.COMPLECTATOR,
+        name: 'Комплектатор',
+        description: 'Управление каталогом, клиентами и документами',
+        permissions: getRolePermissions(UserRole.COMPLECTATOR),
+        color: 'blue'
+      },
+      {
+        id: UserRole.EXECUTOR,
+        name: 'Исполнитель',
+        description: 'Просмотр и выполнение заказов',
+        permissions: getRolePermissions(UserRole.EXECUTOR),
+        color: 'green'
+      }
+    ];
+  },
+
+  getRole(role: Role): RoleDefinition | null {
+    const allRoles = this.getAllRoles();
+    return allRoles.find(r => r.id === role) || null;
+  },
+
+  getManageableRoles(currentRole: Role): RoleDefinition[] {
+    const allRoles = this.getAllRoles();
+    
+    if (isAdminRole(currentRole)) {
+      return allRoles;
+    }
+    
+    // Только свою роль
+    const currentRoleDef = this.getRole(currentRole);
+    return currentRoleDef ? [currentRoleDef] : [];
+  },
+
+  hasPermission(role: Role, permission: string): boolean {
+    const roleDef = this.getRole(role);
+    if (!roleDef) return false;
+    
+    // Администратор имеет все разрешения
+    if (isAdminRole(role)) {
+      return true;
+    }
+    
+    return roleDef.permissions.includes(permission);
+  },
+
+  canManageRole(managerRole: Role, targetRole: Role): boolean {
+    // Только админ может управлять всеми ролями
+    if (isAdminRole(managerRole)) {
+      return true;
+    }
+    
+    // Остальные могут управлять только своей ролью
+    return managerRole === targetRole;
+  }
+};

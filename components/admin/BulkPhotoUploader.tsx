@@ -408,7 +408,7 @@ export default function BulkPhotoUploader({
             {isUploading ? (
               <Button
                 onClick={cancelUpload}
-                variant="destructive"
+                variant="danger"
               >
                 Отменить загрузку
               </Button>

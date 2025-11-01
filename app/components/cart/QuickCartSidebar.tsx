@@ -43,7 +43,7 @@ export default function QuickCartSidebar({
     setCalculation(cartService.getCalculation());
 
     return unsubscribe;
-  }, []);
+  }, [cartService]);
 
   const handleUpdateQuantity = async (itemId: string, newQuantity: number) => {
     setIsLoading(true);

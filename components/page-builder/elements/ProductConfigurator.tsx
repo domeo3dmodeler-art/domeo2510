@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Product, ProductProperty, CatalogCategory } from '../types';
 
 interface ProductConfiguratorProps {
@@ -35,9 +35,9 @@ export function ProductConfigurator({
     }
 
     loadData();
-  }, [categoryIds]);
+  }, [categoryIds, loadData]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -75,7 +75,7 @@ export function ProductConfigurator({
     } finally {
       setLoading(false);
     }
-  };
+  }, [categoryIds]);
 
   // Обработчик изменения конфигурации
   const handleConfigurationChange = (propertyId: string, value: any) => {

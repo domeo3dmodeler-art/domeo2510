@@ -92,7 +92,7 @@ export default function InstructionsModal({ isOpen, onClose }: InstructionsModal
           {/* Загрузка фотографий */}
           <Card className="p-4">
             <div className="flex items-center space-x-3 mb-4">
-              <Image className="h-6 w-6 text-green-600" />
+              <Image className="h-6 w-6 text-green-600" aria-label="Иконка загрузки фотографий" />
               <h3 className="text-xl font-semibold">📸 Загрузка фотографий</h3>
             </div>
             

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   DoorOpen, Palette, Settings, Eye, Package, Star, 
   Check, ChevronRight, ChevronDown, Info, AlertCircle
@@ -134,7 +134,7 @@ export const DoorConfiguratorRenderer: React.FC<DoorConfiguratorRendererProps> =
         totalSteps: configuratorState.totalSteps
       }
     });
-  }, [configuratorState]);
+  }, [configuratorState, element.id, element.props, onUpdate]);
 
   const handleStyleSelect = (style: DoorStyle) => {
     setConfiguratorState(prev => ({ ...prev, style, currentStep: 2 }));
@@ -152,13 +152,13 @@ export const DoorConfiguratorRenderer: React.FC<DoorConfiguratorRendererProps> =
     setConfiguratorState(prev => ({ ...prev, size, currentStep: 5 }));
   };
 
-  const calculateTotalPrice = () => {
+  const calculateTotalPrice = useMemo(() => {
     const basePrice = configuratorState.style?.price || 0;
     const colorPrice = configuratorState.color?.price || 0;
     const materialPrice = configuratorState.material?.price || 0;
     const sizePrice = configuratorState.size?.price || 0;
     return basePrice + colorPrice + materialPrice + sizePrice;
-  };
+  }, [configuratorState.style?.price, configuratorState.color?.price, configuratorState.material?.price, configuratorState.size?.price]);
 
   const renderProgressBar = () => (
     <div className="mb-6">
@@ -335,7 +335,7 @@ export const DoorConfiguratorRenderer: React.FC<DoorConfiguratorRendererProps> =
   );
 
   const renderPriceDisplay = () => {
-    const totalPrice = calculateTotalPrice();
+    const totalPrice = calculateTotalPrice;
     return (
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-center justify-between mb-2">

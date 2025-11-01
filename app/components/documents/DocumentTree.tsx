@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '../../../components/ui';
 import { 
   FileText, 
@@ -37,7 +37,7 @@ export default function DocumentTree({ clientId, onDocumentSelect, onCreateDocum
   const [loading, setLoading] = useState(true);
 
   // Загрузка дерева документов
-  const fetchDocumentTree = async () => {
+  const fetchDocumentTree = useCallback(async () => {
     try {
       const response = await fetch('/api/documents/related', {
         method: 'POST',
@@ -57,13 +57,13 @@ export default function DocumentTree({ clientId, onDocumentSelect, onCreateDocum
     } finally {
       setLoading(false);
     }
-  };
+  }, [clientId]);
 
   useEffect(() => {
     if (clientId) {
       fetchDocumentTree();
     }
-  }, [clientId]);
+  }, [clientId, fetchDocumentTree]);
 
   // Переключение раскрытия узла
   const toggleNode = (nodeId: string) => {

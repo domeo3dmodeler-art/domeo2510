@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Calculator, Package, ShoppingCart, Plus, Minus, 
   Settings, TrendingUp, Percent, Truck, Wrench,
@@ -73,19 +73,7 @@ export const PriceCalculatorRenderer: React.FC<PriceCalculatorRendererProps> = (
   const [calculation, setCalculation] = useState<CalculationResult | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (element.props.categoryId) {
-      loadProducts();
-    }
-  }, [element.props.categoryId]);
-
-  useEffect(() => {
-    if (selectedProduct || element.props.basePrice) {
-      calculatePrice();
-    }
-  }, [selectedProduct, quantity, selectedOptions, element.props]);
-
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     if (!element.props.categoryId) return;
     
     setLoading(true);
@@ -102,9 +90,9 @@ export const PriceCalculatorRenderer: React.FC<PriceCalculatorRendererProps> = (
     } finally {
       setLoading(false);
     }
-  };
+  }, [element.props.categoryId]);
 
-  const calculatePrice = () => {
+  const calculatePrice = useCallback(() => {
     const basePrice = selectedProduct?.base_price || element.props.basePrice || 0;
     const currency = selectedProduct?.currency || element.props.currency || 'RUB';
     
@@ -185,7 +173,19 @@ export const PriceCalculatorRenderer: React.FC<PriceCalculatorRendererProps> = (
         selectedOptions
       }
     });
-  };
+  }, [selectedProduct, quantity, selectedOptions, element.props, onUpdate]);
+
+  useEffect(() => {
+    if (element.props.categoryId) {
+      loadProducts();
+    }
+  }, [element.props.categoryId, loadProducts]);
+
+  useEffect(() => {
+    if (selectedProduct || element.props.basePrice) {
+      calculatePrice();
+    }
+  }, [selectedProduct, quantity, selectedOptions, element.props.basePrice, calculatePrice]);
 
   const handleQuantityChange = (newQuantity: number) => {
     if (newQuantity < 1) return;

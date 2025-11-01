@@ -76,33 +76,6 @@ export default function CalculatorRuntime({
     }
   }, [config, formulaEngine]);
 
-  // Обновление значения переменной
-  const updateValue = useCallback((elementId: string, value: any) => {
-    setValues(prev => ({ ...prev, [elementId]: value }));
-    
-    try {
-      // Обновляем значение в движке формул
-      formulaEngine.setVariable(elementId, value);
-      
-      // Очищаем ошибку для этого поля
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[elementId];
-        return newErrors;
-      });
-      
-      // Пересчитываем все формулы
-      recalculate();
-      
-    } catch (error) {
-      console.error('Ошибка обновления значения:', error);
-      setErrors(prev => ({ 
-        ...prev, 
-        [elementId]: error instanceof Error ? error.message : 'Ошибка валидации'
-      }));
-    }
-  }, [formulaEngine]);
-
   // Пересчет всех формул
   const recalculate = useCallback(async () => {
     setIsCalculating(true);
@@ -147,6 +120,33 @@ export default function CalculatorRuntime({
       setIsCalculating(false);
     }
   }, [formulaEngine, config, onResult]);
+
+  // Обновление значения переменной
+  const updateValue = useCallback((elementId: string, value: any) => {
+    setValues(prev => ({ ...prev, [elementId]: value }));
+    
+    try {
+      // Обновляем значение в движке формул
+      formulaEngine.setVariable(elementId, value);
+      
+      // Очищаем ошибку для этого поля
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[elementId];
+        return newErrors;
+      });
+      
+      // Пересчитываем все формулы
+      recalculate();
+      
+    } catch (error) {
+      console.error('Ошибка обновления значения:', error);
+      setErrors(prev => ({ 
+        ...prev, 
+        [elementId]: error instanceof Error ? error.message : 'Ошибка валидации'
+      }));
+    }
+  }, [formulaEngine, recalculate]);
 
   // Рендер элемента
   const renderElement = useCallback((element: any) => {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '../ui';
 import { Save, Plus, Trash2, GripVertical, Settings, Eye, EyeOff } from 'lucide-react';
 
@@ -36,12 +36,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Загружаем шаблон
-  useEffect(() => {
-    loadTemplate();
-  }, [templateId]);
-
-  const loadTemplate = async () => {
+  const loadTemplate = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/admin/templates?catalogCategoryId=${catalogCategoryId}`);
@@ -77,7 +72,11 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [catalogCategoryId]);
+
+  useEffect(() => {
+    loadTemplate();
+  }, [templateId, loadTemplate]);
 
   const getFieldType = (fieldName: string): TemplateField['type'] => {
     if (fieldName.includes('Цена') || fieldName.includes('мм') || fieldName.includes('Количество')) {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, Button, Input, Select, Badge, Checkbox } from '../ui';
 import PropertyValueSelector from './PropertyValueSelector';
 import { 
@@ -124,7 +124,7 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
   const [displayMode, setDisplayMode] = useState<'cards' | 'list' | 'table'>(block.displayMode || 'cards');
 
   // Загрузка товаров
-  const loadProducts = async (page = 1, filters = appliedFilters, search = searchTerm) => {
+  const loadProducts = useCallback(async (page = 1, filters = appliedFilters, search = searchTerm) => {
     if (!block.catalogCategoryId) {
       setError('Категория не выбрана');
       return;
@@ -160,12 +160,12 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [block.catalogCategoryId, sortBy, sortOrder, appliedFilters, searchTerm, block.displayFields, pagination.limit]);
 
   // Загрузка при изменении параметров
   useEffect(() => {
     loadProducts(1, appliedFilters, searchTerm);
-  }, [block.catalogCategoryId, sortBy, sortOrder]);
+  }, [block.catalogCategoryId, sortBy, sortOrder, loadProducts, appliedFilters, searchTerm]);
 
   // Обработчики
   const handleSearch = (value: string) => {

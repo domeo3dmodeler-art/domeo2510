@@ -35,7 +35,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
     if (categoryId) {
       loadProperties(categoryId);
     }
-  }, [categoryId]);
+  }, [categoryId, loadProperties]);
 
   // Обновление фильтра
   const updateFilter = (filterId: string, value: any) => {

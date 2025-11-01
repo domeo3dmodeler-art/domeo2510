@@ -109,7 +109,9 @@ export default function ExecutorDashboard() {
   useEffect(() => {
     fetchStats();
     fetchClients();
-  }, []);
+  }, [fetchStats, fetchClients]);
+
+  // Обработка фокуса из URL параметров
 
   // Закрытие выпадающих меню при клике вне их
   useEffect(() => {
@@ -207,7 +209,7 @@ export default function ExecutorDashboard() {
     } catch (error) {
       console.error('Error fetching client documents:', error);
     }
-  }, []);
+  }, [fetchAllCommentsCount]);
 
   // Функция для загрузки количества комментариев для документа
   const fetchCommentsCount = useCallback(async (documentId: string) => {
@@ -300,7 +302,7 @@ export default function ExecutorDashboard() {
     return statusMap[apiStatus] || 'Черновик';
   };
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
       // Имитация загрузки статистики
@@ -311,12 +313,12 @@ export default function ExecutorDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (!selectedClient) return;
     fetchClientDocuments(selectedClient);
-  }, [selectedClient]);
+  }, [selectedClient, fetchClientDocuments]);
 
   const formatPhone = (raw?: string) => {
     if (!raw) return '—';
@@ -803,7 +805,7 @@ export default function ExecutorDashboard() {
   };
 
   // Функция для фокуса на документ при переходе из уведомления
-  const focusOnDocument = (documentId: string) => {
+  const focusOnDocument = useCallback((documentId: string) => {
     // Находим клиента, у которого есть этот документ
     const clientWithDocument = clients.find(client => {
       return invoices.some(i => i.id === documentId) || supplierOrders.some(so => so.id === documentId);
@@ -818,7 +820,7 @@ export default function ExecutorDashboard() {
         setClientTab('supplier_orders');
       }
     }
-  };
+  }, [clients, invoices, supplierOrders]);
 
   // Обработка фокуса из URL параметров
   useEffect(() => {
@@ -829,7 +831,7 @@ export default function ExecutorDashboard() {
       // Очищаем URL параметр
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, [clients, invoices, supplierOrders]);
+  }, [clients, invoices, supplierOrders, focusOnDocument]);
 
   // Показать диалог удаления заказа у поставщика
   const showDeleteSupplierOrderModal = (supplierOrderId: string, orderNumber: string) => {

@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
       });
 
       // Проверяем обязательные поля
-      const missingRequiredFields = requiredFields.filter(field => {
+      const missingRequiredFields = requiredFields.filter((field: any) => {
         const fieldName = field.fieldName || field;
         return !product.specifications[fieldName] || product.specifications[fieldName] === '';
       });

@@ -97,7 +97,7 @@ export default function ComplectatorDashboard() {
   useEffect(() => {
     fetchStats();
     fetchClients();
-  }, []);
+  }, [fetchStats, fetchClients]);
 
   // Закрытие выпадающих меню при клике вне их
   useEffect(() => {
@@ -196,7 +196,7 @@ export default function ComplectatorDashboard() {
     } catch (error) {
       console.error('Error fetching client documents:', error);
     }
-  }, []);
+  }, [fetchAllCommentsCount, loadBlockedStatuses]);
 
   // Функция для загрузки количества комментариев для документа
   const fetchCommentsCount = useCallback(async (documentId: string) => {
@@ -273,7 +273,7 @@ export default function ComplectatorDashboard() {
     return statusMap[apiStatus] || 'Черновик';
   };
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
       // Имитация загрузки статистики
@@ -284,12 +284,12 @@ export default function ComplectatorDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (!selectedClient) return;
     fetchClientDocuments(selectedClient);
-  }, [selectedClient]);
+  }, [selectedClient, fetchClientDocuments]);
 
   const formatPhone = (raw?: string) => {
     if (!raw) return '—';
@@ -377,7 +377,7 @@ export default function ComplectatorDashboard() {
   };
 
   // Загрузка информации о блокировке статусов для всех документов
-  const loadBlockedStatuses = async () => {
+  const loadBlockedStatuses = useCallback(async () => {
     const blockedSet = new Set<string>();
     
     // Проверяем все счета
@@ -397,10 +397,10 @@ export default function ComplectatorDashboard() {
     }
     
     setBlockedStatuses(blockedSet);
-  };
+  }, [invoices, quotes, isStatusBlocked]);
 
   // Проверка блокировки статуса документа
-  const isStatusBlocked = async (documentId: string, documentType: 'invoice' | 'quote'): Promise<boolean> => {
+  const isStatusBlocked = useCallback(async (documentId: string, documentType: 'invoice' | 'quote'): Promise<boolean> => {
     try {
       const response = await fetch(`/api/${documentType}s/${documentId}/status`, {
         method: 'GET',
@@ -420,7 +420,7 @@ export default function ComplectatorDashboard() {
       console.error('Ошибка проверки блокировки статуса:', error);
       return false;
     }
-  };
+  }, []);
 
   // Показать выпадающее меню статуса
   const showStatusDropdown = async (type: 'quote'|'invoice', id: string, event: React.MouseEvent) => {
@@ -897,7 +897,7 @@ export default function ComplectatorDashboard() {
   };
 
   // Функция для фокуса на документ при переходе из уведомления
-  const focusOnDocument = (documentId: string) => {
+  const focusOnDocument = useCallback((documentId: string) => {
     // Находим клиента, у которого есть этот документ
     const clientWithDocument = clients.find(client => {
       return quotes.some(q => q.id === documentId) || invoices.some(i => i.id === documentId);
@@ -912,7 +912,7 @@ export default function ComplectatorDashboard() {
         setClientTab('invoices');
       }
     }
-  };
+  }, [clients, quotes, invoices]);
 
   // Обработка фокуса из URL параметров
   useEffect(() => {
@@ -923,7 +923,7 @@ export default function ComplectatorDashboard() {
       // Очищаем URL параметр
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, [clients, quotes, invoices]);
+  }, [clients, quotes, invoices, focusOnDocument]);
 
   if (loading) {
     return (

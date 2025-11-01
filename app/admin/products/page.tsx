@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import AdminLayout from '../../../components/layout/AdminLayout';
 
@@ -31,11 +31,7 @@ export default function ProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState('doors');
   const limit = 20;
 
-  useEffect(() => {
-    fetchProducts();
-  }, [currentPage, selectedCategory]);
-
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
       const offset = currentPage * limit;
@@ -49,7 +45,11 @@ export default function ProductsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, selectedCategory, limit]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category);

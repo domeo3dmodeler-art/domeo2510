@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import HistoryModal from '@/components/ui/HistoryModal';
 import CommentsModal from '@/components/ui/CommentsModal';
@@ -332,14 +332,7 @@ export function DocumentQuickViewModal({ isOpen, onClose, documentId }: Document
     }
   };
 
-  // Загружаем данные документа
-  useEffect(() => {
-    if (isOpen && documentId) {
-      fetchDocument();
-    }
-  }, [isOpen, documentId]);
-
-  const fetchDocument = async () => {
+  const fetchDocument = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/documents/${documentId}`);
@@ -362,7 +355,13 @@ export function DocumentQuickViewModal({ isOpen, onClose, documentId }: Document
     } finally {
       setLoading(false);
     }
-  };
+  }, [documentId, onClose]);
+
+  useEffect(() => {
+    if (isOpen && documentId) {
+      fetchDocument();
+    }
+  }, [isOpen, documentId, fetchDocument]);
 
   const getStatusDisplayName = (status: string, type: string) => {
     const statusMap: Record<string, string> = {

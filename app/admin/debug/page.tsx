@@ -33,7 +33,7 @@ export default function DebugPage() {
       let debug = `=== АНАЛИЗ ТОВАРОВ ===\n`;
       debug += `Найдено товаров: ${data.products?.length || 0}\n\n`;
       
-      data.products?.forEach((product, index) => {
+      data.products?.forEach((product: any, index: number) => {
         debug += `ТОВАР ${index + 1}:\n`;
         debug += `  SKU: ${product.sku}\n`;
         debug += `  Name: ${product.name}\n`;
@@ -68,7 +68,7 @@ export default function DebugPage() {
       setDebugInfo(debug);
     } catch (error) {
       console.error('Error loading products:', error);
-      setDebugInfo(`Ошибка загрузки товаров: ${error.message}`);
+      setDebugInfo(`Ошибка загрузки товаров: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -95,13 +95,13 @@ export default function DebugPage() {
       debug += `File name without ext: ${result.testResults?.fileNameWithoutExt}\n`;
       debug += `Total products: ${result.testResults?.totalProducts}\n\n`;
       
-      result.testResults?.results.forEach((item, index) => {
+      result.testResults?.results.forEach((item: any, index: number) => {
         debug += `ТОВАР ${index + 1}: ${item.product.sku}\n`;
         debug += `  Name: ${item.product.name}\n`;
         debug += `  Matches: ${item.matches.length}\n`;
         
         if (item.matches.length > 0) {
-          item.matches.forEach(match => {
+          item.matches.forEach((match: any) => {
             debug += `    - Key: "${match.key}" = "${match.value}" (${match.matchType})\n`;
           });
         } else {

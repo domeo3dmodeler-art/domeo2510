@@ -3,7 +3,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 type Quote = {
   id: string;
@@ -47,11 +47,7 @@ export default function QuoteDetail({ quoteId, onQuoteUpdated, onClose }: Props)
   const [saving, setSaving] = useState(false);
   const [editData, setEditData] = useState<Partial<Quote>>({});
 
-  useEffect(() => {
-    fetchQuote();
-  }, [quoteId]);
-
-  const fetchQuote = async () => {
+  const fetchQuote = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -74,7 +70,11 @@ export default function QuoteDetail({ quoteId, onQuoteUpdated, onClose }: Props)
     } finally {
       setLoading(false);
     }
-  };
+  }, [quoteId]);
+
+  useEffect(() => {
+    fetchQuote();
+  }, [fetchQuote]);
 
   const handleSave = async () => {
     if (!quote) return;

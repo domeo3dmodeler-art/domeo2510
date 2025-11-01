@@ -11,13 +11,7 @@ export function RelatedDocuments({ document }: RelatedDocumentsProps) {
   const [relatedDocs, setRelatedDocs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (document) {
-      fetchRelatedDocuments();
-    }
-  }, [document]);
-
-  const fetchRelatedDocuments = async () => {
+  const fetchRelatedDocuments = useCallback(async () => {
     setLoading(true);
     try {
       const related = [];
@@ -62,7 +56,13 @@ export function RelatedDocuments({ document }: RelatedDocumentsProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [document]);
+
+  useEffect(() => {
+    if (document) {
+      fetchRelatedDocuments();
+    }
+  }, [document, fetchRelatedDocuments]);
 
   const fetchDocument = async (id: string) => {
     try {

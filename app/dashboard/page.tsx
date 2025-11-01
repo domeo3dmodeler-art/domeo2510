@@ -133,7 +133,7 @@ function DashboardContent() {
     // Загружаем статистику для всех ролей
     fetchStats();
     setIsLoading(false);
-  }, [router]);
+  }, [router, fetchStats]);
 
   const fetchStats = useCallback(async () => {
     try {

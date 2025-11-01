@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -71,13 +71,7 @@ export default function AnalyticsPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d' | '90d' | '1y'>('30d');
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
-  useEffect(() => {
-    fetchAnalyticsData();
-    const interval = setInterval(fetchAnalyticsData, 60000); // Обновляем каждые 60 секунд
-    return () => clearInterval(interval);
-  }, [selectedPeriod]);
-
-  const fetchAnalyticsData = async () => {
+  const fetchAnalyticsData = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/admin/analytics?period=${selectedPeriod}`);
@@ -94,7 +88,13 @@ export default function AnalyticsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedPeriod]);
+
+  useEffect(() => {
+    fetchAnalyticsData();
+    const interval = setInterval(fetchAnalyticsData, 60000); // Обновляем каждые 60 секунд
+    return () => clearInterval(interval);
+  }, [fetchAnalyticsData]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ru-RU', {

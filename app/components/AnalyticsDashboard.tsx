@@ -3,7 +3,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 type QuoteAnalytics = {
   overview: {
@@ -65,11 +65,7 @@ export default function AnalyticsDashboard() {
   const [filters, setFilters] = useState<AnalyticsFilters>({});
   const [activeTab, setActiveTab] = useState<'overview' | 'trends' | 'clients' | 'distribution'>('overview');
 
-  useEffect(() => {
-    fetchAnalytics();
-  }, [filters]);
-
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -93,7 +89,11 @@ export default function AnalyticsDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ru-RU', {

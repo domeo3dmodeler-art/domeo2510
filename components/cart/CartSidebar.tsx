@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ShoppingCart, X, Plus, Minus, Trash2, FileText, Download } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { CartService } from '../../lib/cart/cart-service';
@@ -23,7 +23,7 @@ export default function CartSidebar({
   const [calculation, setCalculation] = useState<CartCalculation | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const cartService = CartService.getInstance();
+  const cartService = React.useMemo(() => CartService.getInstance(), []);
 
   useEffect(() => {
     // Подписываемся на изменения корзины
@@ -38,7 +38,7 @@ export default function CartSidebar({
     setCalculation(cartService.getCalculation());
 
     return unsubscribe;
-  }, []);
+  }, [cartService]);
 
   const handleUpdateQuantity = async (itemId: string, newQuantity: number) => {
     setIsLoading(true);

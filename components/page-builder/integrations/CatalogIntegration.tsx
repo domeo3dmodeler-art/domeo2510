@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { CatalogCategory, ProductProperty, Product } from '../types';
 
 interface CatalogIntegrationProps {
@@ -25,7 +25,7 @@ export function CatalogIntegration({
   const [error, setError] = useState<string | null>(null);
 
   // Загрузка категорий каталога
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch('/api/catalog/categories');
@@ -43,10 +43,10 @@ export function CatalogIntegration({
     } finally {
       setLoading(false);
     }
-  };
+  }, [onCategoriesLoaded]);
 
   // Загрузка свойств товаров
-  const loadProperties = async () => {
+  const loadProperties = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch('/api/catalog/properties');
@@ -64,10 +64,10 @@ export function CatalogIntegration({
     } finally {
       setLoading(false);
     }
-  };
+  }, [onPropertiesLoaded]);
 
   // Загрузка товаров для выбранных категорий
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     if (selectedCategoryIds.length === 0) {
       setProducts([]);
       onProductsLoaded([]);
@@ -95,18 +95,18 @@ export function CatalogIntegration({
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedCategoryIds, onProductsLoaded]);
 
   // Загрузка данных при монтировании
   useEffect(() => {
     loadCategories();
     loadProperties();
-  }, []);
+  }, [loadCategories, loadProperties]);
 
   // Загрузка товаров при изменении выбранных категорий
   useEffect(() => {
     loadProducts();
-  }, [selectedCategoryIds]);
+  }, [selectedCategoryIds, loadProducts]);
 
   // Обработчик выбора категории
   const handleCategoryToggle = (categoryId: string) => {

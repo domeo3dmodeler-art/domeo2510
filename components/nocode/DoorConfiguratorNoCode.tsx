@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Select, Alert } from '@/components/ui';
 import { Package, ShoppingCart, Settings, Calculator } from 'lucide-react';
 
@@ -90,22 +90,7 @@ export default function DoorConfiguratorNoCode({
   const [cart, setCart] = useState<CartItem[]>([]);
   const [currentPrice, setCurrentPrice] = useState<number>(0);
 
-  useEffect(() => {
-    loadData();
-  }, [config.categoryId]);
-
-  // Обновляем цену при изменении параметров
-  useEffect(() => {
-    if (selectedProduct) {
-      calculateTotalPrice().then(price => {
-        setCurrentPrice(price);
-      });
-    } else {
-      setCurrentPrice(0);
-    }
-  }, [selectedProduct, selectedKit, selectedHandle]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -163,7 +148,11 @@ export default function DoorConfiguratorNoCode({
     } finally {
       setLoading(false);
     }
-  };
+  }, [config.categoryId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // Получаем уникальные значения для фильтров
   const styles = [...new Set(products.map(p => p.style))].sort();
@@ -207,7 +196,7 @@ export default function DoorConfiguratorNoCode({
   );
 
   // Вычисляем итоговую цену
-  const calculateTotalPrice = async () => {
+  const calculateTotalPrice = useCallback(async () => {
     if (!selectedProduct) return 0;
     
     try {
@@ -252,7 +241,18 @@ export default function DoorConfiguratorNoCode({
     }
     
     return total;
-  };
+  }, [selectedProduct, selectedKit, selectedHandle, hardwareKits, handles]);
+
+  // Обновляем цену при изменении параметров
+  useEffect(() => {
+    if (selectedProduct) {
+      calculateTotalPrice().then(price => {
+        setCurrentPrice(price);
+      });
+    } else {
+      setCurrentPrice(0);
+    }
+  }, [selectedProduct, selectedKit, selectedHandle, calculateTotalPrice]);
 
   const addToCart = () => {
     if (!selectedProduct) return;
@@ -300,7 +300,7 @@ export default function DoorConfiguratorNoCode({
   if (error) {
     return (
       <div className={`p-4 ${className}`}>
-        <Alert type="error" message={error} />
+        <Alert variant="error">{error}</Alert>
       </div>
     );
   }

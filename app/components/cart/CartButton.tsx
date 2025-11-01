@@ -31,7 +31,7 @@ export default function CartButton({ onOpenCart, className = "" }: CartButtonPro
     setTotalAmount(currentCart.total);
 
     return unsubscribe;
-  }, []);
+  }, [cartService]);
 
   return (
     <Button

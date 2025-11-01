@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Input, Modal, Alert, LoadingSpinner } from '@/components/ui';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { formatInternationalPhone } from '@/lib/utils/phone';
@@ -56,11 +56,7 @@ export default function ClientsPage() {
     customFields: {} as Record<string, any>
   });
 
-  useEffect(() => {
-      fetchClients();
-  }, []);
-
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch('/api/clients');
@@ -76,7 +72,11 @@ export default function ClientsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchClients();
+  }, [fetchClients]);
 
   const handleCreateClient = async () => {
     try {

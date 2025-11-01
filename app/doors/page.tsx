@@ -6,7 +6,7 @@ if (typeof window !== "undefined") {
 }
 
 import Link from "next/link";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { PhotoGallery } from "../../components/PhotoGallery";
 import { ModernPhotoGallery } from "../../components/ModernPhotoGallery";
 import { priceRecalculationService } from "@/lib/cart/price-recalculation-service";
@@ -854,7 +854,7 @@ export default function DoorsPage() {
   }, []);
 
   // Загрузка клиентов
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     try {
       setClientsLoading(true);
       const response = await fetch('/api/clients');
@@ -869,14 +869,14 @@ export default function DoorsPage() {
     } finally {
       setClientsLoading(false);
     }
-  };
+  }, []);
 
   // Загружаем клиентов при открытии менеджера
   useEffect(() => {
     if (showClientManager) {
       fetchClients();
     }
-  }, [showClientManager]);
+  }, [showClientManager, fetchClients]);
 
   // Создание нового клиента
   const createClient = async (clientData: any) => {
@@ -1046,7 +1046,7 @@ export default function DoorsPage() {
     return () => {
       c = true;
     };
-  }, []); // Временно отключаем зависимость от query
+  }, [CACHE_TTL, modelsCache, query, sel.model]); // Добавлены зависимости
 
   // Сброс domain при смене стиля или модели
   useEffect(() => {
@@ -1276,7 +1276,7 @@ export default function DoorsPage() {
     return () => {
       c = true;
     };
-  }, [sel.style]);
+  }, [sel.style, CACHE_TTL, isLoadingModels, modelsCache]); // Добавлены зависимости
 
   useEffect(() => {
     let c = false;
@@ -1444,7 +1444,7 @@ export default function DoorsPage() {
       setIsStyleCollapsed(false);
       setIsModelCollapsed(false);
     }
-  }, [sel.style, modelsCache]);
+  }, [sel.style, modelsCache, CACHE_TTL]); // Добавлена зависимость CACHE_TTL
 
 
   // Префилл по ?sku=...

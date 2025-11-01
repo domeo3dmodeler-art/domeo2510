@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { NoCodeComponentRenderer } from '../../../../../components/nocode/NoCodeComponents';
 import { Card, Button } from '../../../../../components/ui';
@@ -39,13 +39,7 @@ export default function CategoryConfiguratorPage() {
   const [loading, setLoading] = useState(true);
   const [configData, setConfigData] = useState<any>({});
 
-  useEffect(() => {
-    if (categoryId) {
-      fetchTemplate();
-    }
-  }, [categoryId]);
-
-  const fetchTemplate = async () => {
+  const fetchTemplate = useCallback(async () => {
     try {
       const response = await fetch(`/api/admin/categories/template?categoryId=${categoryId}`);
       const result = await response.json();
@@ -61,10 +55,16 @@ export default function CategoryConfiguratorPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [categoryId]);
+
+  useEffect(() => {
+    if (categoryId) {
+      fetchTemplate();
+    }
+  }, [categoryId, fetchTemplate]);
 
   const handleComponentUpdate = (componentId: string, data: any) => {
-    setConfigData(prev => ({
+    setConfigData((prev: any) => ({
       ...prev,
       [componentId]: data
     }));

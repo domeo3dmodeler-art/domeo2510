@@ -388,7 +388,7 @@ export default function PricingFormulaEditor({ categoryLinkId, linkType, onSave,
                   </Button>
 
                   {testError && (
-                    <Alert type="error" message={testError} />
+                    <Alert variant="error">{testError}</Alert>
                   )}
 
                   {testResult !== null && (

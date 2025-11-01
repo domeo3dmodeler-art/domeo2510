@@ -36,20 +36,12 @@ const factoryExportPaths = [
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
-  // Отладочная информация
-  console.log('🔐 MIDDLEWARE: Checking path:', pathname);
-  console.log('🔐 MIDDLEWARE: Protected paths:', protectedPaths);
-  
   // Проверяем, является ли путь защищенным
   const isProtectedPath = protectedPaths.some(path => pathname.startsWith(path));
-  console.log('🔐 MIDDLEWARE: Is protected:', isProtectedPath);
   
   if (!isProtectedPath) {
-    console.log('🔐 MIDDLEWARE: Path not protected, allowing access');
     return NextResponse.next();
   }
-  
-  console.log('🔐 MIDDLEWARE: Path is protected, checking auth');
 
   // Получаем токен из cookies (несколько способов для совместимости)
   const authToken = request.cookies.get('auth-token')?.value;
@@ -63,23 +55,11 @@ export async function middleware(request: NextRequest) {
     
   const token = authToken || domeoToken || headerAuthToken || headerDomeoToken;
   
-  console.log('🔐 MIDDLEWARE: Token sources:', {
-    authToken: authToken ? `${authToken.substring(0, 20)}...` : 'null',
-    domeoToken: domeoToken ? `${domeoToken.substring(0, 20)}...` : 'null',
-    headerAuthToken: headerAuthToken ? `${headerAuthToken.substring(0, 20)}...` : 'null',
-    headerDomeoToken: headerDomeoToken ? `${headerDomeoToken.substring(0, 20)}...` : 'null',
-    finalToken: token ? `${token.substring(0, 20)}...` : 'null'
-  });
-  
-  // Дополнительная отладка - проверяем все возможные способы чтения токена
-  const allCookies = request.cookies.getAll();
-  console.log('🔐 MIDDLEWARE: All cookie names:', allCookies.map(c => c.name));
-  console.log('🔐 MIDDLEWARE: Cookie values:', allCookies.map(c => `${c.name}=${c.value.substring(0, 30)}...`));
-        
-  // Отладочная информация
-  console.log('🔐 MIDDLEWARE: Auth check:', pathname, 'Token:', !!token, 'Length:', token?.length);
-  console.log('🔐 MIDDLEWARE: All cookies:', request.cookies.getAll().map(c => `${c.name}=${c.value.substring(0, 20)}...`));
-  console.log('🔐 MIDDLEWARE: Raw cookie header:', request.headers.get('cookie'));
+  // Отладочная информация только в development
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔐 MIDDLEWARE: Checking protected path:', pathname);
+    console.log('🔐 MIDDLEWARE: Token present:', !!token);
+  }
   
   if (!token) {
     // Перенаправляем на страницу входа
@@ -90,30 +70,44 @@ export async function middleware(request: NextRequest) {
 
     try {
       // Проверяем токен
-      const jwtSecret = process.env.JWT_SECRET || "your-super-secret-jwt-key-change-this-in-production-min-32-chars";
-      console.log('🔐 Verifying token with secret length:', jwtSecret.length);
-      console.log('🔐 Token to verify:', token.substring(0, 50) + '...');
+      const jwtSecret = process.env.JWT_SECRET;
+      
+      if (!jwtSecret) {
+        console.error('❌ JWT_SECRET is not set! This is required for production.');
+        if (process.env.NODE_ENV === 'production') {
+          throw new Error('JWT_SECRET environment variable is required');
+        }
+        // Для development можно использовать временный ключ, но нужно предупредить
+        console.warn('⚠️ Using temporary JWT_SECRET for development. Set JWT_SECRET in production!');
+        throw new Error('JWT_SECRET must be set in environment variables');
+      }
+      
+      if (jwtSecret.length < 32) {
+        console.error('❌ JWT_SECRET is too short! Minimum length is 32 characters.');
+        throw new Error('JWT_SECRET must be at least 32 characters long');
+      }
       
       const secret = new TextEncoder().encode(jwtSecret);
       const { payload } = await jwtVerify(token, secret);
       
-      console.log('🔐 jwtVerify result:', payload);
-      
       if (!payload) {
-        console.log('❌ jwtVerify returned null/undefined');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('❌ jwtVerify returned null/undefined');
+        }
         throw new Error('Token verification returned null');
       }
       
-      console.log('✅ Token verified successfully:', { role: payload.role, userId: payload.userId });
-      console.log('🔐 User role:', payload.role, 'Path:', pathname);
-      console.log('🔐 Decoded token:', JSON.stringify(payload, null, 2));
+      // Логирование только в development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Token verified successfully:', { role: payload.role, userId: payload.userId });
+      }
     
-    const userRole = payload.role?.toString().toLowerCase();
+    const userRole = payload.role?.toString().toLowerCase() || '';
 
     // Проверяем доступ к админ-панели
     if (pathname.startsWith('/admin')) {
       // Только админы, комплектаторы и исполнители имеют доступ к админ-панели
-      if (!['admin', 'complectator', 'executor'].includes(userRole)) {
+      if (!userRole || !['admin', 'complectator', 'executor'].includes(userRole)) {
         return NextResponse.redirect(new URL('/auth/unauthorized', request.url));
       }
     }
@@ -127,21 +121,21 @@ export async function middleware(request: NextRequest) {
 
     // Проверяем доступ комплектаторов
     if (complectatorPaths.some(path => pathname.startsWith(path))) {
-      if (!['admin', 'complectator'].includes(userRole)) {
+      if (!userRole || !['admin', 'complectator'].includes(userRole)) {
         return NextResponse.redirect(new URL('/auth/unauthorized', request.url));
       }
     }
 
     // Проверяем доступ исполнителей
     if (executorPaths.some(path => pathname.startsWith(path))) {
-      if (!['admin', 'executor'].includes(userRole)) {
+      if (!userRole || !['admin', 'executor'].includes(userRole)) {
         return NextResponse.redirect(new URL('/auth/unauthorized', request.url));
       }
     }
 
     // Проверяем доступ к экспорту заказов на фабрику
     if (factoryExportPaths.some(path => pathname.startsWith(path))) {
-      if (!['admin', 'executor'].includes(userRole)) {
+      if (!userRole || !['admin', 'executor'].includes(userRole)) {
         return NextResponse.redirect(new URL('/auth/unauthorized', request.url));
       }
     }
@@ -149,7 +143,7 @@ export async function middleware(request: NextRequest) {
     // Добавляем информацию о пользователе в заголовки
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-user-id', payload.userId?.toString() || '');
-    requestHeaders.set('x-user-role', userRole || '');
+    requestHeaders.set('x-user-role', userRole);
 
     return NextResponse.next({
       request: {
@@ -159,11 +153,9 @@ export async function middleware(request: NextRequest) {
 
   } catch (error) {
     // Токен недействителен
-    console.log('❌ Token verification failed:', error);
-    console.log('❌ Error details:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      token: token ? `${token.substring(0, 30)}...` : 'null'
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('❌ Token verification failed:', error instanceof Error ? error.message : 'Unknown error');
+    }
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { Card, Button } from '../../components/ui';
 import { PhoneInput } from '@/components/ui/PhoneInput';
@@ -31,11 +31,7 @@ export default function ClientsPage() {
     notes: ''
   });
 
-  useEffect(() => {
-    loadClients();
-  }, []);
-
-  const loadClients = async () => {
+  const loadClients = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await fetch('/api/clients');
@@ -52,7 +48,11 @@ export default function ClientsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadClients();
+  }, [loadClients]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

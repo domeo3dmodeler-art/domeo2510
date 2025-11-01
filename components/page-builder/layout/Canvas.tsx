@@ -60,8 +60,8 @@ export function Canvas({
     const mouseY = e.clientY - rect.top;
 
     // Вычисляем offset от угла элемента до точки клика
-    const offsetX = mouseX - element.position.x;
-    const offsetY = mouseY - element.position.y;
+    const offsetX = mouseX - (element?.position?.x || 0);
+    const offsetY = mouseY - (element?.position?.y || 0);
 
     setIsDragging(true);
     setDraggedElementId(elementId);
@@ -71,7 +71,7 @@ export function Canvas({
     if (!e.ctrlKey) {
       onSelectElement(elementId);
     }
-  }, [page, onSelectElement]);
+  }, [page, onSelectElement, findElementById]);
 
   // Глобальные обработчики мыши
   useEffect(() => {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import ConfiguratorMain from '../../../components/configurator/ConfiguratorMain';
 import { useAuth } from '../../../hooks/useAuth';
@@ -23,13 +23,7 @@ export default function ConfiguratorPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (slug) {
-      loadConfiguratorCategory();
-    }
-  }, [slug]);
-
-  const loadConfiguratorCategory = async () => {
+  const loadConfiguratorCategory = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/frontend-categories?slug=${slug}`);
@@ -51,7 +45,11 @@ export default function ConfiguratorPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [slug]);
+
+  useEffect(() => {
+    loadConfiguratorCategory();
+  }, [loadConfiguratorCategory]);
 
   if (loading) {
     return (

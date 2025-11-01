@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
     // Добавляем данные товаров
     products.forEach((product, index) => {
       const row = [];
-      
+
       // Парсим свойства товара с исправлением кодировки
       let properties = {};
       if (product.properties_data) {

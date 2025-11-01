@@ -57,7 +57,7 @@ export const doorsAdapter = {
   async upsertMany(rows: DoorRow[]) {
     let count = 0;
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       for (const r of rows) {
         const data = {
           // верхнеуровневые

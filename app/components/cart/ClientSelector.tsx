@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Input, Modal, Alert, LoadingSpinner } from '@/components/ui';
 
 interface Client {
@@ -25,11 +25,7 @@ export default function ClientSelector({ onClientSelect, onClose }: ClientSelect
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  useEffect(() => {
-    fetchClients();
-  }, []);
-
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({
@@ -50,7 +46,11 @@ export default function ClientSelector({ onClientSelect, onClose }: ClientSelect
     } finally {
       setLoading(false);
     }
-  };
+  }, [search]);
+
+  useEffect(() => {
+    fetchClients();
+  }, [fetchClients]);
 
   const handleSearch = () => {
     fetchClients();

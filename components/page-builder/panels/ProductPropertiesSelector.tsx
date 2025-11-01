@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 interface ProductProperty {
   id: string;
@@ -34,15 +34,7 @@ export function ProductPropertiesSelector({
   const [searchTerm, setSearchTerm] = useState('');
 
   // Загрузка свойств товаров
-  useEffect(() => {
-    console.log('🚨 ProductPropertiesSelector: useEffect triggered', {
-      categoryIds,
-      categoryIdsLength: categoryIds?.length,
-      selectedPropertyIds,
-      selectedPropertyIdsLength: selectedPropertyIds?.length
-    });
-    
-    const loadProperties = async () => {
+  const loadProperties = useCallback(async () => {
       if (!categoryIds?.length) {
         console.log('🚨 ProductPropertiesSelector: Нет categoryIds, очищаем свойства');
         setProperties([]);
@@ -87,10 +79,11 @@ export function ProductPropertiesSelector({
       } finally {
         setLoading(false);
       }
-    };
+  }, [categoryIds, selectedPropertyIds, onPropertiesChange]);
 
+  useEffect(() => {
     loadProperties();
-  }, [categoryIds]);
+  }, [loadProperties]);
 
   // Фильтрация свойств по поисковому запросу
   const filteredProperties = properties.filter(property =>

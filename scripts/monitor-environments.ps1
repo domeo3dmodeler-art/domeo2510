@@ -11,7 +11,7 @@ Write-Host "=========================" -ForegroundColor Cyan
 # Настройки
 $PRODUCTION_HOST = "130.193.40.35"
 $PRODUCTION_PORT = "3000"
-$STAGING_HOST = "89.169.189.66"
+$STAGING_HOST = "130.193.40.35"
 $STAGING_PORT = "3001"
 
 # Функция проверки health check

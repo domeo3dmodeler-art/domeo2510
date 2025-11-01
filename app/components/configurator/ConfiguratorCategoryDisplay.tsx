@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Badge } from '../ui';
 import { Package, Settings, Plus, Minus, Calculator } from 'lucide-react';
 
@@ -69,15 +69,7 @@ export default function ConfiguratorCategoryDisplay({
   const [loading, setLoading] = useState(true);
   const [totalPrice, setTotalPrice] = useState(0);
 
-  useEffect(() => {
-    loadCategoryLinks();
-  }, [configuratorCategoryId]);
-
-  useEffect(() => {
-    calculateTotalPrice();
-  }, [selectedProducts, quantities, cartItems]);
-
-  const loadCategoryLinks = async () => {
+  const loadCategoryLinks = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/configurator/category-links?configuratorCategoryId=${configuratorCategoryId}`);
@@ -101,9 +93,9 @@ export default function ConfiguratorCategoryDisplay({
     } finally {
       setLoading(false);
     }
-  };
+  }, [configuratorCategoryId]);
 
-  const calculateTotalPrice = () => {
+  const calculateTotalPrice = useCallback(() => {
     let total = 0;
     
     // Считаем цену выбранных товаров
@@ -138,7 +130,15 @@ export default function ConfiguratorCategoryDisplay({
     });
     
     setTotalPrice(total);
-  };
+  }, [selectedProducts, quantities, categoryLinks, cartItems]);
+
+  useEffect(() => {
+    loadCategoryLinks();
+  }, [loadCategoryLinks]);
+
+  useEffect(() => {
+    calculateTotalPrice();
+  }, [selectedProducts, quantities, cartItems, calculateTotalPrice]);
 
   const handleProductSelect = (linkId: string, product: Product) => {
     setSelectedProducts(prev => ({
@@ -256,7 +256,7 @@ export default function ConfiguratorCategoryDisplay({
               <h2 className="text-xl font-semibold">{link.catalog_category.name}</h2>
               <Badge variant="default">Основная</Badge>
               {link.is_required && (
-                <Badge variant="destructive">Обязательная</Badge>
+                <Badge variant="error">Обязательная</Badge>
               )}
             </div>
             
@@ -333,7 +333,7 @@ export default function ConfiguratorCategoryDisplay({
               <h3 className="text-lg font-semibold">{link.catalog_category.name}</h3>
               <Badge variant="secondary">Дополнительная</Badge>
               {link.is_required && (
-                <Badge variant="destructive">Обязательная</Badge>
+                <Badge variant="error">Обязательная</Badge>
               )}
               <Badge variant="outline">
                 {getPricingTypeLabel(link.pricing_type)}

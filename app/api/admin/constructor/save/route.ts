@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
 
     const configurations = await prisma.constructorConfiguration.findMany({
       where: { categoryId },
-      orderBy: { updated_at: 'desc' }
+      orderBy: { updatedAt: 'desc' }
     });
 
     return NextResponse.json({

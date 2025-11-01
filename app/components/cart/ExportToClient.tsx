@@ -98,10 +98,11 @@ export default function ExportToClient({ cartItems, onSuccess, onClose }: Export
         {/* Alert */}
         {alert && (
           <Alert
-            type={alert.type}
-            message={alert.message}
+            variant={alert.type === 'error' ? 'error' : 'success'}
             onClose={() => setAlert(null)}
-          />
+          >
+            {alert.message}
+          </Alert>
         )}
 
         {/* Cart Summary */}

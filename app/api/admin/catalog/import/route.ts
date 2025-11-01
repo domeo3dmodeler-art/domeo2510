@@ -48,12 +48,12 @@ export async function POST(request: NextRequest) {
           data: {
             id: category.id,
             name: category.name,
-            parentId: category.parentId,
+            parent_id: category.parentId,
             level: category.level,
             description: category.description,
             slug: category.slug || category.name.toLowerCase().replace(/\s+/g, '-'),
             isActive: category.isActive,
-            sortOrder: category.sortOrder,
+            sort_order: category.sortOrder,
             propertiesSchema: JSON.stringify({}), // Пустая схема по умолчанию
             createdAt: new Date(),
             updatedAt: new Date()
@@ -89,12 +89,12 @@ export async function GET() {
     const categories = await prisma.catalogCategory.findMany({
       orderBy: [
         { level: 'asc' },
-        { sortOrder: 'asc' },
+        { sort_order: 'asc' },
         { name: 'asc' }
       ],
       include: {
         children: {
-          orderBy: { sortOrder: 'asc' }
+          orderBy: { sort_order: 'asc' }
         },
         _count: {
           select: {

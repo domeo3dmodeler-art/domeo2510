@@ -24,7 +24,7 @@ export default function ImagePreviewSettings({
   return (
     <div className="space-y-4">
       <h5 className="font-medium flex items-center">
-        <Image className="h-4 w-4 mr-2" />
+        <Image className="h-4 w-4 mr-2" aria-label="Иконка изображения" />
         {title}
       </h5>
       
@@ -154,7 +154,7 @@ export default function ImagePreviewSettings({
                 style={{ borderRadius: `${settings.borderRadius}px` }}
               />
             ) : (
-              <Image className="h-6 w-6 text-gray-400" />
+              <Image className="h-6 w-6 text-gray-400" aria-label="Превью изображения" />
             )}
           </div>
           

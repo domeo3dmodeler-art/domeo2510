@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ShoppingCart, Plus, Minus, Trash2, FileText, Download, User } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { CartService } from '../../lib/cart/cart-service';
@@ -63,7 +63,7 @@ function SimplifiedCartBlock({ settings, className = "" }: CartBlockProps) {
     setCart(currentCart);
 
     return unsubscribe;
-  }, []);
+  }, [cartService]);
 
   if (!cart) {
     return (

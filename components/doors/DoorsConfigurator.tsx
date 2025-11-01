@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Select, Input, Alert } from '@/components/ui';
 import { ShoppingCart, Package, Settings, Calculator } from 'lucide-react';
 import DiscountManager from '../cart/DiscountManager';
@@ -94,7 +94,7 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
     }
   }, [selectedProduct, selectedKit, selectedHandle]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -157,7 +157,11 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
     } finally {
       setLoading(false);
     }
-  };
+  }, [categoryId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // Получаем уникальные значения для фильтров
   const styles = [...new Set(products.map(p => p.style))].sort();
@@ -201,7 +205,7 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
   );
 
   // Вычисляем итоговую цену
-  const calculateTotalPrice = async () => {
+  const calculateTotalPrice = useCallback(async () => {
     if (!selectedProduct) return 0;
     
     try {
@@ -246,7 +250,18 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
     }
     
     return total;
-  };
+  }, [selectedProduct, selectedKit, selectedHandle, hardwareKits, handles]);
+
+  // Обновляем цену при изменении параметров
+  useEffect(() => {
+    if (selectedProduct) {
+      calculateTotalPrice().then(price => {
+        setCurrentPrice(price);
+      });
+    } else {
+      setCurrentPrice(0);
+    }
+  }, [selectedProduct, selectedKit, selectedHandle, calculateTotalPrice]);
 
   const addToCart = () => {
     if (!selectedProduct) return;
@@ -329,7 +344,7 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Alert type="error" message={error} />
+        <Alert variant="error">{error}</Alert>
       </div>
     );
   }

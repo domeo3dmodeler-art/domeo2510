@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Badge, Select } from '../ui';
 import { ShoppingCart, Plus, Minus, Trash2, Package, Settings, Calculator, FileText, User } from 'lucide-react';
 import ExportToClient from '../cart/ExportToClient';
@@ -97,15 +97,15 @@ export default function ConfiguratorCart({
       groupCartItems();
     }
     calculateTotalPrice();
-  }, [cartItems, showGrouped]);
+  }, [cartItems, showGrouped, groupCartItems, calculateTotalPrice]);
 
   useEffect(() => {
     if (configuratorCategoryId) {
       loadExportSettings();
     }
-  }, [configuratorCategoryId]);
+  }, [configuratorCategoryId, loadExportSettings]);
 
-  const groupCartItems = () => {
+  const groupCartItems = useCallback(() => {
     const groups: Record<string, CartItem[]> = {};
     const separateItems: CartItem[] = [];
 
@@ -179,16 +179,16 @@ export default function ConfiguratorCart({
     });
 
     setGroupedItems(grouped);
-  };
+  }, [cartItems]);
 
-  const calculateTotalPrice = () => {
+  const calculateTotalPrice = useCallback(() => {
     const total = cartItems.reduce((sum, item) => 
       sum + (item.calculated_price || item.product.price) * item.quantity, 0
     );
     setTotalPrice(total);
-  };
+  }, [cartItems]);
 
-  const loadExportSettings = async () => {
+  const loadExportSettings = useCallback(async () => {
     try {
       const response = await fetch(`/api/configurator/export-settings?configuratorCategoryId=${configuratorCategoryId}`);
       const data = await response.json();
@@ -199,7 +199,7 @@ export default function ConfiguratorCart({
     } catch (error) {
       console.error('Error loading export settings:', error);
     }
-  };
+  }, [configuratorCategoryId]);
 
   const handleQuantityChange = (itemId: string, quantity: number) => {
     if (quantity <= 0) {

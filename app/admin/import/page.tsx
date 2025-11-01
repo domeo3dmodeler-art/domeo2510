@@ -1,6 +1,6 @@
 // app/admin/import/page.tsx
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
@@ -46,11 +46,7 @@ export default function UniversalImportPage() {
   const [photoFiles, setPhotoFiles] = useState<FileList | null>(null);
   const [photoFolderUrl, setPhotoFolderUrl] = useState('');
 
-  useEffect(() => { 
-    fetchCategories();
-  }, []);
-
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       console.log('Fetching categories...');
       const response = await fetch('/api/categories');
@@ -80,7 +76,11 @@ export default function UniversalImportPage() {
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
-  };
+  }, [categoryParam]);
+
+  useEffect(() => { 
+    fetchCategories();
+  }, [fetchCategories]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];

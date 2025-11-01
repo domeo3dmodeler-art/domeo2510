@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Checkbox, Select } from '../ui';
 
 interface RequiredField {
@@ -46,9 +46,9 @@ export default function RequiredFieldsSelector({
       options: detectOptions(header, priceListData)
     }));
     setFields(initialFields);
-  }, [priceListHeaders, priceListData]);
+  }, [priceListHeaders, priceListData, detectDataType, detectOptions]);
 
-  const detectDataType = (fieldName: string, data: any[][]): RequiredField['dataType'] => {
+  const detectDataType = useCallback((fieldName: string, data: any[][]): RequiredField['dataType'] => {
     const fieldIndex = priceListHeaders.indexOf(fieldName);
     if (fieldIndex === -1) return 'text';
 
@@ -103,9 +103,9 @@ export default function RequiredFieldsSelector({
     if (isBoolean && uniqueValues.length <= 3) return 'boolean';
     
     return 'text';
-  };
+  }, [priceListHeaders]);
 
-  const detectOptions = (fieldName: string, data: any[][]): string[] => {
+  const detectOptions = useCallback((fieldName: string, data: any[][]): string[] => {
     const fieldIndex = priceListHeaders.indexOf(fieldName);
     if (fieldIndex === -1) return [];
 
@@ -116,7 +116,7 @@ export default function RequiredFieldsSelector({
     
     const uniqueValues = [...new Set(values)];
     return uniqueValues.slice(0, 20); // Увеличиваем лимит до 20 опций
-  };
+  }, [priceListHeaders]);
 
   const updateField = (fieldName: string, updates: Partial<RequiredField>) => {
     setFields(prev => prev.map(field => 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 
 export interface ToastProps {
@@ -16,6 +16,13 @@ export function Toast({ id, type, title, message, duration = 5000, onClose }: To
   const [isVisible, setIsVisible] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
 
+  const handleClose = useCallback(() => {
+    setIsLeaving(true);
+    setTimeout(() => {
+      onClose(id);
+    }, 300);
+  }, [onClose, id]);
+
   useEffect(() => {
     // Анимация появления
     const timer = setTimeout(() => setIsVisible(true), 100);
@@ -29,14 +36,7 @@ export function Toast({ id, type, title, message, duration = 5000, onClose }: To
       clearTimeout(timer);
       clearTimeout(autoCloseTimer);
     };
-  }, [duration]);
-
-  const handleClose = () => {
-    setIsLeaving(true);
-    setTimeout(() => {
-      onClose(id);
-    }, 300);
-  };
+  }, [duration, handleClose, isVisible]);
 
   const icons = {
     success: <CheckCircle className="h-5 w-5 text-green-600" />,

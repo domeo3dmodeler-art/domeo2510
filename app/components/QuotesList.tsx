@@ -3,7 +3,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 type Quote = {
   id: string;
@@ -52,7 +52,7 @@ export default function QuotesList() {
 
   const pageSize = 10;
 
-  const fetchQuotes = async () => {
+  const fetchQuotes = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -84,11 +84,11 @@ export default function QuotesList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, statusFilter, searchQuery]);
 
   useEffect(() => {
     fetchQuotes();
-  }, [page, statusFilter, searchQuery]);
+  }, [fetchQuotes]);
 
   const handleStatusChange = async (quoteId: string, newStatus: string) => {
     try {

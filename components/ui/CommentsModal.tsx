@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { StickyNote, History, Send, Trash2, Edit3, X } from 'lucide-react';
 import { Button } from './Button';
 import { toast } from 'sonner';
@@ -59,14 +59,7 @@ export default function CommentsModal({
   // Получаем текущего пользователя
   const [currentUser, setCurrentUser] = useState<any>(null);
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchComments();
-      fetchCurrentUser();
-    }
-  }, [isOpen, documentId]);
-
-  const fetchCurrentUser = async () => {
+  const fetchCurrentUser = useCallback(async () => {
     try {
       // Получаем токен из cookies
       const token = document.cookie
@@ -95,9 +88,9 @@ export default function CommentsModal({
     } catch (error) {
       console.error('Error fetching current user:', error);
     }
-  };
+  }, []);
 
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/documents/${documentId}/comments`);
@@ -110,7 +103,14 @@ export default function CommentsModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, [documentId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchComments();
+      fetchCurrentUser();
+    }
+  }, [isOpen, documentId, fetchComments, fetchCurrentUser]);
 
   const addComment = async () => {
     if (!newComment.trim() || !currentUser) return;

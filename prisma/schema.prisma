@@ -49,6 +49,8 @@ model Client {
   documents     Document[]
   notifications Notification[]
 
+  @@index([phone])
+  @@index([firstName, lastName])
   @@map("clients")
 }
 
@@ -251,6 +253,8 @@ model ProductImage {
   created_at    DateTime @default(now())
   product       Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
 
+  @@index([product_id])
+  @@index([is_primary])
   @@map("product_images")
 }
 
@@ -277,6 +281,10 @@ model Quote {
   client       Client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
   quote_items  QuoteItem[]
 
+  @@index([client_id])
+  @@index([status])
+  @@index([created_at])
+  @@index([created_by])
   @@map("quotes")
 }
 
@@ -292,6 +300,8 @@ model QuoteItem {
   // Связи
   quote       Quote   @relation(fields: [quote_id], references: [id], onDelete: Cascade)
 
+  @@index([quote_id])
+  @@index([product_id])
   @@map("quote_items")
 }
 
@@ -318,6 +328,10 @@ model Order {
   client        Client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
   order_items   OrderItem[]
 
+  @@index([client_id])
+  @@index([status])
+  @@index([created_at])
+  @@index([created_by])
   @@map("orders")
 }
 
@@ -333,6 +347,8 @@ model OrderItem {
   // Связи
   order       Order   @relation(fields: [order_id], references: [id], onDelete: Cascade)
 
+  @@index([order_id])
+  @@index([product_id])
   @@map("order_items")
 }
 
@@ -359,6 +375,11 @@ model Invoice {
   client         Client      @relation(fields: [client_id], references: [id], onDelete: Cascade)
   invoice_items  InvoiceItem[]
 
+  @@index([client_id])
+  @@index([status])
+  @@index([created_at])
+  @@index([created_by])
+  @@index([parent_document_id])
   @@map("invoices")
 }
 
@@ -374,6 +395,8 @@ model InvoiceItem {
   // Связи
   invoice     Invoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
 
+  @@index([invoice_id])
+  @@index([product_id])
   @@map("invoice_items")
 }
 
@@ -396,6 +419,10 @@ model SupplierOrder {
   updated_at         DateTime  @updatedAt
 
   // Связи (убираем старые связи, так как теперь используем parent_document_id)
+  @@index([executor_id])
+  @@index([status])
+  @@index([created_at])
+  @@index([parent_document_id])
   @@map("supplier_orders")
 }
 

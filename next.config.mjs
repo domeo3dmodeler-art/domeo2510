@@ -23,7 +23,10 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react'],
   },
   
-  // Отключаем TypeScript ошибки при сборке
+  // ВНИМАНИЕ: Отключаем TypeScript ошибки при сборке
+  // В проекте обнаружено более 200 TypeScript ошибок
+  // Перед отключением ignoreBuildErrors необходимо исправить все ошибки
+  // См. docs/TYPESCRIPT_ERRORS_FIX_PLAN.md для плана исправления
   typescript: {
     ignoreBuildErrors: true,
   },

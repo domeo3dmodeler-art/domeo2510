@@ -6,8 +6,30 @@ import { authRateLimiter, getClientIP, createRateLimitResponse } from '../../../
 
 export async function POST(req: NextRequest) {
   try {
-    // Устанавливаем JWT_SECRET напрямую для разработки
-    const JWT_SECRET = process.env.JWT_SECRET || "your-super-secret-jwt-key-change-this-in-production-min-32-chars";
+    // Получаем JWT_SECRET из переменных окружения (обязательно в production)
+    const JWT_SECRET = process.env.JWT_SECRET;
+    
+    if (!JWT_SECRET) {
+      console.error('❌ JWT_SECRET is not set! This is required for production.');
+      if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json(
+          { error: 'Server configuration error' },
+          { status: 500 }
+        );
+      }
+      return NextResponse.json(
+        { error: 'JWT_SECRET must be set in environment variables' },
+        { status: 500 }
+      );
+    }
+    
+    if (JWT_SECRET.length < 32) {
+      console.error('❌ JWT_SECRET is too short! Minimum length is 32 characters.');
+      return NextResponse.json(
+        { error: 'JWT_SECRET must be at least 32 characters long' },
+        { status: 500 }
+      );
+    }
     
     // Rate limiting
     const clientIP = getClientIP(req);
@@ -110,7 +132,10 @@ export async function POST(req: NextRequest) {
           partitioned: false // Отключаем partitioned cookies
         });
     
-    console.log('🍪 Server cookie set:', token.substring(0, 20) + '...');
+    // Логирование только в development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🍪 Server cookie set for user:', userData.email);
+    }
 
     return response;
 

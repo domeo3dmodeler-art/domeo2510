@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface ClientAuthGuardProps {
@@ -41,14 +41,15 @@ export function ClientAuthGuard({ children }: ClientAuthGuardProps) {
     
     // Добавляем таймаут для диагностики
     const diagnosticTimeout = setTimeout(() => {
-      console.log('⚠️ ClientAuthGuard - таймаут диагностики, текущее состояние:', isAuthenticated);
+      const currentAuth = localStorage.getItem('authToken') ? true : false;
+      console.log('⚠️ ClientAuthGuard - таймаут диагностики, текущее состояние:', currentAuth);
     }, 5000);
     
     return () => {
       clearTimeout(timeoutId);
       clearTimeout(diagnosticTimeout);
     };
-  }, [router]);
+  }, [router, isAuthenticated]);
 
   // Показываем загрузку пока проверяем авторизацию
   if (isAuthenticated === null) {

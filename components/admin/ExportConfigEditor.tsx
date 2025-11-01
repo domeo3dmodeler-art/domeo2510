@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '../ui';
 import { Save, Plus, Trash2, Settings, Download } from 'lucide-react';
 
@@ -50,11 +50,7 @@ const ExportConfigEditor: React.FC<ExportConfigEditorProps> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadConfig();
-  }, [catalogCategoryId, exportType]);
-
-  const loadConfig = async () => {
+  const loadConfig = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/admin/export/config?catalogCategoryId=${catalogCategoryId}&exportType=${exportType}`);
@@ -75,7 +71,11 @@ const ExportConfigEditor: React.FC<ExportConfigEditorProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [catalogCategoryId, exportType]);
+
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
 
   const addField = () => {
     if (!config) return;

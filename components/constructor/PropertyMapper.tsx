@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Checkbox, Input, Select } from '../ui';
 import { Plus, Trash2, GripVertical, Eye, EyeOff } from 'lucide-react';
 
@@ -41,12 +41,7 @@ export default function PropertyMapper({
   const [loading, setLoading] = useState(true);
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
 
-  // Загрузка доступных свойств товаров
-  useEffect(() => {
-    loadProperties();
-  }, []);
-
-  const loadProperties = async () => {
+  const loadProperties = useCallback(async () => {
     try {
       // Загружаем свойства из базы данных
       const response = await fetch('/api/admin/properties');
@@ -151,7 +146,11 @@ export default function PropertyMapper({
     } finally {
       setLoading(false);
     }
-  };
+  }, [requiredFields, showFields]);
+
+  useEffect(() => {
+    loadProperties();
+  }, [loadProperties]);
 
   // Обновление свойства
   const updateProperty = (id: string, updates: Partial<PropertyField>) => {

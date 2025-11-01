@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import AdminLayout from '../../../../components/layout/AdminLayout';
 import { Card, Button } from '../../../../components/ui';
@@ -35,14 +35,7 @@ export default function CategoryBuilderPage() {
     setIsClient(true);
   }, []);
 
-  // Загружаем существующую категорию для редактирования
-  useEffect(() => {
-    if (categoryId) {
-      loadExistingCategory();
-    }
-  }, [categoryId]);
-
-  const loadExistingCategory = async () => {
+  const loadExistingCategory = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/admin/categories/${categoryId}`);
@@ -81,7 +74,14 @@ export default function CategoryBuilderPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [categoryId]);
+
+  // Загружаем существующую категорию для редактирования
+  useEffect(() => {
+    if (categoryId) {
+      loadExistingCategory();
+    }
+  }, [categoryId, loadExistingCategory]);
 
   const handleInfoComplete = async (data: any) => {
     try {
@@ -424,7 +424,7 @@ export default function CategoryBuilderPage() {
                       <div className="text-2xl mb-2">💰</div>
                       <h5 className="font-medium">Ценообразование</h5>
                       <p className="text-sm text-purple-600">
-                        {pageBuilderConfig?.categories.filter(c => c.pricingRule === 'formula').length || 0} формул
+                        {pageBuilderConfig?.categories.filter((c: any) => c.pricingRule === 'formula').length || 0} формул
                       </p>
                     </div>
                   </div>

@@ -142,7 +142,7 @@ export default function ImportInstructionsCard({ className = '' }: ImportInstruc
               {/* Импорт фотографий */}
               <div className="bg-white rounded-lg p-4 border border-purple-100">
                 <h4 className="font-medium text-gray-900 mb-2 flex items-center">
-                  <Image className="h-4 w-4 mr-2 text-purple-600" />
+                  <Image className="h-4 w-4 mr-2 text-purple-600" aria-label="Иконка импорта фотографий" />
                   Импорт фотографий
                 </h4>
                 <div className="space-y-2 text-sm text-gray-700">

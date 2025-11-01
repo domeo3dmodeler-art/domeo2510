@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Alert, LoadingSpinner } from '@/components/ui';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -34,13 +34,7 @@ export default function ClientDetailPage() {
   const [activeTab, setActiveTab] = useState<'documents' | 'quotes' | 'invoices' | 'orders'>('documents');
   const [isEditingStatus, setIsEditingStatus] = useState(false);
 
-  useEffect(() => {
-    if (clientId) {
-      fetchClient();
-    }
-  }, [clientId]);
-
-  const fetchClient = async () => {
+  const fetchClient = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/clients/${clientId}`);
@@ -56,7 +50,13 @@ export default function ClientDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [clientId]);
+
+  useEffect(() => {
+    if (clientId) {
+      fetchClient();
+    }
+  }, [clientId, fetchClient]);
 
   const handleStatusChange = async (newStatus: boolean) => {
     if (!client) return;
@@ -145,11 +145,12 @@ export default function ClientDetailPage() {
         {/* Alert */}
         {alert && (
           <Alert
-            type={alert.type}
-            message={alert.message}
+            variant={alert.type === 'error' ? 'error' : 'success'}
             onClose={() => setAlert(null)}
             className="mb-6"
-          />
+          >
+            {alert.message}
+          </Alert>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">

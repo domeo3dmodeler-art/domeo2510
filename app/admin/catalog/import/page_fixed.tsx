@@ -188,7 +188,7 @@ export default function CatalogImportPage() {
       // Просто устанавливаем категории без дополнительной обработки
       setCatalogCategories(categories);
       
-      console.log('📊 Категории с товарами:', categories.filter(c => c.product_count > 0).length);
+      console.log('📊 Категории с товарами:', categories.filter((c: any) => c.product_count > 0).length);
       
     } catch (error) {
       console.error('Error loading catalog categories:', error);

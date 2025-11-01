@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BaseElement } from '../types';
 import { useFilterConnection } from '../context/ConnectionsContext';
 
@@ -167,7 +167,7 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
   console.log(`PropertyFilter [${element.id}]: displaySettings.cardLayout:`, displaySettings.cardLayout);
 
   // Функция для загрузки товаров
-  const loadProducts = async (propertyName: string, propertyValue: string) => {
+  const loadProducts = useCallback(async (propertyName: string, propertyValue: string) => {
     if (!displaySettings.showProductCards) return;
     
     try {
@@ -199,9 +199,9 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
       console.error('PropertyFilter: Ошибка загрузки товаров:', error);
       setProducts([]);
     }
-  };
+  }, [displaySettings.showProductCards, displaySettings.maxProducts, element.props.categoryIds]);
 
-  const loadAllProducts = async () => {
+  const loadAllProducts = useCallback(async () => {
     console.log('🔄 PropertyFilter: loadAllProducts вызвана', {
       showProductCards: displaySettings.showProductCards,
       categoryIds: element.props.categoryIds,
@@ -252,7 +252,7 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
       console.error('🔄 PropertyFilter: Ошибка загрузки всех товаров:', error);
       setProducts([]);
     }
-  };
+  }, [displaySettings.showProductCards, displaySettings.maxProducts, element.props.categoryIds]);
 
   // Функция для загрузки значений свойства
     const loadPropertyValues = async () => {
@@ -531,7 +531,7 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
     } else {
       console.log('🔄 PropertyFilter: propertyName не определен');
     }
-  }, [element.props.propertyName, selectedValue, displaySettings.showProductCards, element.props.categoryIds]);
+  }, [element.props.propertyName, selectedValue, displaySettings.showProductCards, element.props.categoryIds, loadProducts, loadAllProducts]);
 
   // Принудительная загрузка товаров при инициализации компонента
   useEffect(() => {
@@ -551,7 +551,7 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
     }, 1000);
     
     return () => clearTimeout(timer);
-  }, []); // Запускается только один раз при монтировании
+  }, [displaySettings.showProductCards, element.props.categoryIds, loadAllProducts]); // Запускается при изменении зависимостей
 
   // Логирование состояния карточек свойств
   useEffect(() => {

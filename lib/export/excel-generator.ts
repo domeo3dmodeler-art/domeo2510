@@ -122,9 +122,11 @@ export function generateExcel(document: any): Buffer {
   return exportDocumentToExcel(document);
 }
 
-export default {
+const excelGenerator = {
   exportToExcel,
   exportToCSV,
   createFormattedExcel,
   exportDocumentToExcel
 };
+
+export default excelGenerator;

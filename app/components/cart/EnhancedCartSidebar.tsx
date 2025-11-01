@@ -46,7 +46,7 @@ export default function EnhancedCartSidebar({
     setCalculation(cartService.getCalculation());
 
     return unsubscribe;
-  }, []);
+  }, [cartService]);
 
   const handleUpdateQuantity = async (itemId: string, newQuantity: number) => {
     setIsLoading(true);

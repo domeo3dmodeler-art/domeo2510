@@ -73,7 +73,7 @@ export async function GET(
       isActive: template.is_active,
       createdAt: template.created_at,
       updatedAt: template.updated_at,
-      importHistory: template.import_history.map(history => ({
+      importHistory: template.import_history.map((history: any) => ({
         id: history.id,
         filename: history.filename,
         importedCount: history.imported_count,

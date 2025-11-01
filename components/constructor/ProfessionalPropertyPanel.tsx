@@ -85,7 +85,7 @@ const ProfessionalPropertyPanel: React.FC<ProfessionalPropertyPanelProps> = ({
         });
       }
     }
-  }, [selectedBlock?.catalogCategoryInfo]);
+  }, [selectedBlock?.catalogCategoryInfo, handleBlockUpdate, selectedBlock]);
 
   // Сохранение в историю
   const saveToHistory = useCallback((action: string, blockState: BlockSettings) => {
@@ -423,7 +423,7 @@ const ProfessionalPropertyPanel: React.FC<ProfessionalPropertyPanelProps> = ({
             <AccordionItem 
               value="display" 
               title="Отображение" 
-              icon={<Image className="w-4 h-4" />}
+              icon={<Image className="w-4 h-4" aria-label="Иконка отображения" />}
             >
               <div className="space-y-4">
                 {/* Режим отображения */}

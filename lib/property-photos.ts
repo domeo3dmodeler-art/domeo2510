@@ -117,21 +117,21 @@ export function structurePropertyPhotos(photos: PropertyPhotoInfo[]): PhotoStruc
       const filenameA = a.photoPath.split('/').pop() || '';
       const filenameB = b.photoPath.split('/').pop() || '';
       
-      if (filenameA.length !== filenameB.length) {
-        return filenameA.length - filenameB.length;
-      }
-      
-      return filenameA.localeCompare(filenameB);
-    });
+    if (filenameA.length !== filenameB.length) {
+      return filenameA.length - filenameB.length;
+    }
+    
+    return filenameA.localeCompare(filenameB);
+  });
 
-    const cover = sortedPhotos.length > 0 ? sortedPhotos[0].photoPath : null;
-    const gallery = sortedPhotos.length > 1 
-      ? sortedPhotos.slice(1).map(photo => photo.photoPath) 
-      : [];
+  const cover = sortedPhotos.length > 0 ? sortedPhotos[0].photoPath : null;
+  const gallery = sortedPhotos.length > 1 
+    ? sortedPhotos.slice(1).map(photo => photo.photoPath) 
+    : [];
 
-    return {
-      cover,
-      gallery
+  return {
+    cover,
+    gallery
     };
   }
 

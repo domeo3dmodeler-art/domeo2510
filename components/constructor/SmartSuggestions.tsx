@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Card } from '@/components/ui';
 import { useConstructor } from './ConstructorContext';
 import { Sparkles, Lightbulb, Target, Zap } from 'lucide-react';
@@ -26,13 +26,7 @@ export default function SmartSuggestions({ categoryId, categoryName }: SmartSugg
   const [loading, setLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
 
-  useEffect(() => {
-    if (categoryId) {
-      generateSuggestions();
-    }
-  }, [categoryId, elements]);
-
-  const generateSuggestions = async () => {
+  const generateSuggestions = useCallback(async () => {
     setLoading(true);
     try {
       // Симуляция AI анализа категории и текущих элементов
@@ -43,7 +37,7 @@ export default function SmartSuggestions({ categoryId, categoryName }: SmartSugg
     } finally {
       setLoading(false);
     }
-  };
+  }, [categoryId, categoryName, elements]);
 
   const analyzeCategoryAndGenerateSuggestions = async (
     categoryId?: string, 

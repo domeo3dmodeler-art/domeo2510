@@ -51,7 +51,7 @@ export const ProductDisplay: React.FC<ProductDisplayProps> = ({
       // Загружаем товары по умолчанию, если категория не выбрана
       loadProducts(undefined, itemsPerPage);
     }
-  }, [categoryId, itemsPerPage]);
+  }, [categoryId, itemsPerPage, loadProducts]);
 
   // Фильтрация товаров по категории
   React.useEffect(() => {
@@ -61,7 +61,7 @@ export const ProductDisplay: React.FC<ProductDisplayProps> = ({
     } else {
       setDisplayProducts(products.slice(0, itemsPerPage));
     }
-  }, [products, categoryId, itemsPerPage]);
+  }, [products, categoryId, itemsPerPage, getProductsByCategory]);
 
   // Получение CSS классов для изображений
   const getImageClasses = () => {

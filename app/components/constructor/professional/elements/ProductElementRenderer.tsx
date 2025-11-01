@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Package, Grid, List, Search, Filter, ShoppingCart, 
   Heart, Eye, Star, Calculator, Settings, TrendingUp,
@@ -65,14 +65,7 @@ export const ProductElementRenderer: React.FC<ProductElementRendererProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>(element.props.searchQuery || '');
   const [displayMode, setDisplayMode] = useState<'grid' | 'list' | 'carousel'>(element.props.displayMode || 'grid');
 
-  useEffect(() => {
-    loadCategories();
-    if (selectedCategory) {
-      loadProducts();
-    }
-  }, [selectedCategory, searchQuery]);
-
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
       const response = await fetch('/api/catalog/categories');
       const data = await response.json();
@@ -80,9 +73,9 @@ export const ProductElementRenderer: React.FC<ProductElementRendererProps> = ({
     } catch (error) {
       console.error('Error loading categories:', error);
     }
-  };
+  }, []);
 
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     if (!selectedCategory) return;
     
     setLoading(true);
@@ -106,7 +99,14 @@ export const ProductElementRenderer: React.FC<ProductElementRendererProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedCategory, searchQuery, element.props]);
+
+  useEffect(() => {
+    loadCategories();
+    if (selectedCategory) {
+      loadProducts();
+    }
+  }, [selectedCategory, searchQuery, loadCategories, loadProducts]);
 
   const handleCategoryChange = (categoryId: string) => {
     setSelectedCategory(categoryId);

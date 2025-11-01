@@ -120,7 +120,7 @@ export default function DoorsAdminPage() {
           <Button variant="success" onClick={() => window.location.href = '/admin/doors/options/new'}>
             Добавить опцию
           </Button>
-          <Button variant="warning" onClick={() => window.location.href = '/admin/doors/constraints/new'}>
+          <Button variant="outline" onClick={() => window.location.href = '/admin/doors/constraints/new'}>
             Добавить ограничение
           </Button>
           <Button variant="primary" onClick={() => window.location.href = '/admin/import'}>

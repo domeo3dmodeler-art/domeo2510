@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Badge, Input, Dialog, DialogContent, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui';
 import { Plus, Search, Edit, Trash2, CheckCircle, XCircle, AlertCircle, FileText, Download, ChevronRight, ChevronDown, Folder, FolderOpen } from 'lucide-react';
 import { ProductProperty, PropertyType, CreateProductPropertyDto } from '@/lib/types/catalog';
@@ -18,13 +18,65 @@ export default function PropertiesPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [propertyToEdit, setPropertyToEdit] = useState<ProductProperty | null>(null);
 
-  useEffect(() => {
-    loadData();
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [propertiesRes, categoriesRes] = await Promise.all([
+        fetch('/api/catalog/properties'),
+        fetch('/api/catalog/categories-flat')
+      ]);
+
+      const propertiesData = await propertiesRes.json();
+      const categoriesData = await categoriesRes.json();
+
+      if (propertiesData.success) {
+        setProperties(propertiesData.properties || []);
+      }
+
+      if (categoriesData.success) {
+        setCategories(categoriesData.categories || []);
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    loadProperties();
+    loadData();
+  }, [loadData]);
+
+  const loadProperties = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (selectedCategory) {
+        params.append('categoryId', selectedCategory);
+      }
+      if (showAll) {
+        params.append('showAll', 'true');
+      }
+
+      const url = `/api/catalog/properties?${params.toString()}`;
+      console.log('Loading properties from:', url);
+      
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Ошибка загрузки свойств');
+      }
+      const data = await response.json();
+      setProperties(data.properties || []);
+    } catch (error) {
+      console.error('Error loading properties:', error);
+    } finally {
+      setLoading(false);
+    }
   }, [selectedCategory, showAll]);
+
+  useEffect(() => {
+    loadProperties();
+  }, [loadProperties]);
 
   // Закрытие дерева категорий при клике вне его
   useEffect(() => {
@@ -40,31 +92,6 @@ export default function PropertiesPage() {
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showCategoryTree]);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [propertiesRes, categoriesRes] = await Promise.all([
-        fetch('/api/catalog/properties'),
-        fetch('/api/catalog/categories-flat')
-      ]);
-
-      const propertiesData = await propertiesRes.json();
-      const categoriesData = await categoriesRes.json();
-
-      if (propertiesData.success) {
-        setProperties(propertiesData.properties || []);
-      }
-      
-      if (categoriesData.categories) {
-        setCategories(categoriesData.categories || []);
-      }
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const toggleCategoryExpanded = (categoryId: string) => {
     setExpandedCategories(prev => {
@@ -158,37 +185,6 @@ export default function PropertiesPage() {
     );
   };
 
-  const loadProperties = async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (selectedCategory) {
-        params.append('categoryId', selectedCategory);
-      }
-      if (showAll) {
-        params.append('showAll', 'true');
-      }
-
-      const url = `/api/catalog/properties?${params.toString()}`;
-      console.log('Loading properties from:', url);
-      
-      const response = await fetch(url);
-      const data = await response.json();
-      
-      console.log('Properties response:', data);
-      
-      if (data.success) {
-        console.log('Setting properties:', data.properties);
-        setProperties(data.properties || []);
-      } else {
-        console.error('Error loading properties:', data.error);
-      }
-    } catch (error) {
-      console.error('Error loading properties:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCreateProperty = async (data: CreateProductPropertyDto) => {
     try {

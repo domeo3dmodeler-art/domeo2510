@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Search, Plus, ShoppingCart, Filter, X } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { CartService } from '../../lib/cart/cart-service';
@@ -35,18 +35,7 @@ export default function ProductSelector({ onProductAdded, className = "" }: Prod
 
   const cartService = CartService.getInstance();
 
-  useEffect(() => {
-    loadCategories();
-    loadProducts();
-  }, []);
-
-  useEffect(() => {
-    if (selectedCategory) {
-      loadProducts(selectedCategory);
-    }
-  }, [selectedCategory]);
-
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
       const response = await fetch('/api/catalog/categories');
       if (response.ok) {
@@ -56,9 +45,9 @@ export default function ProductSelector({ onProductAdded, className = "" }: Prod
     } catch (error) {
       console.error('Error loading categories:', error);
     }
-  };
+  }, []);
 
-  const loadProducts = async (categoryId?: string) => {
+  const loadProducts = useCallback(async (categoryId?: string) => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
@@ -76,7 +65,18 @@ export default function ProductSelector({ onProductAdded, className = "" }: Prod
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [searchTerm]);
+
+  useEffect(() => {
+    loadCategories();
+    loadProducts();
+  }, [loadCategories, loadProducts]);
+
+  useEffect(() => {
+    if (selectedCategory) {
+      loadProducts(selectedCategory);
+    }
+  }, [selectedCategory, loadProducts]);
 
   const handleSearch = () => {
     loadProducts(selectedCategory);

@@ -152,7 +152,7 @@ export default function CatalogTreeImportPage() {
       case 'partial':
         return <Badge variant="default" className="bg-yellow-100 text-yellow-800">Частично</Badge>;
       case 'error':
-        return <Badge variant="destructive">Ошибка</Badge>;
+        return <Badge variant="error">Ошибка</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }

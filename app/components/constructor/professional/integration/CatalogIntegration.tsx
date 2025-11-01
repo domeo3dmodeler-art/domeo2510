@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Package, Search, Filter, Settings, Eye, 
   ChevronDown, ChevronRight, Check, X,
@@ -78,7 +78,7 @@ export const CatalogIntegration: React.FC<CatalogIntegrationProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
 
   // Загрузка дерева каталога
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -103,10 +103,10 @@ export const CatalogIntegration: React.FC<CatalogIntegrationProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Загрузка товаров категории
-  const loadCategoryProducts = async (categoryId: string) => {
+  const loadCategoryProducts = useCallback(async (categoryId: string) => {
     try {
       setLoading(true);
       setError(null);
@@ -134,10 +134,10 @@ export const CatalogIntegration: React.FC<CatalogIntegrationProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [categories, onDataLoad]);
 
   // Поиск категорий
-  const searchCategories = async (query: string) => {
+  const searchCategories = useCallback(async (query: string) => {
     if (!query.trim()) {
       loadCategories();
       return;
@@ -157,7 +157,7 @@ export const CatalogIntegration: React.FC<CatalogIntegrationProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadCategories]);
 
   // Обработка выбора категории
   const handleCategorySelect = (category: CatalogCategory) => {
@@ -254,7 +254,7 @@ export const CatalogIntegration: React.FC<CatalogIntegrationProps> = ({
 
   useEffect(() => {
     loadCategories();
-  }, []);
+  }, [loadCategories]);
 
   useEffect(() => {
     if (searchQuery) {
@@ -265,7 +265,7 @@ export const CatalogIntegration: React.FC<CatalogIntegrationProps> = ({
     } else {
       loadCategories();
     }
-  }, [searchQuery]);
+  }, [searchQuery, searchCategories, loadCategories]);
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm">

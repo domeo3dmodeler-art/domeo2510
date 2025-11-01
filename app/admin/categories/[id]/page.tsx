@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Button, Card, Input, Select, Checkbox, Alert, LoadingSpinner } from '@/components/ui';
@@ -58,14 +58,7 @@ export default function CategoryEditorPage() {
   });
   const [importReport, setImportReport] = useState<any>(null);
 
-  useEffect(() => {
-    if (categoryId) {
-      fetchCategory();
-      fetchPhotos();
-    }
-  }, [categoryId]);
-
-  const fetchCategory = async () => {
+  const fetchCategory = useCallback(async () => {
     try {
       const response = await fetch(`/api/categories/${categoryId}`);
       const data = await response.json();
@@ -91,9 +84,9 @@ export default function CategoryEditorPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [categoryId]);
 
-  const fetchPhotos = async () => {
+  const fetchPhotos = useCallback(async () => {
     try {
       const response = await fetch(`/api/categories/${categoryId}/photos`);
       const data = await response.json();
@@ -101,7 +94,14 @@ export default function CategoryEditorPage() {
     } catch (error) {
       console.error('Error fetching photos:', error);
     }
-  };
+  }, [categoryId]);
+
+  useEffect(() => {
+    if (categoryId) {
+      fetchCategory();
+      fetchPhotos();
+    }
+  }, [categoryId, fetchCategory, fetchPhotos]);
 
   const handleSave = async () => {
     setSaving(true);

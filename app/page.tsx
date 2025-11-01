@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Card, Badge } from '../components/ui';
 import { formatUserName, getRoleDisplayName, User } from '../lib/utils/user-display';
@@ -14,7 +14,7 @@ export default function Home() {
   const router = useRouter();
 
   // Динамические фоны для разных категорий товаров
-  const backgrounds = [
+  const backgrounds = useMemo(() => [
     {
       category: 'doors',
       gradient: 'from-gray-50 to-gray-100',
@@ -43,7 +43,7 @@ export default function Home() {
       title: 'Плитка и керамика',
       description: 'Керамическая плитка, мозаика'
     }
-  ];
+  ], []);
 
   useEffect(() => {
     setIsLoaded(true);
@@ -73,7 +73,7 @@ export default function Home() {
       setCurrentSlide((prev) => (prev + 1) % backgrounds.length);
     }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [backgrounds]);
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
