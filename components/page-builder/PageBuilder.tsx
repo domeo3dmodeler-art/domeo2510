@@ -938,7 +938,7 @@ export function PageBuilder() {
 
   // Сохранение страницы
   const handleSavePage = useCallback(async (title: string, description: string) => {
-    const currentPage = currentDocument.pages.find(p => p.id === selectedPageId);
+    const currentPage = currentDocument.pages.find(page => page.id === selectedPageId);
     if (!currentPage) throw new Error('Страница не найдена');
 
     const response = await fetch('/api/pages/simple-create', {
