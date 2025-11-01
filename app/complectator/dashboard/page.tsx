@@ -222,14 +222,14 @@ export default function ComplectatorDashboard() {
   }, [fetchCommentsCount]);
 
   // Функция для проверки терминального статуса документа (объявляем перед использованием в useMemo)
-  const isTerminalDoc = (doc?: { type: 'quote'|'invoice'; status: string }) => {
+  const isTerminalDoc = useCallback((doc?: { type: 'quote'|'invoice'; status: string }) => {
     if (!doc) return false;
     if (doc.type === 'quote') {
       return doc.status === 'Согласовано' || doc.status === 'Отказ';
     }
     // invoice
     return doc.status === 'Исполнен' || doc.status === 'Отменен';
-  };
+  }, []);
 
   // Оптимизированная фильтрация клиентов с мемоизацией
   const filteredClients = useMemo(() => {
