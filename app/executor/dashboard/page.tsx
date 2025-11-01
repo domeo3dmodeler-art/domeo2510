@@ -234,15 +234,15 @@ export default function ExecutorDashboard() {
     await Promise.all(promises);
   }, [fetchCommentsCount]);
 
-  // Функция для определения терминального статуса документа
-  const isTerminalDoc = (doc?: { type: 'invoice'|'supplier_order'; status: string }) => {
+  // Функция для определения терминального статуса документа (объявляем перед использованием в useMemo)
+  const isTerminalDoc = useCallback((doc?: { type: 'invoice'|'supplier_order'; status: string }) => {
     if (!doc) return false;
     if (doc.type === 'invoice') {
       return doc.status === 'Исполнен' || doc.status === 'Отменен';
     }
     // supplier_order
     return doc.status === 'Исполнен';
-  };
+  }, []);
 
   // Оптимизированная фильтрация клиентов с мемоизацией
   const filteredClients = useMemo(() => {
@@ -259,7 +259,7 @@ export default function ExecutorDashboard() {
         const tb = b.lastActivityAt ? new Date(b.lastActivityAt).getTime() : 0;
         return tb - ta;
       });
-  }, [clients, search, showInWorkOnly]);
+  }, [clients, search, showInWorkOnly, isTerminalDoc]);
 
   // Маппинг статусов Счетов из API в русские
   const mapInvoiceStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен' => {
