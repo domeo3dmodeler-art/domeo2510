@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-
-// Отключаем статическую генерацию (динамический контент)
+// Отключаем статическую генерацию (динамический контент) - должно быть до импортов
 export const dynamic = 'force-dynamic';
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button, Card } from '../../../components/ui';
 import StatCard from '../../../components/ui/StatCard';
 import { PhoneInput } from '@/components/ui/PhoneInput';
