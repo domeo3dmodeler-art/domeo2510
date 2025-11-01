@@ -221,6 +221,16 @@ export default function ComplectatorDashboard() {
     await Promise.all(promises);
   }, [fetchCommentsCount]);
 
+  // Функция для проверки терминального статуса документа (объявляем перед использованием в useMemo)
+  const isTerminalDoc = (doc?: { type: 'quote'|'invoice'; status: string }) => {
+    if (!doc) return false;
+    if (doc.type === 'quote') {
+      return doc.status === 'Согласовано' || doc.status === 'Отказ';
+    }
+    // invoice
+    return doc.status === 'Исполнен' || doc.status === 'Отменен';
+  };
+
   // Оптимизированная фильтрация клиентов с мемоизацией
   const filteredClients = useMemo(() => {
     return clients
@@ -236,7 +246,7 @@ export default function ComplectatorDashboard() {
         const tb = b.lastActivityAt ? new Date(b.lastActivityAt).getTime() : 0;
         return tb - ta;
       });
-  }, [clients, search, showInWorkOnly]);
+  }, [clients, search, showInWorkOnly, isTerminalDoc]);
 
   // Маппинг статусов КП из API в русские
   const mapQuoteStatus = (apiStatus: string): 'Черновик'|'Отправлено'|'Согласовано'|'Отказ' => {
@@ -320,14 +330,6 @@ export default function ComplectatorDashboard() {
     }
   };
 
-  const isTerminalDoc = (doc?: { type: 'quote'|'invoice'; status: string }) => {
-    if (!doc) return false;
-    if (doc.type === 'quote') {
-      return doc.status === 'Согласовано' || doc.status === 'Отказ';
-    }
-    // invoice
-    return doc.status === 'Исполнен' || doc.status === 'Отменен';
-  };
 
   // Создание нового клиента
   const createClient = async (clientData: any) => {
