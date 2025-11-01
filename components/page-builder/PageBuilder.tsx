@@ -238,9 +238,11 @@ export function PageBuilder() {
       updatedAt: new Date().toISOString()
     };
 
+    const updatedPage = updatedDocument.pages.find(page => page.id === selectedPageId);
+    const updatedElement = updatedPage?.elements.find(el => el.id === elementId);
     console.log('🚨 PageBuilder: Документ обновлен!', {
       elementId,
-      updatedElement: updatedDocument.pages.find(p => p.id === selectedPageId)?.elements.find(e => e.id === elementId)
+      updatedElement: updatedElement ? { id: updatedElement.id, type: updatedElement.type } : null
     });
 
     setCurrentDocument(updatedDocument);
@@ -1023,7 +1025,13 @@ export function PageBuilder() {
           padding: { top: 0, right: 0, bottom: 0, left: 0 },
           margin: { top: 0, right: 0, bottom: 0, left: 0 }
         },
-        theme: currentDocument.pages[0].theme
+        theme: currentDocument.pages && currentDocument.pages.length > 0 ? currentDocument.pages[0].theme : {
+          colors: { primary: '#3b82f6', secondary: '#64748b', accent: '#f59e0b', background: '#ffffff', text: '#1f2937' },
+          typography: { fontFamily: 'Inter, sans-serif', fontSize: { small: '14px', medium: '16px', large: '18px', xlarge: '24px' }, lineHeight: { tight: 1.2, normal: 1.5, relaxed: 1.8 } },
+          spacing: { small: '8px', medium: '16px', large: '24px' },
+          borderRadius: { small: '4px', medium: '8px', large: '12px' },
+          shadows: ['0 1px 3px rgba(0, 0, 0, 0.1)', '0 4px 6px rgba(0, 0, 0, 0.1)', '0 10px 15px rgba(0, 0, 0, 0.1)']
+        }
       };
 
       setCurrentDocument(prev => ({
