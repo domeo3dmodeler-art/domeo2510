@@ -2,6 +2,7 @@
 
 // Отключаем статическую генерацию (динамический контент) - должно быть до импортов
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button, Card } from '../../../components/ui';
@@ -237,20 +238,20 @@ export default function ExecutorDashboard() {
     await Promise.all(promises);
   }, [fetchCommentsCount]);
 
-  // Функция для определения терминального статуса документа (объявляем перед использованием в useMemo)
-  const isTerminalDoc = useCallback((doc?: { type: 'invoice'|'supplier_order'; status: string }) => {
+  // Функция для определения терминального статуса документа (вне useMemo для избежания проблем с инициализацией)
+  const isTerminalDocHelper = (doc?: { type: 'invoice'|'supplier_order'; status: string }) => {
     if (!doc) return false;
     if (doc.type === 'invoice') {
       return doc.status === 'Исполнен' || doc.status === 'Отменен';
     }
     // supplier_order
     return doc.status === 'Исполнен';
-  }, []);
+  };
 
   // Оптимизированная фильтрация клиентов с мемоизацией
   const filteredClients = useMemo(() => {
     return clients
-      .filter(c => !showInWorkOnly || !isTerminalDoc(c.lastDoc))
+      .filter(c => !showInWorkOnly || !isTerminalDocHelper(c.lastDoc))
       .filter(c => {
         const q = search.trim().toLowerCase();
         if (!q) return true;
@@ -262,7 +263,7 @@ export default function ExecutorDashboard() {
         const tb = b.lastActivityAt ? new Date(b.lastActivityAt).getTime() : 0;
         return tb - ta;
       });
-  }, [clients, search, showInWorkOnly, isTerminalDoc]);
+  }, [clients, search, showInWorkOnly]);
 
   // Маппинг статусов Счетов из API в русские
   const mapInvoiceStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен' => {

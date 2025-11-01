@@ -2,6 +2,7 @@
 
 // Отключаем статическую генерацию (динамический контент) - должно быть до импортов
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button, Card } from '../../../components/ui';
@@ -224,20 +225,20 @@ export default function ComplectatorDashboard() {
     await Promise.all(promises);
   }, [fetchCommentsCount]);
 
-  // Функция для проверки терминального статуса документа (объявляем перед использованием в useMemo)
-  const isTerminalDoc = useCallback((doc?: { type: 'quote'|'invoice'; status: string }) => {
+  // Функция для проверки терминального статуса документа (вне компонента для избежания проблем с инициализацией)
+  const isTerminalDocHelper = (doc?: { type: 'quote'|'invoice'; status: string }) => {
     if (!doc) return false;
     if (doc.type === 'quote') {
       return doc.status === 'Согласовано' || doc.status === 'Отказ';
     }
     // invoice
     return doc.status === 'Исполнен' || doc.status === 'Отменен';
-  }, []);
+  };
 
   // Оптимизированная фильтрация клиентов с мемоизацией
   const filteredClients = useMemo(() => {
     return clients
-      .filter(c => !showInWorkOnly || !isTerminalDoc(c.lastDoc))
+      .filter(c => !showInWorkOnly || !isTerminalDocHelper(c.lastDoc))
       .filter(c => {
         const q = search.trim().toLowerCase();
         if (!q) return true;
@@ -249,7 +250,7 @@ export default function ComplectatorDashboard() {
         const tb = b.lastActivityAt ? new Date(b.lastActivityAt).getTime() : 0;
         return tb - ta;
       });
-  }, [clients, search, showInWorkOnly, isTerminalDoc]);
+  }, [clients, search, showInWorkOnly]);
 
   // Маппинг статусов КП из API в русские
   const mapQuoteStatus = (apiStatus: string): 'Черновик'|'Отправлено'|'Согласовано'|'Отказ' => {
