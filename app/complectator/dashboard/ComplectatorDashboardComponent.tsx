@@ -194,7 +194,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         return blockedStatuses.includes(data.status);
       }
       return false;
-    } catch (error) {
+    } catch (statusCheckError) {
       console.error('Ошибка проверки блокировки статуса:', statusCheckError);
       return false;
     }
@@ -230,8 +230,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       // Имитация загрузки статистики
       await new Promise(resolve => setTimeout(resolve, 1000));
       setStats({ totalOrders: 0, pendingOrders: 0, completedOrders: 0, totalRevenue: 0 });
-    } catch (error) {
-      console.error('Ошибка загрузки статистики:', error);
+    } catch (statsLoadError) {
+      console.error('Ошибка загрузки статистики:', statsLoadError);
     } finally {
       setLoading(false);
     }
@@ -308,8 +308,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       } else {
         console.error('Failed to fetch client documents');
       }
-    } catch (error) {
-      console.error('Error fetching client documents:', error);
+    } catch (documentsFetchError) {
+      console.error('Error fetching client documents:', documentsFetchError);
     }
   }, [fetchAllCommentsCount, loadBlockedStatuses]);
 
@@ -324,8 +324,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
           [documentId]: data.count
         }));
       }
-    } catch (error) {
-      console.error('Error fetching comments count:', error);
+    } catch (commentsCountError) {
+      console.error('Error fetching comments count:', commentsCountError);
     }
   }, []);
 
@@ -439,8 +439,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       } else {
         throw new Error('Failed to create client');
       }
-    } catch (error) {
-      console.error('Error creating client:', error);
+    } catch (createClientError) {
+      console.error('Error creating client:', createClientError);
       toast.error('Ошибка при создании клиента');
       throw error;
     }
@@ -476,8 +476,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         x: rect.left,
         y: rect.bottom + 4
       });
-    } catch (error) {
-      console.error('❌ Error getting bounding rect:', error);
+    } catch (boundingRectError) {
+      console.error('❌ Error getting bounding rect:', boundingRectError);
     }
   };
 
@@ -549,10 +549,10 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         console.error('❌ Response headers:', Object.fromEntries(response.headers.entries()));
         throw new Error(errorData.error || 'Ошибка при изменении статуса КП');
       }
-    } catch (error) {
-      console.error('❌ Error updating quote status:', error);
-      toast.error(`Ошибка при изменении статуса КП: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
-      throw error;
+    } catch (quoteStatusUpdateError) {
+      console.error('❌ Error updating quote status:', quoteStatusUpdateError);
+      toast.error(`Ошибка при изменении статуса КП: ${quoteStatusUpdateError instanceof Error ? quoteStatusUpdateError.message : 'Неизвестная ошибка'}`);
+      throw quoteStatusUpdateError;
     }
   };
 
@@ -628,10 +628,10 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         console.error('❌ Response headers:', Object.fromEntries(response.headers.entries()));
         throw new Error(errorData.error || 'Ошибка при изменении статуса счета');
       }
-    } catch (invoiceStatusError) {
-      console.error('❌ Error updating invoice status:', error);
-      toast.error(`Ошибка при изменении статуса счета: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
-      throw error;
+    } catch (invoiceStatusUpdateError) {
+      console.error('❌ Error updating invoice status:', invoiceStatusUpdateError);
+      toast.error(`Ошибка при изменении статуса счета: ${invoiceStatusUpdateError instanceof Error ? invoiceStatusUpdateError.message : 'Неизвестная ошибка'}`);
+      throw invoiceStatusUpdateError;
     }
   };
 
@@ -706,8 +706,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         const errorResponse = await response.json();
         toast.error(`Ошибка: ${errorResponse.error}`);
       }
-    } catch (quoteError) {
-      console.error('Error creating invoice from quote:', error);
+    } catch (createInvoiceFromQuoteError) {
+      console.error('Error creating invoice from quote:', createInvoiceFromQuoteError);
       toast.error('Ошибка при создании счета');
     }
   };
@@ -1375,8 +1375,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                   }
                   try {
                     await createClient(newClientData);
-                  } catch (error) {
-                    console.error('Error creating client:', error);
+                  } catch (createClientInFormError) {
+                    console.error('Error creating client:', createClientInFormError);
                   }
                 }}
                 className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
@@ -1517,8 +1517,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
               await deleteInvoice(deleteModal.id);
             }
             console.log('✅ Удаление завершено, закрываем модальное окно');
-          } catch (error) {
-            console.error('❌ Ошибка в модальном окне:', error);
+          } catch (modalError) {
+            console.error('❌ Ошибка в модальном окне:', modalError);
             throw error; // Перебрасываем ошибку, чтобы модальное окно не закрылось
           }
         }}
