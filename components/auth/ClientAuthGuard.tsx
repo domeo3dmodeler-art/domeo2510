@@ -67,9 +67,11 @@ export function ClientAuthGuard({ children }: ClientAuthGuardProps) {
 
   // Если не авторизован, не показываем ничего (редирект уже произошел)
   if (!isAuthenticated) {
+    console.log('❌ ClientAuthGuard - рендер: не авторизован');
     return null;
   }
 
   // Если авторизован, показываем содержимое
+  console.log('✅ ClientAuthGuard - рендер: авторизован, показываем содержимое');
   return <>{children}</>;
 }
