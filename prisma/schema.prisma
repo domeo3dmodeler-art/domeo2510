@@ -30,17 +30,18 @@ model User {
 }
 
 model Client {
-  id            String   @id @default(cuid())
-  firstName     String
-  lastName      String
-  middleName    String?
-  phone         String
-  address       String
-  objectId      String   // ID объекта
-  customFields  String   @default("{}") // JSON с произвольными полями
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                    String   @id @default(cuid())
+  firstName             String
+  lastName              String
+  middleName            String?
+  phone                 String
+  address               String
+  objectId              String   // ID объекта
+  compilationLeadNumber String?  // Номер лида комплектации
+  customFields          String   @default("{}") // JSON с произвольными полями
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
   
   // Связи с документами
   quotes        Quote[]

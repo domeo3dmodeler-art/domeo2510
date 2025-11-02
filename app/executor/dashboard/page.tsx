@@ -122,7 +122,8 @@ export default function ExecutorDashboard() {
     middleName: '',
     phone: '',
     address: '',
-    objectId: ''
+    objectId: '',
+    compilationLeadNumber: ''
   });
   const [statusDropdown, setStatusDropdown] = useState<{type: 'invoice'|'supplier_order', id: string, x: number, y: number} | null>(null);
   const [showInvoiceActions, setShowInvoiceActions] = useState<string | null>(null);
@@ -1235,6 +1236,13 @@ export default function ExecutorDashboard() {
                 value={newClientData.objectId}
                 onChange={(e) => setNewClientData(prev => ({ ...prev, objectId: e.target.value }))}
                 className="col-span-3 px-3 py-2 border border-gray-300 rounded"
+              />
+              <input
+                type="text"
+                placeholder="Номер лида комплектации"
+                value={newClientData.compilationLeadNumber}
+                onChange={(e) => setNewClientData(prev => ({ ...prev, compilationLeadNumber: e.target.value }))}
+                className="col-span-2 px-3 py-2 border border-gray-300 rounded"
               />
               <input
                 type="text"

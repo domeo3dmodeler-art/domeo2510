@@ -22,6 +22,7 @@ export async function GET(
         phone: true,
         address: true,
         objectId: true,
+        compilationLeadNumber: true,
         customFields: true,
         isActive: true,
         createdAt: true,
@@ -181,7 +182,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const data = await request.json();
-    const { firstName, lastName, middleName, phone, address, objectId, customFields, isActive } = data;
+    const { firstName, lastName, middleName, phone, address, objectId, compilationLeadNumber, customFields, isActive } = data;
 
     // Получаем пользователя из токена
     const token = request.cookies.get('auth-token')?.value;
@@ -220,6 +221,7 @@ export async function PUT(
         phone: normalizedPhone,
         address,
         objectId,
+        compilationLeadNumber: compilationLeadNumber || null,
         customFields: JSON.stringify(customFields || {}),
         isActive: isActive !== undefined ? isActive : true
       }

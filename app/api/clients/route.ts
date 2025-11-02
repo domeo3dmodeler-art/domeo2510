@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
         phone: true,
         address: true,
         objectId: true,
+        compilationLeadNumber: true,
         createdAt: true
       },
       orderBy: {
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { firstName, lastName, middleName, phone, address, objectId } = body;
+    const { firstName, lastName, middleName, phone, address, objectId, compilationLeadNumber } = body;
 
     if (!firstName || !lastName || !phone) {
       return NextResponse.json({ error: 'Обязательные поля: имя, фамилия, телефон' }, { status: 400 });
@@ -61,7 +62,8 @@ export async function POST(request: NextRequest) {
         middleName: middleName || null,
         phone: normalizedPhone,
         address: address || '',
-        objectId: objectId || `object-${Date.now()}`
+        objectId: objectId || `object-${Date.now()}`,
+        compilationLeadNumber: compilationLeadNumber || null
       },
       select: {
         id: true,
@@ -71,6 +73,7 @@ export async function POST(request: NextRequest) {
         phone: true,
         address: true,
         objectId: true,
+        compilationLeadNumber: true,
         createdAt: true
       }
     });

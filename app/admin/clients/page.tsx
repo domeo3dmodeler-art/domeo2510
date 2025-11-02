@@ -15,6 +15,7 @@ interface Client {
   phone: string;
   address: string;
   objectId: string;
+  compilationLeadNumber?: string;
   customFields: Record<string, any>;
   isActive: boolean;
   createdAt: string;
@@ -53,6 +54,7 @@ export default function ClientsPage() {
     phone: '',
     address: '',
     objectId: '',
+    compilationLeadNumber: '',
     customFields: {} as Record<string, any>
   });
 
@@ -182,6 +184,7 @@ export default function ClientsPage() {
       phone: '',
       address: '',
       objectId: '',
+      compilationLeadNumber: '',
       customFields: {}
     });
   };
@@ -194,6 +197,7 @@ export default function ClientsPage() {
       phone: client.phone,
       address: client.address,
       objectId: client.objectId,
+      compilationLeadNumber: (client as any).compilationLeadNumber || '',
       customFields: client.customFields
     });
     setEditingClient(client);
@@ -444,6 +448,17 @@ export default function ClientsPage() {
                 value={formData.objectId}
                 onChange={(e) => setFormData(prev => ({ ...prev, objectId: e.target.value }))}
                 placeholder="OBJ-001"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Номер лида комплектации
+              </label>
+              <Input
+                value={formData.compilationLeadNumber}
+                onChange={(e) => setFormData(prev => ({ ...prev, compilationLeadNumber: e.target.value }))}
+                placeholder="Номер лида комплектации"
               />
             </div>
 
