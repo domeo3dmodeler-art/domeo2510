@@ -3,8 +3,7 @@
 # Использование: .\scripts\deploy-fixes-to-staging.ps1
 
 param(
-    [switch]$SkipBackup = $false,
-    [string]$CommitMessage = ""
+    [switch]$SkipBackup = $false
 )
 
 $ErrorActionPreference = "Stop"
@@ -43,7 +42,8 @@ Write-Host ""
 
 # Проверка текущего состояния
 Write-Host "📊 Проверка текущего состояния..." -ForegroundColor Yellow
-$healthCheck = ssh -i $SSH_KEY "$STAGING_USER@$STAGING_HOST" "curl -s http://localhost:3001/api/health 2>&1 | head -1"
+$healthCheckCmd = "curl -s http://localhost:3001/api/health 2>&1 | head -1"
+$healthCheck = ssh -i $SSH_KEY "$STAGING_USER@$STAGING_HOST" $healthCheckCmd
 if ($healthCheck -match "200|204|healthy") {
     Write-Host "✅ Health check: OK" -ForegroundColor Green
 } else {
@@ -54,89 +54,64 @@ Write-Host ""
 # Создание бэкапа (если не пропущен)
 if (-not $SkipBackup) {
     Write-Host "💾 Создание бэкапа..." -ForegroundColor Yellow
-    ssh -i $SSH_KEY "$STAGING_USER@$STAGING_HOST" @"
-        cd $STAGING_PATH
-        mkdir -p $BACKUP_DIR
-        
-        # Бэкап БД
-        echo 'Создание бэкапа БД...'
-        docker exec -e PGPASSWORD=staging_password domeo-staging-postgres pg_dump -U staging_user -d domeo_staging > $BACKUP_DIR/database_backup.sql 2>&1
-        
-        # Бэкап кода (git)
-        echo 'Создание бэкапа кода...'
-        git archive --format=tar.gz HEAD > $BACKUP_DIR/code_backup.tar.gz 2>&1 || true
-        
-        echo 'Бэкап создан в: $BACKUP_DIR'
-    "@
+    $backupCmd1 = "bash -c 'cd $STAGING_PATH ; mkdir -p $BACKUP_DIR'"
+    ssh -i $SSH_KEY "$STAGING_USER@$STAGING_HOST" $backupCmd1 | Out-Null
+    $backupCmd2 = "bash -c 'cd $STAGING_PATH ; docker exec -e PGPASSWORD=staging_password domeo-staging-postgres pg_dump -U staging_user -d domeo_staging > $BACKUP_DIR/database_backup.sql 2>&1'"
+    ssh -i $SSH_KEY "$STAGING_USER@$STAGING_HOST" $backupCmd2 | Out-Null
+    $backupCmd3 = "bash -c 'cd $STAGING_PATH ; git archive --format=tar.gz HEAD > $BACKUP_DIR/code_backup.tar.gz 2>&1'"
+    ssh -i $SSH_KEY "$STAGING_USER@$STAGING_HOST" $backupCmd3 | Out-Null
     Write-Host "✅ Бэкап создан в $BACKUP_DIR" -ForegroundColor Green
     Write-Host ""
 }
-
-# Коммит изменений (если есть)
-Write-Host "📝 Подготовка изменений..." -ForegroundColor Yellow
-$gitStatus = git status --short
-$modifiedFiles = ($gitStatus | Measure-Object -Line).Lines
-
-if ($modifiedFiles -gt 0) {
-    Write-Host "   Найдено изменений: $modifiedFiles" -ForegroundColor Gray
-    
-    if ([string]::IsNullOrWhiteSpace($CommitMessage)) {
-        $CommitMessage = "fix: apply ESLint fixes and improvements"
-    }
-    
-    Write-Host "   Коммитим изменения: $CommitMessage" -ForegroundColor Gray
-    git add .
-    git commit -m $CommitMessage
-    
-    Write-Host "   Отправляем в репозиторий..." -ForegroundColor Gray
-    $currentBranch = git branch --show-current
-    git push origin $currentBranch
-    
-    Write-Host "✅ Изменения закоммичены и отправлены" -ForegroundColor Green
-} else {
-    Write-Host "   Нет незакоммиченных изменений" -ForegroundColor Gray
-}
-Write-Host ""
 
 # Деплой на тестовую ВМ
 Write-Host "🚀 Деплой на тестовую ВМ..." -ForegroundColor Yellow
 $currentBranch = git branch --show-current
 
-ssh -i $SSH_KEY "$STAGING_USER@$STAGING_HOST" @"
-    set -e
-    cd $STAGING_PATH
-    
-    echo '📥 Получаем последние изменения из git...'
-    git fetch origin
-    git pull origin $currentBranch || git pull origin develop || git pull origin main
-    
-    echo '🔨 Пересобираем образ приложения...'
-    docker compose build --no-cache app 2>&1 | tail -10
-    
-    echo '🔄 Перезапускаем сервисы...'
-    docker compose up -d
-    
-    echo '⏳ Ждем запуска сервисов...'
-    sleep 10
-    
-    echo '📊 Статус контейнеров:'
-    docker compose ps
-    
-    echo '🏥 Проверка health check...'
-    sleep 5
-    curl -f http://localhost:3001/api/health || echo '⚠️  Health check не прошел'
-"@
+# Получаем изменения из git
+Write-Host "📥 Получение изменений из git..." -ForegroundColor Yellow
+$fetchCmd = "bash -c 'cd $STAGING_PATH ; git fetch origin'"
+ssh -i $SSH_KEY "$STAGING_USER@$STAGING_HOST" $fetchCmd
+$pullCmd1 = "bash -c 'cd $STAGING_PATH ; git pull origin develop 2>&1'"
+$pullResult = ssh -i $SSH_KEY "$STAGING_USER@$STAGING_HOST" $pullCmd1
+if ($LASTEXITCODE -ne 0) {
+    $pullCmd2 = "bash -c 'cd $STAGING_PATH ; git pull origin main 2>&1'"
+    ssh -i $SSH_KEY "$STAGING_USER@$STAGING_HOST" $pullCmd2 | Out-Null
+}
 
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ Деплой завершен успешно" -ForegroundColor Green
+# Пересобираем образ
+Write-Host "🔨 Пересборка образа приложения..." -ForegroundColor Yellow
+$buildCmd = "bash -c 'cd $STAGING_PATH ; docker compose build --no-cache app'"
+ssh -i $SSH_KEY "$STAGING_USER@$STAGING_HOST" $buildCmd | Select-Object -Last 10
+
+# Перезапускаем сервисы
+Write-Host "🔄 Перезапуск сервисов..." -ForegroundColor Yellow
+$upCmd = "bash -c 'cd $STAGING_PATH ; docker compose up -d'"
+ssh -i $SSH_KEY "$STAGING_USER@$STAGING_HOST" $upCmd
+
+# Ждем запуска
+Write-Host "⏳ Ожидание запуска сервисов..." -ForegroundColor Yellow
+Start-Sleep -Seconds 10
+
+# Проверка статуса
+Write-Host "📊 Статус контейнеров:" -ForegroundColor Yellow
+$psCmd = "cd $STAGING_PATH ; docker compose ps"
+ssh -i $SSH_KEY "$STAGING_USER@$STAGING_HOST" $psCmd
+
+# Проверка health check
+Write-Host "🏥 Проверка health check..." -ForegroundColor Yellow
+Start-Sleep -Seconds 5
+$healthCmd = "curl -f http://localhost:3001/api/health 2>&1"
+$finalHealthCheck = ssh -i $SSH_KEY "$STAGING_USER@$STAGING_HOST" $healthCmd
+if ($LASTEXITCODE -eq 0 -or $finalHealthCheck -match '200|204|healthy') {
+    Write-Host "✅ Health check: OK" -ForegroundColor Green
 } else {
-    Write-Host "⚠️  WARNING: Возможны проблемы при деплое, проверьте вручную" -ForegroundColor Yellow
+    Write-Host "⚠️  Health check: $finalHealthCheck" -ForegroundColor Yellow
 }
 
 Write-Host ""
 Write-Host "🎉 Готово!" -ForegroundColor Green
 Write-Host "   Тестовая ВМ: http://$STAGING_HOST`:3001" -ForegroundColor Cyan
 if (-not $SkipBackup) {
-    Write-Host "   Бэкап: $BACKUP_DIR (на тестовой ВМ)" -ForegroundColor Gray
+    Write-Host "   Backup: $BACKUP_DIR (на тестовой ВМ)" -ForegroundColor Gray
 }
-
