@@ -19,9 +19,9 @@ $PROD_PATH = "/opt/domeo"
 $PROD_KEY = "production_key"
 
 # Настройки Staging
-$STAGING_HOST = "89.169.189.66"
+$STAGING_HOST = "130.193.40.35"
 $STAGING_USER = "ubuntu"
-$STAGING_PATH = "/opt/domeo-staging"
+$STAGING_PATH = "/opt/domeo"
 $STAGING_KEY = "staging_key"
 
 # Определяем исходные и целевые параметры

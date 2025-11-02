@@ -20,8 +20,8 @@ case $SOURCE_ENV in
         SOURCE_PORT="3000"
         ;;
     "staging")
-        SOURCE_HOST="89.169.189.66"
-        SOURCE_PATH="/opt/domeo-staging"
+        SOURCE_HOST="130.193.40.35"
+        SOURCE_PATH="/opt/domeo"
         SOURCE_KEY="staging_key"
         SOURCE_PORT="3001"
         ;;
@@ -40,8 +40,8 @@ case $TARGET_ENV in
         TARGET_PORT="3000"
         ;;
     "staging")
-        TARGET_HOST="89.169.189.66"
-        TARGET_PATH="/opt/domeo-staging"
+        TARGET_HOST="130.193.40.35"
+        TARGET_PATH="/opt/domeo"
         TARGET_KEY="staging_key"
         TARGET_PORT="3001"
         ;;
