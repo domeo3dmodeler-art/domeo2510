@@ -13,41 +13,37 @@ export function ClientAuthGuard({ children }: ClientAuthGuardProps) {
 
   useEffect(() => {
     const checkAuth = () => {
-      const token = localStorage.getItem('authToken');
-      const userId = localStorage.getItem('userId');
-      const userRole = localStorage.getItem('userRole');
-      
-      // Диагностика localStorage
-      console.log('🔍 ClientAuthGuard - localStorage check:', {
-        token: token ? token.substring(0, 20) + '...' : 'Нет токена',
-        userId: userId || 'Нет userId',
-        userRole: userRole || 'Нет userRole',
-        allKeys: Object.keys(localStorage)
-      });
-      
-      // Проверяем только токен - это достаточно для авторизации
-      if (token) {
-        console.log('✅ ClientAuthGuard - авторизация успешна по токену');
-        setIsAuthenticated(true);
-      } else {
-        console.log('❌ ClientAuthGuard - токен не найден, редирект на логин');
+      try {
+        const token = localStorage.getItem('authToken');
+        const userId = localStorage.getItem('userId');
+        const userRole = localStorage.getItem('userRole');
+        
+        // Диагностика localStorage
+        console.log('🔍 ClientAuthGuard - localStorage check:', {
+          token: token ? token.substring(0, 20) + '...' : 'Нет токена',
+          userId: userId || 'Нет userId',
+          userRole: userRole || 'Нет userRole',
+          allKeys: Object.keys(localStorage)
+        });
+        
+        // Проверяем только токен - это достаточно для авторизации
+        if (token) {
+          console.log('✅ ClientAuthGuard - авторизация успешна по токену');
+          setIsAuthenticated(true);
+        } else {
+          console.log('❌ ClientAuthGuard - токен не найден, редирект на логин');
+          setIsAuthenticated(false);
+          router.push('/login');
+        }
+      } catch (error) {
+        console.error('❌ ClientAuthGuard - ошибка при проверке авторизации:', error);
         setIsAuthenticated(false);
         router.push('/login');
       }
     };
 
-    // Добавляем небольшую задержку для стабильности
-    const timeoutId = setTimeout(checkAuth, 100);
-    
-    // Добавляем таймаут для диагностики
-    const diagnosticTimeout = setTimeout(() => {
-      console.log('⚠️ ClientAuthGuard - таймаут диагностики, текущее состояние:', isAuthenticated);
-    }, 5000);
-    
-    return () => {
-      clearTimeout(timeoutId);
-      clearTimeout(diagnosticTimeout);
-    };
+    // Выполняем проверку немедленно, без задержки
+    checkAuth();
   }, [router]);
 
   // Показываем загрузку пока проверяем авторизацию
