@@ -876,7 +876,7 @@ export default function ExecutorDashboard() {
                   Создать
                 </button>
                 <button
-                  onClick={() => setShowInWorkOnly(v => !v)}
+                  onClick={() => setShowInWorkOnly(prev => !prev)}
                   className={`px-3 py-1 text-sm border transition-all duration-200 ${showInWorkOnly ? 'border-black bg-black text-white' : 'border-gray-300 hover:border-black'}`}
                   title="Показать клиентов с незавершенными документами"
                 >
