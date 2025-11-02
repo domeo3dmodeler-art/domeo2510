@@ -37,6 +37,7 @@ function DashboardContent() {
   const [stats, setStats] = useState<any>(null);
   const [userCount, setUserCount] = useState<number>(0);
   const [complectatorStats, setComplectatorStats] = useState<any>(null);
+  const [isInitialized, setIsInitialized] = useState(false); // Флаг инициализации чтобы избежать повторных вызовов
   const router = useRouter();
 
   // Мемоизируем контент по роли (всегда вызывается)
@@ -149,7 +150,15 @@ function DashboardContent() {
   }, []);
 
   useEffect(() => {
+    // Защита от повторных вызовов
+    if (isInitialized) {
+      console.log('⏭️ DashboardContent - уже инициализирован, пропускаем');
+      return;
+    }
+
     console.log('🔄 DashboardContent - useEffect запускается');
+    setIsInitialized(true); // Устанавливаем флаг сразу чтобы предотвратить повторные вызовы
+    
     // Проверяем аутентификацию
     const token = localStorage.getItem('authToken');
     const userRole = localStorage.getItem('userRole');
@@ -178,7 +187,7 @@ function DashboardContent() {
     fetchStats();
     setIsLoading(false);
     console.log('✅ DashboardContent - isLoading установлен в false');
-  }, [router]); // Убираем fetchStats из зависимостей, чтобы избежать бесконечного цикла
+  }, [router, isInitialized, fetchStats]); // Теперь fetchStats безопасен, так как useEffect вызывается только один раз
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
