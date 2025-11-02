@@ -32,6 +32,47 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 
+// Маппинг статусов Счетов из API в русские (определяем на уровне модуля до компонента)
+const mapInvoiceStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен' => {
+  const statusMap: Record<string, 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'> = {
+    'DRAFT': 'Черновик',
+    'SENT': 'Отправлен',
+    'PAID': 'Оплачен/Заказ',
+    'ORDERED': 'Заказ размещен',
+    'CANCELLED': 'Отменен',
+    'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
+    'COMPLETED': 'Исполнен',
+    // Поддержка старых строчных статусов
+    'draft': 'Черновик',
+    'sent': 'Отправлен',
+    'paid': 'Оплачен/Заказ',
+    'ordered': 'Заказ размещен',
+    'cancelled': 'Отменен',
+      'in_production': 'Заказ размещен', // Маппинг на существующий статус
+    'received': 'Получен от поставщика',
+    'completed': 'Исполнен'
+  };
+  return statusMap[apiStatus] || 'Черновик';
+};
+
+// Маппинг статусов Заказов у поставщика из API в русские (определяем на уровне модуля до компонента)
+const mapSupplierOrderStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен' => {
+  const statusMap: Record<string, 'Черновик'|'Отправлен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'> = {
+    'PENDING': 'Черновик',
+    'SENT': 'Отправлен',
+    'ORDERED': 'Заказ размещен',
+    'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
+    'COMPLETED': 'Исполнен',
+    // Поддержка старых строчных статусов
+    'pending': 'Черновик',
+    'sent': 'Отправлен',
+    'in_production': 'Заказ размещен',
+    'received_from_supplier': 'Получен от поставщика',
+    'completed': 'Исполнен'
+  };
+  return statusMap[apiStatus] || 'Черновик';
+};
+
 interface ExecutorStats {
   totalOrders: number;
   pendingOrders: number;
@@ -110,36 +151,47 @@ export default function ExecutorDashboard() {
     setShowHistoryModal(true);
   };
 
-  useEffect(() => {
-    fetchStats();
-    fetchClients();
-  }, [fetchStats, fetchClients]);
-
-  // Обработка фокуса из URL параметров
-
-  // Закрытие выпадающих меню при клике вне их
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (statusDropdown) {
-        const target = event.target as HTMLElement;
-        // Проверяем, что клик не по выпадающему меню и не по кнопке статуса
-        if (!target.closest('[data-status-dropdown]') && !target.closest('button[class*="rounded-full"]')) {
-          hideStatusDropdown();
-        }
+  // Функция для загрузки количества комментариев для документа
+  const fetchCommentsCount = useCallback(async (documentId: string) => {
+    try {
+      const response = await fetch(`/api/documents/${documentId}/comments/count`);
+      if (response.ok) {
+        const data = await response.json();
+        setCommentsCount(prev => ({
+          ...prev,
+          [documentId]: data.count
+        }));
       }
-      
-      const target = event.target as HTMLElement;
-      if (!target.closest('[data-invoice-actions]') && !target.closest('[data-supplier-order-actions]')) {
-        setShowInvoiceActions(null);
-        setShowSupplierOrderActions(null);
-      }
-    };
-
-    if (statusDropdown || showInvoiceActions || showSupplierOrderActions) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+    } catch (error) {
+      console.error('Error fetching comments count:', error);
     }
-  }, [statusDropdown, showInvoiceActions, showSupplierOrderActions]);
+  }, []);
+
+  // Функция для загрузки количества комментариев для всех документов клиента
+  const fetchAllCommentsCount = useCallback(async (invoices: any[], supplierOrders: any[]) => {
+    const allDocuments = [...invoices, ...supplierOrders];
+    const promises = allDocuments.map(doc => fetchCommentsCount(doc.id));
+    await Promise.all(promises);
+  }, [fetchCommentsCount]);
+
+  // Скрыть выпадающее меню (определяем ПЕРЕД использованием в useEffect)
+  const hideStatusDropdown = useCallback(() => {
+    setStatusDropdown(null);
+  }, []);
+
+  // Загрузка статистики (определяем ПЕРЕД использованием в useEffect)
+  const fetchStats = useCallback(async () => {
+    try {
+      setLoading(true);
+      // Имитация загрузки статистики
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setStats({ totalOrders: 0, pendingOrders: 0, completedOrders: 0, totalRevenue: 0 });
+    } catch (error) {
+      console.error('Ошибка загрузки статистики:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Загрузка списка клиентов (оптимизированная)
   const fetchClients = useCallback(async () => {
@@ -215,48 +267,58 @@ export default function ExecutorDashboard() {
     }
   }, [fetchAllCommentsCount]);
 
-  // Функция для загрузки количества комментариев для документа
-  const fetchCommentsCount = useCallback(async (documentId: string) => {
-    try {
-      const response = await fetch(`/api/documents/${documentId}/comments/count`);
-      if (response.ok) {
-        const data = await response.json();
-        setCommentsCount(prev => ({
-          ...prev,
-          [documentId]: data.count
-        }));
+  // Запускаем загрузку данных после определения всех функций
+  useEffect(() => {
+    fetchStats();
+    fetchClients();
+  }, [fetchStats, fetchClients]);
+
+  // Закрытие выпадающих меню при клике вне их
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (statusDropdown) {
+        const target = event.target as HTMLElement;
+        // Проверяем, что клик не по выпадающему меню и не по кнопке статуса
+        if (!target.closest('[data-status-dropdown]') && !target.closest('button[class*="rounded-full"]')) {
+          hideStatusDropdown();
+        }
       }
-    } catch (error) {
-      console.error('Error fetching comments count:', error);
-    }
-  }, []);
+      
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-invoice-actions]') && !target.closest('[data-supplier-order-actions]')) {
+        setShowInvoiceActions(null);
+        setShowSupplierOrderActions(null);
+      }
+    };
 
-  // Функция для загрузки количества комментариев для всех документов клиента
-  const fetchAllCommentsCount = useCallback(async (invoices: any[], supplierOrders: any[]) => {
-    const allDocuments = [...invoices, ...supplierOrders];
-    const promises = allDocuments.map(doc => fetchCommentsCount(doc.id));
-    await Promise.all(promises);
-  }, [fetchCommentsCount]);
-
-  // Функция для определения терминального статуса документа (вне useMemo для избежания проблем с инициализацией)
-  const isTerminalDocHelper = (doc?: { type: 'invoice'|'supplier_order'; status: string }) => {
-    if (!doc) return false;
-    if (doc.type === 'invoice') {
-      return doc.status === 'Исполнен' || doc.status === 'Отменен';
+    if (statusDropdown || showInvoiceActions || showSupplierOrderActions) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-    // supplier_order
-    return doc.status === 'Исполнен';
-  };
+  }, [statusDropdown, showInvoiceActions, showSupplierOrderActions, hideStatusDropdown]);
 
   // Оптимизированная фильтрация клиентов с мемоизацией
   const filteredClients = useMemo(() => {
+    // Inline функция для определения терминального статуса (избегаем проблем с инициализацией)
+    const isTerminal = (doc?: { type: 'invoice'|'supplier_order'; status: string }) => {
+      if (!doc) return false;
+      if (doc.type === 'invoice') {
+        return doc.status === 'Исполнен' || doc.status === 'Отменен';
+      }
+      // supplier_order
+      return doc.status === 'Исполнен';
+    };
+    
     return clients
-      .filter(c => !showInWorkOnly || !isTerminalDocHelper(c.lastDoc))
+      .filter(c => !showInWorkOnly || !isTerminal(c.lastDoc))
       .filter(c => {
         const q = search.trim().toLowerCase();
         if (!q) return true;
         const fio = `${c.lastName} ${c.firstName} ${c.middleName || ''}`.toLowerCase();
-        return fio.includes(q) || (c.phone||'').toLowerCase().includes(q) || (c.address||'').toLowerCase().includes(q);
+        // Явная проверка опциональных полей для избежания проблем с инициализацией
+        const phoneStr = c.phone ? c.phone.toLowerCase() : '';
+        const addressStr = c.address ? c.address.toLowerCase() : '';
+        return fio.includes(q) || phoneStr.includes(q) || addressStr.includes(q);
       })
       .sort((a,b) => {
         const ta = a.lastActivityAt ? new Date(a.lastActivityAt).getTime() : 0;
@@ -264,60 +326,6 @@ export default function ExecutorDashboard() {
         return tb - ta;
       });
   }, [clients, search, showInWorkOnly]);
-
-  // Маппинг статусов Счетов из API в русские
-  const mapInvoiceStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен' => {
-    const statusMap: Record<string, 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'> = {
-      'DRAFT': 'Черновик',
-      'SENT': 'Отправлен',
-      'PAID': 'Оплачен/Заказ',
-      'ORDERED': 'Заказ размещен',
-      'CANCELLED': 'Отменен',
-      'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
-      'COMPLETED': 'Исполнен',
-      // Поддержка старых строчных статусов
-      'draft': 'Черновик',
-      'sent': 'Отправлен',
-      'paid': 'Оплачен/Заказ',
-      'ordered': 'Заказ размещен',
-      'cancelled': 'Отменен',
-      'in_production': 'В производстве',
-      'received': 'Получен от поставщика',
-      'completed': 'Исполнен'
-    };
-    return statusMap[apiStatus] || 'Черновик';
-  };
-
-  // Маппинг статусов Заказов у поставщика из API в русские
-  const mapSupplierOrderStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен' => {
-    const statusMap: Record<string, 'Черновик'|'Отправлен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'> = {
-      'PENDING': 'Черновик',
-      'SENT': 'Отправлен',
-      'ORDERED': 'Заказ размещен',
-      'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
-      'COMPLETED': 'Исполнен',
-      // Поддержка старых строчных статусов
-      'pending': 'Черновик',
-      'sent': 'Отправлен',
-      'in_production': 'Заказ размещен',
-      'received_from_supplier': 'Получен от поставщика',
-      'completed': 'Исполнен'
-    };
-    return statusMap[apiStatus] || 'Черновик';
-  };
-
-  const fetchStats = useCallback(async () => {
-    try {
-      setLoading(true);
-      // Имитация загрузки статистики
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setStats({ totalOrders: 0, pendingOrders: 0, completedOrders: 0, totalRevenue: 0 });
-    } catch (error) {
-      console.error('Ошибка загрузки статистики:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   useEffect(() => {
     if (!selectedClient) return;
@@ -422,11 +430,6 @@ export default function ExecutorDashboard() {
     } catch (error) {
       console.error('❌ Error getting bounding rect:', error);
     }
-  };
-
-  // Скрыть выпадающее меню
-  const hideStatusDropdown = () => {
-    setStatusDropdown(null);
   };
 
   // Изменение статуса Счета

@@ -5,10 +5,10 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 import React from 'react';
-import dynamic from 'next/dynamic';
+import dynamicImport from 'next/dynamic';
 
 // Динамический импорт основного компонента dashboard с отключением SSR
-const ComplectatorDashboardComponent = dynamic(
+const ComplectatorDashboardComponent = dynamicImport(
   () => import('./ComplectatorDashboardComponent').then(mod => ({ default: mod.ComplectatorDashboardComponent })),
   { 
     ssr: false,

@@ -27,6 +27,41 @@ import NotificationBell from '@/components/ui/NotificationBell';
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import { toast } from 'sonner';
 
+// Маппинг статусов КП из API в русские (определяем на уровне модуля до компонента)
+const mapQuoteStatus = (apiStatus: string): 'Черновик'|'Отправлено'|'Согласовано'|'Отказ' => {
+  const statusMap: Record<string, 'Черновик'|'Отправлено'|'Согласовано'|'Отказ'> = {
+    'DRAFT': 'Черновик',
+    'SENT': 'Отправлено',
+    'ACCEPTED': 'Согласовано',
+    'REJECTED': 'Отказ'
+  };
+  return statusMap[apiStatus] || 'Черновик';
+};
+
+// Маппинг статусов Счетов из API в русские (определяем на уровне модуля до компонента)
+const mapInvoiceStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен' => {
+  const statusMap: Record<string, 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'> = {
+    'DRAFT': 'Черновик',
+    'SENT': 'Отправлен',
+    'PAID': 'Оплачен/Заказ',
+    'ORDERED': 'Заказ размещен',
+    'CANCELLED': 'Отменен',
+    'IN_PRODUCTION': 'В производстве',
+    'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
+    'COMPLETED': 'Исполнен',
+    // Поддержка старых строчных статусов
+    'draft': 'Черновик',
+    'sent': 'Отправлен',
+    'paid': 'Оплачен/Заказ',
+    'ordered': 'Заказ размещен',
+    'cancelled': 'Отменен',
+    'in_production': 'В производстве',
+    'received': 'Получен от поставщика',
+    'completed': 'Исполнен'
+  };
+  return statusMap[apiStatus] || 'Черновик';
+};
+
 interface ComplectatorStats {
   totalOrders: number;
   pendingOrders: number;
@@ -121,6 +156,71 @@ export function ComplectatorDashboardComponent() {
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [statusDropdown, showQuoteActions, showInvoiceActions]);
+
+  // Скрыть выпадающее меню (определяем ПЕРЕД использованием в useEffect)
+  const hideStatusDropdown = useCallback(() => {
+    setStatusDropdown(null);
+  }, []);
+
+  // Проверка блокировки статуса документа (определяем ПЕРЕД использованием)
+  const isStatusBlocked = useCallback(async (documentId: string, documentType: 'invoice' | 'quote'): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/${documentType}s/${documentId}/status`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Статусы, которые блокируют ручное изменение
+        const blockedStatuses = ['ORDERED', 'IN_PRODUCTION', 'READY', 'COMPLETED'];
+        return blockedStatuses.includes(data.status);
+      }
+      return false;
+    } catch (error) {
+      console.error('Ошибка проверки блокировки статуса:', error);
+      return false;
+    }
+  }, []);
+
+  // Загрузка информации о блокировке статусов для всех документов (определяем ПЕРЕД использованием)
+  const loadBlockedStatuses = useCallback(async () => {
+    const blockedSet = new Set<string>();
+    
+    // Проверяем все счета
+    for (const invoice of invoices) {
+      const isBlocked = await isStatusBlocked(invoice.id, 'invoice');
+      if (isBlocked) {
+        blockedSet.add(invoice.id);
+      }
+    }
+    
+    // Проверяем все КП
+    for (const quote of quotes) {
+      const isBlocked = await isStatusBlocked(quote.id, 'quote');
+      if (isBlocked) {
+        blockedSet.add(quote.id);
+      }
+    }
+    
+    setBlockedStatuses(blockedSet);
+  }, [invoices, quotes, isStatusBlocked]);
+
+  // Загрузка статистики (определяем ПЕРЕД использованием в useEffect)
+  const fetchStats = useCallback(async () => {
+    try {
+      setLoading(true);
+      // Имитация загрузки статистики
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setStats({ totalOrders: 0, pendingOrders: 0, completedOrders: 0, totalRevenue: 0 });
+    } catch (error) {
+      console.error('Ошибка загрузки статистики:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Загрузка списка клиентов (оптимизированная)
   const fetchClients = useCallback(async () => {
@@ -237,7 +337,10 @@ export function ComplectatorDashboardComponent() {
         const q = search.trim().toLowerCase();
         if (!q) return true;
         const fio = `${c.lastName} ${c.firstName} ${c.middleName || ''}`.toLowerCase();
-        return fio.includes(q) || (c.phone||'').toLowerCase().includes(q) || (c.address||'').toLowerCase().includes(q);
+        // Явная проверка опциональных полей для избежания проблем с инициализацией
+        const phoneStr = c.phone ? c.phone.toLowerCase() : '';
+        const addressStr = c.address ? c.address.toLowerCase() : '';
+        return fio.includes(q) || phoneStr.includes(q) || addressStr.includes(q);
       })
       .sort((a,b) => {
         const ta = a.lastActivityAt ? new Date(a.lastActivityAt).getTime() : 0;
@@ -245,54 +348,6 @@ export function ComplectatorDashboardComponent() {
         return tb - ta;
       });
   }, [clients, search, showInWorkOnly]);
-
-  // Маппинг статусов КП из API в русские
-  const mapQuoteStatus = (apiStatus: string): 'Черновик'|'Отправлено'|'Согласовано'|'Отказ' => {
-    const statusMap: Record<string, 'Черновик'|'Отправлено'|'Согласовано'|'Отказ'> = {
-      'DRAFT': 'Черновик',
-      'SENT': 'Отправлено',
-      'ACCEPTED': 'Согласовано',
-      'REJECTED': 'Отказ'
-    };
-    return statusMap[apiStatus] || 'Черновик';
-  };
-
-  // Маппинг статусов Счетов из API в русские
-  const mapInvoiceStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен' => {
-    const statusMap: Record<string, 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'> = {
-      'DRAFT': 'Черновик',
-      'SENT': 'Отправлен',
-      'PAID': 'Оплачен/Заказ',
-      'ORDERED': 'Заказ размещен',
-      'CANCELLED': 'Отменен',
-      'IN_PRODUCTION': 'В производстве',
-      'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
-      'COMPLETED': 'Исполнен',
-      // Поддержка старых строчных статусов
-      'draft': 'Черновик',
-      'sent': 'Отправлен',
-      'paid': 'Оплачен/Заказ',
-      'ordered': 'Заказ размещен',
-      'cancelled': 'Отменен',
-      'in_production': 'В производстве',
-      'received': 'Получен от поставщика',
-      'completed': 'Исполнен'
-    };
-    return statusMap[apiStatus] || 'Черновик';
-  };
-
-  const fetchStats = useCallback(async () => {
-    try {
-      setLoading(true);
-      // Имитация загрузки статистики
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setStats({ totalOrders: 0, pendingOrders: 0, completedOrders: 0, totalRevenue: 0 });
-    } catch (error) {
-      console.error('Ошибка загрузки статистики:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   useEffect(() => {
     if (!selectedClient) return;
@@ -375,51 +430,6 @@ export function ComplectatorDashboardComponent() {
     }
   };
 
-  // Загрузка информации о блокировке статусов для всех документов
-  const loadBlockedStatuses = useCallback(async () => {
-    const blockedSet = new Set<string>();
-    
-    // Проверяем все счета
-    for (const invoice of invoices) {
-      const isBlocked = await isStatusBlocked(invoice.id, 'invoice');
-      if (isBlocked) {
-        blockedSet.add(invoice.id);
-      }
-    }
-    
-    // Проверяем все КП
-    for (const quote of quotes) {
-      const isBlocked = await isStatusBlocked(quote.id, 'quote');
-      if (isBlocked) {
-        blockedSet.add(quote.id);
-      }
-    }
-    
-    setBlockedStatuses(blockedSet);
-  }, [invoices, quotes, isStatusBlocked]);
-
-  // Проверка блокировки статуса документа
-  const isStatusBlocked = useCallback(async (documentId: string, documentType: 'invoice' | 'quote'): Promise<boolean> => {
-    try {
-      const response = await fetch(`/api/${documentType}s/${documentId}/status`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // Статусы, которые блокируют ручное изменение
-        const blockedStatuses = ['ORDERED', 'IN_PRODUCTION', 'READY', 'COMPLETED'];
-        return blockedStatuses.includes(data.status);
-      }
-      return false;
-    } catch (error) {
-      console.error('Ошибка проверки блокировки статуса:', error);
-      return false;
-    }
-  }, []);
 
   // Показать выпадающее меню статуса
   const showStatusDropdown = async (type: 'quote'|'invoice', id: string, event: React.MouseEvent) => {
@@ -455,10 +465,6 @@ export function ComplectatorDashboardComponent() {
     }
   };
 
-  // Скрыть выпадающее меню
-  const hideStatusDropdown = () => {
-    setStatusDropdown(null);
-  };
 
   // Изменение статуса КП
   const updateQuoteStatus = async (quoteId: string, newStatus: string) => {

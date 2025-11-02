@@ -1,8 +1,11 @@
 'use client';
 
+// Отключаем prerendering для этой страницы - должно быть до импортов
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
+import dynamicImport from 'next/dynamic';
 import AdminLayout from '../../../../components/layout/AdminLayout';
 import { Card, Button } from '../../../../components/ui';
 import CategoryInfoForm from '../../../../components/category-builder/CategoryInfoForm';
@@ -10,16 +13,13 @@ import DataUpload from '../../../../components/category-builder/DataUpload';
 import ProfessionalPreview from '../../../../components/constructor/ProfessionalPreview';
 
 // Динамический импорт PageBuilder с отключением SSR
-const PageBuilder = dynamic(
+const PageBuilder = dynamicImport(
   () => import('../../../../components/page-builder/PageBuilder').then(mod => ({ default: mod.PageBuilder })),
   { 
     ssr: false,
     loading: () => <div className="h-screen w-full flex items-center justify-center">Загрузка...</div>
   }
 );
-
-// Отключаем prerendering для этой страницы
-export const dynamic = 'force-dynamic';
 
 type BuilderStep = 'info' | 'design' | 'preview' | 'generate';
 

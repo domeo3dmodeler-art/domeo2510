@@ -1,19 +1,19 @@
 ﻿'use client';
 
+// Отключаем prerendering для этой страницы (динамический контент) - должно быть до импортов
+export const dynamic = 'force-dynamic';
+
 import React from 'react';
-import dynamic from 'next/dynamic';
+import dynamicImport from 'next/dynamic';
 
 // Динамический импорт PageBuilder с отключением SSR
-const PageBuilder = dynamic(
+const PageBuilder = dynamicImport(
   () => import('../../components/page-builder/PageBuilder').then(mod => ({ default: mod.PageBuilder })),
   { 
     ssr: false,
     loading: () => <div className="h-screen w-full flex items-center justify-center">Загрузка...</div>
   }
 );
-
-// Отключаем prerendering для этой страницы (динамический контент)
-export const dynamic = 'force-dynamic';
 
 export default function ProfessionalBuilderPage() {
   return (
