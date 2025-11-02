@@ -20,7 +20,7 @@ import {
   Plus,
   MoreVertical
 } from 'lucide-react';
-import { useAuth } from '../../../hooks/useAuth';
+// Убрали useAuth чтобы избежать бесконечных циклов рендера - user теперь передается как пропс
 import CommentsModal from '@/components/ui/CommentsModal';
 import HistoryModal from '@/components/ui/HistoryModal';
 import NotificationBell from '@/components/ui/NotificationBell';
@@ -70,7 +70,7 @@ interface ComplectatorStats {
 }
 
 interface ComplectatorDashboardComponentProps {
-  user?: {
+  user: {
     id: string;
     email: string;
     firstName: string;
@@ -78,17 +78,12 @@ interface ComplectatorDashboardComponentProps {
     middleName?: string;
     role: string;
     permissions: string[];
-  } | null;
+  };
 }
 
-export function ComplectatorDashboardComponent({ user: userProp }: ComplectatorDashboardComponentProps) {
-  console.log('🔄 ComplectatorDashboardComponent - рендер компонента');
-  // Используем переданного пользователя как приоритетный источник
-  // Если userProp передан, используем его и игнорируем useAuth (чтобы избежать бесконечных циклов)
-  // useAuth вызывается для обратной совместимости, но его результат игнорируется если userProp есть
-  const auth = useAuth();
-  const user = userProp || auth.user;
-  console.log('✅ ComplectatorDashboardComponent - пользователь:', user ? user.role : 'null', userProp ? '(из пропсов)' : '(из useAuth)');
+export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardComponentProps) {
+  console.log('🔄 ComplectatorDashboardComponent - рендер компонента, user:', user.role);
+  // user теперь обязательный пропс - полностью убираем useAuth чтобы избежать бесконечных циклов
   const [stats, setStats] = useState<ComplectatorStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'cart' | 'documents' | 'orders'>('cart');

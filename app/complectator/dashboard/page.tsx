@@ -17,7 +17,7 @@ const ComplectatorDashboardComponent = dynamicImport(
 );
 
 interface ComplectatorDashboardProps {
-  user?: {
+  user: {
     id: string;
     email: string;
     firstName: string;
@@ -25,7 +25,7 @@ interface ComplectatorDashboardProps {
     middleName?: string;
     role: string;
     permissions: string[];
-  } | null;
+  };
 }
 
 export default function ComplectatorDashboard({ user }: ComplectatorDashboardProps) {
