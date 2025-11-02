@@ -195,7 +195,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       }
       return false;
     } catch (error) {
-      console.error('Ошибка проверки блокировки статуса:', error);
+      console.error('Ошибка проверки блокировки статуса:', statusCheckError);
       return false;
     }
   }, []);
@@ -260,8 +260,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       } else {
         console.error('Failed to fetch clients');
       }
-    } catch (error) {
-      console.error('Error fetching clients:', error);
+    } catch (fetchClientsError) {
+      console.error('Error fetching clients:', fetchClientsError);
     }
   }, []);
 
@@ -628,7 +628,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         console.error('❌ Response headers:', Object.fromEntries(response.headers.entries()));
         throw new Error(errorData.error || 'Ошибка при изменении статуса счета');
       }
-    } catch (error) {
+    } catch (invoiceStatusError) {
       console.error('❌ Error updating invoice status:', error);
       toast.error(`Ошибка при изменении статуса счета: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
       throw error;
@@ -703,10 +703,10 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         }
         toast.success('Счет создан и скачан успешно');
       } else {
-        const error = await response.json();
-        toast.error(`Ошибка: ${error.error}`);
+        const errorResponse = await response.json();
+        toast.error(`Ошибка: ${errorResponse.error}`);
       }
-    } catch (error) {
+    } catch (quoteError) {
       console.error('Error creating invoice from quote:', error);
       toast.error('Ошибка при создании счета');
     }
@@ -776,10 +776,10 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         
         toast.success('КП перегенерировано и скачано успешно');
       } else {
-        const error = await response.json();
-        toast.error(`Ошибка: ${error.error}`);
+        const errorResponse = await response.json();
+        toast.error(`Ошибка: ${errorResponse.error}`);
       }
-    } catch (error) {
+    } catch (quoteError) {
       console.error('Error regenerating quote:', error);
       toast.error('Ошибка при перегенерации КП');
     }
@@ -849,10 +849,10 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         
         toast.success('Счет перегенерирован и скачан успешно');
       } else {
-        const error = await response.json();
-        toast.error(`Ошибка: ${error.error}`);
+        const errorResponse = await response.json();
+        toast.error(`Ошибка: ${errorResponse.error}`);
       }
-    } catch (error) {
+    } catch (quoteError) {
       console.error('Error regenerating invoice:', error);
       toast.error('Ошибка при перегенерации счета');
     }
@@ -869,10 +869,10 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         setQuotes(prev => prev.filter(q => q.id !== quoteId));
         toast.success('КП удалено успешно');
       } else {
-        const error = await response.json();
-        toast.error(`Ошибка: ${error.error}`);
+        const errorResponse = await response.json();
+        toast.error(`Ошибка: ${errorResponse.error}`);
       }
-    } catch (error) {
+    } catch (quoteError) {
       console.error('Error deleting quote:', error);
       toast.error('Ошибка при удалении КП');
     }
@@ -889,10 +889,10 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         setInvoices(prev => prev.filter(i => i.id !== invoiceId));
         toast.success('Счет удален успешно');
       } else {
-        const error = await response.json();
-        toast.error(`Ошибка: ${error.error}`);
+        const errorResponse = await response.json();
+        toast.error(`Ошибка: ${errorResponse.error}`);
       }
-    } catch (error) {
+    } catch (quoteError) {
       console.error('Error deleting invoice:', error);
       toast.error('Ошибка при удалении счета');
     }
