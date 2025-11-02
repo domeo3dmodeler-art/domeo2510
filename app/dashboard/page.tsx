@@ -178,7 +178,7 @@ function DashboardContent() {
     fetchStats();
     setIsLoading(false);
     console.log('✅ DashboardContent - isLoading установлен в false');
-  }, [router, fetchStats]);
+  }, [router]); // Убираем fetchStats из зависимостей, чтобы избежать бесконечного цикла
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
@@ -263,6 +263,7 @@ function DashboardContent() {
   // Для не-админов используем обычный лейаут
   // Специальный случай: роль комплектатора — показываем новый ЛК комплектатора с единой шапкой
   if (user.role === 'complectator') {
+    console.log('🎯 DashboardContent - рендер для complectator, загружаем ComplectatorDashboard');
     return (
       <div className="min-h-screen bg-white">
         {/* Header (унифицированный стиль) */}
