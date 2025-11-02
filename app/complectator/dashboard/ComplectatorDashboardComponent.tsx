@@ -1519,7 +1519,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
             console.log('✅ Удаление завершено, закрываем модальное окно');
           } catch (modalError) {
             console.error('❌ Ошибка в модальном окне:', modalError);
-            throw error; // Перебрасываем ошибку, чтобы модальное окно не закрылось
+            throw modalError; // Перебрасываем ошибку, чтобы модальное окно не закрылось
           }
         }}
         title={deleteModal.type === 'quote' ? 'Удаление КП' : 'Удаление счета'}
