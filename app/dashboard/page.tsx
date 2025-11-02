@@ -31,6 +31,7 @@ export default function DashboardPage() {
 }
 
 function DashboardContent() {
+  console.log('🔄 DashboardContent - компонент рендерится');
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
@@ -159,7 +160,10 @@ function DashboardContent() {
     router.push('/login');
   };
 
+  console.log('🔄 DashboardContent - проверка isLoading:', isLoading, 'user:', user ? user.role : 'null');
+  
   if (isLoading) {
+    console.log('⏳ DashboardContent - показываем загрузку');
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
