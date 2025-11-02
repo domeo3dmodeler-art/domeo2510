@@ -70,7 +70,9 @@ interface ComplectatorStats {
 }
 
 export function ComplectatorDashboardComponent() {
+  console.log('🔄 ComplectatorDashboardComponent - рендер компонента');
   const { user } = useAuth();
+  console.log('✅ ComplectatorDashboardComponent - useAuth выполнен, user:', user ? user.role : 'null');
   const [stats, setStats] = useState<ComplectatorStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'cart' | 'documents' | 'orders'>('cart');
