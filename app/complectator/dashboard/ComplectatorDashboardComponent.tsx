@@ -84,8 +84,9 @@ interface ComplectatorDashboardComponentProps {
 export function ComplectatorDashboardComponent({ user: userProp }: ComplectatorDashboardComponentProps) {
   console.log('🔄 ComplectatorDashboardComponent - рендер компонента');
   // Используем переданного пользователя или fallback на useAuth (для обратной совместимости)
-  const auth = useAuth();
-  const user = userProp || auth.user;
+  // ВАЖНО: useAuth вызывается только если userProp не передан, чтобы избежать бесконечных циклов
+  const auth = userProp ? null : useAuth();
+  const user = userProp || (auth?.user ?? null);
   console.log('✅ ComplectatorDashboardComponent - пользователь:', user ? user.role : 'null', userProp ? '(из пропсов)' : '(из useAuth)');
   const [stats, setStats] = useState<ComplectatorStats | null>(null);
   const [loading, setLoading] = useState(true);
