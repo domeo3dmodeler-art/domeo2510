@@ -155,3 +155,5 @@ cleanup-report.json
 
 # Temporary feature scripts
 create-*-report.js
+# TypeScript error reports
+ts_errors*.txt
