@@ -111,33 +111,7 @@ function DashboardContent() {
     }
   }, [user, stats, userCount, complectatorStats]);
 
-  useEffect(() => {
-    // Проверяем аутентификацию
-    const token = localStorage.getItem('authToken');
-    const userRole = localStorage.getItem('userRole');
-    const userId = localStorage.getItem('userId');
-
-    if (!token || !userRole || !userId) {
-      router.push('/login');
-      return;
-    }
-
-    // Загружаем данные пользователя
-    setUser({
-      id: userId,
-      email: localStorage.getItem('userEmail') || '',
-      firstName: localStorage.getItem('userFirstName') || 'Иван',
-      lastName: localStorage.getItem('userLastName') || 'Иванов',
-      middleName: localStorage.getItem('userMiddleName') || 'Иванович',
-      role: userRole,
-      permissions: JSON.parse(localStorage.getItem('userPermissions') || '[]')
-    });
-
-    // Загружаем статистику для всех ролей
-    fetchStats();
-    setIsLoading(false);
-  }, [router, fetchStats]);
-
+  // Определяем fetchStats ПЕРЕД использованием в useEffect
   const fetchStats = useCallback(async () => {
     try {
       const promises = [
