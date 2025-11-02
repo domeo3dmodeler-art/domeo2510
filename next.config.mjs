@@ -78,8 +78,13 @@ const nextConfig = {
   
   // Генерация уникального BUILD_ID для инвалидации кэша браузера
   generateBuildId: async () => {
-    // Генерируем уникальный ID на основе текущего времени
-    return `build-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    // Генерируем уникальный ID на основе текущего времени и случайной строки
+    // Это заставляет браузер загружать новый код при каждом деплое
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 9);
+    const buildId = `build-${timestamp}-${random}`;
+    console.log('🔧 Generated BUILD_ID:', buildId);
+    return buildId;
   },
   
   // Оптимизация webpack
