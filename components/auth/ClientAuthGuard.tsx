@@ -12,24 +12,31 @@ export function ClientAuthGuard({ children }: ClientAuthGuardProps) {
   const router = useRouter();
 
   useEffect(() => {
+    // Проверяем авторизацию только на клиенте
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     const checkAuth = () => {
       try {
         const token = localStorage.getItem('authToken');
-        const userId = localStorage.getItem('userId');
-        const userRole = localStorage.getItem('userRole');
         
         // Диагностика localStorage
         console.log('🔍 ClientAuthGuard - localStorage check:', {
           token: token ? token.substring(0, 20) + '...' : 'Нет токена',
-          userId: userId || 'Нет userId',
-          userRole: userRole || 'Нет userRole',
+          userId: localStorage.getItem('userId') || 'Нет userId',
+          userRole: localStorage.getItem('userRole') || 'Нет userRole',
           allKeys: Object.keys(localStorage)
         });
         
         // Проверяем только токен - это достаточно для авторизации
         if (token) {
           console.log('✅ ClientAuthGuard - авторизация успешна по токену');
-          setIsAuthenticated(true);
+          // Используем функцию обновления состояния для гарантированного обновления
+          setIsAuthenticated((prev) => {
+            console.log('🔄 ClientAuthGuard - обновление состояния, prev:', prev, '-> true');
+            return true;
+          });
         } else {
           console.log('❌ ClientAuthGuard - токен не найден, редирект на логин');
           setIsAuthenticated(false);
