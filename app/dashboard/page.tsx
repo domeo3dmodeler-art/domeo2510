@@ -148,6 +148,38 @@ function DashboardContent() {
     }
   }, []);
 
+  useEffect(() => {
+    console.log('🔄 DashboardContent - useEffect запускается');
+    // Проверяем аутентификацию
+    const token = localStorage.getItem('authToken');
+    const userRole = localStorage.getItem('userRole');
+    const userId = localStorage.getItem('userId');
+
+    if (!token || !userRole || !userId) {
+      console.log('❌ DashboardContent - нет токена, редирект на логин');
+      router.push('/login');
+      return;
+    }
+
+    console.log('✅ DashboardContent - токен найден, загружаем данные пользователя');
+    // Загружаем данные пользователя
+    setUser({
+      id: userId,
+      email: localStorage.getItem('userEmail') || '',
+      firstName: localStorage.getItem('userFirstName') || 'Иван',
+      lastName: localStorage.getItem('userLastName') || 'Иванов',
+      middleName: localStorage.getItem('userMiddleName') || 'Иванович',
+      role: userRole,
+      permissions: JSON.parse(localStorage.getItem('userPermissions') || '[]')
+    });
+
+    console.log('📊 DashboardContent - загружаем статистику');
+    // Загружаем статистику для всех ролей
+    fetchStats();
+    setIsLoading(false);
+    console.log('✅ DashboardContent - isLoading установлен в false');
+  }, [router, fetchStats]);
+
   const handleLogout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('userRole');
