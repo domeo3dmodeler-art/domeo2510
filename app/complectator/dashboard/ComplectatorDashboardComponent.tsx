@@ -145,7 +145,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
   useEffect(() => {
     fetchStats();
     fetchClients();
-  }, [fetchStats, fetchClients]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Убираем fetchStats и fetchClients из зависимостей чтобы избежать бесконечного цикла
 
   // Закрытие выпадающих меню при клике вне их
   useEffect(() => {
