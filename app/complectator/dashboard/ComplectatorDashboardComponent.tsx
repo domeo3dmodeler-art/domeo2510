@@ -244,15 +244,16 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       if (response.ok) {
         const data = await response.json();
         // Преобразуем данные клиентов в нужный формат
-        const formattedClients = data.clients.map((client: any) => ({
-          id: client.id,
-          firstName: client.firstName,
-          lastName: client.lastName,
-          middleName: client.middleName,
-          phone: client.phone,
-          address: client.address,
-          objectId: client.objectId,
-          lastActivityAt: client.createdAt,
+        // Используем полное имя переменной clientItem вместо client для избежания проблем минификации
+        const formattedClients = data.clients.map((clientItem: any) => ({
+          id: clientItem.id,
+          firstName: clientItem.firstName,
+          lastName: clientItem.lastName,
+          middleName: clientItem.middleName,
+          phone: clientItem.phone,
+          address: clientItem.address,
+          objectId: clientItem.objectId,
+          lastActivityAt: clientItem.createdAt,
           lastDoc: undefined // Будет загружаться отдельно при выборе клиента
         }));
         setClients(formattedClients);

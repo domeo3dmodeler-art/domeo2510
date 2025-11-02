@@ -172,7 +172,7 @@ function DashboardContent() {
 
     console.log('✅ DashboardContent - токен найден, загружаем данные пользователя');
     // Загружаем данные пользователя
-    setUser({
+    const userData = {
       id: userId,
       email: localStorage.getItem('userEmail') || '',
       firstName: localStorage.getItem('userFirstName') || 'Иван',
@@ -180,14 +180,17 @@ function DashboardContent() {
       middleName: localStorage.getItem('userMiddleName') || 'Иванович',
       role: userRole,
       permissions: JSON.parse(localStorage.getItem('userPermissions') || '[]')
-    });
+    };
+    setUser(userData);
 
     console.log('📊 DashboardContent - загружаем статистику');
-    // Загружаем статистику для всех ролей
-    fetchStats();
+    // Загружаем статистику для всех ролей асинхронно, чтобы не блокировать рендер
+    fetchStats().catch((fetchError) => {
+      console.error('Error in fetchStats:', fetchError);
+    });
     setIsLoading(false);
     console.log('✅ DashboardContent - isLoading установлен в false');
-  }, [router, isInitialized, fetchStats]); // Теперь fetchStats безопасен, так как useEffect вызывается только один раз
+  }, [isInitialized]); // Убираем router и fetchStats из зависимостей - они стабильны
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
