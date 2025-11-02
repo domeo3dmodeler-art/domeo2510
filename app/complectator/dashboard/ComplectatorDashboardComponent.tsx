@@ -69,10 +69,24 @@ interface ComplectatorStats {
   totalRevenue: number;
 }
 
-export function ComplectatorDashboardComponent() {
+interface ComplectatorDashboardComponentProps {
+  user?: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    middleName?: string;
+    role: string;
+    permissions: string[];
+  } | null;
+}
+
+export function ComplectatorDashboardComponent({ user: userProp }: ComplectatorDashboardComponentProps) {
   console.log('🔄 ComplectatorDashboardComponent - рендер компонента');
-  const { user } = useAuth();
-  console.log('✅ ComplectatorDashboardComponent - useAuth выполнен, user:', user ? user.role : 'null');
+  // Используем переданного пользователя или fallback на useAuth (для обратной совместимости)
+  const auth = useAuth();
+  const user = userProp || auth.user;
+  console.log('✅ ComplectatorDashboardComponent - пользователь:', user ? user.role : 'null', userProp ? '(из пропсов)' : '(из useAuth)');
   const [stats, setStats] = useState<ComplectatorStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'cart' | 'documents' | 'orders'>('cart');

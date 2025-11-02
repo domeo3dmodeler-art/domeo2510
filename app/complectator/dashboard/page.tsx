@@ -16,6 +16,18 @@ const ComplectatorDashboardComponent = dynamicImport(
   }
 );
 
-export default function ComplectatorDashboard() {
-  return <ComplectatorDashboardComponent />;
+interface ComplectatorDashboardProps {
+  user?: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    middleName?: string;
+    role: string;
+    permissions: string[];
+  } | null;
+}
+
+export default function ComplectatorDashboard({ user }: ComplectatorDashboardProps) {
+  return <ComplectatorDashboardComponent user={user} />;
 }
