@@ -1312,12 +1312,14 @@ export function ComplectatorDashboardComponent() {
                 onChange={(e) => setNewClientData(prev => ({ ...prev, middleName: e.target.value }))}
                 className="col-span-2 px-3 py-2 border border-gray-300 rounded"
               />
-              <PhoneInput
-                label="Телефон"
-                value={newClientData.phone}
-                onChange={(value) => setNewClientData(prev => ({ ...prev, phone: value }))}
-                placeholder="+7 (999) 123-45-67"
-              />
+              <div className="col-span-2">
+                <PhoneInput
+                  label="Телефон"
+                  value={newClientData.phone}
+                  onChange={(value) => setNewClientData(prev => ({ ...prev, phone: value }))}
+                  placeholder="+7 (999) 123-45-67"
+                />
+              </div>
               <input
                 type="text"
                 placeholder="ID объекта"
