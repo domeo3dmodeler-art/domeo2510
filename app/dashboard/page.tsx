@@ -93,20 +93,32 @@ function DashboardContent() {
   // Дополнительная защита: убеждаемся что widgets и quickActions всегда массивы
   const safeRoleContent = useMemo(() => {
     if (!roleContent) return { title: '', description: '', widgets: [], quickActions: [] };
+    
+    // Для executor и complectator возвращаем пустые массивы - они не используются
+    if (user && (user.role === 'executor' || user.role === 'complectator')) {
+      return {
+        ...roleContent,
+        widgets: [],
+        quickActions: []
+      };
+    }
+    
     return {
       ...roleContent,
       widgets: Array.isArray(roleContent.widgets) 
         ? roleContent.widgets
-            .filter(w => w && typeof w === 'object' && w.title && w.link)
-            .map(w => ({ ...w, icon: w.icon || '📊' }))
+            .filter(w => w != null && typeof w === 'object' && w.title && w.link)
+            .map(w => ({ ...w, icon: w?.icon ?? '📊' }))
+            .filter(w => w != null) // Дополнительная фильтрация после map
         : [],
       quickActions: Array.isArray(roleContent.quickActions)
         ? roleContent.quickActions
-            .filter(a => a && typeof a === 'object' && a.title && a.link)
-            .map(a => ({ ...a, icon: a.icon || '⚡' }))
+            .filter(a => a != null && typeof a === 'object' && a.title && a.link)
+            .map(a => ({ ...a, icon: a?.icon ?? '⚡' }))
+            .filter(a => a != null) // Дополнительная фильтрация после map
         : []
     };
-  }, [roleContent]);
+  }, [roleContent, user]);
 
   // Определяем fetchStats ПЕРЕД использованием в useEffect
   const fetchStats = useCallback(async () => {
@@ -331,23 +343,23 @@ function DashboardContent() {
           {/* Widgets Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {safeRoleContent.widgets
-              .filter(w => w && typeof w === 'object' && w.title && w.link)
+              .filter(w => w != null && typeof w === 'object' && w.title && w.link && w.icon != null)
               .map((widget, index) => {
-                if (!widget) return null;
+                if (!widget || !widget.title || !widget.link) return null;
                 return (
               <Card key={index} variant="interactive" className="hover:border-black transition-all duration-200">
                 <div className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">{widget.title}</p>
-                      <p className="text-2xl font-bold text-black mt-1">{widget.count}</p>
+                      <p className="text-2xl font-bold text-black mt-1">{widget.count ?? 0}</p>
                     </div>
-                        <div className="text-2xl">{widget.icon || '📊'}</div>
+                        <div className="text-2xl">{widget?.icon ?? '📊'}</div>
                   </div>
                 </div>
               </Card>
                 );
-              })}
+              }).filter(Boolean)}
           </div>
 
           {/* Quick Actions */}
@@ -356,21 +368,21 @@ function DashboardContent() {
               <h2 className="text-xl font-semibold text-black mb-4">Быстрые действия</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {safeRoleContent.quickActions
-                  .filter(a => a && typeof a === 'object' && a.title && a.link)
+                  .filter(a => a != null && typeof a === 'object' && a.title && a.link && a.icon != null)
                   .map((action, index) => {
-                    if (!action) return null;
+                    if (!action || !action.title || !action.link) return null;
                     return (
                   <Button
                     key={index}
                     variant="secondary"
                     className="p-4 h-auto flex flex-col items-center space-y-2"
-                    onClick={() => action.link && router.push(action.link)}
+                    onClick={() => action?.link && router.push(action.link)}
                   >
-                        <div className="text-2xl">{action.icon || '⚡'}</div>
+                        <div className="text-2xl">{action?.icon ?? '⚡'}</div>
                     <p className="text-sm font-medium">{action.title}</p>
                   </Button>
                     );
-                  })}
+                  }).filter(Boolean)}
               </div>
             </div>
           </Card>
@@ -509,27 +521,27 @@ function DashboardContent() {
         {/* Widgets Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {safeRoleContent.widgets
-            .filter(w => w && typeof w === 'object' && w.title && w.link)
+            .filter(w => w != null && typeof w === 'object' && w.title && w.link && w.icon != null)
             .map((widget, index) => {
-              if (!widget) return null;
+              if (!widget || !widget.title || !widget.link) return null;
               return (
             <div
               key={index}
-              onClick={() => widget.link && router.push(widget.link)}
+              onClick={() => widget?.link && router.push(widget.link)}
               className="bg-white border border-gray-200 p-6 hover:border-black transition-all duration-200 group cursor-pointer"
             >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">{widget.title}</p>
-                  <p className="text-2xl font-bold text-black mt-1">{widget.count}</p>
+                  <p className="text-2xl font-bold text-black mt-1">{widget.count ?? 0}</p>
                 </div>
                 <div className="text-2xl group-hover:scale-110 transition-transform duration-200">
-                      {widget.icon || '📊'}
+                      {widget?.icon ?? '📊'}
                 </div>
               </div>
             </div>
               );
-            })}
+            }).filter(Boolean)}
         </div>
 
         {/* Quick Actions */}
@@ -537,22 +549,22 @@ function DashboardContent() {
           <h2 className="text-xl font-semibold text-black mb-4">Быстрые действия</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {safeRoleContent.quickActions
-              .filter(a => a && typeof a === 'object' && a.title && a.link)
+              .filter(a => a != null && typeof a === 'object' && a.title && a.link && a.icon != null)
               .map((action, index) => {
-                if (!action) return null;
+                if (!action || !action.title || !action.link) return null;
                 return (
               <button
                 key={index}
-                onClick={() => action.link && router.push(action.link)}
+                onClick={() => action?.link && router.push(action.link)}
                 className="bg-white border border-gray-200 p-4 hover:border-black hover:bg-black hover:text-white transition-all duration-200 group text-center"
               >
                 <div className="text-2xl mb-2 group-hover:scale-110 transition-transform duration-200">
-                      {action.icon || '⚡'}
+                      {action?.icon ?? '⚡'}
                 </div>
                 <p className="text-sm font-medium">{action.title}</p>
               </button>
                 );
-              })}
+              }).filter(Boolean)}
           </div>
         </div>
 
