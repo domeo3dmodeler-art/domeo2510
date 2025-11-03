@@ -142,42 +142,14 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     name: null
   });
 
-  useEffect(() => {
-    fetchStats();
-    fetchClients();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Убираем fetchStats и fetchClients из зависимостей чтобы избежать бесконечного цикла
-
-  // Закрытие выпадающих меню при клике вне их
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (statusDropdown) {
-        const target = event.target as HTMLElement;
-        // Проверяем, что клик не по выпадающему меню и не по кнопке статуса
-        if (!target.closest('[data-status-dropdown]') && !target.closest('button[class*="rounded-full"]')) {
-          hideStatusDropdown();
-        }
-      }
-      
-      const target = event.target as HTMLElement;
-      if (!target.closest('[data-quote-actions]') && !target.closest('[data-invoice-actions]')) {
-        setShowQuoteActions(null);
-        setShowInvoiceActions(null);
-      }
-    };
-
-    if (statusDropdown || showQuoteActions || showInvoiceActions) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [statusDropdown, showQuoteActions, showInvoiceActions]);
-
-  // Скрыть выпадающее меню (определяем ПЕРЕД использованием в useEffect)
+  // ВСЕ ФУНКЦИИ ОПРЕДЕЛЯЕМ ДО ИСПОЛЬЗОВАНИЯ - это критично для избежания проблем минификации!
+  
+  // Скрыть выпадающее меню (определяем ПЕРВОЙ, так как используется в useEffect)
   const hideStatusDropdown = useCallback(() => {
     setStatusDropdown(null);
   }, []);
 
-  // Проверка блокировки статуса документа (определяем ПЕРЕД использованием)
+  // Проверка блокировки статуса документа (базовая функция)
   const isStatusBlocked = useCallback(async (documentId: string, documentType: 'invoice' | 'quote'): Promise<boolean> => {
     try {
       const response = await fetch(`/api/${documentType}s/${documentId}/status`, {
@@ -190,8 +162,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       if (response.ok) {
         const data = await response.json();
         // Статусы, которые блокируют ручное изменение
-        const blockedStatuses = ['ORDERED', 'IN_PRODUCTION', 'READY', 'COMPLETED'];
-        return blockedStatuses.includes(data.status);
+        const blockedStatusesArray = ['ORDERED', 'IN_PRODUCTION', 'READY', 'COMPLETED'];
+        return blockedStatusesArray.includes(data.status);
       }
       return false;
     } catch (statusCheckError) {
@@ -200,30 +172,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     }
   }, []);
 
-  // Загрузка информации о блокировке статусов для всех документов (определяем ПЕРЕД использованием)
-  const loadBlockedStatuses = useCallback(async () => {
-    const blockedSet = new Set<string>();
-    
-    // Проверяем все счета
-    for (const invoice of invoices) {
-      const isBlocked = await isStatusBlocked(invoice.id, 'invoice');
-      if (isBlocked) {
-        blockedSet.add(invoice.id);
-      }
-    }
-    
-    // Проверяем все КП
-    for (const quote of quotes) {
-      const isBlocked = await isStatusBlocked(quote.id, 'quote');
-      if (isBlocked) {
-        blockedSet.add(quote.id);
-      }
-    }
-    
-    setBlockedStatuses(blockedSet);
-  }, [invoices, quotes, isStatusBlocked]);
-
-  // Загрузка статистики (определяем ПЕРЕД использованием в useEffect)
+  // Загрузка статистики (базовая функция)
   const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
@@ -237,7 +186,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     }
   }, []);
 
-  // Загрузка списка клиентов (оптимизированная)
+  // Загрузка списка клиентов (базовая функция)
   const fetchClients = useCallback(async () => {
     try {
       const response = await fetch('/api/clients');
@@ -265,7 +214,53 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     }
   }, []);
 
-  // Загрузка документов клиента (оптимизированная с мемоизацией)
+  // Функция для загрузки количества комментариев для документа (базовая функция)
+  const fetchCommentsCount = useCallback(async (documentId: string) => {
+    try {
+      const response = await fetch(`/api/documents/${documentId}/comments/count`);
+      if (response.ok) {
+        const data = await response.json();
+        setCommentsCount(prev => ({
+          ...prev,
+          [documentId]: data.count
+        }));
+      }
+    } catch (commentsCountError) {
+      console.error('Error fetching comments count:', commentsCountError);
+    }
+  }, []);
+
+  // Функция для загрузки количества комментариев для всех документов клиента (зависит от fetchCommentsCount)
+  const fetchAllCommentsCount = useCallback(async (quotes: any[], invoices: any[]) => {
+    const allDocuments = [...quotes, ...invoices];
+    const promises = allDocuments.map(doc => fetchCommentsCount(doc.id));
+    await Promise.all(promises);
+  }, [fetchCommentsCount]);
+
+  // Загрузка информации о блокировке статусов для всех документов (зависит от isStatusBlocked)
+  const loadBlockedStatuses = useCallback(async () => {
+    const blockedSet = new Set<string>();
+    
+    // Проверяем все счета
+    for (const invoice of invoices) {
+      const isBlocked = await isStatusBlocked(invoice.id, 'invoice');
+      if (isBlocked) {
+        blockedSet.add(invoice.id);
+      }
+    }
+    
+    // Проверяем все КП
+    for (const quote of quotes) {
+      const isBlocked = await isStatusBlocked(quote.id, 'quote');
+      if (isBlocked) {
+        blockedSet.add(quote.id);
+      }
+    }
+    
+    setBlockedStatuses(blockedSet);
+  }, [invoices, quotes, isStatusBlocked]);
+
+  // Загрузка документов клиента (зависит от fetchAllCommentsCount и loadBlockedStatuses)
   const fetchClientDocuments = useCallback(async (clientId: string) => {
     try {
       // Показываем индикатор загрузки
@@ -313,28 +308,36 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     }
   }, [fetchAllCommentsCount, loadBlockedStatuses]);
 
-  // Функция для загрузки количества комментариев для документа
-  const fetchCommentsCount = useCallback(async (documentId: string) => {
-    try {
-      const response = await fetch(`/api/documents/${documentId}/comments/count`);
-      if (response.ok) {
-        const data = await response.json();
-        setCommentsCount(prev => ({
-          ...prev,
-          [documentId]: data.count
-        }));
-      }
-    } catch (commentsCountError) {
-      console.error('Error fetching comments count:', commentsCountError);
-    }
-  }, []);
+  // Теперь используем функции в useEffect (после их определения)
+  useEffect(() => {
+    fetchStats();
+    fetchClients();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Убираем fetchStats и fetchClients из зависимостей чтобы избежать бесконечного цикла
 
-  // Функция для загрузки количества комментариев для всех документов клиента
-  const fetchAllCommentsCount = useCallback(async (quotes: any[], invoices: any[]) => {
-    const allDocuments = [...quotes, ...invoices];
-    const promises = allDocuments.map(doc => fetchCommentsCount(doc.id));
-    await Promise.all(promises);
-  }, [fetchCommentsCount]);
+  // Закрытие выпадающих меню при клике вне их (использует hideStatusDropdown)
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (statusDropdown) {
+        const target = event.target as HTMLElement;
+        // Проверяем, что клик не по выпадающему меню и не по кнопке статуса
+        if (!target.closest('[data-status-dropdown]') && !target.closest('button[class*="rounded-full"]')) {
+          hideStatusDropdown();
+        }
+      }
+      
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-quote-actions]') && !target.closest('[data-invoice-actions]')) {
+        setShowQuoteActions(null);
+        setShowInvoiceActions(null);
+      }
+    };
+
+    if (statusDropdown || showQuoteActions || showInvoiceActions) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [statusDropdown, showQuoteActions, showInvoiceActions, hideStatusDropdown]);
 
   // Оптимизированная фильтрация клиентов с мемоизацией
   const filteredClients = useMemo(() => {
@@ -989,8 +992,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Поиск по ФИО, телефону, адресу..."
                   className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-black/50"
-                />
-              </div>
+          />
+        </div>
             </div>
             <div className="p-0">
               <div className="divide-y">
@@ -1015,7 +1018,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
               </div>
             </div>
           </Card>
-        </div>
+      </div>
 
         <div className="md:col-span-1">
           <Card variant="base">
@@ -1034,7 +1037,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                       </>
                     );
                   })()}
-                </div>
+        </div>
               ) : (
                 <div className="text-gray-600">Выберите клиента слева</div>
               )}
@@ -1048,16 +1051,16 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                       {id:'quotes',name:'КП',icon:FileText},
                       {id:'invoices',name:'Счета',icon:Download}
                     ] as Array<{id:'quotes'|'invoices';name:string;icon:any}>).map((t) => (
-                      <button
+            <button
                         key={t.id}
                         onClick={() => setClientTab(t.id)}
                         className={`flex items-center py-2 px-1 border-b-2 font-medium text-sm ${clientTab===t.id?'border-black text-black':'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
                       >
                         <t.icon className="h-4 w-4 mr-2"/>{t.name}
-                      </button>
-                    ))}
-                  </nav>
-                </div>
+            </button>
+          ))}
+        </nav>
+      </div>
 
                 {clientTab==='quotes' && (
                   <>
@@ -1068,7 +1071,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                           className={`px-3 py-1 text-sm border ${quotesFilter===s?'border-black bg-black text-white':'border-gray-300 hover:border-black'}`}
                         >{s==='all'?'Все':s}</button>
                       ))}
-                    </div>
+        </div>
                     <div className="space-y-2">
                       {quotes.filter(q => quotesFilter==='all' || q.status===quotesFilter).map(q => (
                         <div key={q.id} className="border border-gray-200 p-3 hover:border-black transition-colors">
@@ -1093,7 +1096,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                                   )}
                                 </button>
                               </div>
-                            </div>
+        </div>
                             <div className="text-right ml-4 flex items-center space-x-2">
                               <div className="font-semibold text-black">{q.total.toLocaleString('ru-RU')} ₽</div>
                               <div className="relative" data-quote-actions>
@@ -1167,14 +1170,14 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                               >
                                 <History className="h-3.5 w-3.5 mr-1"/>История
                               </button>
-                            </div>
-                          </div>
-                        </div>
+            </div>
+          </div>
+        </div>
                       ))}
                       {quotes.filter(q => quotesFilter==='all' || q.status===quotesFilter).length===0 && (
                         <div className="text-sm text-gray-500">Нет КП по выбранному фильтру</div>
                       )}
-                    </div>
+        </div>
                   </>
                 )}
 
@@ -1187,11 +1190,11 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                           className={`px-3 py-1 text-sm border ${invoicesFilter===s?'border-black bg-black text-white':'border-gray-300 hover:border-black'}`}
                         >{s==='all'?'Все':s}</button>
                       ))}
-                    </div>
+          </div>
                     <div className="space-y-2">
                       {invoices.filter(i => invoicesFilter==='all' || i.status===invoicesFilter).map(i => (
                         <div key={i.id} className="border border-gray-200 p-3 hover:border-black transition-colors">
-                          <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between">
                             <div className="flex-1">
                               <div className="flex items-center space-x-3">
                                 <div className="font-medium text-black">{i.number}</div>
@@ -1212,7 +1215,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                                   )}
                                 </button>
                               </div>
-                            </div>
+          </div>
                             <div className="text-right ml-4 flex items-center space-x-2">
                               <div className="font-semibold text-black">{i.total.toLocaleString('ru-RU')} ₽</div>
                               <div className="relative" data-invoice-actions>
@@ -1254,11 +1257,11 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                                     >
                                       Удалить
                                     </button>
-                                  </div>
+                </div>
                                 )}
-                              </div>
-                            </div>
-                          </div>
+                </div>
+              </div>
+            </div>
                           <div className="mt-2 flex items-center justify-between">
                             <div className="flex items-center space-x-3 text-xs text-gray-500">
                               <button 
@@ -1267,7 +1270,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                               >
                                 <div className={`h-3.5 w-3.5 mr-1 rounded flex items-center justify-center ${commentsCount[i.id] > 0 ? 'bg-green-500 text-white' : 'text-gray-500'}`}>
                                   <StickyNote className="h-2.5 w-2.5"/>
-                                </div>
+                </div>
                                 Комментарии
                               </button>
                               <button 
@@ -1276,21 +1279,21 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                               >
                                 <History className="h-3.5 w-3.5 mr-1"/>История
                               </button>
-                            </div>
-                          </div>
-                        </div>
+                </div>
+              </div>
+            </div>
                       ))}
                       {invoices.filter(i => invoicesFilter==='all' || i.status===invoicesFilter).length===0 && (
                         <div className="text-sm text-gray-500">Нет счетов по выбранному фильтру</div>
                       )}
-                    </div>
+                </div>
                   </>
                 )}
-              </div>
+                </div>
             )}
           </Card>
-        </div>
-      </div>
+                </div>
+              </div>
 
       {/* Модальное окно создания клиента */}
       {showCreateClientForm && (
@@ -1330,12 +1333,12 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                 className="col-span-2 px-3 py-2 border border-gray-300 rounded"
               />
               <div className="col-span-2">
-                <PhoneInput
+              <PhoneInput
                   label="Телефон"
-                  value={newClientData.phone}
-                  onChange={(value) => setNewClientData(prev => ({ ...prev, phone: value }))}
-                  placeholder="+7 (999) 123-45-67"
-                />
+                value={newClientData.phone}
+                onChange={(value) => setNewClientData(prev => ({ ...prev, phone: value }))}
+                placeholder="+7 (999) 123-45-67"
+              />
               </div>
               <input
                 type="text"
@@ -1358,7 +1361,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                 onChange={(e) => setNewClientData(prev => ({ ...prev, address: e.target.value }))}
                 className="col-span-12 px-3 py-2 border border-gray-300 rounded"
               />
-            </div>
+                </div>
 
             <div className="flex justify-end gap-3 mt-4">
               <button
