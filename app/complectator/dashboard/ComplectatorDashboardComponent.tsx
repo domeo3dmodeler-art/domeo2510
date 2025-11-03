@@ -229,12 +229,21 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
   const loadBlockedStatuses = useCallback(async (currentOrders: typeof orders) => {
     const blockedSet = new Set<string>();
     
-    // Проверяем все заказы
+    // Проверяем все заказы через связанные счета
+    // Для комплектатора статусы заказов синхронизируются со статусами Invoice
     for (const order of currentOrders) {
-      const isBlocked = await isStatusBlocked(order.id, 'order');
-      if (isBlocked) {
-        blockedSet.add(order.id);
+      // Если у заказа есть связанный счет, проверяем блокировку через Invoice
+      if (order.invoice_id) {
+        try {
+          const isBlocked = await isStatusBlocked(order.invoice_id, 'invoice');
+          if (isBlocked) {
+            blockedSet.add(order.id);
+          }
+        } catch (error) {
+          console.error('Error checking invoice status for order:', error);
+        }
       }
+      // Если нет счета, заказ не блокирован (статус Черновик)
     }
     
     setBlockedStatuses(blockedSet);
