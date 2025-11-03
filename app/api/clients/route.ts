@@ -102,8 +102,8 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ client });
-  } catch (error) {
-    console.error('Error creating client:', error);
+  } catch (createClientApiError) {
+    console.error('Error creating client:', createClientApiError);
     return NextResponse.json({ error: 'Ошибка при создании клиента' }, { status: 500 });
   }
 }

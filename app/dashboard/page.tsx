@@ -3,7 +3,7 @@
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '../../components/layout/AdminLayout';
 import ComplectatorDashboard from '../complectator/dashboard/page';
@@ -37,7 +37,7 @@ function DashboardContent() {
   const [stats, setStats] = useState<any>(null);
   const [userCount, setUserCount] = useState<number>(0);
   const [complectatorStats, setComplectatorStats] = useState<any>(null);
-  const [isInitialized, setIsInitialized] = useState(false); // Флаг инициализации чтобы избежать повторных вызовов
+  const isInitializedRef = useRef(false); // Используем useRef чтобы избежать ре-рендеров
   const router = useRouter();
 
   // Мемоизируем контент по роли (оптимизировано - для complectator не зависит от stats)
@@ -145,13 +145,13 @@ function DashboardContent() {
 
   useEffect(() => {
     // Защита от повторных вызовов
-    if (isInitialized) {
+    if (isInitializedRef.current) {
       console.log('⏭️ DashboardContent - уже инициализирован, пропускаем');
       return;
     }
 
     console.log('🔄 DashboardContent - useEffect запускается');
-    setIsInitialized(true); // Устанавливаем флаг сразу чтобы предотвратить повторные вызовы
+    isInitializedRef.current = true; // Устанавливаем флаг сразу чтобы предотвратить повторные вызовы
     
     // Проверяем аутентификацию
     const token = localStorage.getItem('authToken');
@@ -184,7 +184,8 @@ function DashboardContent() {
     });
     setIsLoading(false);
     console.log('✅ DashboardContent - isLoading установлен в false');
-  }, [isInitialized]); // Убираем router и fetchStats из зависимостей - они стабильны
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Пустой массив зависимостей - эффект должен выполняться только один раз при монтировании
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
