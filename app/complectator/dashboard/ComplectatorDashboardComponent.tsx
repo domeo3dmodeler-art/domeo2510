@@ -243,37 +243,27 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
   }, []);
 
   // Функция для загрузки количества комментариев для всех документов клиента (зависит от fetchCommentsCount)
-  const fetchAllCommentsCount = useCallback(async (quotes: any[], invoices: any[]) => {
-    const allDocuments = [...quotes, ...invoices];
-    const promises = allDocuments.map(doc => fetchCommentsCount(doc.id));
+  const fetchAllCommentsCount = useCallback(async (orders: any[]) => {
+    const promises = orders.map(order => fetchCommentsCount(order.id));
     await Promise.all(promises);
   }, [fetchCommentsCount]);
 
   // Загрузка информации о блокировке статусов для всех документов (зависит от isStatusBlocked)
-  // НЕ зависит от invoices и quotes напрямую - вызывается только вручную когда нужно
-  const loadBlockedStatuses = useCallback(async (currentQuotes: typeof quotes, currentInvoices: typeof invoices) => {
+  // НЕ зависит от orders напрямую - вызывается только вручную когда нужно
+  const loadBlockedStatuses = useCallback(async (currentOrders: typeof orders) => {
     const blockedSet = new Set<string>();
     
-    // Проверяем все счета
-    for (const invoice of currentInvoices) {
-      const isBlocked = await isStatusBlocked(invoice.id, 'invoice');
+    // Проверяем все заказы
+    for (const order of currentOrders) {
+      const isBlocked = await isStatusBlocked(order.id, 'order');
       if (isBlocked) {
-        blockedSet.add(invoice.id);
-      }
-    }
-    
-    // Проверяем все КП
-    for (const quote of currentQuotes) {
-      const isBlocked = await isStatusBlocked(quote.id, 'quote');
-      if (isBlocked) {
-        blockedSet.add(quote.id);
+        blockedSet.add(order.id);
       }
     }
     
     setBlockedStatuses(blockedSet);
   }, [isStatusBlocked]);
 
-  // Загрузка документов клиента (зависит от fetchAllCommentsCount и loadBlockedStatuses)
   // Загрузка заказов клиента
   const fetchClientOrders = useCallback(async (clientId: string) => {
     try {
@@ -318,58 +308,20 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
           };
         });
         setOrders(formattedOrders);
+        
+        // Загружаем информацию о блокировке статусов для заказов
+        setTimeout(() => {
+          loadBlockedStatuses(formattedOrders);
+        }, 100);
+        
+        // Загружаем количество комментариев для всех заказов
+        await fetchAllCommentsCount(formattedOrders);
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
     }
-  }, []);
-
-  const fetchClientDocuments = useCallback(async (clientId: string) => {
-    try {
-      // Показываем индикатор загрузки
-      setQuotes([]);
-      setInvoices([]);
-      
-      const response = await fetch(`/api/clients/${clientId}`);
-      if (response.ok) {
-        const data = await response.json();
-        const client = data.client;
-        
-        // Преобразуем КП (только нужные поля)
-        const formattedQuotes = client.quotes.map((quote: any) => ({
-          id: quote.id,
-          number: quote.number ? quote.number.replace('QUOTE-', 'КП-') : `КП-${quote.id.slice(-6)}`,
-          date: new Date(quote.created_at).toISOString().split('T')[0],
-          status: mapQuoteStatus(quote.status),
-          total: Number(quote.total_amount) || 0
-        }));
-        setQuotes(formattedQuotes);
-        
-        // Преобразуем Счета (только нужные поля)
-        const formattedInvoices = client.invoices.map((invoice: any) => ({
-          id: invoice.id,
-          number: invoice.number ? invoice.number.replace('INVOICE-', 'СЧ-') : `СЧ-${invoice.id.slice(-6)}`,
-          date: new Date(invoice.created_at).toISOString().split('T')[0],
-          status: mapInvoiceStatus(invoice.status),
-          total: Number(invoice.total_amount) || 0,
-          dueAt: invoice.due_date ? new Date(invoice.due_date).toISOString().split('T')[0] : undefined
-        }));
-        setInvoices(formattedInvoices);
-        
-        // Загружаем информацию о блокировке статусов
-        setTimeout(() => {
-          loadBlockedStatuses(formattedQuotes, formattedInvoices);
-        }, 100);
-        
-        // Загружаем количество комментариев для всех документов
-        await fetchAllCommentsCount(formattedQuotes, formattedInvoices);
-      } else {
-        console.error('Failed to fetch client documents');
-      }
-    } catch (documentsFetchError) {
-      console.error('Error fetching client documents:', documentsFetchError);
-    }
   }, [fetchAllCommentsCount, loadBlockedStatuses]);
+
 
   // Теперь используем функции в useEffect (после их определения)
   useEffect(() => {
@@ -433,9 +385,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
 
   useEffect(() => {
     if (!selectedClient) return;
-    fetchClientDocuments(selectedClient);
     fetchClientOrders(selectedClient);
-  }, [selectedClient, fetchClientDocuments, fetchClientOrders]);
+  }, [selectedClient, fetchClientOrders]);
 
   const formatPhone = (raw?: string) => {
     if (!raw) return '—';
@@ -593,18 +544,10 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         const russianStatus = reverseStatusMap[result.quote.status] || result.quote.status;
         console.log('🔄 Mapped status:', { apiStatus: result.quote.status, russianStatus });
         
-        // Обновляем список КП
-        setQuotes(prev => prev.map(q => 
-          q.id === quoteId ? { 
-            ...q, 
-            status: russianStatus as any
-          } : q
-        ));
-        
         // Обновляем данные клиента
         if (selectedClient) {
           console.log('🔄 Refreshing client data...');
-          fetchClientDocuments(selectedClient);
+          fetchClientOrders(selectedClient);
         }
         
         hideStatusDropdown();
@@ -672,18 +615,10 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         const russianStatus = reverseStatusMap[result.invoice.status] || result.invoice.status;
         console.log('🔄 Mapped status:', { apiStatus: result.invoice.status, russianStatus });
         
-        // Обновляем список Счетов
-        setInvoices(prev => prev.map(inv => 
-          inv.id === invoiceId ? { 
-            ...inv, 
-            status: russianStatus as any
-          } : inv
-        ));
-        
         // Обновляем данные клиента
         if (selectedClient) {
           console.log('🔄 Refreshing client data...');
-          fetchClientDocuments(selectedClient);
+          fetchClientOrders(selectedClient);
         }
         
         hideStatusDropdown();
@@ -770,10 +705,10 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
           parent_document_id: orderId,
           client_id: quoteFull.client_id,
           items: cartData,
-          total_amount: quoteFull.total_amount || quote.total,
-          subtotal: quoteFull.subtotal || quote.total,
+          total_amount: quoteFull.total_amount || 0,
+          subtotal: quoteFull.subtotal || quoteFull.total_amount || 0,
           tax_amount: quoteFull.tax_amount || 0,
-          notes: `Создан на основе КП ${quoteFull.number || quote.number}`
+          notes: `Создан на основе КП ${quoteFull.number || ''}`
         })
       });
 
@@ -783,7 +718,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         
         // Обновляем данные клиента
         if (selectedClient) {
-          fetchClientDocuments(selectedClient);
+          fetchClientOrders(selectedClient);
         }
       } else {
         const createInvoiceErrorResponse = await response.json();
@@ -798,28 +733,22 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
   // Перегенерация КП
   const regenerateQuote = async (quoteId: string) => {
     try {
-      // Получаем данные КП
-      const quote = quotes.find(q => q.id === quoteId);
-      if (!quote) {
-        toast.error('КП не найдено');
-        return;
-      }
-
-      // Получаем полные данные КП из API
+      // Получаем данные КП из API
       const quoteResponse = await fetch(`/api/quotes/${quoteId}`);
       if (!quoteResponse.ok) {
-        toast.error('Ошибка при получении данных КП');
+        toast.error('КП не найдено');
         return;
       }
       
       const quoteData = await quoteResponse.json();
+      const quoteFull = quoteData.quote || quoteData;
       
-      if (!quoteData.quote.cart_data) {
+      if (!quoteFull.cart_data) {
         toast.error('Нет данных корзины для перегенерации');
         return;
       }
 
-      const cartData = JSON.parse(quoteData.quote.cart_data);
+      const cartData = JSON.parse(quoteFull.cart_data);
       
       // Перегенерируем КП через API
       const response = await fetch('/api/export/fast', {
@@ -828,9 +757,9 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         body: JSON.stringify({
           type: 'quote',
           format: 'pdf',
-          clientId: quoteData.quote.client_id,
+          clientId: quoteFull.client_id,
           items: cartData,
-          totalAmount: quote.total
+          totalAmount: quoteFull.total_amount || 0
         })
       });
 
@@ -871,28 +800,21 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
   // Перегенерация счета
   const regenerateInvoice = async (invoiceId: string) => {
     try {
-      // Получаем данные счета
-      const invoice = invoices.find(i => i.id === invoiceId);
-      if (!invoice) {
+      // Получаем данные счета из API
+      const invoiceResponse = await fetch(`/api/invoices/${invoiceId}`);
+      if (!invoiceResponse.ok) {
         toast.error('Счет не найден');
         return;
       }
-
-      // Получаем полные данные счета из API
-      const invoiceResponse = await fetch(`/api/invoices/${invoiceId}`);
-      if (!invoiceResponse.ok) {
-        toast.error('Ошибка при получении данных счета');
-        return;
-      }
-      
       const invoiceData = await invoiceResponse.json();
+      const invoiceFull = invoiceData.invoice || invoiceData;
       
-      if (!invoiceData.invoice.cart_data) {
+      if (!invoiceFull.cart_data) {
         toast.error('Нет данных корзины для перегенерации');
         return;
       }
 
-      const cartData = JSON.parse(invoiceData.invoice.cart_data);
+      const cartData = JSON.parse(invoiceFull.cart_data);
       
       // Перегенерируем счет через API
       const response = await fetch('/api/export/fast', {
@@ -901,9 +823,9 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         body: JSON.stringify({
           type: 'invoice',
           format: 'pdf',
-          clientId: invoiceData.invoice.client_id,
+          clientId: invoiceFull.client_id,
           items: cartData,
-          totalAmount: invoice.total
+          totalAmount: invoiceFull.total_amount || 0
         })
       });
 
@@ -949,7 +871,10 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       });
 
       if (response.ok) {
-        setQuotes(prev => prev.filter(q => q.id !== quoteId));
+        // Обновляем данные клиента
+        if (selectedClient) {
+          fetchClientOrders(selectedClient);
+        }
         toast.success('КП удалено успешно');
       } else {
         const deleteQuoteErrorResponse = await response.json();
@@ -969,7 +894,10 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       });
 
       if (response.ok) {
-        setInvoices(prev => prev.filter(i => i.id !== invoiceId));
+        // Обновляем данные клиента
+        if (selectedClient) {
+          fetchClientOrders(selectedClient);
+        }
         toast.success('Счет удален успешно');
       } else {
         const deleteInvoiceErrorResponse = await response.json();
@@ -1004,21 +932,21 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
   const focusOnDocument = useCallback((documentId: string) => {
     // Находим клиента, у которого есть этот документ
     const clientWithDocument = clients.find(client => {
-      return quotes.some(q => q.id === documentId) || invoices.some(i => i.id === documentId) || orders.some(o => o.id === documentId);
+      return orders.some(o => o.id === documentId);
     });
     
     if (clientWithDocument) {
       setSelectedClient(clientWithDocument.id);
-      // Переключаемся на соответствующую вкладку
-      if (quotes.some(q => q.id === documentId)) {
-        setClientTab('quotes');
-      } else if (invoices.some(i => i.id === documentId)) {
-        setClientTab('invoices');
-      } else if (orders.some(o => o.id === documentId)) {
-        setClientTab('orders');
+      // Открываем модальное окно заказа
+      if (orders.some(o => o.id === documentId)) {
+        const order = orders.find(o => o.id === documentId);
+        if (order) {
+          setSelectedOrderId(order.id);
+          setIsOrderModalOpen(true);
+        }
       }
     }
-  }, [clients, quotes, invoices, orders]);
+  }, [clients, orders]);
 
   // Обработка фокуса из URL параметров
   useEffect(() => {
@@ -1029,7 +957,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       // Очищаем URL параметр
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, [clients, quotes, invoices, orders, focusOnDocument]);
+  }, [clients, orders, focusOnDocument]);
 
   if (loading) {
     return (
