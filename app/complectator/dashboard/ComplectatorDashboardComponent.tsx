@@ -25,6 +25,7 @@ import CommentsModal from '@/components/ui/CommentsModal';
 import HistoryModal from '@/components/ui/HistoryModal';
 import NotificationBell from '@/components/ui/NotificationBell';
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
+import DocumentWorkflowIntegration from '@/components/documents/DocumentWorkflowIntegration';
 import { toast } from 'sonner';
 
 // Маппинг статусов КП из API в русские (определяем на уровне модуля до компонента)
