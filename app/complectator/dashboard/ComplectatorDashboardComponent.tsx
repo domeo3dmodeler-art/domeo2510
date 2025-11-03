@@ -1457,11 +1457,11 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                     </div>
                   </>
                 )}
-                </div>
+              </div>
             )}
           </Card>
-                </div>
-              </div>
+        </div>
+      )}
 
       {/* Модальное окно создания клиента */}
       {showCreateClientForm && (
