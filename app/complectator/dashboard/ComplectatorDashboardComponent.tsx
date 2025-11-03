@@ -1701,8 +1701,6 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         }
         itemName={deleteModal.name || undefined}
       />
-      </div>
-      )}
     </div>
   );
 }
