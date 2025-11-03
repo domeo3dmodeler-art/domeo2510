@@ -335,17 +335,17 @@ function DashboardContent() {
               .map((widget, index) => {
                 if (!widget) return null;
                 return (
-                  <Card key={index} variant="interactive" className="hover:border-black transition-all duration-200">
-                    <div className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">{widget.title}</p>
-                          <p className="text-2xl font-bold text-black mt-1">{widget.count}</p>
-                        </div>
-                        <div className="text-2xl">{widget.icon || '📊'}</div>
-                      </div>
+              <Card key={index} variant="interactive" className="hover:border-black transition-all duration-200">
+                <div className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">{widget.title}</p>
+                      <p className="text-2xl font-bold text-black mt-1">{widget.count}</p>
                     </div>
-                  </Card>
+                        <div className="text-2xl">{widget.icon || '📊'}</div>
+                  </div>
+                </div>
+              </Card>
                 );
               })}
           </div>
@@ -360,15 +360,15 @@ function DashboardContent() {
                   .map((action, index) => {
                     if (!action) return null;
                     return (
-                      <Button
-                        key={index}
-                        variant="secondary"
-                        className="p-4 h-auto flex flex-col items-center space-y-2"
-                        onClick={() => action.link && router.push(action.link)}
-                      >
+                  <Button
+                    key={index}
+                    variant="secondary"
+                    className="p-4 h-auto flex flex-col items-center space-y-2"
+                    onClick={() => action.link && router.push(action.link)}
+                  >
                         <div className="text-2xl">{action.icon || '⚡'}</div>
-                        <p className="text-sm font-medium">{action.title}</p>
-                      </Button>
+                    <p className="text-sm font-medium">{action.title}</p>
+                  </Button>
                     );
                   })}
               </div>
@@ -513,21 +513,21 @@ function DashboardContent() {
             .map((widget, index) => {
               if (!widget) return null;
               return (
-                <div
-                  key={index}
-                  onClick={() => widget.link && router.push(widget.link)}
-                  className="bg-white border border-gray-200 p-6 hover:border-black transition-all duration-200 group cursor-pointer"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">{widget.title}</p>
-                      <p className="text-2xl font-bold text-black mt-1">{widget.count}</p>
-                    </div>
-                    <div className="text-2xl group-hover:scale-110 transition-transform duration-200">
-                      {widget.icon || '📊'}
-                    </div>
-                  </div>
+            <div
+              key={index}
+              onClick={() => widget.link && router.push(widget.link)}
+              className="bg-white border border-gray-200 p-6 hover:border-black transition-all duration-200 group cursor-pointer"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">{widget.title}</p>
+                  <p className="text-2xl font-bold text-black mt-1">{widget.count}</p>
                 </div>
+                <div className="text-2xl group-hover:scale-110 transition-transform duration-200">
+                      {widget.icon || '📊'}
+                </div>
+              </div>
+            </div>
               );
             })}
         </div>
@@ -541,16 +541,16 @@ function DashboardContent() {
               .map((action, index) => {
                 if (!action) return null;
                 return (
-                  <button
-                    key={index}
-                    onClick={() => action.link && router.push(action.link)}
-                    className="bg-white border border-gray-200 p-4 hover:border-black hover:bg-black hover:text-white transition-all duration-200 group text-center"
-                  >
-                    <div className="text-2xl mb-2 group-hover:scale-110 transition-transform duration-200">
+              <button
+                key={index}
+                onClick={() => action.link && router.push(action.link)}
+                className="bg-white border border-gray-200 p-4 hover:border-black hover:bg-black hover:text-white transition-all duration-200 group text-center"
+              >
+                <div className="text-2xl mb-2 group-hover:scale-110 transition-transform duration-200">
                       {action.icon || '⚡'}
-                    </div>
-                    <p className="text-sm font-medium">{action.title}</p>
-                  </button>
+                </div>
+                <p className="text-sm font-medium">{action.title}</p>
+              </button>
                 );
               })}
           </div>

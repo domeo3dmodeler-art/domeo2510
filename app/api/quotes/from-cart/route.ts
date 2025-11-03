@@ -48,6 +48,9 @@ type CartToQuoteRequest = {
 };
 
 // POST /api/quotes/from-cart - Создать КП из корзины
+// ⚠️ DEPRECATED: Используйте POST /api/documents/create с parent_document_id = orderId
+// Этот endpoint создает Quote напрямую без Order, что не соответствует текущей логике Order-first
+// Для правильной работы создайте Order через POST /api/orders, затем Quote через POST /api/documents/create
 export async function POST(req: NextRequest) {
   try {
     const body: CartToQuoteRequest = await req.json();

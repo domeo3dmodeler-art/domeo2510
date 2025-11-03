@@ -89,6 +89,9 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/invoices - Создать новый счет (упрощенная версия)
+// ⚠️ DEPRECATED: Используйте POST /api/documents/create с parent_document_id = orderId
+// Этот endpoint создает Invoice напрямую без Order, что не соответствует текущей логике Order-first
+// Для правильной работы создайте Order через POST /api/orders, затем Invoice через POST /api/documents/create
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

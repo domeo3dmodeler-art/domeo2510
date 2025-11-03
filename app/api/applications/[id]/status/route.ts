@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// PUT /api/applications/[id]/status - Изменение статуса заявки
+// PUT /api/applications/[id]/status - Изменение статуса заказа
+// ⚠️ DEPRECATED: Используйте PUT /api/orders/[id]/status напрямую
+// Этот endpoint оставлен для обратной совместимости
 export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -17,14 +19,14 @@ export async function PUT(
       );
     }
 
-    // Получаем текущую заявку
-    const application = await prisma.application.findUnique({
+    // Получаем текущий заказ
+    const order = await prisma.order.findUnique({
       where: { id: params.id }
     });
 
-    if (!application) {
+    if (!order) {
       return NextResponse.json(
-        { error: 'Заявка не найдена' },
+        { error: 'Заказ не найден' },
         { status: 404 }
       );
     }
@@ -38,16 +40,17 @@ export async function PUT(
       'COMPLETED': []
     };
 
-    const allowedStatuses = validTransitions[application.status] || [];
+    const allowedStatuses = validTransitions[order.status] || [];
     if (!allowedStatuses.includes(status)) {
       return NextResponse.json(
-        { error: `Недопустимый переход статуса из ${application.status} в ${status}` },
+        { error: `Недопустимый переход статуса из ${order.status} в ${status}` },
         { status: 400 }
       );
     }
 
     // Проверяем обязательность загрузки проекта при переходе в UNDER_REVIEW
-    if (status === 'UNDER_REVIEW' && !application.project_file_url) {
+    // order уже содержит project_file_url из схемы, используем проверку
+    if (status === 'UNDER_REVIEW' && !(order as any).project_file_url) {
       return NextResponse.json(
         { error: 'Для перехода в статус "На проверке" требуется загрузить проект/планировку' },
         { status: 400 }
@@ -57,7 +60,7 @@ export async function PUT(
     // Если текущий статус UNDER_REVIEW и переходим в UNDER_REVIEW с require_measurement,
     // определяем следующий статус на основе require_measurement
     let targetStatus = status;
-    if (application.status === 'UNDER_REVIEW' && status === 'UNDER_REVIEW' && require_measurement !== undefined) {
+    if (order.status === 'UNDER_REVIEW' && status === 'UNDER_REVIEW' && require_measurement !== undefined) {
       targetStatus = require_measurement ? 'AWAITING_MEASUREMENT' : 'AWAITING_INVOICE';
     }
 
@@ -70,8 +73,8 @@ export async function PUT(
       updateData.notes = notes;
     }
 
-    // Обновляем заявку
-    const updatedApplication = await prisma.application.update({
+    // Обновляем заказ
+    const updatedOrder = await prisma.order.update({
       where: { id: params.id },
       data: updateData,
       include: {
@@ -84,15 +87,8 @@ export async function PUT(
             phone: true,
             address: true
           }
-        },
-        invoice: {
-          select: {
-            id: true,
-            number: true,
-            status: true,
-            total_amount: true
-          }
         }
+        // Invoice связан через order_id, получаем отдельным запросом если нужно
       }
     });
 
@@ -100,13 +96,14 @@ export async function PUT(
 
     return NextResponse.json({
       success: true,
-      application: updatedApplication
+      application: updatedOrder, // Для обратной совместимости
+      order: updatedOrder
     });
 
   } catch (error) {
-    console.error('Error updating application status:', error);
+    console.error('Error updating order status:', error);
     return NextResponse.json(
-      { error: 'Ошибка изменения статуса заявки' },
+      { error: 'Ошибка изменения статуса заказа' },
       { status: 500 }
     );
   }

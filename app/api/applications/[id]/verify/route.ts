@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// POST /api/applications/[id]/verify - Проверка данных заявки
+// POST /api/applications/[id]/verify - Проверка данных заказа
+// ⚠️ DEPRECATED: Используйте POST /api/orders/[id]/verify напрямую
+// Этот endpoint оставлен для обратной совместимости
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -24,8 +26,8 @@ export async function POST(
       );
     }
 
-    // Получаем заявку
-    const application = await prisma.application.findUnique({
+    // Получаем заказ
+    const order = await prisma.order.findUnique({
       where: { id: params.id },
       include: {
         invoice: {
@@ -38,15 +40,15 @@ export async function POST(
       }
     });
 
-    if (!application) {
+    if (!order) {
       return NextResponse.json(
-        { error: 'Заявка не найдена' },
+        { error: 'Заказ не найден' },
         { status: 404 }
       );
     }
 
     // Проверяем наличие проекта
-    if (!application.project_file_url) {
+    if (!order.project_file_url) {
       return NextResponse.json(
         { 
           error: 'Для проверки требуется загруженный проект/планировка',
@@ -61,9 +63,9 @@ export async function POST(
 
     // Извлекаем данные дверей из счета
     let invoiceDoorData: any[] = [];
-    if (application.invoice?.cart_data) {
+    if (order.invoice?.cart_data) {
       try {
-        const cartData = JSON.parse(application.invoice.cart_data);
+        const cartData = JSON.parse(order.invoice.cart_data);
         // Парсим данные дверей из cart_data
         // Структура cart_data: { items: [{ width, height, quantity/qty, ... }] }
         const items = cartData.items || [];
@@ -80,8 +82,8 @@ export async function POST(
     }
 
     // Извлекаем данные дверей из проекта (door_dimensions)
-    const projectDoorData = application.door_dimensions
-      ? JSON.parse(application.door_dimensions)
+    const projectDoorData = order.door_dimensions
+      ? JSON.parse(order.door_dimensions)
       : [];
 
     // Сравниваем данные
@@ -124,7 +126,7 @@ export async function POST(
     }
 
     // Обновляем статус проверки
-    const updatedApplication = await prisma.application.update({
+    const updatedOrder = await prisma.order.update({
       where: { id: params.id },
       data: {
         verification_status,
@@ -151,7 +153,8 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      application: updatedApplication,
+      application: updatedOrder, // Для обратной совместимости
+      order: updatedOrder,
       verification_result: {
         ...comparisonResult,
         verification_status,
@@ -160,9 +163,9 @@ export async function POST(
     });
 
   } catch (error) {
-    console.error('Error verifying application:', error);
+    console.error('Error verifying order:', error);
     return NextResponse.json(
-      { error: 'Ошибка проверки заявки' },
+      { error: 'Ошибка проверки заказа' },
       { status: 500 }
     );
   }

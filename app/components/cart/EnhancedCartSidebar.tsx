@@ -5,7 +5,7 @@ import { ShoppingCart, X, Plus, Minus, Trash2, FileText, Download, ArrowRight, C
 import { toast } from 'sonner';
 import { Button } from '@/components/ui';
 import { CartService } from '@/lib/cart/cart-service';
-import { Cart, CartItem, CartCalculation } from '../../lib/cart/types';
+import { Cart, CartItem, CartCalculation } from '@/lib/cart/types';
 import DocumentTree from '../documents/DocumentTree';
 
 interface EnhancedCartSidebarProps {
@@ -116,7 +116,7 @@ export default function EnhancedCartSidebar({
             expectedDate,
             notes,
             cartData: {
-              items: cart.items || []
+              items: cart?.items || []
             }
           })
         });
@@ -138,54 +138,226 @@ export default function EnhancedCartSidebar({
       return;
     }
 
-    // Для остальных типов документов используем стандартную логику
+    // Для Invoice и Quote: сначала создаем Order, затем создаем документ на основе Order
+    // Для Order: создаем напрямую через /api/orders
+    if (documentType === 'order') {
+      // Order создается напрямую (это основной документ)
+      setIsExporting(true);
+      try {
+        if (!cart || !cart.items || cart.items.length === 0) {
+          toast.error('Корзина пуста');
+          setIsExporting(false);
+          return;
+        }
+
+        const items = cart.items.map((item: any) => ({
+          id: item.id || item.productId,
+          productId: item.productId || item.id,
+          name: item.name || item.model,
+          model: item.model || item.name,
+          qty: item.qty || item.quantity || 1,
+          quantity: item.qty || item.quantity || 1,
+          unitPrice: item.unitPrice || item.price || 0,
+          price: item.unitPrice || item.price || 0,
+          width: item.width,
+          height: item.height,
+          color: item.color,
+          finish: item.finish,
+          sku_1c: item.sku_1c
+        }));
+
+        const totalAmount = (calculation as any)?.cart?.total || (calculation as any)?.total || cart.items.reduce(
+          (sum: number, item: any) => sum + (item.unitPrice || item.price || 0) * (item.qty || item.quantity || 1),
+          0
+        );
+
+        const response = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            client_id: selectedClientId,
+            items,
+            total_amount: totalAmount,
+            subtotal: (calculation as any)?.cart?.subtotal || (calculation as any)?.subtotal || totalAmount,
+            tax_amount: (calculation as any)?.cart?.tax || (calculation as any)?.tax || 0,
+            notes: 'Создан из корзины'
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const order = result.order;
+          toast.success(`Заказ ${order?.number || ''} создан успешно!`);
+          setCreatedDocuments(prev => [...prev, { type: 'order', ...order }]);
+          
+          // Экспортируем PDF для скачивания
+          try {
+            const exportResponse = await fetch('/api/export/fast', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'order',
+                format: 'pdf',
+                clientId: selectedClientId,
+                items,
+                totalAmount
+              })
+            });
+            
+            if (exportResponse.ok) {
+              const pdfBlob = await exportResponse.blob();
+              const url = URL.createObjectURL(pdfBlob);
+              const a = document.createElement('a');
+              a.href = url;
+              const contentDisposition = exportResponse.headers.get('content-disposition');
+              a.download = contentDisposition?.match(/filename="(.+)"/)?.[1] || 'order.pdf';
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+            }
+          } catch (exportError) {
+            console.warn('Не удалось экспортировать Order:', exportError);
+          }
+        } else {
+          const error = await response.json();
+          toast.error(`Ошибка: ${error.error}`);
+        }
+      } catch (error) {
+        console.error('Error creating order:', error);
+        toast.error('Ошибка при создании заказа');
+      } finally {
+        setIsExporting(false);
+      }
+      return;
+    }
+
+    // Для Invoice и Quote: создаем через Order-first логику
     setIsExporting(true);
     try {
-      const response = await fetch('/api/cart/export/enhanced', {
+      // Шаг 1: Создаем Order из корзины
+      if (!cart || !cart.items || cart.items.length === 0) {
+        toast.error('Корзина пуста');
+        setIsExporting(false);
+        return;
+      }
+
+      const items = cart.items.map((item: any) => ({
+        id: item.id || item.productId,
+        productId: item.productId || item.id,
+        name: item.name || item.model,
+        model: item.model || item.name,
+        qty: item.qty || item.quantity || 1,
+        quantity: item.qty || item.quantity || 1,
+        unitPrice: item.unitPrice || item.price || 0,
+        price: item.unitPrice || item.price || 0,
+        width: item.width,
+        height: item.height,
+        color: item.color,
+        finish: item.finish,
+        sku_1c: item.sku_1c
+      }));
+
+      const totalAmount = (calculation as any)?.cart?.total || (calculation as any)?.total || cart.items.reduce(
+        (sum: number, item: any) => sum + (item.unitPrice || item.price || 0) * (item.qty || item.quantity || 1),
+        0
+      );
+
+      // Если есть sourceDocument типа 'order', используем его
+      let orderId = sourceDocument?.type === 'order' ? sourceDocument.id : null;
+
+      // Если Order еще не создан, создаем его
+      if (!orderId) {
+        const orderResponse = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            client_id: selectedClientId,
+            items,
+            total_amount: totalAmount,
+            subtotal: (calculation as any)?.cart?.subtotal || (calculation as any)?.subtotal || totalAmount,
+            tax_amount: (calculation as any)?.cart?.tax || (calculation as any)?.tax || 0,
+            notes: `Создан для ${documentType === 'invoice' ? 'счета' : 'КП'}`
+          })
+        });
+
+        if (!orderResponse.ok) {
+          const orderError = await orderResponse.json();
+          toast.error(`Ошибка при создании заказа: ${orderError.error}`);
+          setIsExporting(false);
+          return;
+        }
+
+        const orderResult = await orderResponse.json();
+        orderId = orderResult.order.id;
+        toast.info(`Заказ ${orderResult.order.number} создан`);
+      }
+
+      // Шаг 2: Создаем Invoice или Quote на основе Order через /api/documents/create
+      const documentResponse = await fetch('/api/documents/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          cart: cart,
-          documentType,
-          format: exportFormat,
-          clientId: selectedClientId,
-          sourceDocumentId: sourceDocument?.id,
-          sourceDocumentType: sourceDocument?.type,
-          userId: 'current_user', // TODO: получить из контекста
-          additionalData: {
-            notes: `Создан на основе ${sourceDocument?.type} ${sourceDocument?.number}` || 'Создан из корзины'
-          }
+          type: documentType,
+          parent_document_id: orderId,
+          client_id: selectedClientId,
+          items,
+          total_amount: totalAmount,
+          subtotal: (calculation as any)?.cart?.subtotal || (calculation as any)?.subtotal || totalAmount,
+          tax_amount: (calculation as any)?.cart?.tax || (calculation as any)?.tax || 0,
+          notes: `Создан из корзины на основе заказа`
         })
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log('✅ Document created:', result.document);
-        
-        // Добавляем в список созданных документов
-        setCreatedDocuments(prev => [...prev, result.document]);
-        
-        // Скачиваем файл
-        const blob = new Blob([Buffer.from(result.file.buffer, 'base64')], { 
-          type: result.file.mimeType 
-        });
-        const url = URL.createObjectURL(blob);
+      if (!documentResponse.ok) {
+        const documentError = await documentResponse.json();
+        toast.error(`Ошибка при создании ${documentType}: ${documentError.error}`);
+        setIsExporting(false);
+        return;
+      }
+
+      const documentResult = await documentResponse.json();
+      console.log('✅ Document created:', documentResult);
+      
+      // Добавляем в список созданных документов
+      setCreatedDocuments(prev => [...prev, {
+        type: documentType,
+        id: documentResult.documentId,
+        number: documentResult.documentNumber
+      }]);
+
+      // Шаг 3: Экспортируем PDF для скачивания
+      const exportResponse = await fetch('/api/export/fast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: documentType,
+          format: exportFormat,
+          clientId: selectedClientId,
+          items,
+          totalAmount
+        })
+      });
+
+      if (exportResponse.ok) {
+        const pdfBlob = await exportResponse.blob();
+        const url = URL.createObjectURL(pdfBlob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = result.file.filename;
+        const contentDisposition = exportResponse.headers.get('content-disposition');
+        a.download = contentDisposition?.match(/filename="(.+)"/)?.[1] || `${documentType}.${exportFormat}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        toast.success(`${documentType} успешно создан и скачан!`);
+        toast.success(`${documentType === 'invoice' ? 'Счет' : 'КП'} создан и скачан успешно!`);
       } else {
-        const error = await response.json();
-        toast.error(`Ошибка: ${error.error}`);
+        toast.success(`${documentType === 'invoice' ? 'Счет' : 'КП'} создан, но не удалось скачать файл`);
       }
     } catch (error) {
-      console.error('Error exporting document:', error);
-      toast.error('Ошибка при создании документа');
+      console.error('Error creating document:', error);
+      toast.error(`Ошибка при создании ${documentType}`);
     } finally {
       setIsExporting(false);
     }
@@ -297,23 +469,23 @@ export default function EnhancedCartSidebar({
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
                         <h3 className="font-medium text-gray-900 truncate">
-                          {item.name || item.model}
+                          {(item as any).name || (item as any).model || item.productName}
                         </h3>
                         <div className="mt-1 text-sm text-gray-500">
-                          {item.finish && <span>{item.finish}</span>}
-                          {item.color && <span className="ml-1">{item.color}</span>}
-                          {item.width && item.height && (
-                            <span className="ml-1">{item.width}×{item.height}мм</span>
+                          {(item as any).finish && <span>{(item as any).finish}</span>}
+                          {(item as any).color && <span className="ml-1">{(item as any).color}</span>}
+                          {(item as any).width && (item as any).height && (
+                            <span className="ml-1">{(item as any).width}×{(item as any).height}мм</span>
                           )}
                         </div>
                         <div className="mt-2 text-sm font-medium text-gray-900">
-                          {Math.round(item.unitPrice || 0).toLocaleString()} ₽
+                          {Math.round((item as any).unitPrice || item.basePrice || 0).toLocaleString()} ₽
                         </div>
                       </div>
                       
                       <div className="ml-4 flex items-center space-x-2">
                         <button
-                          onClick={() => handleUpdateQuantity(item.id, (item.qty || 1) - 1)}
+                          onClick={() => handleUpdateQuantity(item.id, ((item as any).qty || item.quantity || 1) - 1)}
                           disabled={isLoading}
                           className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                         >
@@ -321,11 +493,11 @@ export default function EnhancedCartSidebar({
                         </button>
                         
                         <span className="w-8 text-center text-sm font-medium">
-                          {item.qty || 1}
+                          {(item as any).qty || item.quantity || 1}
                         </span>
                         
                         <button
-                          onClick={() => handleUpdateQuantity(item.id, (item.qty || 1) + 1)}
+                          onClick={() => handleUpdateQuantity(item.id, ((item as any).qty || item.quantity || 1) + 1)}
                           disabled={isLoading}
                           className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                         >
@@ -358,7 +530,7 @@ export default function EnhancedCartSidebar({
               <div className="mb-4">
                 <div className="flex justify-between text-lg font-semibold">
                   <span>Итого:</span>
-                  <span>{Math.round(calculation?.total || 0).toLocaleString()} ₽</span>
+                  <span>{Math.round((calculation as any)?.cart?.total || (calculation as any)?.total || 0).toLocaleString()} ₽</span>
                 </div>
               </div>
 
@@ -417,8 +589,8 @@ export default function EnhancedCartSidebar({
                         sku_1c: item.sku_1c
                       }));
 
-                      const totalAmount = calculation?.total || cart.items.reduce(
-                        (sum: number, item: any) => sum + (item.unitPrice || item.price || 0) * (item.qty || item.quantity || 1),
+                      const totalAmount = (calculation as any)?.cart?.total || (calculation as any)?.total || cart.items.reduce(
+                        (sum: number, item: any) => sum + ((item as any).unitPrice || (item as any).price || 0) * ((item as any).qty || (item as any).quantity || 1),
                         0
                       );
 
@@ -430,8 +602,8 @@ export default function EnhancedCartSidebar({
                           client_id: selectedClientId,
                           items,
                           total_amount: totalAmount,
-                          subtotal: calculation?.subtotal || totalAmount,
-                          tax_amount: calculation?.tax || 0,
+                          subtotal: (calculation as any)?.cart?.subtotal || (calculation as any)?.subtotal || totalAmount,
+                          tax_amount: (calculation as any)?.cart?.tax || (calculation as any)?.tax || 0,
                           notes: 'Создан из корзины'
                         })
                       });

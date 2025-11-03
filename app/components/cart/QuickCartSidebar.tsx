@@ -132,49 +132,174 @@ export default function QuickCartSidebar({
       return;
     }
 
-    // Для остальных типов документов используем стандартную логику
+    // Для Order: создаем напрямую через /api/orders
+    if (documentType === 'order') {
+      setIsExporting(true);
+      try {
+        const items = cart.items.map((item: any) => ({
+          id: item.id || item.productId,
+          productId: item.productId || item.id,
+          name: item.name || item.model,
+          model: item.model || item.name,
+          qty: item.qty || item.quantity || 1,
+          quantity: item.qty || item.quantity || 1,
+          unitPrice: item.unitPrice || item.price || 0,
+          price: item.unitPrice || item.price || 0,
+          width: item.width,
+          height: item.height,
+          color: item.color,
+          finish: item.finish,
+          sku_1c: item.sku_1c
+        }));
+
+        const totalAmount = calculation?.total || cart.items.reduce(
+          (sum: number, item: any) => sum + (item.unitPrice || item.price || 0) * (item.qty || item.quantity || 1),
+          0
+        );
+
+        const response = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            client_id: selectedClientId,
+            items,
+            total_amount: totalAmount,
+            subtotal: calculation?.subtotal || totalAmount,
+            tax_amount: calculation?.tax || 0,
+            notes: 'Создан из корзины'
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const order = result.order;
+          toast.success(`Заказ ${order?.number || ''} создан успешно!`);
+        } else {
+          const error = await response.json();
+          toast.error(`Ошибка: ${error.error}`);
+        }
+      } catch (error) {
+        console.error('Error creating order:', error);
+        toast.error('Ошибка при создании заказа');
+      } finally {
+        setIsExporting(false);
+      }
+      return;
+    }
+
+    // Для Invoice и Quote: создаем через Order-first логику
     setIsExporting(true);
     try {
-      // Используем существующий API экспорта
-      const response = await fetch('/api/export/fast', {
+      // Шаг 1: Создаем Order из корзины
+      const items = cart.items.map((item: any) => ({
+        id: item.id || item.productId,
+        productId: item.productId || item.id,
+        name: item.name || item.model,
+        model: item.model || item.name,
+        qty: item.qty || item.quantity || 1,
+        quantity: item.qty || item.quantity || 1,
+        unitPrice: item.unitPrice || item.price || 0,
+        price: item.unitPrice || item.price || 0,
+        width: item.width,
+        height: item.height,
+        color: item.color,
+        finish: item.finish,
+        sku_1c: item.sku_1c
+      }));
+
+      const totalAmount = calculation?.total || cart.items.reduce(
+        (sum: number, item: any) => sum + (item.unitPrice || item.price || 0) * (item.qty || item.quantity || 1),
+        0
+      );
+
+      // Если есть sourceDocument типа 'order', используем его
+      let orderId = sourceDocument?.type === 'order' ? sourceDocument.id : null;
+
+      // Если Order еще не создан, создаем его
+      if (!orderId) {
+        const orderResponse = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            client_id: selectedClientId,
+            items,
+            total_amount: totalAmount,
+            subtotal: calculation?.subtotal || totalAmount,
+            tax_amount: calculation?.tax || 0,
+            notes: `Создан для ${documentType === 'invoice' ? 'счета' : 'КП'}`
+          })
+        });
+
+        if (!orderResponse.ok) {
+          const orderError = await orderResponse.json();
+          toast.error(`Ошибка при создании заказа: ${orderError.error}`);
+          setIsExporting(false);
+          return;
+        }
+
+        const orderResult = await orderResponse.json();
+        orderId = orderResult.order.id;
+        toast.info(`Заказ ${orderResult.order.number} создан`);
+      }
+
+      // Шаг 2: Создаем Invoice или Quote на основе Order через /api/documents/create
+      const documentResponse = await fetch('/api/documents/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: documentType,
+          parent_document_id: orderId,
+          client_id: selectedClientId,
+          items,
+          total_amount: totalAmount,
+          subtotal: calculation?.subtotal || totalAmount,
+          tax_amount: calculation?.tax || 0,
+          notes: `Создан из корзины на основе заказа`
+        })
+      });
+
+      if (!documentResponse.ok) {
+        const documentError = await documentResponse.json();
+        toast.error(`Ошибка при создании ${documentType}: ${documentError.error}`);
+        setIsExporting(false);
+        return;
+      }
+
+      const documentResult = await documentResponse.json();
+      console.log('✅ Document created:', documentResult);
+
+      // Шаг 3: Экспортируем PDF для скачивания
+      const exportResponse = await fetch('/api/export/fast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: documentType,
           format: 'pdf',
           clientId: selectedClientId,
-          items: cart?.items || []
+          items,
+          totalAmount
         })
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log('✅ Document created:', result);
-        
-        // Скачиваем файл
-        const blob = new Blob([result.buffer], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
+      if (exportResponse.ok) {
+        const pdfBlob = await exportResponse.blob();
+        const url = URL.createObjectURL(pdfBlob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${documentType}-${Date.now()}.pdf`;
+        const contentDisposition = exportResponse.headers.get('content-disposition');
+        a.download = contentDisposition?.match(/filename="(.+)"/)?.[1] || `${documentType}.pdf`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        alert(`${documentType} успешно создан и скачан!`);
-        
-        // Обновляем список документов
-        if (showDocuments) {
-          // TODO: Обновить список документов
-        }
+        toast.success(`${documentType === 'invoice' ? 'Счет' : 'КП'} создан и скачан успешно!`);
       } else {
-        const error = await response.json();
-        alert(`Ошибка: ${error.error}`);
+        toast.success(`${documentType === 'invoice' ? 'Счет' : 'КП'} создан, но не удалось скачать файл`);
       }
     } catch (error) {
-      console.error('Error exporting document:', error);
-      alert('Ошибка при создании документа');
+      console.error('Error creating document:', error);
+      toast.error(`Ошибка при создании ${documentType}`);
     } finally {
       setIsExporting(false);
     }

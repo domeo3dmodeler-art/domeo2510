@@ -5,19 +5,21 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 
 // POST /api/applications/[id]/files - Загрузка оптовых счетов и техзаданий
+// ⚠️ DEPRECATED: Используйте POST /api/orders/[id]/files напрямую
+// Этот endpoint оставлен для обратной совместимости
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Проверяем существование заявки
-    const application = await prisma.application.findUnique({
+    // Проверяем существование заказа
+    const order = await prisma.order.findUnique({
       where: { id: params.id }
     });
 
-    if (!application) {
+    if (!order) {
       return NextResponse.json(
-        { error: 'Заявка не найдена' },
+        { error: 'Заказ не найден' },
         { status: 404 }
       );
     }
@@ -44,8 +46,8 @@ export async function POST(
       technical_specs: []
     };
 
-    // Создаем директорию для заявок если её нет
-    const uploadsDir = join(process.cwd(), 'uploads', 'applications', params.id);
+    // Создаем директорию для заказов если её нет
+    const uploadsDir = join(process.cwd(), 'uploads', 'orders', params.id);
     if (!existsSync(uploadsDir)) {
       await mkdir(uploadsDir, { recursive: true });
     }
@@ -81,7 +83,7 @@ export async function POST(
       const buffer = Buffer.from(await file.arrayBuffer());
       await writeFile(filepath, buffer);
 
-      const fileUrl = `/uploads/applications/${params.id}/${filename}`;
+      const fileUrl = `/uploads/orders/${params.id}/${filename}`;
       uploadedFiles.wholesale_invoices.push(fileUrl);
     }
 
@@ -116,24 +118,24 @@ export async function POST(
       const buffer = Buffer.from(await file.arrayBuffer());
       await writeFile(filepath, buffer);
 
-      const fileUrl = `/uploads/applications/${params.id}/${filename}`;
+      const fileUrl = `/uploads/orders/${params.id}/${filename}`;
       uploadedFiles.technical_specs.push(fileUrl);
     }
 
     // Получаем существующие файлы
-    const existingWholesaleInvoices = application.wholesale_invoices 
-      ? JSON.parse(application.wholesale_invoices) 
+    const existingWholesaleInvoices = order.wholesale_invoices 
+      ? JSON.parse(order.wholesale_invoices) 
       : [];
-    const existingTechnicalSpecs = application.technical_specs 
-      ? JSON.parse(application.technical_specs) 
+    const existingTechnicalSpecs = order.technical_specs 
+      ? JSON.parse(order.technical_specs) 
       : [];
 
     // Объединяем с новыми файлами
     const allWholesaleInvoices = [...existingWholesaleInvoices, ...uploadedFiles.wholesale_invoices];
     const allTechnicalSpecs = [...existingTechnicalSpecs, ...uploadedFiles.technical_specs];
 
-    // Обновляем заявку
-    const updatedApplication = await prisma.application.update({
+    // Обновляем заказ
+    const updatedOrder = await prisma.order.update({
       where: { id: params.id },
       data: {
         wholesale_invoices: JSON.stringify(allWholesaleInvoices),
@@ -153,7 +155,8 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      application: updatedApplication,
+      application: updatedOrder, // Для обратной совместимости
+      order: updatedOrder,
       files: {
         wholesale_invoices: allWholesaleInvoices,
         technical_specs: allTechnicalSpecs

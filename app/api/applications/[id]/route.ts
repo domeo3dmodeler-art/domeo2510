@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// GET /api/applications/[id] - Получение заявки по ID
+// GET /api/applications/[id] - Получение заказа по ID
+// ⚠️ DEPRECATED: Используйте GET /api/orders/[id] напрямую
+// Этот endpoint оставлен для обратной совместимости
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const application = await prisma.application.findUnique({
+    const order = await prisma.order.findUnique({
       where: { id: params.id },
       include: {
         client: {
@@ -35,18 +37,18 @@ export async function GET(
       }
     });
 
-    if (!application) {
+    if (!order) {
       return NextResponse.json(
-        { error: 'Заявка не найдена' },
+        { error: 'Заказ не найден' },
         { status: 404 }
       );
     }
 
     // Получаем информацию о комплектаторе если есть
     let complectator_name = null;
-    if (application.complectator_id) {
+    if (order.complectator_id) {
       const complectator = await prisma.user.findUnique({
-        where: { id: application.complectator_id },
+        where: { id: order.complectator_id },
         select: {
           id: true,
           first_name: true,
@@ -61,59 +63,62 @@ export async function GET(
     }
 
     // Форматируем данные
-    const formattedApplication = {
-      id: application.id,
-      number: application.number,
-      client_id: application.client_id,
-      invoice_id: application.invoice_id,
-      lead_number: application.lead_number,
-      complectator_id: application.complectator_id,
+    const formattedOrder = {
+      id: order.id,
+      number: order.number,
+      client_id: order.client_id,
+      invoice_id: order.invoice_id,
+      lead_number: order.lead_number,
+      complectator_id: order.complectator_id,
       complectator_name,
-      executor_id: application.executor_id,
-      status: application.status,
-      project_file_url: application.project_file_url,
-      door_dimensions: application.door_dimensions ? JSON.parse(application.door_dimensions) : null,
-      measurement_done: application.measurement_done,
-      project_complexity: application.project_complexity,
-      wholesale_invoices: application.wholesale_invoices ? JSON.parse(application.wholesale_invoices) : [],
-      technical_specs: application.technical_specs ? JSON.parse(application.technical_specs) : [],
-      verification_status: application.verification_status,
-      verification_notes: application.verification_notes,
-      notes: application.notes,
-      created_at: application.created_at,
-      updated_at: application.updated_at,
+      executor_id: order.executor_id,
+      status: order.status,
+      project_file_url: order.project_file_url,
+      door_dimensions: order.door_dimensions ? JSON.parse(order.door_dimensions) : null,
+      measurement_done: order.measurement_done,
+      project_complexity: order.project_complexity,
+      wholesale_invoices: order.wholesale_invoices ? JSON.parse(order.wholesale_invoices) : [],
+      technical_specs: order.technical_specs ? JSON.parse(order.technical_specs) : [],
+      verification_status: order.verification_status,
+      verification_notes: order.verification_notes,
+      notes: order.notes,
+      created_at: order.created_at,
+      updated_at: order.updated_at,
       client: {
-        id: application.client.id,
-        firstName: application.client.firstName,
-        lastName: application.client.lastName,
-        middleName: application.client.middleName,
-        phone: application.client.phone,
-        address: application.client.address,
-        objectId: application.client.objectId,
-        compilationLeadNumber: application.client.compilationLeadNumber,
-        fullName: `${application.client.lastName} ${application.client.firstName}${application.client.middleName ? ' ' + application.client.middleName : ''}`
+        id: order.client.id,
+        firstName: order.client.firstName,
+        lastName: order.client.lastName,
+        middleName: order.client.middleName,
+        phone: order.client.phone,
+        address: order.client.address,
+        objectId: order.client.objectId,
+        compilationLeadNumber: order.client.compilationLeadNumber,
+        fullName: `${order.client.lastName} ${order.client.firstName}${order.client.middleName ? ' ' + order.client.middleName : ''}`
       },
-      invoice: application.invoice ? {
-        ...application.invoice,
-        cart_data: application.invoice.cart_data ? JSON.parse(application.invoice.cart_data) : null
+      invoice: order.invoice ? {
+        ...order.invoice,
+        cart_data: order.invoice.cart_data ? JSON.parse(order.invoice.cart_data) : null
       } : null
     };
 
     return NextResponse.json({
       success: true,
-      application: formattedApplication
+      application: formattedOrder, // Для обратной совместимости
+      order: formattedOrder
     });
 
   } catch (error) {
-    console.error('Error fetching application:', error);
+    console.error('Error fetching order:', error);
     return NextResponse.json(
-      { error: 'Ошибка получения заявки' },
+      { error: 'Ошибка получения заказа' },
       { status: 500 }
     );
   }
 }
 
-// PUT /api/applications/[id] - Обновление заявки
+// PUT /api/applications/[id] - Обновление заказа
+// ⚠️ DEPRECATED: Используйте PUT /api/orders/[id] напрямую
+// Этот endpoint оставлен для обратной совместимости
 export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -134,22 +139,22 @@ export async function PUT(
       executor_id
     } = body;
 
-    // Проверяем существование заявки
-    const existingApplication = await prisma.application.findUnique({
+    // Проверяем существование заказа
+    const existingOrder = await prisma.order.findUnique({
       where: { id: params.id }
     });
 
-    if (!existingApplication) {
+    if (!existingOrder) {
       return NextResponse.json(
-        { error: 'Заявка не найдена' },
+        { error: 'Заказ не найден' },
         { status: 404 }
       );
     }
 
     // Валидация переходов статусов
-    if (status && status !== existingApplication.status) {
+    if (status && status !== existingOrder.status) {
       // Проверяем обязательность загрузки проекта при переходе в UNDER_REVIEW
-      if (status === 'UNDER_REVIEW' && !existingApplication.project_file_url && !project_file_url) {
+      if (status === 'UNDER_REVIEW' && !existingOrder.project_file_url && !project_file_url) {
         return NextResponse.json(
           { error: 'Для перехода в статус "На проверке" требуется загрузить проект/планировку' },
           { status: 400 }
@@ -165,10 +170,10 @@ export async function PUT(
         'COMPLETED': []
       };
 
-      const allowedStatuses = validTransitions[existingApplication.status] || [];
+      const allowedStatuses = validTransitions[existingOrder.status] || [];
       if (!allowedStatuses.includes(status)) {
         return NextResponse.json(
-          { error: `Недопустимый переход статуса из ${existingApplication.status} в ${status}` },
+          { error: `Недопустимый переход статуса из ${existingOrder.status} в ${status}` },
           { status: 400 }
         );
       }
@@ -189,8 +194,8 @@ export async function PUT(
     if (notes !== undefined) updateData.notes = notes;
     if (executor_id !== undefined) updateData.executor_id = executor_id;
 
-    // Обновляем заявку
-    const application = await prisma.application.update({
+    // Обновляем заказ
+    const order = await prisma.order.update({
       where: { id: params.id },
       data: updateData,
       include: {
@@ -204,61 +209,57 @@ export async function PUT(
             address: true
           }
         },
-        invoice: {
-          select: {
-            id: true,
-            number: true,
-            status: true,
-            total_amount: true
-          }
-        }
+        // Invoice связан через order_id, получаем отдельным запросом если нужно
       }
     });
 
     return NextResponse.json({
       success: true,
-      application
+      application: order, // Для обратной совместимости
+      order: order
     });
 
   } catch (error) {
-    console.error('Error updating application:', error);
+    console.error('Error updating order:', error);
     return NextResponse.json(
-      { error: 'Ошибка обновления заявки' },
+      { error: 'Ошибка обновления заказа' },
       { status: 500 }
     );
   }
 }
 
-// DELETE /api/applications/[id] - Удаление заявки
+// DELETE /api/applications/[id] - Удаление заказа
+// ⚠️ DEPRECATED: Используйте DELETE /api/orders/[id] напрямую
+// Этот endpoint оставлен для обратной совместимости
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const application = await prisma.application.findUnique({
+    const order = await prisma.order.findUnique({
       where: { id: params.id }
     });
 
-    if (!application) {
+    if (!order) {
       return NextResponse.json(
-        { error: 'Заявка не найдена' },
+        { error: 'Заказ не найден' },
         { status: 404 }
       );
     }
 
-    await prisma.application.delete({
+    await prisma.order.delete({
       where: { id: params.id }
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Заявка удалена'
+      message: 'Заказ удален'
     });
 
   } catch (error) {
-    console.error('Error deleting application:', error);
+    console.error('Error deleting order:', error);
     return NextResponse.json(
-      { error: 'Ошибка удаления заявки' },
+      { error: 'Ошибка удаления заказа' },
       { status: 500 }
     );
   }

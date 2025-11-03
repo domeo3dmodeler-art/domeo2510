@@ -30,67 +30,90 @@ export async function POST(request: NextRequest) {
     }, 0);
 
     // Создаем документ в зависимости от типа
+    // Для Invoice и Quote: сначала создаем Order, затем создаем документ на основе Order
     let document;
     
     switch (documentType) {
       case 'quote':
-        // Создаем КП
-        const quoteNumber = `KP-${Date.now()}`;
-        document = await prisma.quote.create({
-          data: {
-            number: quoteNumber,
-            client_id: clientId,
-            created_by: 'system',
-            status: 'DRAFT',
-            subtotal: totalAmount,
-            tax_amount: totalAmount * 0.2, // 20% НДС
-            total_amount: totalAmount * 1.2,
-            currency: 'RUB'
-          }
-        });
-
-        // Создаем элементы КП
-        for (const item of cartItems) {
-          await prisma.quoteItem.create({
-            data: {
-              quote_id: document.id,
-              product_id: item.productId || 'unknown',
-              quantity: item.quantity,
-              unit_price: item.price,
-              total_price: item.price * item.quantity,
-              notes: item.notes || null
-            }
-          });
-        }
-        break;
-
       case 'invoice':
-        // Создаем счет
-        const invoiceNumber = `INV-${Date.now()}`;
-        document = await prisma.invoice.create({
-          data: {
-            number: invoiceNumber,
+        // Шаг 1: Создаем Order из корзины
+        const items = cartItems.map((item: any) => ({
+          id: item.id || item.productId,
+          productId: item.productId || item.id,
+          name: item.name || item.productName,
+          model: item.model || item.productName,
+          qty: item.quantity || 1,
+          quantity: item.quantity || 1,
+          unitPrice: item.price || 0,
+          price: item.price || 0,
+          width: item.width,
+          height: item.height,
+          color: item.color,
+          finish: item.finish,
+          sku_1c: item.sku_1c
+        }));
+
+        // Создаем Order через /api/orders (используем внутренний вызов)
+        const orderResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/orders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             client_id: clientId,
-            created_by: 'system',
-            status: 'DRAFT',
+            items,
+            total_amount: totalAmount,
             subtotal: totalAmount,
             tax_amount: totalAmount * 0.2,
-            total_amount: totalAmount * 1.2,
-            currency: 'RUB'
-          }
+            notes: `Создан для ${documentType === 'invoice' ? 'счета' : 'КП'} через save-to-client`
+          })
         });
 
-        // Создаем элементы счета
-        for (const item of cartItems) {
-          await prisma.invoiceItem.create({
-            data: {
-              invoice_id: document.id,
-              product_id: item.productId || 'unknown',
-              quantity: item.quantity,
-              unit_price: item.price,
-              total_price: item.price * item.quantity,
-              notes: item.notes || null
-            }
+        if (!orderResponse.ok) {
+          const orderError = await orderResponse.json();
+          return NextResponse.json(
+            { error: `Ошибка при создании заказа: ${orderError.error}` },
+            { status: 500 }
+          );
+        }
+
+        const orderResult = await orderResponse.json();
+        const orderId = orderResult.order.id;
+
+        // Шаг 2: Создаем Invoice или Quote на основе Order через /api/documents/create
+        const documentResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/documents/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: documentType,
+            parent_document_id: orderId,
+            client_id: clientId,
+            items,
+            total_amount: totalAmount,
+            subtotal: totalAmount,
+            tax_amount: totalAmount * 0.2,
+            notes: `Создан из корзины на основе заказа`
+          })
+        });
+
+        if (!documentResponse.ok) {
+          const documentError = await documentResponse.json();
+          return NextResponse.json(
+            { error: `Ошибка при создании ${documentType}: ${documentError.error}` },
+            { status: 500 }
+          );
+        }
+
+        const documentResult = await documentResponse.json();
+        
+        // Получаем полные данные созданного документа
+        if (documentType === 'invoice') {
+          document = await prisma.invoice.findUnique({
+            where: { id: documentResult.documentId },
+            include: { items: true }
+          });
+        } else {
+          document = await prisma.quote.findUnique({
+            where: { id: documentResult.documentId },
+            include: { items: true }
           });
         }
         break;

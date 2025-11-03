@@ -90,6 +90,9 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/quotes - Создать новое КП (упрощенная версия)
+// ⚠️ DEPRECATED: Используйте POST /api/documents/create с parent_document_id = orderId
+// Этот endpoint создает Quote напрямую без Order, что не соответствует текущей логике Order-first
+// Для правильной работы создайте Order через POST /api/orders, затем Quote через POST /api/documents/create
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

@@ -47,7 +47,13 @@ export async function PUT(
     }
 
     // Проверяем обязательность загрузки проекта при переходе в UNDER_REVIEW
-    if (status === 'UNDER_REVIEW' && !order.project_file_url) {
+    // Получаем полные данные заказа с project_file_url
+    const orderWithProject = await prisma.order.findUnique({
+      where: { id: params.id },
+      select: { project_file_url: true }
+    });
+    
+    if (status === 'UNDER_REVIEW' && !orderWithProject?.project_file_url) {
       return NextResponse.json(
         { error: 'Для перехода в статус "На проверке" требуется загрузить проект/планировку' },
         { status: 400 }
@@ -85,14 +91,7 @@ export async function PUT(
             address: true
           }
         },
-        invoice: {
-          select: {
-            id: true,
-            number: true,
-            status: true,
-            total_amount: true
-          }
-        }
+        // Invoice связан через order_id, получаем отдельным запросом если нужно
       }
     });
 

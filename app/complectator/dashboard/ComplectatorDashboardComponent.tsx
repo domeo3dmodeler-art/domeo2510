@@ -626,13 +626,6 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
   // Создание нового счета из КП (на основе Order)
   const createInvoiceFromQuote = async (quoteId: string) => {
     try {
-      // Получаем данные КП
-      const quote = quotes.find(q => q.id === quoteId);
-      if (!quote) {
-        toast.error('КП не найдено');
-        return;
-      }
-
       // Получаем полные данные КП из API
       const quoteResponse = await fetch(`/api/quotes/${quoteId}`);
       if (!quoteResponse.ok) {
@@ -664,10 +657,10 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
           body: JSON.stringify({
             client_id: quoteFull.client_id,
             items: cartData,
-            total_amount: quoteFull.total_amount || quote.total,
-            subtotal: quoteFull.subtotal || quote.total,
+            total_amount: quoteFull.total_amount || 0,
+            subtotal: quoteFull.subtotal || quoteFull.total_amount || 0,
             tax_amount: quoteFull.tax_amount || 0,
-            notes: `Создан из КП ${quoteFull.number || quote.number}`
+            notes: `Создан из КП ${quoteFull.number || ''}`
           })
         });
 
@@ -1204,9 +1197,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
           {statusDropdown.type === 'quote' && (
             <>
               {statusDropdown.id && (() => {
-                const quote = quotes.find(q => q.id === statusDropdown!.id);
-                if (!quote) return null;
-                
+                // Получаем данные КП из API для получения текущего статуса
+                // Для упрощения показываем все статусы
                 const getAllStatuses = () => {
                   return ['Черновик', 'Отправлено', 'Согласовано', 'Отказ'];
                 };
@@ -1218,20 +1210,13 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        console.log('🎯 Status clicked:', { quoteId: quote.id, status });
-                        updateQuoteStatus(quote.id, status);
+                        console.log('🎯 Status clicked:', { quoteId: statusDropdown!.id, status });
+                        updateQuoteStatus(statusDropdown!.id, status);
                       }}
-                      className={`w-full px-4 py-2.5 text-sm text-left transition-all duration-200 ${
-                        quote.status === status 
-                          ? 'bg-blue-50 text-blue-700 font-medium' 
-                          : 'hover:bg-gray-50 hover:text-gray-900'
-                      }`}
+                      className={`w-full px-4 py-2.5 text-sm text-left transition-all duration-200 hover:bg-gray-50 hover:text-gray-900`}
                     >
                       <div className="flex items-center justify-between">
                         <span>{status}</span>
-                        {quote.status === status && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        )}
                       </div>
                     </button>
                     {index < allStatuses.length - 1 && (
@@ -1246,9 +1231,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
           {statusDropdown.type === 'invoice' && (
             <>
               {statusDropdown.id && (() => {
-                const invoice = invoices.find(i => i.id === statusDropdown!.id);
-                if (!invoice) return null;
-                
+                // Получаем данные счета из API для получения текущего статуса
+                // Для упрощения показываем все статусы
                 const getAllStatuses = () => {
                   return ['Черновик', 'Отправлен', 'Оплачен/Заказ', 'Отменен'];
                 };
@@ -1260,19 +1244,12 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        updateInvoiceStatus(invoice.id, status);
+                        updateInvoiceStatus(statusDropdown!.id, status);
                       }}
-                      className={`w-full px-4 py-2.5 text-sm text-left transition-all duration-200 ${
-                        invoice.status === status 
-                          ? 'bg-blue-50 text-blue-700 font-medium' 
-                          : 'hover:bg-gray-50 hover:text-gray-900'
-                      }`}
+                      className={`w-full px-4 py-2.5 text-sm text-left transition-all duration-200 hover:bg-gray-50 hover:text-gray-900`}
                     >
                       <div className="flex items-center justify-between">
                         <span>{status}</span>
-                        {invoice.status === status && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        )}
                       </div>
                     </button>
                     {index < allStatuses.length - 1 && (

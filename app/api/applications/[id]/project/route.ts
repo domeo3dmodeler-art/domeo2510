@@ -5,19 +5,21 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 
 // POST /api/applications/[id]/project - Загрузка проекта/планировки
+// ⚠️ DEPRECATED: Используйте POST /api/orders/[id]/project напрямую
+// Этот endpoint оставлен для обратной совместимости
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Проверяем существование заявки
-    const application = await prisma.application.findUnique({
+    // Проверяем существование заказа
+    const order = await prisma.order.findUnique({
       where: { id: params.id }
     });
 
-    if (!application) {
+    if (!order) {
       return NextResponse.json(
-        { error: 'Заявка не найдена' },
+        { error: 'Заказ не найден' },
         { status: 404 }
       );
     }
@@ -61,8 +63,8 @@ export async function POST(
       );
     }
 
-    // Создаем директорию для заявок если её нет
-    const uploadsDir = join(process.cwd(), 'uploads', 'applications', params.id);
+    // Создаем директорию для заказов если её нет
+    const uploadsDir = join(process.cwd(), 'uploads', 'orders', params.id);
     if (!existsSync(uploadsDir)) {
       await mkdir(uploadsDir, { recursive: true });
     }
@@ -78,10 +80,10 @@ export async function POST(
     await writeFile(filepath, buffer);
 
     // URL файла для сохранения в БД
-    const fileUrl = `/uploads/applications/${params.id}/${filename}`;
+    const fileUrl = `/uploads/orders/${params.id}/${filename}`;
 
-    // Обновляем заявку
-    const updatedApplication = await prisma.application.update({
+    // Обновляем заказ
+    const updatedOrder = await prisma.order.update({
       where: { id: params.id },
       data: {
         project_file_url: fileUrl
@@ -100,7 +102,8 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      application: updatedApplication,
+      application: updatedOrder, // Для обратной совместимости
+      order: updatedOrder,
       file_url: fileUrl
     });
 

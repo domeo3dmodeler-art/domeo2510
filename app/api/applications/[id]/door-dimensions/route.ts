@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 // PUT /api/applications/[id]/door-dimensions - Обновление данных дверей
+// ⚠️ DEPRECATED: Используйте PUT /api/orders/[id]/door-dimensions напрямую
+// Этот endpoint оставлен для обратной совместимости
 export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -10,14 +12,14 @@ export async function PUT(
     const body = await req.json();
     const { door_dimensions, measurement_done, project_complexity } = body;
 
-    // Проверяем существование заявки
-    const application = await prisma.application.findUnique({
+    // Проверяем существование заказа
+    const order = await prisma.order.findUnique({
       where: { id: params.id }
     });
 
-    if (!application) {
+    if (!order) {
       return NextResponse.json(
-        { error: 'Заявка не найдена' },
+        { error: 'Заказ не найден' },
         { status: 404 }
       );
     }
@@ -62,8 +64,8 @@ export async function PUT(
       updateData.project_complexity = project_complexity;
     }
 
-    // Обновляем заявку
-    const updatedApplication = await prisma.application.update({
+    // Обновляем заказ
+    const updatedOrder = await prisma.order.update({
       where: { id: params.id },
       data: updateData,
       include: {
@@ -91,10 +93,16 @@ export async function PUT(
 
     return NextResponse.json({
       success: true,
-      application: {
-        ...updatedApplication,
-        door_dimensions: updatedApplication.door_dimensions 
-          ? JSON.parse(updatedApplication.door_dimensions) 
+      application: { // Для обратной совместимости
+        ...updatedOrder,
+        door_dimensions: updatedOrder.door_dimensions 
+          ? JSON.parse(updatedOrder.door_dimensions) 
+          : null
+      },
+      order: {
+        ...updatedOrder,
+        door_dimensions: updatedOrder.door_dimensions 
+          ? JSON.parse(updatedOrder.door_dimensions) 
           : null
       }
     });

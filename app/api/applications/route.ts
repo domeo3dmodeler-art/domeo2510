@@ -1,14 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// Генерация номера заявки
-function generateApplicationNumber(): string {
-  const timestamp = Date.now();
-  const random = Math.floor(Math.random() * 1000);
-  return `APP-${timestamp}-${random}`;
+// Генерация номера заказа в формате "Заказ-XXX"
+async function generateOrderNumber(): Promise<string> {
+  const lastOrder = await prisma.order.findFirst({
+    where: {
+      number: {
+        startsWith: 'Заказ-'
+      }
+    },
+    orderBy: {
+      created_at: 'desc'
+    }
+  });
+
+  let nextNumber = 1;
+  if (lastOrder && lastOrder.number.startsWith('Заказ-')) {
+    const match = lastOrder.number.match(/^Заказ-(\d+)$/);
+    if (match && match[1]) {
+      nextNumber = parseInt(match[1], 10) + 1;
+    }
+  }
+
+  return `Заказ-${nextNumber}`;
 }
 
-// POST /api/applications - Создание новой заявки
+// POST /api/applications - Создание нового заказа
+// ⚠️ DEPRECATED: Используйте POST /api/orders напрямую
+// Этот endpoint оставлен для обратной совместимости
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -46,37 +65,41 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Проверяем, что счет уже не связан с другой заявкой
-      const existingApplication = await prisma.application.findFirst({
-        where: { invoice_id }
+      // Проверяем, что счет уже не связан с другим заказом
+      const existingOrder = await prisma.order.findFirst({
+        where: { invoice_id: invoice_id }
       });
 
-      if (existingApplication) {
+      if (existingOrder) {
         return NextResponse.json(
-          { error: 'Счет уже связан с другой заявкой' },
+          { error: 'Счет уже связан с другим заказом' },
           { status: 400 }
         );
       }
     }
 
-    // Генерируем номер заявки
-    let applicationNumber = generateApplicationNumber();
-    let exists = await prisma.application.findUnique({
-      where: { number: applicationNumber }
+    // Генерируем номер заказа
+    let orderNumber = await generateOrderNumber();
+    let exists = await prisma.order.findUnique({
+      where: { number: orderNumber }
     });
 
     // Если номер уже существует, генерируем новый
+    let counter = 1;
     while (exists) {
-      applicationNumber = generateApplicationNumber();
-      exists = await prisma.application.findUnique({
-        where: { number: applicationNumber }
+      const match = orderNumber.match(/^Заказ-(\d+)$/);
+      const baseNumber = match ? parseInt(match[1], 10) : counter;
+      orderNumber = `Заказ-${baseNumber + counter}`;
+      exists = await prisma.order.findUnique({
+        where: { number: orderNumber }
       });
+      counter++;
     }
 
-    // Создаем заявку
-    const application = await prisma.application.create({
+    // Создаем заказ
+    const order = await prisma.order.create({
       data: {
-        number: applicationNumber,
+        number: orderNumber,
         client_id,
         invoice_id: invoice_id || null,
         lead_number: lead_number || null,
@@ -108,7 +131,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      application
+      application: order, // Для обратной совместимости
+      order: order
     });
 
   } catch (error) {
@@ -120,7 +144,9 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET /api/applications - Получение списка заявок
+// GET /api/applications - Получение списка заказов
+// ⚠️ DEPRECATED: Используйте GET /api/orders напрямую
+// Этот endpoint оставлен для обратной совместимости
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -148,8 +174,8 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    // Получаем заявки
-    const applications = await prisma.application.findMany({
+    // Получаем заказы
+    const orders = await prisma.order.findMany({
       where,
       include: {
         client: {
@@ -177,8 +203,8 @@ export async function GET(req: NextRequest) {
     });
 
     // Получаем информацию о комплектаторах если есть complectator_id
-    const complectatorIds = applications
-      .map(app => app.complectator_id)
+    const complectatorIds = orders
+      .map(order => order.complectator_id)
       .filter((id): id is string => id !== null);
 
     const complectators = complectatorIds.length > 0
@@ -200,49 +226,50 @@ export async function GET(req: NextRequest) {
       complectators.map(c => [c.id, `${c.last_name} ${c.first_name.charAt(0)}.${c.middle_name ? c.middle_name.charAt(0) + '.' : ''}`])
     );
 
-    // Форматируем данные заявок
-    const formattedApplications = applications.map(app => ({
-      id: app.id,
-      number: app.number,
-      client_id: app.client_id,
-      invoice_id: app.invoice_id,
-      lead_number: app.lead_number,
-      complectator_id: app.complectator_id,
-      complectator_name: app.complectator_id ? complectatorMap.get(app.complectator_id) || 'Не указан' : null,
-      executor_id: app.executor_id,
-      status: app.status,
-      project_file_url: app.project_file_url,
-      door_dimensions: app.door_dimensions ? JSON.parse(app.door_dimensions) : null,
-      measurement_done: app.measurement_done,
-      project_complexity: app.project_complexity,
-      wholesale_invoices: app.wholesale_invoices ? JSON.parse(app.wholesale_invoices) : [],
-      technical_specs: app.technical_specs ? JSON.parse(app.technical_specs) : [],
-      verification_status: app.verification_status,
-      verification_notes: app.verification_notes,
-      notes: app.notes,
-      created_at: app.created_at,
-      updated_at: app.updated_at,
+    // Форматируем данные заказов
+    const formattedOrders = orders.map(order => ({
+      id: order.id,
+      number: order.number,
+      client_id: order.client_id,
+      invoice_id: order.invoice_id,
+      lead_number: order.lead_number,
+      complectator_id: order.complectator_id,
+      complectator_name: order.complectator_id ? complectatorMap.get(order.complectator_id) || 'Не указан' : null,
+      executor_id: order.executor_id,
+      status: order.status,
+      project_file_url: order.project_file_url,
+      door_dimensions: order.door_dimensions ? JSON.parse(order.door_dimensions) : null,
+      measurement_done: order.measurement_done,
+      project_complexity: order.project_complexity,
+      wholesale_invoices: order.wholesale_invoices ? JSON.parse(order.wholesale_invoices) : [],
+      technical_specs: order.technical_specs ? JSON.parse(order.technical_specs) : [],
+      verification_status: order.verification_status,
+      verification_notes: order.verification_notes,
+      notes: order.notes,
+      created_at: order.created_at,
+      updated_at: order.updated_at,
       client: {
-        id: app.client.id,
-        firstName: app.client.firstName,
-        lastName: app.client.lastName,
-        middleName: app.client.middleName,
-        phone: app.client.phone,
-        address: app.client.address,
-        fullName: `${app.client.lastName} ${app.client.firstName}${app.client.middleName ? ' ' + app.client.middleName : ''}`
+        id: order.client.id,
+        firstName: order.client.firstName,
+        lastName: order.client.lastName,
+        middleName: order.client.middleName,
+        phone: order.client.phone,
+        address: order.client.address,
+        fullName: `${order.client.lastName} ${order.client.firstName}${order.client.middleName ? ' ' + order.client.middleName : ''}`
       },
-      invoice: app.invoice
+      invoice: order.invoice
     }));
 
     return NextResponse.json({
       success: true,
-      applications: formattedApplications
+      applications: formattedOrders, // Для обратной совместимости
+      orders: formattedOrders
     });
 
   } catch (error) {
-    console.error('Error fetching applications:', error);
+    console.error('Error fetching orders:', error);
     return NextResponse.json(
-      { error: 'Ошибка получения заявок' },
+      { error: 'Ошибка получения заказов' },
       { status: 500 }
     );
   }
