@@ -17,6 +17,9 @@ export function ClientAuthGuard({ children }: ClientAuthGuardProps) {
       return;
     }
 
+    // Защита от повторных вызовов
+    let isMounted = true;
+
     const checkAuth = () => {
       try {
         const token = localStorage.getItem('authToken');
@@ -32,25 +35,40 @@ export function ClientAuthGuard({ children }: ClientAuthGuardProps) {
         // Проверяем только токен - это достаточно для авторизации
         if (token) {
           console.log('✅ ClientAuthGuard - авторизация успешна по токену');
-          // Используем функцию обновления состояния для гарантированного обновления
-          setIsAuthenticated((prev) => {
-            console.log('🔄 ClientAuthGuard - обновление состояния, prev:', prev, '-> true');
-            return true;
-          });
+          // Используем функцию обновления состояния для гарантированного обновления, но только если компонент еще смонтирован
+          if (isMounted) {
+            setIsAuthenticated((prev) => {
+              // Предотвращаем повторные установки
+              if (prev === true) {
+                console.log('⏭️ ClientAuthGuard - уже авторизован, пропускаем');
+                return prev;
+              }
+              console.log('🔄 ClientAuthGuard - обновление состояния, prev:', prev, '-> true');
+              return true;
+            });
+          }
         } else {
           console.log('❌ ClientAuthGuard - токен не найден, редирект на логин');
+          if (isMounted) {
+            setIsAuthenticated(false);
+            router.push('/login');
+          }
+        }
+      } catch (authError) {
+        console.error('❌ ClientAuthGuard - ошибка при проверке авторизации:', authError);
+        if (isMounted) {
           setIsAuthenticated(false);
           router.push('/login');
         }
-      } catch (error) {
-        console.error('❌ ClientAuthGuard - ошибка при проверке авторизации:', error);
-        setIsAuthenticated(false);
-        router.push('/login');
       }
     };
 
     // Выполняем проверку немедленно, без задержки
     checkAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, [router]);
 
   // Показываем загрузку пока проверяем авторизацию
