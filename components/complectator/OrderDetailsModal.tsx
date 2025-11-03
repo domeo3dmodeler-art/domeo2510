@@ -6,6 +6,7 @@ import HistoryModal from '@/components/ui/HistoryModal';
 import CommentsModal from '@/components/ui/CommentsModal';
 import { toast } from 'sonner';
 import { Download, FileText, User, MapPin, Clock, X, Package, CreditCard } from 'lucide-react';
+import { ORDER_STATUSES_COMPLECTATOR, ORDER_STATUSES_EXECUTOR, INVOICE_STATUSES, getStatusLabel } from '@/lib/utils/document-statuses';
 
 interface OrderDetailsModalProps {
   isOpen: boolean;
@@ -48,21 +49,19 @@ interface Quote {
   created_at: string;
 }
 
-// Статусы комплектатора (можно управлять)
-const COMPLECTATOR_STATUSES = {
-  'DRAFT': { label: 'Черновик', color: 'bg-gray-100 text-gray-800 border-gray-200' },
-  'SENT': { label: 'Отправлен', color: 'bg-blue-100 text-blue-800 border-blue-200' },
-  'PAID': { label: 'Оплачен/Заказ', color: 'bg-green-100 text-green-800 border-green-200' },
-  'CANCELLED': { label: 'Отменен', color: 'bg-red-100 text-red-800 border-red-200' }
-};
-
-// Статусы исполнителя (только просмотр)
-const EXECUTOR_STATUSES = {
-  'NEW_PLANNED': { label: 'Новый заказ', color: 'bg-gray-100 text-gray-800 border-gray-200' },
-  'UNDER_REVIEW': { label: 'На проверке', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
-  'AWAITING_MEASUREMENT': { label: 'Ждут замер', color: 'bg-orange-100 text-orange-800 border-orange-200' },
-  'AWAITING_INVOICE': { label: 'Ожидают счет', color: 'bg-blue-100 text-blue-800 border-blue-200' },
-  'COMPLETED': { label: 'Выполнена', color: 'bg-green-100 text-green-800 border-green-200' }
+// Цвета для статусов
+const STATUS_COLORS: Record<string, string> = {
+  'DRAFT': 'bg-gray-100 text-gray-800 border-gray-200',
+  'SENT': 'bg-blue-100 text-blue-800 border-blue-200',
+  'PAID': 'bg-green-100 text-green-800 border-green-200',
+  'ORDERED': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  'RECEIVED_FROM_SUPPLIER': 'bg-purple-100 text-purple-800 border-purple-200',
+  'COMPLETED': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  'CANCELLED': 'bg-red-100 text-red-800 border-red-200',
+  'NEW_PLANNED': 'bg-gray-100 text-gray-800 border-gray-200',
+  'UNDER_REVIEW': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  'AWAITING_MEASUREMENT': 'bg-orange-100 text-orange-800 border-orange-200',
+  'AWAITING_INVOICE': 'bg-blue-100 text-blue-800 border-blue-200'
 };
 
 export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderDetailsModalProps) {
@@ -133,22 +132,29 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     // Если у заказа есть счет, для комплектатора берем статус из счета
     if (userRole === 'complectator' && order.invoice) {
       const status = order.invoice.status;
-      if (status in COMPLECTATOR_STATUSES) {
-        return { ...COMPLECTATOR_STATUSES[status as keyof typeof COMPLECTATOR_STATUSES], canManage: true };
-      }
+      const label = getStatusLabel(status, 'invoice');
+      const color = STATUS_COLORS[status] || 'bg-gray-100 text-gray-800 border-gray-200';
+      return { label, color, canManage: true };
     }
     
-    // Если статус заказа соответствует статусам комплектатора
-    if (order.status in COMPLECTATOR_STATUSES) {
-      return { ...COMPLECTATOR_STATUSES[order.status as keyof typeof COMPLECTATOR_STATUSES], canManage: true };
+    // Для комплектатора используем статусы Order, синхронизированные с Invoice
+    if (userRole === 'complectator') {
+      const label = getStatusLabel(order.status, 'order_complectator');
+      const color = STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-800 border-gray-200';
+      return { label, color, canManage: true };
     }
     
-    // Если статус заказа соответствует статусам исполнителя
-    if (order.status in EXECUTOR_STATUSES) {
-      return { ...EXECUTOR_STATUSES[order.status as keyof typeof EXECUTOR_STATUSES], canManage: false };
+    // Для исполнителя используем статусы Order
+    if (userRole === 'executor') {
+      const label = getStatusLabel(order.status, 'order_executor');
+      const color = STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-800 border-gray-200';
+      return { label, color, canManage: false };
     }
     
-    return { label: order.status, color: 'bg-gray-100 text-gray-800 border-gray-200', canManage: false };
+    // По умолчанию
+    const label = getStatusLabel(order.status, 'order');
+    const color = STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-800 border-gray-200';
+    return { label, color, canManage: false };
   };
 
   // Получение товаров из заказа
@@ -416,10 +422,9 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                       <div>
                         <span className="text-gray-600">Статус:</span>{' '}
                         <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${
-                          COMPLECTATOR_STATUSES[order.invoice.status as keyof typeof COMPLECTATOR_STATUSES]?.color || 
-                          'bg-gray-100 text-gray-800 border-gray-200'
+                          STATUS_COLORS[order.invoice.status] || 'bg-gray-100 text-gray-800 border-gray-200'
                         }`}>
-                          {COMPLECTATOR_STATUSES[order.invoice.status as keyof typeof COMPLECTATOR_STATUSES]?.label || order.invoice.status}
+                          {getStatusLabel(order.invoice.status, 'invoice')}
                         </span>
                       </div>
                       <div>

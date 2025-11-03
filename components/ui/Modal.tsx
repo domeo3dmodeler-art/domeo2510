@@ -55,10 +55,11 @@ export function Modal({
     '3xl': 'max-w-3xl'
   };
 
+
   return (
     <div className={styles.modal.overlay}>
       <div 
-        className={`${styles.modal.content} ${sizeClasses[size]} relative`}
+        className={`${styles.modal.content} ${size === '3xl' ? 'max-w-[576px]' : sizeClasses[size]} relative`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Кнопка закрытия - всегда показываем */}

@@ -27,40 +27,16 @@ import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import DocumentWorkflowIntegration from '@/app/components/documents/DocumentWorkflowIntegration';
 import { OrderDetailsModal } from '@/components/complectator/OrderDetailsModal';
 import { toast } from 'sonner';
+import { COMPLECTATOR_FILTER_STATUSES, getStatusLabel, ORDER_STATUSES_COMPLECTATOR, INVOICE_STATUSES, QUOTE_STATUSES } from '@/lib/utils/document-statuses';
 
 // Маппинг статусов КП из API в русские (определяем на уровне модуля до компонента)
-const mapQuoteStatus = (apiStatus: string): 'Черновик'|'Отправлено'|'Согласовано'|'Отказ' => {
-  const statusMap: Record<string, 'Черновик'|'Отправлено'|'Согласовано'|'Отказ'> = {
-    'DRAFT': 'Черновик',
-    'SENT': 'Отправлено',
-    'ACCEPTED': 'Согласовано',
-    'REJECTED': 'Отказ'
-  };
-  return statusMap[apiStatus] || 'Черновик';
+const mapQuoteStatus = (apiStatus: string): string => {
+  return getStatusLabel(apiStatus, 'quote');
 };
 
 // Маппинг статусов Счетов из API в русские (определяем на уровне модуля до компонента)
-const mapInvoiceStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'|'В производстве' => {
-  const statusMap: Record<string, 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'|'В производстве'> = {
-    'DRAFT': 'Черновик',
-    'SENT': 'Отправлен',
-    'PAID': 'Оплачен/Заказ',
-    'ORDERED': 'Заказ размещен',
-    'CANCELLED': 'Отменен',
-    'IN_PRODUCTION': 'В производстве',
-    'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
-    'COMPLETED': 'Исполнен',
-    // Поддержка старых строчных статусов
-    'draft': 'Черновик',
-    'sent': 'Отправлен',
-    'paid': 'Оплачен/Заказ',
-    'ordered': 'Заказ размещен',
-    'cancelled': 'Отменен',
-    'in_production': 'В производстве',
-    'received': 'Получен от поставщика',
-    'completed': 'Исполнен'
-  };
-  return statusMap[apiStatus] || 'Черновик';
+const mapInvoiceStatus = (apiStatus: string): string => {
+  return getStatusLabel(apiStatus, 'invoice');
 };
 
 interface ComplectatorStats {
@@ -101,8 +77,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     lastDoc?: { type: 'quote'|'invoice'; status: string; id: string; date: string; total?: number };
   }>>([]);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
-  const [orders, setOrders] = useState<Array<{ id: string; number: string; date: string; status: 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'; total: number; invoice_id?: string }>>([]);
-  const [ordersFilter, setOrdersFilter] = useState<'all'|'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'>('all');
+  const [orders, setOrders] = useState<Array<{ id: string; number: string; date: string; status: typeof COMPLECTATOR_FILTER_STATUSES[number]; total: number; invoice_id?: string }>>([]);
+  const [ordersFilter, setOrdersFilter] = useState<typeof COMPLECTATOR_FILTER_STATUSES[number]>('all');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [showInWorkOnly, setShowInWorkOnly] = useState(false);
@@ -302,7 +278,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
             id: order.id,
             number: order.number,
             date: new Date(order.created_at).toLocaleDateString('ru-RU'),
-            status: orderStatus as 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен',
+            status: orderStatus as typeof COMPLECTATOR_FILTER_STATUSES[number],
             total: order.invoice?.total_amount || 0,
             invoice_id: order.invoice_id
           };
@@ -1063,7 +1039,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
 
                 <>
                     <div className="mb-3 flex flex-wrap items-center gap-2">
-                      {(['all','Черновик','Отправлен','Оплачен/Заказ','Отменен','Заказ размещен','Получен от поставщика','Исполнен'] as const).map(s => (
+                      {COMPLECTATOR_FILTER_STATUSES.map(s => (
                         <button key={s}
                           onClick={() => setOrdersFilter(s)}
                           className={`px-3 py-1 text-sm border ${ordersFilter===s?'border-black bg-black text-white':'border-gray-300 hover:border-black'}`}
