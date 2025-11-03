@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 
 // Статусы заказов
 const ORDER_STATUSES = {
-  NEW_PLANNED: { label: 'Новая заявка', color: 'bg-gray-100 text-gray-800', icon: FileText },
+  NEW_PLANNED: { label: 'Новый заказ', color: 'bg-gray-100 text-gray-800', icon: FileText },
   UNDER_REVIEW: { label: 'На проверке', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
   AWAITING_MEASUREMENT: { label: 'Ждут замер', color: 'bg-orange-100 text-orange-800', icon: AlertCircle },
   AWAITING_INVOICE: { label: 'Ожидают счет', color: 'bg-blue-100 text-blue-800', icon: Upload },

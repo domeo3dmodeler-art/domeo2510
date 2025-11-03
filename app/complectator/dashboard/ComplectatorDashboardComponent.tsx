@@ -25,6 +25,7 @@ import HistoryModal from '@/components/ui/HistoryModal';
 import NotificationBell from '@/components/ui/NotificationBell';
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import DocumentWorkflowIntegration from '@/app/components/documents/DocumentWorkflowIntegration';
+import { OrderDetailsModal } from '@/components/complectator/OrderDetailsModal';
 import { toast } from 'sonner';
 
 // Маппинг статусов КП из API в русские (определяем на уровне модуля до компонента)
@@ -100,13 +101,10 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     lastDoc?: { type: 'quote'|'invoice'; status: string; id: string; date: string; total?: number };
   }>>([]);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
-  const [clientTab, setClientTab] = useState<'quotes'|'invoices'|'orders'>('quotes');
-  const [quotes, setQuotes] = useState<Array<{ id: string; number: string; date: string; status: 'Черновик'|'Отправлено'|'Согласовано'|'Отказ'; total: number }>>([]);
-  const [invoices, setInvoices] = useState<Array<{ id: string; number: string; date: string; status: 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'; total: number; dueAt?: string }>>([]);
   const [orders, setOrders] = useState<Array<{ id: string; number: string; date: string; status: 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'; total: number; invoice_id?: string }>>([]);
-  const [quotesFilter, setQuotesFilter] = useState<'all'|'Черновик'|'Отправлено'|'Согласовано'|'Отказ'>('all');
-  const [invoicesFilter, setInvoicesFilter] = useState<'all'|'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'>('all');
   const [ordersFilter, setOrdersFilter] = useState<'all'|'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'>('all');
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [showInWorkOnly, setShowInWorkOnly] = useState(false);
   const [showCreateClientForm, setShowCreateClientForm] = useState(false);
   const [newClientData, setNewClientData] = useState({
@@ -1131,254 +1129,11 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
 
             {selectedClient && (
               <div className="p-4">
-                <div className="border-b border-gray-200 mb-4">
-                  <nav className="-mb-px flex space-x-6">
-                    {([
-                      {id:'quotes',name:'КП',icon:FileText},
-                      {id:'invoices',name:'Счета',icon:Download},
-                      {id:'orders',name:'Заказы',icon:Package}
-                    ] as Array<{id:'quotes'|'invoices'|'orders';name:string;icon:any}>).map((t) => (
-            <button
-                        key={t.id}
-                        onClick={() => setClientTab(t.id)}
-                        className={`flex items-center py-2 px-1 border-b-2 font-medium text-sm ${clientTab===t.id?'border-black text-black':'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-                      >
-                        <t.icon className="h-4 w-4 mr-2"/>{t.name}
-            </button>
-          ))}
-        </nav>
-      </div>
+                <div className="mb-4">
+                  <h3 className="text-base font-semibold text-gray-900 mb-3">Заказы и документы</h3>
+                </div>
 
-                {clientTab==='quotes' && (
-                  <>
-                    <div className="mb-3 flex items-center space-x-2">
-                      {(['all','Черновик','Отправлено','Согласовано','Отказ'] as const).map(s => (
-                        <button key={s}
-                          onClick={() => setQuotesFilter(s)}
-                          className={`px-3 py-1 text-sm border ${quotesFilter===s?'border-black bg-black text-white':'border-gray-300 hover:border-black'}`}
-                        >{s==='all'?'Все':s}</button>
-                      ))}
-        </div>
-                    <div className="space-y-2">
-                      {quotes.filter(q => quotesFilter==='all' || q.status===quotesFilter).map(q => (
-                        <div key={q.id} className="border border-gray-200 p-3 hover:border-black transition-colors">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-3">
-                                <div className="font-medium text-black">{q.number}</div>
-                                <div className="text-sm text-gray-600">от {q.date}</div>
-                                <button
-                                  onClick={(e) => showStatusDropdown('quote', q.id, e)}
-                                  className={`inline-block px-2 py-0.5 text-xs rounded-full border transition-opacity ${
-                                    blockedStatuses.has(q.id) 
-                                      ? 'cursor-not-allowed opacity-50 bg-gray-100 border-gray-300 text-gray-500' 
-                                      : `cursor-pointer hover:opacity-80 ${badgeByQuoteStatus(q.status)}`
-                                  }`}
-                                  disabled={blockedStatuses.has(q.id)}
-                                  title={blockedStatuses.has(q.id) ? 'Статус заблокирован для изменения' : ''}
-                                >
-                                  {q.status}
-                                  {blockedStatuses.has(q.id) && (
-                                    <span className="ml-1 text-xs">🔒</span>
-                                  )}
-                                </button>
-                              </div>
-        </div>
-                            <div className="text-right ml-4 flex items-center space-x-2">
-                              <div className="font-semibold text-black">{q.total.toLocaleString('ru-RU')} ₽</div>
-                              <div className="relative" data-quote-actions>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShowQuoteActions(showQuoteActions === q.id ? null : q.id);
-                                  }}
-                                  className="p-1 hover:bg-gray-100 rounded"
-                                >
-                                  <MoreVertical className="h-4 w-4 text-gray-400" />
-                                </button>
-                                
-                                {showQuoteActions === q.id && (
-                                  <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-48">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        regenerateQuote(q.id);
-                                        setShowQuoteActions(null);
-                                      }}
-                                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
-                                    >
-                                      Создать КП
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        createInvoiceFromQuote(q.id);
-                                        setShowQuoteActions(null);
-                                      }}
-                                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
-                                    >
-                                      Создать счет
-                                    </button>
-                                    <hr className="my-1" />
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setDeleteModal({
-                                          isOpen: true,
-                                          type: 'quote',
-                                          id: q.id,
-                                          name: q.number
-                                        });
-                                        setShowQuoteActions(null);
-                                      }}
-                                      className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-                                    >
-                                      Удалить
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="mt-2 flex items-center justify-between">
-                            <div className="flex items-center space-x-3 text-xs text-gray-500">
-                              <button 
-                                onClick={() => openCommentsModal(q.id, 'quote', q.number)}
-                                className="hover:text-blue-600 hover:bg-blue-50 px-2 py-1 rounded transition-colors flex items-center"
-                              >
-                                <div className={`h-3.5 w-3.5 mr-1 rounded flex items-center justify-center ${commentsCount[q.id] > 0 ? 'bg-green-500 text-white' : 'text-gray-500'}`}>
-                                  <StickyNote className="h-2.5 w-2.5"/>
-                                </div>
-                                Комментарии
-                              </button>
-                              <button 
-                                onClick={() => openHistoryModal(q.id, 'quote', q.number)}
-                                className="hover:text-green-600 hover:bg-green-50 px-2 py-1 rounded transition-colors flex items-center"
-                              >
-                                <History className="h-3.5 w-3.5 mr-1"/>История
-                              </button>
-            </div>
-          </div>
-        </div>
-                      ))}
-                      {quotes.filter(q => quotesFilter==='all' || q.status===quotesFilter).length===0 && (
-                        <div className="text-sm text-gray-500">Нет КП по выбранному фильтру</div>
-                      )}
-        </div>
-                  </>
-                )}
-
-                {clientTab==='invoices' && (
-                  <>
-                    <div className="mb-3 flex flex-wrap items-center gap-2">
-                      {(['all','Черновик','Отправлен','Оплачен/Заказ','Отменен','Заказ размещен','Получен от поставщика','Исполнен'] as const).map(s => (
-                        <button key={s}
-                          onClick={() => setInvoicesFilter(s)}
-                          className={`px-3 py-1 text-sm border ${invoicesFilter===s?'border-black bg-black text-white':'border-gray-300 hover:border-black'}`}
-                        >{s==='all'?'Все':s}</button>
-                      ))}
-          </div>
-                    <div className="space-y-2">
-                      {invoices.filter(i => invoicesFilter==='all' || i.status===invoicesFilter).map(i => (
-                        <div key={i.id} className="border border-gray-200 p-3 hover:border-black transition-colors">
-              <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-3">
-                                <div className="font-medium text-black">{i.number}</div>
-                                <div className="text-sm text-gray-600">от {i.date}{i.dueAt?` • оплатить до ${i.dueAt}`:''}</div>
-                                <button
-                                  onClick={(e) => showStatusDropdown('invoice', i.id, e)}
-                                  className={`inline-block px-2 py-0.5 text-xs rounded-full border transition-opacity ${
-                                    blockedStatuses.has(i.id) 
-                                      ? 'cursor-not-allowed opacity-50 bg-gray-100 border-gray-300 text-gray-500' 
-                                      : `cursor-pointer hover:opacity-80 ${badgeByInvoiceStatus(i.status)}`
-                                  }`}
-                                  disabled={blockedStatuses.has(i.id)}
-                                  title={blockedStatuses.has(i.id) ? 'Статус заблокирован для изменения' : ''}
-                                >
-                                  {i.status}
-                                  {blockedStatuses.has(i.id) && (
-                                    <span className="ml-1 text-xs">🔒</span>
-                                  )}
-                                </button>
-                              </div>
-          </div>
-                            <div className="text-right ml-4 flex items-center space-x-2">
-                              <div className="font-semibold text-black">{i.total.toLocaleString('ru-RU')} ₽</div>
-                              <div className="relative" data-invoice-actions>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShowInvoiceActions(showInvoiceActions === i.id ? null : i.id);
-                                  }}
-                                  className="p-1 hover:bg-gray-100 rounded"
-                                >
-                                  <MoreVertical className="h-4 w-4 text-gray-400" />
-                                </button>
-                                
-                                {showInvoiceActions === i.id && (
-                                  <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-48">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        regenerateInvoice(i.id);
-                                        setShowInvoiceActions(null);
-                                      }}
-                                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
-                                    >
-                                      Создать счет
-                                    </button>
-                                    <hr className="my-1" />
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setDeleteModal({
-                                          isOpen: true,
-                                          type: 'invoice',
-                                          id: i.id,
-                                          name: i.number
-                                        });
-                                        setShowInvoiceActions(null);
-                                      }}
-                                      className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-                                    >
-                                      Удалить
-                                    </button>
-                </div>
-                                )}
-                </div>
-              </div>
-            </div>
-                          <div className="mt-2 flex items-center justify-between">
-                            <div className="flex items-center space-x-3 text-xs text-gray-500">
-                              <button 
-                                onClick={() => openCommentsModal(i.id, 'invoice', i.number)}
-                                className="hover:text-blue-600 hover:bg-blue-50 px-2 py-1 rounded transition-colors flex items-center"
-                              >
-                                <div className={`h-3.5 w-3.5 mr-1 rounded flex items-center justify-center ${commentsCount[i.id] > 0 ? 'bg-green-500 text-white' : 'text-gray-500'}`}>
-                                  <StickyNote className="h-2.5 w-2.5"/>
-                </div>
-                                Комментарии
-                              </button>
-                              <button 
-                                onClick={() => openHistoryModal(i.id, 'invoice', i.number)}
-                                className="hover:text-green-600 hover:bg-green-50 px-2 py-1 rounded transition-colors flex items-center"
-                              >
-                                <History className="h-3.5 w-3.5 mr-1"/>История
-                              </button>
-                </div>
-              </div>
-            </div>
-                      ))}
-                      {invoices.filter(i => invoicesFilter==='all' || i.status===invoicesFilter).length===0 && (
-                        <div className="text-sm text-gray-500">Нет счетов по выбранному фильтру</div>
-                      )}
-                </div>
-                  </>
-                )}
-
-                {clientTab==='orders' && (
-                  <>
+                <>
                     <div className="mb-3 flex flex-wrap items-center gap-2">
                       {(['all','Черновик','Отправлен','Оплачен/Заказ','Отменен','Заказ размещен','Получен от поставщика','Исполнен'] as const).map(s => (
                         <button key={s}
@@ -1389,7 +1144,14 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                     </div>
                     <div className="space-y-2">
                       {orders.filter(o => ordersFilter==='all' || o.status===ordersFilter).map(o => (
-                        <div key={o.id} className="border border-gray-200 p-3 hover:border-black transition-colors">
+                        <div 
+                          key={o.id} 
+                          className="border border-gray-200 p-3 hover:border-black transition-colors cursor-pointer"
+                          onClick={() => {
+                            setSelectedOrderId(o.id);
+                            setIsOrderModalOpen(true);
+                          }}
+                        >
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
                               <div className="flex items-center space-x-3">
@@ -1404,19 +1166,6 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                                   </div>
                                 )}
                               </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              {o.invoice_id && (
-                                <button
-                                  onClick={() => {
-                                    setClientTab('invoices');
-                                  }}
-                                  className="text-xs text-blue-600 hover:underline"
-                                  title="Перейти к счету"
-                                >
-                                  Счет
-                                </button>
-                              )}
                             </div>
                           </div>
                         </div>
@@ -1671,6 +1420,19 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         }
         itemName={deleteModal.name || undefined}
       />
+
+      {/* Модальное окно деталей заказа */}
+      {selectedOrderId && (
+        <OrderDetailsModal
+          isOpen={isOrderModalOpen}
+          onClose={() => {
+            setIsOrderModalOpen(false);
+            setSelectedOrderId(null);
+          }}
+          orderId={selectedOrderId}
+          userRole={user.role}
+        />
+      )}
     </div>
   );
 }

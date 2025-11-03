@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
+    const parent_document_id = searchParams.get('parent_document_id');
     const limit = parseInt(searchParams.get('limit') || '100');
     const offset = parseInt(searchParams.get('offset') || '0');
 
@@ -15,6 +16,10 @@ export async function GET(request: NextRequest) {
     
     if (status && status !== 'all') {
       where.status = status;
+    }
+
+    if (parent_document_id) {
+      where.parent_document_id = parent_document_id;
     }
 
     const [quotes, total] = await Promise.all([
