@@ -78,6 +78,61 @@ export default function QuickCartSidebar({
       return;
     }
 
+    // Для supplier_order используем специальную логику
+    if (documentType === 'supplier_order') {
+      // SupplierOrder требует Invoice или Order
+      if (!sourceDocument || (sourceDocument.type !== 'invoice' && sourceDocument.type !== 'order')) {
+        alert('Для создания заказа у поставщика необходим счет или заказ');
+        return;
+      }
+
+      setIsExporting(true);
+      try {
+        const supplierName = prompt('Введите название поставщика:');
+        if (!supplierName) {
+          setIsExporting(false);
+          return;
+        }
+
+        const supplierEmail = prompt('Введите email поставщика (необязательно):') || '';
+        const supplierPhone = prompt('Введите телефон поставщика (необязательно):') || '';
+        const expectedDate = prompt('Введите ожидаемую дату поставки (YYYY-MM-DD, необязательно):') || null;
+        const notes = prompt('Примечания (необязательно):') || '';
+
+        const response = await fetch('/api/supplier-orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            invoiceId: sourceDocument.type === 'invoice' ? sourceDocument.id : null,
+            orderId: sourceDocument.type === 'order' ? sourceDocument.id : null,
+            supplierName,
+            supplierEmail,
+            supplierPhone,
+            expectedDate,
+            notes,
+            cartData: {
+              items: cart?.items || []
+            }
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          alert('Заказ у поставщика создан успешно!');
+        } else {
+          const error = await response.json();
+          alert(`Ошибка: ${error.error}`);
+        }
+      } catch (error) {
+        console.error('Error creating supplier order:', error);
+        alert('Ошибка при создании заказа у поставщика');
+      } finally {
+        setIsExporting(false);
+      }
+      return;
+    }
+
+    // Для остальных типов документов используем стандартную логику
     setIsExporting(true);
     try {
       // Используем существующий API экспорта

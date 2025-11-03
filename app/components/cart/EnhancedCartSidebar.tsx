@@ -80,6 +80,65 @@ export default function EnhancedCartSidebar({
       return;
     }
 
+    // Для supplier_order используем специальную логику
+    if (documentType === 'supplier_order') {
+      // SupplierOrder требует Invoice или Order
+      // Если есть sourceDocument - создаем на его основе
+      // Если нет - сначала нужно создать Invoice
+      if (!sourceDocument || (sourceDocument.type !== 'invoice' && sourceDocument.type !== 'order')) {
+        toast.error('Для создания заказа у поставщика необходим счет или заказ');
+        return;
+      }
+
+      setIsExporting(true);
+      try {
+        // Запрашиваем данные поставщика у пользователя
+        const supplierName = prompt('Введите название поставщика:');
+        if (!supplierName) {
+          setIsExporting(false);
+          return;
+        }
+
+        const supplierEmail = prompt('Введите email поставщика (необязательно):') || '';
+        const supplierPhone = prompt('Введите телефон поставщика (необязательно):') || '';
+        const expectedDate = prompt('Введите ожидаемую дату поставки (YYYY-MM-DD, необязательно):') || null;
+        const notes = prompt('Примечания (необязательно):') || '';
+
+        const response = await fetch('/api/supplier-orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            invoiceId: sourceDocument.type === 'invoice' ? sourceDocument.id : null,
+            orderId: sourceDocument.type === 'order' ? sourceDocument.id : null,
+            supplierName,
+            supplierEmail,
+            supplierPhone,
+            expectedDate,
+            notes,
+            cartData: {
+              items: cart.items || []
+            }
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          toast.success('Заказ у поставщика создан успешно!');
+          setCreatedDocuments(prev => [...prev, { type: 'supplier_order', ...result.supplierOrder }]);
+        } else {
+          const error = await response.json();
+          toast.error(`Ошибка: ${error.error}`);
+        }
+      } catch (error) {
+        console.error('Error creating supplier order:', error);
+        toast.error('Ошибка при создании заказа у поставщика');
+      } finally {
+        setIsExporting(false);
+      }
+      return;
+    }
+
+    // Для остальных типов документов используем стандартную логику
     setIsExporting(true);
     try {
       const response = await fetch('/api/cart/export/enhanced', {
