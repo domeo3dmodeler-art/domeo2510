@@ -40,8 +40,8 @@ function DashboardContent() {
   const isInitializedRef = useRef(false); // Используем useRef чтобы избежать ре-рендеров
   const router = useRouter();
 
-  // Мемоизируем контент по роли (оптимизировано - для complectator не зависит от stats)
-  // Для complectator мы сразу возвращаем ComplectatorDashboard, поэтому не нужно вычислять roleContent
+  // Мемоизируем контент по роли (оптимизировано - для complectator и executor не зависит от stats)
+  // Для complectator и executor мы сразу возвращаем их дашборды, поэтому не нужно вычислять roleContent
   const roleContent = useMemo(() => {
     if (!user) {
       return {
@@ -52,11 +52,11 @@ function DashboardContent() {
       };
     }
     
-    // Для complectator возвращаем минимальный объект - все равно не используется
-    if (user.role === 'complectator') {
+    // Для complectator и executor возвращаем минимальный объект - все равно не используется
+    if (user.role === 'complectator' || user.role === 'executor') {
       return {
-        title: 'Личный кабинет комплектатора',
-        description: 'Работа с клиентами и коммерческими предложениями',
+        title: user.role === 'complectator' ? 'Личный кабинет комплектатора' : 'Личный кабинет исполнителя',
+        description: user.role === 'complectator' ? 'Работа с клиентами и коммерческими предложениями' : 'Исполнение заказов и работа с фабрикой',
         widgets: [],
         quickActions: []
       };
@@ -78,23 +78,6 @@ function DashboardContent() {
             { title: 'Импорт прайса', link: '/admin/import', icon: '📥' },
             { title: 'Управление пользователями', link: '/admin/users', icon: '👤' },
             { title: 'Настройки системы', link: '/admin/settings', icon: '⚙️' }
-          ].filter(Boolean) // Фильтруем undefined/null элементы
-        };
-      case 'executor':
-        return {
-          title: 'Личный кабинет исполнителя',
-          description: 'Исполнение заказов и работа с фабрикой',
-          widgets: [
-            { title: 'Заказы в работе', count: '8', link: '/orders', icon: '⚡' },
-            { title: 'Заказы у поставщика', count: '5', link: '/factory', icon: '🏭' },
-            { title: 'Выполненные', count: '32', link: '/orders?status=completed', icon: '✅' },
-            { title: 'Уведомления', count: '3', link: '/notifications', icon: '🔔' }
-          ].filter(Boolean), // Фильтруем undefined/null элементы
-          quickActions: [
-            { title: 'Новые заказы', link: '/orders?status=new', icon: '🆕' },
-            { title: 'Заказ у поставщика', link: '/factory', icon: '🏭' },
-            { title: 'Отслеживание', link: '/tracking', icon: '📍' },
-            { title: 'Уведомления', link: '/notifications', icon: '🔔' }
           ].filter(Boolean) // Фильтруем undefined/null элементы
         };
       default:
