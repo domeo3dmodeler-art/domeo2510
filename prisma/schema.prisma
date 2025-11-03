@@ -311,7 +311,7 @@ model Invoice {
   number             String    @unique
   parent_document_id String?   // Универсальная ссылка на родительский документ
   cart_session_id    String?   // Сессия корзины для группировки документов
-  order_id           String?   // ID заказа (один счет на заказ)
+  order_id           String?   @unique // ID заказа (один счет на заказ) - @unique для one-to-one
   client_id          String
   created_by         String
   status             String    @default("DRAFT")
@@ -569,7 +569,7 @@ model Order {
   
   // Связи
   client              Client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
-  invoice             Invoice?  @relation(fields: [invoice_id], references: [id])
+  invoice             Invoice?  @relation // Обратная связь one-to-one
   
   @@index([client_id])
   @@index([status])
