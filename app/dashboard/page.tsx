@@ -326,7 +326,7 @@ function DashboardContent() {
         <div className="space-y-8">
           {/* Widgets Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {safeRoleContent.widgets.map((widget, index) => (
+            {safeRoleContent.widgets.filter(w => w && typeof w === 'object' && w.title && w.link).map((widget, index) => (
               <Card key={index} variant="interactive" className="hover:border-black transition-all duration-200">
                 <div className="p-6">
                   <div className="flex items-center justify-between">
@@ -334,7 +334,7 @@ function DashboardContent() {
                       <p className="text-sm font-medium text-gray-600">{widget.title}</p>
                       <p className="text-2xl font-bold text-black mt-1">{widget.count}</p>
                     </div>
-                    <div className="text-2xl">{widget?.icon || '📊'}</div>
+                    <div className="text-2xl">{widget?.icon ?? '📊'}</div>
                   </div>
                 </div>
               </Card>
@@ -346,14 +346,14 @@ function DashboardContent() {
             <div className="p-6">
               <h2 className="text-xl font-semibold text-black mb-4">Быстрые действия</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {safeRoleContent.quickActions.map((action, index) => (
+                {safeRoleContent.quickActions.filter(a => a && typeof a === 'object' && a.title && a.link).map((action, index) => (
                   <Button
                     key={index}
                     variant="secondary"
                     className="p-4 h-auto flex flex-col items-center space-y-2"
                     onClick={() => action.link && router.push(action.link)}
                   >
-                    <div className="text-2xl">{action?.icon || '⚡'}</div>
+                    <div className="text-2xl">{action?.icon ?? '⚡'}</div>
                     <p className="text-sm font-medium">{action.title}</p>
                   </Button>
                 ))}
