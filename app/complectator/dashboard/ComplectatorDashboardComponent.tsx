@@ -1461,6 +1461,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
             )}
           </Card>
         </div>
+        </div>
       )}
 
       {/* Модальное окно создания клиента */}
