@@ -1027,7 +1027,55 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
 
   return (
     <div className="space-y-6">
-      {/* Клиенты и детали клиента */}
+      {/* Вкладки навигации */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-6">
+          {([
+            {id:'cart',name:'Корзина',icon:ShoppingCart},
+            {id:'documents',name:'Документы',icon:FileText},
+            {id:'orders',name:'Заказы',icon:Package}
+          ] as Array<{id:'cart'|'documents'|'orders';name:string;icon:any}>).map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab===t.id
+                  ?'border-black text-black'
+                  :'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <t.icon className="h-4 w-4 mr-2"/>{t.name}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Вкладка корзины */}
+      {activeTab === 'cart' && (
+        <div className="space-y-4">
+          <Card variant="base">
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-black">Корзина</h3>
+                <DocumentWorkflowIntegration 
+                  selectedClientId={selectedClient || undefined}
+                  userRole="complectator"
+                />
+              </div>
+              <div className="text-gray-600">
+                {selectedClient ? (
+                  <p>Выбран клиент: {clients.find(c => c.id === selectedClient)?.lastName} {clients.find(c => c.id === selectedClient)?.firstName}</p>
+                ) : (
+                  <p>Выберите клиента слева для работы с корзиной</p>
+                )}
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Вкладка документов (текущий контент) */}
+      {activeTab === 'documents' && (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:[grid-template-columns:1.3fr_2fr]">
         <div className="md:col-span-1 space-y-4">
           <Card variant="base">
@@ -1652,6 +1700,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         }
         itemName={deleteModal.name || undefined}
       />
+      </div>
+      )}
     </div>
   );
 }
