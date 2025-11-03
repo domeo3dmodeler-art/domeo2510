@@ -436,7 +436,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
   useEffect(() => {
     if (!selectedClient) return;
     fetchClientDocuments(selectedClient);
-  }, [selectedClient, fetchClientDocuments]);
+    fetchClientOrders(selectedClient);
+  }, [selectedClient, fetchClientDocuments, fetchClientOrders]);
 
   const formatPhone = (raw?: string) => {
     if (!raw) return '—';
