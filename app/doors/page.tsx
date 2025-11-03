@@ -3679,11 +3679,67 @@ function CartManager({
             )}
             {canCreateOrder && (
             <button
-                onClick={() => generateDocumentFast('order', 'excel')}
-              className="flex items-center space-x-1 px-3 py-1 text-sm border border-orange-500 text-orange-600 hover:bg-orange-50 transition-all duration-200"
+                onClick={async () => {
+                  if (!selectedClient) {
+                    alert('Выберите клиента для создания заказа');
+                    return;
+                  }
+
+                  if (cart.length === 0) {
+                    alert('Корзина пуста');
+                    return;
+                  }
+
+                  try {
+                    // Преобразуем items корзины в формат для API
+                    const items = cart.map(item => ({
+                      id: item.id,
+                      productId: item.id,
+                      name: item.model || `${item.model} ${item.finish || ''}`.trim(),
+                      model: item.model,
+                      qty: item.qty || 1,
+                      quantity: item.qty || 1,
+                      unitPrice: item.unitPrice || 0,
+                      price: item.unitPrice || 0,
+                      width: item.width,
+                      height: item.height,
+                      color: item.color,
+                      finish: item.finish,
+                      sku_1c: item.sku_1c
+                    }));
+
+                    const totalAmount = cart.reduce((sum, item) => sum + (item.unitPrice || 0) * (item.qty || 1), 0);
+
+                    const response = await fetch('/api/orders/create-with-invoice', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        client_id: selectedClient,
+                        items,
+                        total_amount: totalAmount,
+                        subtotal: totalAmount,
+                        tax_amount: 0,
+                        notes: 'Создан из корзины на странице Doors'
+                      })
+                    });
+
+                    if (response.ok) {
+                      const result = await response.json();
+                      alert(result.message || 'Заказ и счет созданы успешно!');
+                      // Корзина остается активной (не очищаем)
+                    } else {
+                      const error = await response.json();
+                      alert(`Ошибка: ${error.error}`);
+                    }
+                  } catch (error) {
+                    console.error('Error creating order and invoice:', error);
+                    alert('Ошибка при создании заказа и счета');
+                  }
+                }}
+              className="flex items-center space-x-1 px-3 py-1 text-sm border border-orange-500 bg-orange-600 text-white hover:bg-orange-700 transition-all duration-200"
             >
-                <span>📊</span>
-              <span>Заказ</span>
+                <span>🛒</span>
+              <span>Создать заказ</span>
             </button>
             )}
           </div>
