@@ -329,7 +329,7 @@ function DashboardContent() {
         <div className="space-y-8">
           {/* Widgets Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {roleContent.widgets.map((widget, index) => (
+            {roleContent.widgets.filter(widget => widget).map((widget, index) => (
               <Card key={index} variant="interactive" className="hover:border-black transition-all duration-200">
                 <div className="p-6">
                   <div className="flex items-center justify-between">
@@ -337,7 +337,7 @@ function DashboardContent() {
                       <p className="text-sm font-medium text-gray-600">{widget.title}</p>
                       <p className="text-2xl font-bold text-black mt-1">{widget.count}</p>
                     </div>
-                    <div className="text-2xl">{widget.icon}</div>
+                    <div className="text-2xl">{widget.icon || '📊'}</div>
                   </div>
                 </div>
               </Card>
@@ -349,14 +349,14 @@ function DashboardContent() {
             <div className="p-6">
               <h2 className="text-xl font-semibold text-black mb-4">Быстрые действия</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {roleContent.quickActions.map((action, index) => (
+                {roleContent.quickActions.filter(action => action).map((action, index) => (
                   <Button
                     key={index}
                     variant="secondary"
                     className="p-4 h-auto flex flex-col items-center space-y-2"
                     onClick={() => router.push(action.link)}
                   >
-                    <div className="text-2xl">{action.icon}</div>
+                    <div className="text-2xl">{action.icon || '⚡'}</div>
                     <p className="text-sm font-medium">{action.title}</p>
                   </Button>
                 ))}
@@ -497,7 +497,7 @@ function DashboardContent() {
 
         {/* Widgets Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {roleContent.widgets.map((widget, index) => (
+          {roleContent.widgets.filter(widget => widget).map((widget, index) => (
             <div
               key={index}
               onClick={() => router.push(widget.link)}
@@ -509,7 +509,7 @@ function DashboardContent() {
                   <p className="text-2xl font-bold text-black mt-1">{widget.count}</p>
                 </div>
                 <div className="text-2xl group-hover:scale-110 transition-transform duration-200">
-                  {widget.icon}
+                  {widget.icon || '📊'}
                 </div>
               </div>
             </div>
@@ -520,14 +520,14 @@ function DashboardContent() {
         <div className="bg-gray-50 p-6">
           <h2 className="text-xl font-semibold text-black mb-4">Быстрые действия</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {roleContent.quickActions.map((action, index) => (
+            {roleContent.quickActions.filter(action => action).map((action, index) => (
               <button
                 key={index}
                 onClick={() => router.push(action.link)}
                 className="bg-white border border-gray-200 p-4 hover:border-black hover:bg-black hover:text-white transition-all duration-200 group text-center"
               >
                 <div className="text-2xl mb-2 group-hover:scale-110 transition-transform duration-200">
-                  {action.icon}
+                  {action.icon || '⚡'}
                 </div>
                 <p className="text-sm font-medium">{action.title}</p>
               </button>
