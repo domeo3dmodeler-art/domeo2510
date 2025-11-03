@@ -32,6 +32,8 @@
     "check:light-categories-api": "tsx scripts/check-light-categories-api.ts",
     "create:category-mapping": "tsx scripts/create-category-mapping.ts",
     "export:category-mapping-excel": "tsx scripts/export-category-mapping-to-excel.ts",
+    "get:light-category-tree": "tsx scripts/get-light-category-tree.ts",
+    "show:yml-category-tree": "tsx scripts/show-yml-category-tree.ts",
     "db:init": "npm run prisma:generate && npm run prisma:migrate:deploy && npm run prisma:seed",
     "db:reset": "prisma migrate reset --force",
     "backup": "echo 'Backup script not implemented yet'",

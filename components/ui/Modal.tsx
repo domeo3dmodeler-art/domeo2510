@@ -56,10 +56,13 @@ export function Modal({
   };
 
 
+  // Вычисляем ширину для 3xl: уменьшаем на 25% (768px * 0.75 = 576px)
+  const finalWidthClass = size === '3xl' ? 'max-w-[576px]' : sizeClasses[size];
+  
   return (
     <div className={styles.modal.overlay}>
       <div 
-        className={`${styles.modal.content} ${size === '3xl' ? 'max-w-[576px]' : sizeClasses[size]} relative`}
+        className={`${styles.modal.content.replace('w-full', '')} ${finalWidthClass} relative`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Кнопка закрытия - всегда показываем */}
