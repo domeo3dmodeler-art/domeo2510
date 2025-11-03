@@ -31,6 +31,7 @@ import {
   MoreVertical
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
+import { ApplicationsBoard } from '../../../components/executor/ApplicationsBoard';
 
 // Маппинг статусов Счетов из API в русские (определяем на уровне модуля до компонента)
 const mapInvoiceStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен' => {
@@ -925,28 +926,22 @@ export default function ExecutorDashboard() {
 
         <div className="md:col-span-1">
           <Card variant="base">
-            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-              {selectedClient ? (
-                <div className="min-w-0">
-                  {(() => {
-                    const c = clients.find(x => x.id===selectedClient);
-                    if (!c) return null;
-                    return (
-                      <>
-                        <div className="font-semibold text-black truncate">{c.lastName} {c.firstName}{c.middleName?` ${c.middleName}`:''}</div>
-                        <div className="text-sm text-gray-600 truncate flex items-center">
-                          <Phone className="h-3.5 w-3.5 mr-1"/>{formatPhone(c.phone||'')}<span className="mx-2">•</span>Адрес: {c.address||'—'}
-                        </div>
-                      </>
-                    );
-                  })()}
-        </div>
+            <div className="p-4 border-b border-gray-100">
+              <h3 className="text-lg font-semibold text-black flex items-center">
+                <FileText className="h-5 w-5 mr-2"/>Табло заявок
+              </h3>
+            </div>
+
+            <div className="p-4">
+              {user?.id ? (
+                <ApplicationsBoard executorId={user.id} />
               ) : (
-                <div className="text-gray-600">Выберите клиента слева</div>
+                <div className="text-gray-600">Загрузка...</div>
               )}
             </div>
 
-            {selectedClient && (
+            {/* Скрываем старую секцию документов клиента */}
+            {false && selectedClient && (
               <div className="p-4">
                 <div className="border-b border-gray-200 mb-4">
                   <nav className="-mb-px flex space-x-6">

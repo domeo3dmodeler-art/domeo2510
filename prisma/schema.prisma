@@ -49,6 +49,7 @@ model Client {
   orders        Order[]
   documents     Document[]
   notifications Notification[]
+  applications  Application[]
 
   @@index([phone])
   @@index([firstName, lastName])
@@ -375,6 +376,7 @@ model Invoice {
   // Связи
   client         Client      @relation(fields: [client_id], references: [id], onDelete: Cascade)
   invoice_items  InvoiceItem[]
+  applications   Application[]
 
   @@index([client_id])
   @@index([status])
@@ -573,4 +575,45 @@ model Notification {
   @@index([user_id])
   @@index([is_read])
   @@index([created_at])
+}
+
+// Заявки (Applications) - система управления заявками для исполнителя
+model Application {
+  id                  String    @id @default(cuid())
+  number              String    @unique // Номер заявки (например, APP-XXXXXX)
+  client_id           String
+  invoice_id          String?   // Связанный счет (оплаченная заявка)
+  lead_number         String?   // Номер лида
+  complectator_id     String?   // ID комплектатора
+  executor_id         String?   // ID исполнителя
+  status              String    @default("NEW_PLANNED")
+  
+  // Данные проекта
+  project_file_url    String?   // URL файла проекта/планировки (обязательное для проверки)
+  door_dimensions     String?   // JSON с размерами дверей: [{width, height, quantity, opening_side, latches_count, notes}]
+  measurement_done    Boolean   @default(false) // Был ли проведен замер
+  project_complexity  String?   // "SIMPLE" | "COMPLEX" | null
+  
+  // Файлы
+  wholesale_invoices  String?   // JSON массив URL оптовых счетов
+  technical_specs     String?   // JSON массив URL техзаданий на проемы (PDF)
+  
+  // Проверка
+  verification_status String?   // "PENDING" | "VERIFIED" | "FAILED"
+  verification_notes  String?   // Примечания проверки
+  
+  notes               String?
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+  
+  // Связи
+  client              Client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  invoice             Invoice?  @relation(fields: [invoice_id], references: [id])
+  
+  @@index([client_id])
+  @@index([status])
+  @@index([invoice_id])
+  @@index([executor_id])
+  @@index([created_at])
+  @@map("applications")
 }

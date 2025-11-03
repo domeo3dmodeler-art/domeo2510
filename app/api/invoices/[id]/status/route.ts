@@ -42,6 +42,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         id: true, 
         status: true,
         client_id: true,
+        created_by: true,
         number: true
       }
     });
@@ -116,10 +117,118 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const updatedInvoice = await prisma.invoice.update({
       where: { id },
-      data: updateData
+      data: updateData,
+      include: {
+        client: {
+          select: {
+            id: true,
+            compilationLeadNumber: true
+          }
+        }
+      }
     });
 
     console.log('✅ API: Invoice updated successfully:', updatedInvoice);
+
+    // Автоматическое создание заявки при оплате счета
+    if (status === 'PAID' && oldStatus !== 'PAID') {
+      try {
+        console.log('📝 Создание заявки для оплаченного счета:', id);
+        
+        // Проверяем, не существует ли уже заявка для этого счета
+        const existingApplication = await prisma.application.findFirst({
+          where: { invoice_id: id }
+        });
+
+        if (existingApplication) {
+          console.log('⚠️ Заявка для этого счета уже существует:', existingApplication.id);
+        } else {
+          // Получаем информацию о создателе счета (комплектаторе)
+          // created_by - это user_id создателя счета
+          let complectatorId = null;
+          if (existingInvoice.created_by) {
+            // Получаем информацию о пользователе-создателе счета
+            const invoiceCreator = await prisma.user.findUnique({
+              where: { id: existingInvoice.created_by },
+              select: {
+                id: true,
+                role: true
+              }
+            });
+
+            if (invoiceCreator && invoiceCreator.role === 'complectator') {
+              complectatorId = invoiceCreator.id;
+            }
+          }
+
+          // Пытаемся получить исполнителя из токена, если изменение статуса делает исполнитель
+          let executorId = null;
+          try {
+            const authHeader = req.headers.get('authorization');
+            const token = req.cookies.get('auth-token')?.value;
+            const authToken = authHeader && authHeader.startsWith('Bearer ') 
+              ? authHeader.substring(7) 
+              : token;
+            
+            if (authToken) {
+              const decoded: any = jwt.verify(authToken, process.env.JWT_SECRET || "your-super-secret-jwt-key-change-this-in-production-min-32-chars");
+              const currentUser = await prisma.user.findUnique({
+                where: { id: decoded.userId },
+                select: {
+                  id: true,
+                  role: true
+                }
+              });
+
+              // Если текущий пользователь - исполнитель, назначаем его
+              if (currentUser && currentUser.role === 'executor') {
+                executorId = currentUser.id;
+              }
+            }
+          } catch (tokenError) {
+            console.warn('⚠️ Не удалось получить исполнителя из токена:', tokenError);
+            // Продолжаем без назначения исполнителя
+          }
+
+          // Генерируем номер заявки
+          const generateApplicationNumber = () => {
+            const timestamp = Date.now();
+            const random = Math.floor(Math.random() * 1000);
+            return `APP-${timestamp}-${random}`;
+          };
+
+          let applicationNumber = generateApplicationNumber();
+          let exists = await prisma.application.findUnique({
+            where: { number: applicationNumber }
+          });
+
+          while (exists) {
+            applicationNumber = generateApplicationNumber();
+            exists = await prisma.application.findUnique({
+              where: { number: applicationNumber }
+            });
+          }
+
+          // Создаем заявку
+          const newApplication = await prisma.application.create({
+            data: {
+              number: applicationNumber,
+              client_id: updatedInvoice.client_id,
+              invoice_id: id,
+              lead_number: updatedInvoice.client.compilationLeadNumber || null,
+              complectator_id: complectatorId,
+              executor_id: executorId,
+              status: 'NEW_PLANNED'
+            }
+          });
+
+          console.log('✅ Заявка создана автоматически:', newApplication.id);
+        }
+      } catch (applicationError) {
+        console.error('❌ Ошибка при создании заявки:', applicationError);
+        // Не прерываем выполнение, если не удалось создать заявку
+      }
+    }
 
     // Получаем user_id из токена для истории
     let userId = 'system';
