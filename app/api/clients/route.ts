@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
         phone: true,
         address: true,
         objectId: true,
+        compilationLeadNumber: true,
         createdAt: true
       },
       orderBy: {
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
         phone: normalizedPhone,
         address: address || '',
         objectId: objectId || `object-${Date.now()}`,
-        // compilationLeadNumber: compilationLeadNumber || null // Временно отключено до миграции БД
+        compilationLeadNumber: compilationLeadNumber || null
       },
         select: {
         id: true,
@@ -72,6 +73,7 @@ export async function POST(request: NextRequest) {
         phone: true,
         address: true,
         objectId: true,
+        compilationLeadNumber: true,
         createdAt: true
       }
     });
