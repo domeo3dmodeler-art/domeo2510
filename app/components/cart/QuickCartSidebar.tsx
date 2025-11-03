@@ -6,6 +6,7 @@ import { Button } from '@/components/ui';
 import { CartService } from '../../lib/cart/cart-service';
 import { Cart, CartItem, CartCalculation } from '../../lib/cart/types';
 import SimpleDocumentList from '../documents/SimpleDocumentList';
+import { toast } from 'sonner';
 
 interface QuickCartSidebarProps {
   isOpen: boolean;
@@ -288,17 +289,79 @@ export default function QuickCartSidebar({
                 </Button>
               </div>
               
+              <Button
+                onClick={async () => {
+                  if (!selectedClientId) {
+                    toast.error('Выберите клиента для создания заказа');
+                    return;
+                  }
+
+                  if (!cart || !cart.items || cart.items.length === 0) {
+                    toast.error('Корзина пуста');
+                    return;
+                  }
+
+                  setIsExporting(true);
+                  try {
+                    // Преобразуем items корзины в формат для API
+                    const items = cart.items.map((item: any) => ({
+                      id: item.id || item.productId,
+                      productId: item.productId || item.id,
+                      name: item.name || item.model,
+                      model: item.model || item.name,
+                      qty: item.qty || item.quantity || 1,
+                      quantity: item.qty || item.quantity || 1,
+                      unitPrice: item.unitPrice || item.price || 0,
+                      price: item.unitPrice || item.price || 0,
+                      width: item.width,
+                      height: item.height,
+                      color: item.color,
+                      finish: item.finish,
+                      sku_1c: item.sku_1c
+                    }));
+
+                    const totalAmount = calculation?.total || cart.items.reduce(
+                      (sum: number, item: any) => sum + (item.unitPrice || item.price || 0) * (item.qty || item.quantity || 1),
+                      0
+                    );
+
+                    const response = await fetch('/api/orders/create-with-invoice', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        client_id: selectedClientId,
+                        items,
+                        total_amount: totalAmount,
+                        subtotal: calculation?.subtotal || totalAmount,
+                        tax_amount: calculation?.tax || 0,
+                        notes: 'Создан из корзины'
+                      })
+                    });
+
+                    if (response.ok) {
+                      const result = await response.json();
+                      toast.success(result.message || 'Заказ и счет созданы успешно!');
+                      
+                      // Корзина остается активной (не очищаем)
+                    } else {
+                      const error = await response.json();
+                      toast.error(`Ошибка: ${error.error}`);
+                    }
+                  } catch (error) {
+                    console.error('Error creating order and invoice:', error);
+                    toast.error('Ошибка при создании заказа и счета');
+                  } finally {
+                    setIsExporting(false);
+                  }
+                }}
+                disabled={isExporting || !selectedClientId || !cart || cart.items.length === 0}
+                className="w-full flex items-center justify-center space-x-2 bg-orange-600 hover:bg-orange-700 text-white text-sm"
+              >
+                <ShoppingCart className="h-3 w-3" />
+                <span>Создать заказ</span>
+              </Button>
+              
               <div className="grid grid-cols-2 gap-2 mt-2">
-                <Button
-                  onClick={() => handleQuickExport('order')}
-                  disabled={isExporting || !selectedClientId}
-                  className="flex items-center justify-center space-x-1 text-sm"
-                  variant="outline"
-                >
-                  <ShoppingCart className="h-3 w-3" />
-                  <span>Заказ</span>
-                </Button>
-                
                 <Button
                   onClick={() => handleQuickExport('supplier_order')}
                   disabled={isExporting || !selectedClientId}
