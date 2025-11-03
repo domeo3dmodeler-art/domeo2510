@@ -108,6 +108,24 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       );
     }
 
+    // Сохраняем данные ДО обновления для создания заявки
+    const oldStatus = existingInvoice.status;
+    const wasPaid = oldStatus === 'PAID';
+    const invoiceClientId = existingInvoice.client_id;
+    const invoiceCreatedBy = existingInvoice.created_by;
+    
+    // Получаем данные клиента для lead_number
+    let clientLeadNumber: string | null = null;
+    try {
+      const client = await prisma.client.findUnique({
+        where: { id: invoiceClientId },
+        select: { compilationLeadNumber: true }
+      });
+      clientLeadNumber = client?.compilationLeadNumber || null;
+    } catch (clientError) {
+      console.warn('⚠️ Ошибка при получении данных клиента:', clientError);
+    }
+
     // Подготавливаем данные для обновления
     const updateData: any = {
       status
@@ -131,7 +149,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     console.log('✅ API: Invoice updated successfully:', updatedInvoice);
 
     // Автоматическое создание заявки при оплате счета
-    if (status === 'PAID' && oldStatus !== 'PAID') {
+    if (status === 'PAID' && !wasPaid) {
       try {
         console.log('📝 Создание заявки для оплаченного счета:', id);
         
@@ -144,25 +162,27 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           console.log('⚠️ Заявка для этого счета уже существует:', existingApplication.id);
         } else {
           // Получаем информацию о создателе счета (комплектаторе)
-          // created_by - это user_id создателя счета
-          let complectatorId = null;
-          if (existingInvoice.created_by) {
-            // Получаем информацию о пользователе-создателе счета
-            const invoiceCreator = await prisma.user.findUnique({
-              where: { id: existingInvoice.created_by },
-              select: {
-                id: true,
-                role: true
-              }
-            });
+          let complectatorId: string | null = null;
+          if (invoiceCreatedBy) {
+            try {
+              const invoiceCreator = await prisma.user.findUnique({
+                where: { id: invoiceCreatedBy },
+                select: {
+                  id: true,
+                  role: true
+                }
+              });
 
-            if (invoiceCreator && invoiceCreator.role === 'complectator') {
-              complectatorId = invoiceCreator.id;
+              if (invoiceCreator && invoiceCreator.role === 'complectator') {
+                complectatorId = invoiceCreator.id;
+              }
+            } catch (userError) {
+              console.warn('⚠️ Ошибка при получении создателя счета:', userError);
             }
           }
 
-          // Пытаемся получить исполнителя из токена, если изменение статуса делает исполнитель
-          let executorId = null;
+          // Пытаемся получить исполнителя из токена
+          let executorId: string | null = null;
           try {
             const authHeader = req.headers.get('authorization');
             const token = req.cookies.get('auth-token')?.value;
@@ -180,18 +200,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 }
               });
 
-              // Если текущий пользователь - исполнитель, назначаем его
               if (currentUser && currentUser.role === 'executor') {
                 executorId = currentUser.id;
               }
             }
           } catch (tokenError) {
             console.warn('⚠️ Не удалось получить исполнителя из токена:', tokenError);
-            // Продолжаем без назначения исполнителя
           }
 
           // Генерируем номер заявки
-          const generateApplicationNumber = () => {
+          const generateApplicationNumber = (): string => {
             const timestamp = Date.now();
             const random = Math.floor(Math.random() * 1000);
             return `APP-${timestamp}-${random}`;
@@ -213,9 +231,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           const newApplication = await prisma.application.create({
             data: {
               number: applicationNumber,
-              client_id: updatedInvoice.client_id,
+              client_id: invoiceClientId,
               invoice_id: id,
-              lead_number: updatedInvoice.client.compilationLeadNumber || null,
+              lead_number: clientLeadNumber,
               complectator_id: complectatorId,
               executor_id: executorId,
               status: 'NEW_PLANNED'
