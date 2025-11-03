@@ -143,75 +143,41 @@ export function DocumentQuickViewModal({ isOpen, onClose, documentId }: Document
       
       const documentData = await documentResponse.json();
       
-      // Ищем связанный заказ - проверяем parent_document_id или ищем заказ с этим документом как родителем
+      // Извлекаем данные документа из обертки
+      const documentInfo = documentData.document || documentData;
+      
+      // Ищем связанный Order - для Quote/Invoice через parent_document_id
       let orderId = null;
       
       // Если это заказ, используем его ID
       if (document.type === 'order') {
         orderId = document.id;
       } else {
-        // Ищем заказ, где этот документ является родителем
-        const orderSearchResponse = await fetch(`/api/orders?parent_document_id=${document.id}`);
-        if (orderSearchResponse.ok) {
-          const orders = await orderSearchResponse.json();
-          if (orders.orders && orders.orders.length > 0) {
-            orderId = orders.orders[0].id;
+        // Для Quote/Invoice ищем Order через parent_document_id
+        // В новой логике Quote и Invoice создаются на основе Order,
+        // поэтому их parent_document_id указывает на Order
+        if (documentInfo.parent_document_id) {
+          // Проверяем, что parent_document_id указывает на Order
+          const orderCheckResponse = await fetch(`/api/orders/${documentInfo.parent_document_id}`);
+          if (orderCheckResponse.ok) {
+            orderId = documentInfo.parent_document_id;
           }
+        }
+        
+        // Если Order не найден через parent_document_id, ищем для Invoice через order_id
+        if (!orderId && documentInfo.order_id) {
+          orderId = documentInfo.order_id;
         }
       }
       
-      // Если у документа нет связанного заказа, создаем его (как в ЛК Исполнителя)
+      // Если у документа нет связанного Order, нельзя создать SupplierOrder
+      // В новой логике Order должен быть создан первым из корзины
       if (!orderId) {
-        console.log('🔄 Creating Order for Document:', document.id);
-        
-        // Получаем данные корзины из документа
-        let cartData = null;
-        if (document.type === 'quote' && document.quote_items) {
-          cartData = { items: document.quote_items };
-        } else if (document.type === 'invoice' && document.invoice_items) {
-          cartData = { items: document.invoice_items };
-        } else if (document.type === 'order' && document.order_items) {
-          cartData = { items: document.order_items };
-        }
-        
-        // Создаем новый заказ
-        const orderResponse = await fetch('/api/orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            client_id: document.client.id,
-            parent_document_id: document.id, // Связываем с исходным документом
-            status: 'PENDING',
-            total_amount: document.totalAmount,
-            currency: 'RUB',
-            notes: `Автоматически создан из ${document.type === 'quote' ? 'КП' : document.type === 'invoice' ? 'счета' : 'заказа'} ${document.number} для Заказа у поставщика`,
-            cart_data: cartData,
-            items: cartData && cartData.items ? cartData.items.map((item: any) => ({
-              productId: item.id || 'unknown',
-              quantity: item.quantity || item.qty || 1,
-              price: item.unitPrice || item.price || 0,
-              notes: item.name || item.model || ''
-            })) : []
-          })
-        });
-
-        if (!orderResponse.ok) {
-          const error = await orderResponse.json();
-          throw new Error(`Ошибка при создании заказа: ${error.error}`);
-        }
-        
-        const newOrder = await orderResponse.json();
-        orderId = newOrder.order.id;
-
-        // Не обновляем документ через PATCH, так как API не поддерживает этот метод
-        console.log('✅ New Order created with ID:', orderId);
+        throw new Error(`Для создания заказа у поставщика необходим заказ. Создайте заказ из корзины на основе этого документа.`);
       }
 
       // Создаем заказ у поставщика через API (как в ЛК Исполнителя)
       console.log('📦 Document data:', documentData);
-      
-      // Извлекаем данные документа из обертки
-      const documentInfo = documentData.document || documentData;
       console.log('📦 Document:', documentInfo);
       console.log('📦 Cart data:', documentInfo.cart_data);
       console.log('📦 Document keys:', Object.keys(documentInfo));

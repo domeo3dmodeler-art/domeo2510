@@ -25,7 +25,7 @@ import CommentsModal from '@/components/ui/CommentsModal';
 import HistoryModal from '@/components/ui/HistoryModal';
 import NotificationBell from '@/components/ui/NotificationBell';
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
-import DocumentWorkflowIntegration from '@/components/documents/DocumentWorkflowIntegration';
+import DocumentWorkflowIntegration from '@/app/components/documents/DocumentWorkflowIntegration';
 import { toast } from 'sonner';
 
 // Маппинг статусов КП из API в русские (определяем на уровне модуля до компонента)
@@ -40,8 +40,8 @@ const mapQuoteStatus = (apiStatus: string): 'Черновик'|'Отправле
 };
 
 // Маппинг статусов Счетов из API в русские (определяем на уровне модуля до компонента)
-const mapInvoiceStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен' => {
-  const statusMap: Record<string, 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'> = {
+const mapInvoiceStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'|'В производстве' => {
+  const statusMap: Record<string, 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'|'В производстве'> = {
     'DRAFT': 'Черновик',
     'SENT': 'Отправлен',
     'PAID': 'Оплачен/Заказ',
@@ -502,7 +502,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
           middleName: '',
           phone: '',
           address: '',
-          objectId: ''
+          objectId: '',
+          compilationLeadNumber: ''
         });
         return data.client;
       } else {
@@ -704,7 +705,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     }
   };
 
-  // Создание нового счета из КП
+  // Создание нового счета из КП (на основе Order)
   const createInvoiceFromQuote = async (quoteId: string) => {
     try {
       // Получаем данные КП
@@ -722,24 +723,59 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       }
       
       const quoteData = await quoteResponse.json();
+      const quoteFull = quoteData.quote || quoteData;
       
-      if (!quoteData.quote.cart_data) {
-        toast.error('Нет данных корзины для перегенерации');
+      if (!quoteFull.cart_data) {
+        toast.error('Нет данных корзины для создания счета');
         return;
       }
 
-      const cartData = JSON.parse(quoteData.quote.cart_data);
+      const cartData = JSON.parse(quoteFull.cart_data);
       
-      // Создаем счет через API
-      const response = await fetch('/api/export/fast', {
+      // Находим Order, на основе которого создан Quote (через parent_document_id)
+      let orderId = quoteFull.parent_document_id;
+      
+      // Если Quote не связан с Order, создаем Order сначала
+      if (!orderId) {
+        toast.info('Создаем заказ на основе КП...');
+        
+        // Создаем Order из данных КП
+        const orderResponse = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            client_id: quoteFull.client_id,
+            items: cartData,
+            total_amount: quoteFull.total_amount || quote.total,
+            subtotal: quoteFull.subtotal || quote.total,
+            tax_amount: quoteFull.tax_amount || 0,
+            notes: `Создан из КП ${quoteFull.number || quote.number}`
+          })
+        });
+
+        if (!orderResponse.ok) {
+          const orderError = await orderResponse.json();
+          toast.error(`Ошибка при создании заказа: ${orderError.error}`);
+          return;
+        }
+        
+        const orderResult = await orderResponse.json();
+        orderId = orderResult.order.id;
+      }
+      
+      // Создаем Invoice на основе Order через /api/documents/create
+      const response = await fetch('/api/documents/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'invoice',
-          format: 'pdf',
-          clientId: quoteData.quote.client_id,
+          parent_document_id: orderId,
+          client_id: quoteFull.client_id,
           items: cartData,
-          totalAmount: quote.total
+          total_amount: quoteFull.total_amount || quote.total,
+          subtotal: quoteFull.subtotal || quote.total,
+          tax_amount: quoteFull.tax_amount || 0,
+          notes: `Создан на основе КП ${quoteFull.number || quote.number}`
         })
       });
 
