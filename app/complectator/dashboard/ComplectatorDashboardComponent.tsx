@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Button, Card } from '../../../components/ui';
 import StatCard from '../../../components/ui/StatCard';
 import { PhoneInput } from '@/components/ui/PhoneInput';
@@ -186,9 +186,19 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     }
   }, []);
 
+  // Флаг для защиты от повторных вызовов (используем useRef чтобы избежать ре-рендеров)
+  const isClientsLoadingRef = useRef(false);
+  
   // Загрузка списка клиентов (базовая функция)
   const fetchClients = useCallback(async () => {
+    // Защита от повторных вызовов
+    if (isClientsLoadingRef.current) {
+      console.log('⏸️ fetchClients уже выполняется, пропускаем');
+      return;
+    }
+    
     try {
+      isClientsLoadingRef.current = true;
       const response = await fetch('/api/clients');
       if (response.ok) {
         const data = await response.json();
@@ -211,6 +221,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       }
     } catch (fetchClientsError) {
       console.error('Error fetching clients:', fetchClientsError);
+    } finally {
+      isClientsLoadingRef.current = false;
     }
   }, []);
 
@@ -238,11 +250,12 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
   }, [fetchCommentsCount]);
 
   // Загрузка информации о блокировке статусов для всех документов (зависит от isStatusBlocked)
-  const loadBlockedStatuses = useCallback(async () => {
+  // НЕ зависит от invoices и quotes напрямую - вызывается только вручную когда нужно
+  const loadBlockedStatuses = useCallback(async (currentQuotes: typeof quotes, currentInvoices: typeof invoices) => {
     const blockedSet = new Set<string>();
     
     // Проверяем все счета
-    for (const invoice of invoices) {
+    for (const invoice of currentInvoices) {
       const isBlocked = await isStatusBlocked(invoice.id, 'invoice');
       if (isBlocked) {
         blockedSet.add(invoice.id);
@@ -250,7 +263,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     }
     
     // Проверяем все КП
-    for (const quote of quotes) {
+    for (const quote of currentQuotes) {
       const isBlocked = await isStatusBlocked(quote.id, 'quote');
       if (isBlocked) {
         blockedSet.add(quote.id);
@@ -258,7 +271,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     }
     
     setBlockedStatuses(blockedSet);
-  }, [invoices, quotes, isStatusBlocked]);
+  }, [isStatusBlocked]);
 
   // Загрузка документов клиента (зависит от fetchAllCommentsCount и loadBlockedStatuses)
   const fetchClientDocuments = useCallback(async (clientId: string) => {
@@ -295,7 +308,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         
         // Загружаем информацию о блокировке статусов
         setTimeout(() => {
-          loadBlockedStatuses();
+          loadBlockedStatuses(formattedQuotes, formattedInvoices);
         }, 100);
         
         // Загружаем количество комментариев для всех документов
@@ -546,11 +559,11 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         console.log('✅ Status update completed successfully');
         return result.quote;
       } else {
-        const errorData = await response.json();
-        console.error('❌ API Error:', errorData);
+        const quoteErrorData = await response.json();
+        console.error('❌ API Error:', quoteErrorData);
         console.error('❌ Response status:', response.status);
         console.error('❌ Response headers:', Object.fromEntries(response.headers.entries()));
-        throw new Error(errorData.error || 'Ошибка при изменении статуса КП');
+        throw new Error(quoteErrorData.error || 'Ошибка при изменении статуса КП');
       }
     } catch (quoteStatusUpdateError) {
       console.error('❌ Error updating quote status:', quoteStatusUpdateError);
@@ -625,11 +638,11 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         console.log('✅ Invoice status update completed successfully');
         return result.invoice;
       } else {
-        const errorData = await response.json();
-        console.error('❌ API Error:', errorData);
+        const invoiceErrorData = await response.json();
+        console.error('❌ API Error:', invoiceErrorData);
         console.error('❌ Response status:', response.status);
         console.error('❌ Response headers:', Object.fromEntries(response.headers.entries()));
-        throw new Error(errorData.error || 'Ошибка при изменении статуса счета');
+        throw new Error(invoiceErrorData.error || 'Ошибка при изменении статуса счета');
       }
     } catch (invoiceStatusUpdateError) {
       console.error('❌ Error updating invoice status:', invoiceStatusUpdateError);
@@ -706,8 +719,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         }
         toast.success('Счет создан и скачан успешно');
       } else {
-        const errorResponse = await response.json();
-        toast.error(`Ошибка: ${errorResponse.error}`);
+        const createInvoiceErrorResponse = await response.json();
+        toast.error(`Ошибка: ${createInvoiceErrorResponse.error}`);
       }
     } catch (createInvoiceFromQuoteError) {
       console.error('Error creating invoice from quote:', createInvoiceFromQuoteError);
@@ -779,8 +792,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         
         toast.success('КП перегенерировано и скачано успешно');
       } else {
-        const errorResponse = await response.json();
-        toast.error(`Ошибка: ${errorResponse.error}`);
+        const regenerateQuoteErrorResponse = await response.json();
+        toast.error(`Ошибка: ${regenerateQuoteErrorResponse.error}`);
       }
     } catch (regenerateQuoteError) {
       console.error('Error regenerating quote:', regenerateQuoteError);
@@ -852,8 +865,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         
         toast.success('Счет перегенерирован и скачан успешно');
       } else {
-        const errorResponse = await response.json();
-        toast.error(`Ошибка: ${errorResponse.error}`);
+        const regenerateInvoiceErrorResponse = await response.json();
+        toast.error(`Ошибка: ${regenerateInvoiceErrorResponse.error}`);
       }
     } catch (regenerateInvoiceError) {
       console.error('Error regenerating invoice:', regenerateInvoiceError);
@@ -872,8 +885,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         setQuotes(prev => prev.filter(q => q.id !== quoteId));
         toast.success('КП удалено успешно');
       } else {
-        const errorResponse = await response.json();
-        toast.error(`Ошибка: ${errorResponse.error}`);
+        const deleteQuoteErrorResponse = await response.json();
+        toast.error(`Ошибка: ${deleteQuoteErrorResponse.error}`);
       }
     } catch (deleteQuoteError) {
       console.error('Error deleting quote:', deleteQuoteError);
@@ -892,8 +905,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         setInvoices(prev => prev.filter(i => i.id !== invoiceId));
         toast.success('Счет удален успешно');
       } else {
-        const errorResponse = await response.json();
-        toast.error(`Ошибка: ${errorResponse.error}`);
+        const deleteInvoiceErrorResponse = await response.json();
+        toast.error(`Ошибка: ${deleteInvoiceErrorResponse.error}`);
       }
     } catch (deleteInvoiceError) {
       console.error('Error deleting invoice:', deleteInvoiceError);
