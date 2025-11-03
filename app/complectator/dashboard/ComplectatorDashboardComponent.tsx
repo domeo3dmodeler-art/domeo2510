@@ -1174,8 +1174,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                         <div className="text-sm text-gray-500">Нет заказов по выбранному фильтру</div>
                       )}
                     </div>
-                  </>
-                )}
+                </>
               </div>
             )}
           </Card>
