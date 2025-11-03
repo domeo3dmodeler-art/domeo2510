@@ -15,6 +15,7 @@ import {
   History,
   StickyNote,
   BadgeCheck,
+  Package,
   Plus,
   MoreVertical
 } from 'lucide-react';
