@@ -111,35 +111,65 @@ function DashboardContent() {
   const fetchStats = useCallback(async () => {
     try {
       const promises = [
-        fetch('/api/admin/stats'),
-        fetch('/api/users')
+        fetch('/api/admin/stats').catch(err => {
+          console.error('Error fetching admin stats:', err);
+          return new Response(JSON.stringify({ error: 'Failed to fetch stats' }), { status: 500 });
+        }),
+        fetch('/api/users').catch(err => {
+          console.error('Error fetching users:', err);
+          return new Response(JSON.stringify({ error: 'Failed to fetch users' }), { status: 500 });
+        })
       ];
 
       // Добавляем запрос статистики комплектатора если пользователь комплектатор
       const userRole = localStorage.getItem('userRole');
       if (userRole === 'complectator') {
-        promises.push(fetch('/api/complectator/stats'));
+        promises.push(
+          fetch('/api/complectator/stats').catch(err => {
+            console.error('Error fetching complectator stats:', err);
+            return new Response(JSON.stringify({ error: 'Failed to fetch complectator stats' }), { status: 500 });
+          })
+        );
       }
 
       const responses = await Promise.all(promises);
       
       if (responses[0].ok) {
-        const statsData = await responses[0].json();
-        setStats(statsData);
+        try {
+          const statsData = await responses[0].json();
+          setStats(statsData);
+        } catch (err) {
+          console.error('Error parsing admin stats:', err);
+        }
+      } else {
+        console.warn('Admin stats endpoint returned:', responses[0].status);
       }
       
       if (responses[1].ok) {
-        const usersData = await responses[1].json();
-        setUserCount(usersData.users?.length || 0);
+        try {
+          const usersData = await responses[1].json();
+          setUserCount(usersData.users?.length || 0);
+        } catch (err) {
+          console.error('Error parsing users data:', err);
+        }
+      } else {
+        console.warn('Users endpoint returned:', responses[1].status);
       }
 
       // Обрабатываем статистику комплектатора
       if (userRole === 'complectator' && responses[2]?.ok) {
-        const complectatorData = await responses[2].json();
-        setComplectatorStats(complectatorData.stats);
+        try {
+          const complectatorData = await responses[2].json();
+          setComplectatorStats(complectatorData.stats);
+        } catch (err) {
+          console.error('Error parsing complectator stats:', err);
+        }
+      } else if (userRole === 'complectator') {
+        console.warn('Complectator stats endpoint returned:', responses[2]?.status);
       }
     } catch (fetchStatsError) {
       console.error('Error loading stats:', fetchStatsError);
+      // Не показываем ошибку пользователю, просто логируем
     }
   }, []);
 
@@ -153,37 +183,109 @@ function DashboardContent() {
     console.log('🔄 DashboardContent - useEffect запускается');
     isInitializedRef.current = true; // Устанавливаем флаг сразу чтобы предотвратить повторные вызовы
     
-    // Проверяем аутентификацию
-    const token = localStorage.getItem('authToken');
+    // Проверяем аутентификацию - сначала localStorage, потом cookie
+    let token = localStorage.getItem('authToken');
+    if (!token && typeof document !== 'undefined') {
+      // Проверяем cookie как fallback
+      const cookies = document.cookie.split(';');
+      const authCookie = cookies.find(c => c.trim().startsWith('auth-token='));
+      if (authCookie) {
+        token = authCookie.split('=')[1];
+      }
+    }
+    
     const userRole = localStorage.getItem('userRole');
     const userId = localStorage.getItem('userId');
 
     if (!token || !userRole || !userId) {
       console.log('❌ DashboardContent - нет токена, редирект на логин');
-      router.push('/login');
+      router.push('/login?redirect=/dashboard');
       return;
     }
 
     console.log('✅ DashboardContent - токен найден, загружаем данные пользователя');
-    // Загружаем данные пользователя
-    const userData = {
-      id: userId,
-      email: localStorage.getItem('userEmail') || '',
-      firstName: localStorage.getItem('userFirstName') || 'Иван',
-      lastName: localStorage.getItem('userLastName') || 'Иванов',
-      middleName: localStorage.getItem('userMiddleName') || 'Иванович',
-      role: userRole,
-      permissions: JSON.parse(localStorage.getItem('userPermissions') || '[]')
+    
+    // Если данных в localStorage нет, пытаемся загрузить с сервера
+    const loadUserData = async () => {
+      try {
+        // Пытаемся получить токен из localStorage или cookie для заголовка
+        const localToken = localStorage.getItem('authToken');
+        let authToken = localToken;
+        
+        if (!authToken && typeof document !== 'undefined') {
+          const cookies = document.cookie.split(';');
+          const authCookie = cookies.find(c => c.trim().startsWith('auth-token='));
+          if (authCookie) {
+            authToken = authCookie.split('=')[1].trim();
+          }
+        }
+        
+        const response = await fetch('/api/users/me', {
+          headers: authToken ? {
+            'Authorization': `Bearer ${authToken}`
+          } : {}
+        });
+        
+        if (response.ok) {
+          const userDataFromServer = await response.json();
+          if (userDataFromServer.user) {
+            // Сохраняем в localStorage для следующих запросов
+            localStorage.setItem('userEmail', userDataFromServer.user.email || '');
+            localStorage.setItem('userFirstName', userDataFromServer.user.firstName || '');
+            localStorage.setItem('userLastName', userDataFromServer.user.lastName || '');
+            localStorage.setItem('userMiddleName', userDataFromServer.user.middleName || '');
+            localStorage.setItem('userRole', userDataFromServer.user.role || userRole);
+            localStorage.setItem('userId', userDataFromServer.user.id || userId);
+            if (authToken && !localToken) {
+              localStorage.setItem('authToken', authToken);
+            }
+            
+            const userData = {
+              id: userDataFromServer.user.id || userId,
+              email: userDataFromServer.user.email || localStorage.getItem('userEmail') || '',
+              firstName: userDataFromServer.user.firstName || localStorage.getItem('userFirstName') || 'Иван',
+              lastName: userDataFromServer.user.lastName || localStorage.getItem('userLastName') || 'Иванов',
+              middleName: userDataFromServer.user.middleName || localStorage.getItem('userMiddleName') || '',
+              role: userDataFromServer.user.role || userRole,
+              permissions: userDataFromServer.user.permissions || JSON.parse(localStorage.getItem('userPermissions') || '[]')
+            };
+            setUser(userData);
+          } else {
+            throw new Error('User data not found');
+          }
+        } else {
+          // Если API вернул ошибку, используем данные из localStorage
+          throw new Error(`Failed to load user data: ${response.status}`);
+        }
+      } catch (error) {
+        console.error('Error loading user data from server:', error);
+        // Fallback на localStorage
+        const userData = {
+          id: userId,
+          email: localStorage.getItem('userEmail') || '',
+          firstName: localStorage.getItem('userFirstName') || 'Иван',
+          lastName: localStorage.getItem('userLastName') || 'Иванов',
+          middleName: localStorage.getItem('userMiddleName') || '',
+          role: userRole,
+          permissions: JSON.parse(localStorage.getItem('userPermissions') || '[]')
+        };
+        setUser(userData);
+      }
     };
-    setUser(userData);
 
-    console.log('📊 DashboardContent - загружаем статистику');
-    // Загружаем статистику для всех ролей асинхронно, чтобы не блокировать рендер
-    fetchStats().catch((fetchError) => {
-      console.error('Error in fetchStats:', fetchError);
+    // Загружаем данные пользователя
+    loadUserData().then(() => {
+      console.log('📊 DashboardContent - загружаем статистику');
+      // Загружаем статистику для всех ролей асинхронно, чтобы не блокировать рендер
+      fetchStats().catch((fetchError) => {
+        console.error('Error in fetchStats:', fetchError);
+      });
+      setIsLoading(false);
+      console.log('✅ DashboardContent - isLoading установлен в false');
+    }).catch((error) => {
+      console.error('Error in loadUserData:', error);
+      setIsLoading(false);
     });
-    setIsLoading(false);
-    console.log('✅ DashboardContent - isLoading установлен в false');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Пустой массив зависимостей - эффект должен выполняться только один раз при монтировании
 

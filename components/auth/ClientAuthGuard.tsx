@@ -22,19 +22,69 @@ export function ClientAuthGuard({ children }: ClientAuthGuardProps) {
 
     const checkAuth = () => {
       try {
-        const token = localStorage.getItem('authToken');
+        // Проверяем сначала localStorage, потом cookie
+        let token = localStorage.getItem('authToken');
+        
+        if (!token && typeof document !== 'undefined') {
+          // Проверяем cookie как fallback
+          const cookies = document.cookie.split(';');
+          const authCookie = cookies.find(c => c.trim().startsWith('auth-token=') || c.trim().startsWith('domeo-auth-token='));
+          if (authCookie) {
+            token = authCookie.split('=')[1].trim();
+            // Сохраняем токен из cookie в localStorage для следующих запросов
+            if (token) {
+              localStorage.setItem('authToken', token);
+            }
+          }
+        }
         
         // Диагностика localStorage
         console.log('🔍 ClientAuthGuard - localStorage check:', {
           token: token ? token.substring(0, 20) + '...' : 'Нет токена',
           userId: localStorage.getItem('userId') || 'Нет userId',
           userRole: localStorage.getItem('userRole') || 'Нет userRole',
+          cookies: typeof document !== 'undefined' ? document.cookie : 'N/A',
           allKeys: Object.keys(localStorage)
         });
         
         // Проверяем только токен - это достаточно для авторизации
         if (token) {
           console.log('✅ ClientAuthGuard - авторизация успешна по токену');
+          
+          // Если нет userId или userRole в localStorage, пытаемся загрузить их с сервера
+          const userId = localStorage.getItem('userId');
+          const userRole = localStorage.getItem('userRole');
+          
+          if (!userId || !userRole) {
+            console.log('📥 ClientAuthGuard - загружаем данные пользователя с сервера...');
+            fetch('/api/users/me', {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            })
+              .then(res => {
+                if (res.ok) {
+                  return res.json();
+                }
+                throw new Error('Failed to load user data');
+              })
+              .then(data => {
+                if (data.user && isMounted) {
+                  // Сохраняем данные в localStorage
+                  localStorage.setItem('userId', data.user.id);
+                  localStorage.setItem('userRole', data.user.role);
+                  localStorage.setItem('userEmail', data.user.email || '');
+                  localStorage.setItem('userFirstName', data.user.firstName || '');
+                  localStorage.setItem('userLastName', data.user.lastName || '');
+                  localStorage.setItem('userMiddleName', data.user.middleName || '');
+                  console.log('✅ ClientAuthGuard - данные пользователя загружены');
+                }
+              })
+              .catch(err => {
+                console.error('❌ ClientAuthGuard - ошибка загрузки данных пользователя:', err);
+              });
+          }
+          
           // Используем функцию обновления состояния для гарантированного обновления, но только если компонент еще смонтирован
           if (isMounted) {
             setIsAuthenticated((prev) => {

@@ -8,16 +8,27 @@ const JWT_SECRET = process.env.JWT_SECRET || "your-super-secret-jwt-key-change-t
 
 export async function GET(req: NextRequest) {
   try {
-    // Получаем токен из заголовков
+    // Получаем токен из заголовков или cookie
+    let token: string | null = null;
+    
+    // Сначала проверяем заголовок Authorization
     const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
+    
+    // Если токена нет в заголовке, проверяем cookie
+    if (!token) {
+      const cookies = req.cookies;
+      token = cookies.get('auth-token')?.value || cookies.get('domeo-auth-token')?.value || null;
+    }
+    
+    if (!token) {
       return NextResponse.json(
         { error: 'Токен авторизации не предоставлен' },
         { status: 401 }
       );
     }
-
-    const token = authHeader.substring(7);
     
     // Проверяем JWT токен
     let decoded: any;
