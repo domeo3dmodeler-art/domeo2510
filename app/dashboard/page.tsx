@@ -40,12 +40,23 @@ function DashboardContent() {
   const [isInitialized, setIsInitialized] = useState(false); // Флаг инициализации чтобы избежать повторных вызовов
   const router = useRouter();
 
-  // Мемоизируем контент по роли (всегда вызывается)
+  // Мемоизируем контент по роли (оптимизировано - для complectator не зависит от stats)
+  // Для complectator мы сразу возвращаем ComplectatorDashboard, поэтому не нужно вычислять roleContent
   const roleContent = useMemo(() => {
     if (!user) {
       return {
         title: 'Загрузка...',
         description: 'Пожалуйста, подождите',
+        widgets: [],
+        quickActions: []
+      };
+    }
+    
+    // Для complectator возвращаем минимальный объект - все равно не используется
+    if (user.role === 'complectator') {
+      return {
+        title: 'Личный кабинет комплектатора',
+        description: 'Работа с клиентами и коммерческими предложениями',
         widgets: [],
         quickActions: []
       };
@@ -67,23 +78,6 @@ function DashboardContent() {
             { title: 'Импорт прайса', link: '/admin/import', icon: '📥' },
             { title: 'Управление пользователями', link: '/admin/users', icon: '👤' },
             { title: 'Настройки системы', link: '/admin/settings', icon: '⚙️' }
-          ]
-        };
-      case 'complectator':
-        return {
-          title: 'Личный кабинет комплектатора',
-          description: 'Работа с клиентами и коммерческими предложениями',
-          widgets: [
-            { title: 'Клиенты', count: complectatorStats?.clients?.total || 0, link: '/clients', icon: '👥' },
-            { title: 'КП в работе', count: complectatorStats?.quotes?.inWork || 0, link: '/quotes', icon: '📄' },
-            { title: 'Счета', count: complectatorStats?.invoices?.total || 0, link: '/invoices', icon: '💰' },
-            { title: 'Каталог товаров', count: complectatorStats?.products?.total || 0, link: '/doors', icon: '📦' }
-          ],
-          quickActions: [
-            { title: 'Добавить клиента', link: '/clients', icon: '👤' },
-            { title: 'Создать КП', link: '/quotes', icon: '📝' },
-            { title: 'Конфигуратор дверей', link: '/doors', icon: '🚪' },
-            { title: 'Каталог товаров', link: '/', icon: '📦' }
           ]
         };
       case 'executor':
@@ -111,7 +105,7 @@ function DashboardContent() {
           quickActions: []
         };
     }
-  }, [user, stats, userCount, complectatorStats]);
+  }, [user, stats, userCount]); // Убрали complectatorStats - для complectator roleContent не используется
 
   // Определяем fetchStats ПЕРЕД использованием в useEffect
   const fetchStats = useCallback(async () => {

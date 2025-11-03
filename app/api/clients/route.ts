@@ -28,8 +28,31 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({ clients });
-  } catch (error) {
-    console.error('Error fetching clients:', error);
+  } catch (fetchClientsApiError) {
+    console.error('Error fetching clients:', fetchClientsApiError);
+    // Если ошибка связана с отсутствием поля compilationLeadNumber, возвращаем клиентов без этого поля
+    if (fetchClientsApiError && typeof fetchClientsApiError === 'object' && 'code' in fetchClientsApiError && fetchClientsApiError.code === 'P2022') {
+      console.warn('Field compilationLeadNumber does not exist, trying without it...');
+      try {
+        const clientsWithoutField = await prisma.client.findMany({
+          where: { isActive: true },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            middleName: true,
+            phone: true,
+            address: true,
+            objectId: true,
+            createdAt: true
+          },
+          orderBy: { createdAt: 'desc' }
+        });
+        return NextResponse.json({ clients: clientsWithoutField });
+      } catch (fallbackError) {
+        console.error('Fallback query also failed:', fallbackError);
+      }
+    }
     return NextResponse.json({ error: 'Ошибка при получении клиентов' }, { status: 500 });
   }
 }
