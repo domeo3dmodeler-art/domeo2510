@@ -1076,7 +1076,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
 
       {/* Вкладка документов (текущий контент) */}
       {activeTab === 'documents' && (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:[grid-template-columns:1.3fr_2fr]">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:[grid-template-columns:1.3fr_2fr]">
         <div className="md:col-span-1 space-y-4">
           <Card variant="base">
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
