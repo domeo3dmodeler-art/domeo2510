@@ -144,8 +144,8 @@ function DashboardContent() {
         const complectatorData = await responses[2].json();
         setComplectatorStats(complectatorData.stats);
       }
-    } catch (error) {
-      console.error('Error loading stats:', error);
+    } catch (fetchStatsError) {
+      console.error('Error loading stats:', fetchStatsError);
     }
   }, []);
 

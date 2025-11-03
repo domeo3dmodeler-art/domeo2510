@@ -442,7 +442,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     } catch (createClientError) {
       console.error('Error creating client:', createClientError);
       toast.error('Ошибка при создании клиента');
-      throw error;
+      throw createClientError;
     }
   };
 
@@ -779,8 +779,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         const errorResponse = await response.json();
         toast.error(`Ошибка: ${errorResponse.error}`);
       }
-    } catch (quoteError) {
-      console.error('Error regenerating quote:', error);
+    } catch (regenerateQuoteError) {
+      console.error('Error regenerating quote:', regenerateQuoteError);
       toast.error('Ошибка при перегенерации КП');
     }
   };
@@ -852,8 +852,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         const errorResponse = await response.json();
         toast.error(`Ошибка: ${errorResponse.error}`);
       }
-    } catch (quoteError) {
-      console.error('Error regenerating invoice:', error);
+    } catch (regenerateInvoiceError) {
+      console.error('Error regenerating invoice:', regenerateInvoiceError);
       toast.error('Ошибка при перегенерации счета');
     }
   };
@@ -872,8 +872,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         const errorResponse = await response.json();
         toast.error(`Ошибка: ${errorResponse.error}`);
       }
-    } catch (quoteError) {
-      console.error('Error deleting quote:', error);
+    } catch (deleteQuoteError) {
+      console.error('Error deleting quote:', deleteQuoteError);
       toast.error('Ошибка при удалении КП');
     }
   };
@@ -892,8 +892,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         const errorResponse = await response.json();
         toast.error(`Ошибка: ${errorResponse.error}`);
       }
-    } catch (quoteError) {
-      console.error('Error deleting invoice:', error);
+    } catch (deleteInvoiceError) {
+      console.error('Error deleting invoice:', deleteInvoiceError);
       toast.error('Ошибка при удалении счета');
     }
   };
