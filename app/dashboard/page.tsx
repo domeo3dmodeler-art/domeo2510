@@ -112,8 +112,12 @@ function DashboardContent() {
     if (!roleContent) return { title: '', description: '', widgets: [], quickActions: [] };
     return {
       ...roleContent,
-      widgets: Array.isArray(roleContent.widgets) ? roleContent.widgets.filter(Boolean) : [],
-      quickActions: Array.isArray(roleContent.quickActions) ? roleContent.quickActions.filter(Boolean) : []
+      widgets: Array.isArray(roleContent.widgets) 
+        ? roleContent.widgets.filter(w => w && typeof w === 'object' && w.title && w.link)
+        : [],
+      quickActions: Array.isArray(roleContent.quickActions)
+        ? roleContent.quickActions.filter(a => a && typeof a === 'object' && a.title && a.link)
+        : []
     };
   }, [roleContent]);
 
@@ -339,7 +343,7 @@ function DashboardContent() {
         <div className="space-y-8">
           {/* Widgets Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {safeRoleContent.widgets.filter(widget => widget && widget.title && widget.link).map((widget, index) => (
+            {safeRoleContent.widgets.map((widget, index) => (
               <Card key={index} variant="interactive" className="hover:border-black transition-all duration-200">
                 <div className="p-6">
                   <div className="flex items-center justify-between">
@@ -359,7 +363,7 @@ function DashboardContent() {
             <div className="p-6">
               <h2 className="text-xl font-semibold text-black mb-4">Быстрые действия</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {safeRoleContent.quickActions.filter(action => action && action.title && action.link).map((action, index) => (
+                {safeRoleContent.quickActions.map((action, index) => (
                   <Button
                     key={index}
                     variant="secondary"
@@ -507,7 +511,7 @@ function DashboardContent() {
 
         {/* Widgets Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {safeRoleContent.widgets.filter(widget => widget && widget.title && widget.link).map((widget, index) => (
+          {safeRoleContent.widgets.map((widget, index) => (
             <div
               key={index}
               onClick={() => widget.link && router.push(widget.link)}
@@ -530,7 +534,7 @@ function DashboardContent() {
         <div className="bg-gray-50 p-6">
           <h2 className="text-xl font-semibold text-black mb-4">Быстрые действия</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {safeRoleContent.quickActions.filter(action => action && action.title && action.link).map((action, index) => (
+            {safeRoleContent.quickActions.map((action, index) => (
               <button
                 key={index}
                 onClick={() => action.link && router.push(action.link)}
