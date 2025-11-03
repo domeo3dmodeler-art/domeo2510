@@ -218,7 +218,8 @@ export async function POST(req: NextRequest) {
       parent_document_id,
       cart_session_id,
       items,
-      total_amount
+      total_amount,
+      notes
     } = body;
 
     if (!client_id) {
