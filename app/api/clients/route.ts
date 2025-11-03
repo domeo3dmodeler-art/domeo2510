@@ -19,7 +19,6 @@ export async function GET(request: NextRequest) {
         phone: true,
         address: true,
         objectId: true,
-        compilationLeadNumber: true,
         createdAt: true
       },
       orderBy: {
@@ -63,9 +62,9 @@ export async function POST(request: NextRequest) {
         phone: normalizedPhone,
         address: address || '',
         objectId: objectId || `object-${Date.now()}`,
-        compilationLeadNumber: compilationLeadNumber || null
+        // compilationLeadNumber: compilationLeadNumber || null // Временно отключено до миграции БД
       },
-      select: {
+        select: {
         id: true,
         firstName: true,
         lastName: true,
@@ -73,7 +72,6 @@ export async function POST(request: NextRequest) {
         phone: true,
         address: true,
         objectId: true,
-        compilationLeadNumber: true,
         createdAt: true
       }
     });
