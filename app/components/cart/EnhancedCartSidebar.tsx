@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { ShoppingCart, X, Plus, Minus, Trash2, FileText, Download, ArrowRight, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui';
-import { CartService } from '../../lib/cart/cart-service';
+import { CartService } from '@/lib/cart/cart-service';
 import { Cart, CartItem, CartCalculation } from '../../lib/cart/types';
 import DocumentTree from '../documents/DocumentTree';
 
