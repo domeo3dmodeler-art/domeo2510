@@ -1,0 +1,1208 @@
+{
+  "root_category": {
+    "id": "cmg50xcr100c5v7mna961c55h",
+    "name": "Свет",
+    "level": 1,
+    "action": "KEEP"
+  },
+  "categories_to_delete": [
+    {
+      "id": "cmg50xcr400c7v7mncvla1wf2",
+      "name": "Лампы и ленты",
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h",
+      "products_count": 0
+    },
+    {
+      "id": "cmg50xcre00chv7mn4gclgyok",
+      "name": "Светильники",
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h",
+      "products_count": 0
+    },
+    {
+      "id": "cmg50xcsc00dfv7mn1vmbmgae",
+      "name": "Электротовары",
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h",
+      "products_count": 0
+    }
+  ],
+  "categories_to_create": [
+    {
+      "yml_id": "051",
+      "yml_id_original": "051",
+      "name": "Аккумуляторный светильник",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "030",
+      "yml_id_original": "030",
+      "name": "Аксессуар",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "054",
+      "yml_id_original": "054",
+      "name": "Архитектурная подсветка",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "007",
+      "yml_id_original": "007",
+      "name": "Встраиваемый светильник",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "045",
+      "yml_id_original": "045",
+      "name": "Аксессуар для встраиваемого светильника",
+      "parent_yml_id": "007",
+      "parent_id_db": null,
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "096",
+      "yml_id_original": "096",
+      "name": "Выключатель",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "057",
+      "yml_id_original": "057",
+      "name": "Гибкий неон",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "058",
+      "yml_id_original": "058",
+      "name": "Комплектующие для гибкого неона",
+      "parent_yml_id": "057",
+      "parent_id_db": null,
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "089",
+      "yml_id_original": "089",
+      "name": "Готовая конструкция (набор)",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "068",
+      "yml_id_original": "068",
+      "name": "Датчики движения и освещенности",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "095",
+      "yml_id_original": "095",
+      "name": "Диммер",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "107",
+      "yml_id_original": "107",
+      "name": "Источник напряжения",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "108",
+      "yml_id_original": "108",
+      "name": "Источник тока",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "125",
+      "yml_id_original": "125",
+      "name": "Комплектующие для систем освещения с токоведущими элементами",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "100",
+      "yml_id_original": "100",
+      "name": "Контроллер",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "020",
+      "yml_id_original": "020",
+      "name": "Лампочка",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "011",
+      "yml_id_original": "011",
+      "name": "Ландшафтный светильник",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "001",
+      "yml_id_original": "001",
+      "name": "Люстра",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "097",
+      "yml_id_original": "097",
+      "name": "Мастер контроллер",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "004",
+      "yml_id_original": "004",
+      "name": "Напольный светильник (торшер)",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "006",
+      "yml_id_original": "006",
+      "name": "Настенный светильник (бра)",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "005",
+      "yml_id_original": "005",
+      "name": "Настольный светильник",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "103",
+      "yml_id_original": "103",
+      "name": "Панель управления",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "086",
+      "yml_id_original": "086",
+      "name": "Парковый светильник",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "046",
+      "yml_id_original": "046",
+      "name": "Плафон",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "002",
+      "yml_id_original": "002",
+      "name": "Подвесной светильник",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "065",
+      "yml_id_original": "065",
+      "name": "Комплектующие для светильника",
+      "parent_yml_id": "002",
+      "parent_id_db": null,
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "010",
+      "yml_id_original": "010",
+      "name": "Подсветка",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "013",
+      "yml_id_original": "013",
+      "name": "Подсветка для лестниц",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "003",
+      "yml_id_original": "003",
+      "name": "Потолочный светильник",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "079",
+      "yml_id_original": "079",
+      "name": "Прожектор",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "094",
+      "yml_id_original": "094",
+      "name": "Профиль",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "114",
+      "yml_id_original": "114",
+      "name": "Комплектующие для профиля",
+      "parent_yml_id": "094",
+      "parent_id_db": null,
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "106",
+      "yml_id_original": "106",
+      "name": "Пульт",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "047",
+      "yml_id_original": "047",
+      "name": "Пульт для управления освещением",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "099",
+      "yml_id_original": "099",
+      "name": "Роторная беспроводная панель управления",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "101",
+      "yml_id_original": "101",
+      "name": "Роторная панель управления",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "055",
+      "yml_id_original": "055",
+      "name": "Садово-парковый светильник",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "087",
+      "yml_id_original": "087",
+      "name": "Столб для паркового светильника",
+      "parent_yml_id": "055",
+      "parent_id_db": null,
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "081",
+      "yml_id_original": "081",
+      "name": "Светильник",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "049",
+      "yml_id_original": "049",
+      "name": "Светодиодная лента",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "050_2",
+      "yml_id_original": "050",
+      "name": "Комплектующие к светодиодной ленте",
+      "parent_yml_id": "049",
+      "parent_id_db": null,
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "050",
+      "yml_id_original": "050",
+      "name": "Комплектующие к светодиодной ленте с токоведущими элементами",
+      "parent_yml_id": "049",
+      "parent_id_db": null,
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "008",
+      "yml_id_original": "008",
+      "name": "Спот",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "ОК",
+      "yml_id_original": "ОК",
+      "name": "Товар",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "083",
+      "yml_id_original": "083",
+      "name": "Токоведущий светильник для уличной трековой систем",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "070",
+      "yml_id_original": "070",
+      "name": "Токопроводящая текстильная лента",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "071",
+      "yml_id_original": "071",
+      "name": "Комплектующие для текстильной подвесной системы",
+      "parent_yml_id": "070",
+      "parent_id_db": null,
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "ТО",
+      "yml_id_original": "ТО",
+      "name": "Торговое оборудование",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "056",
+      "yml_id_original": "056",
+      "name": "Трековый подвесной светильник",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "009",
+      "yml_id_original": "009",
+      "name": "Трековый светильник",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "063",
+      "yml_id_original": "063",
+      "name": "Комплектующие для встраиваемой трековой системы",
+      "parent_yml_id": "009",
+      "parent_id_db": null,
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "064",
+      "yml_id_original": "064",
+      "name": "Комплектующие для накладной трековой системы",
+      "parent_yml_id": "009",
+      "parent_id_db": null,
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "067",
+      "yml_id_original": "067",
+      "name": "Комплектующие для трекового светильника",
+      "parent_yml_id": "009",
+      "parent_id_db": null,
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "066",
+      "yml_id_original": "066",
+      "name": "Комплектующие для трековой системы",
+      "parent_yml_id": "009",
+      "parent_id_db": null,
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "084",
+      "yml_id_original": "084",
+      "name": "Комплектующие для уличной трековой системы",
+      "parent_yml_id": "009",
+      "parent_id_db": null,
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "126",
+      "yml_id_original": "126",
+      "name": "Комплектующие для уличной трековой системы с токоведущими элементами",
+      "parent_yml_id": "009",
+      "parent_id_db": null,
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "069",
+      "yml_id_original": "069",
+      "name": "Уличная розетка",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "085",
+      "yml_id_original": "085",
+      "name": "Уличный трековый светильник",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "033",
+      "yml_id_original": "033",
+      "name": "Универсальное крепление",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "111",
+      "yml_id_original": "111",
+      "name": "Усилитель",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "052",
+      "yml_id_original": "052",
+      "name": "Шинопровод",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "059",
+      "yml_id_original": "059",
+      "name": "Шинопровод встраиваемый",
+      "parent_yml_id": "052",
+      "parent_id_db": null,
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "060",
+      "yml_id_original": "060",
+      "name": "Шинопровод встраиваемый для натяжного потолка",
+      "parent_yml_id": "052",
+      "parent_id_db": null,
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "061",
+      "yml_id_original": "061",
+      "name": "Шинопровод накладной",
+      "parent_yml_id": "052",
+      "parent_id_db": null,
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "062",
+      "yml_id_original": "062",
+      "name": "Шинопровод накладной/подвесной",
+      "parent_yml_id": "052",
+      "parent_id_db": null,
+      "level": 2,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "073",
+      "yml_id_original": "073",
+      "name": "Led модуль",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    },
+    {
+      "yml_id": "048",
+      "yml_id_original": "048",
+      "name": "WIFI модуль",
+      "parent_yml_id": null,
+      "parent_id_db": "cmg50xcr100c5v7mna961c55h",
+      "level": 1,
+      "path": "cmg50xcr100c5v7mna961c55h"
+    }
+  ],
+  "hierarchy": [
+    {
+      "id": "051",
+      "yml_id_original": "051",
+      "name": "Аккумуляторный светильник",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "030",
+      "yml_id_original": "030",
+      "name": "Аксессуар",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "054",
+      "yml_id_original": "054",
+      "name": "Архитектурная подсветка",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "007",
+      "yml_id_original": "007",
+      "name": "Встраиваемый светильник",
+      "parent_id": null,
+      "level": 0,
+      "children": [
+        {
+          "id": "045",
+          "yml_id_original": "045",
+          "name": "Аксессуар для встраиваемого светильника",
+          "parent_id": "007",
+          "level": 1,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "096",
+      "yml_id_original": "096",
+      "name": "Выключатель",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "057",
+      "yml_id_original": "057",
+      "name": "Гибкий неон",
+      "parent_id": null,
+      "level": 0,
+      "children": [
+        {
+          "id": "058",
+          "yml_id_original": "058",
+          "name": "Комплектующие для гибкого неона",
+          "parent_id": "057",
+          "level": 1,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "089",
+      "yml_id_original": "089",
+      "name": "Готовая конструкция (набор)",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "068",
+      "yml_id_original": "068",
+      "name": "Датчики движения и освещенности",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "095",
+      "yml_id_original": "095",
+      "name": "Диммер",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "107",
+      "yml_id_original": "107",
+      "name": "Источник напряжения",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "108",
+      "yml_id_original": "108",
+      "name": "Источник тока",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "125",
+      "yml_id_original": "125",
+      "name": "Комплектующие для систем освещения с токоведущими элементами",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "100",
+      "yml_id_original": "100",
+      "name": "Контроллер",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "020",
+      "yml_id_original": "020",
+      "name": "Лампочка",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "011",
+      "yml_id_original": "011",
+      "name": "Ландшафтный светильник",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "001",
+      "yml_id_original": "001",
+      "name": "Люстра",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "097",
+      "yml_id_original": "097",
+      "name": "Мастер контроллер",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "004",
+      "yml_id_original": "004",
+      "name": "Напольный светильник (торшер)",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "006",
+      "yml_id_original": "006",
+      "name": "Настенный светильник (бра)",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "005",
+      "yml_id_original": "005",
+      "name": "Настольный светильник",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "103",
+      "yml_id_original": "103",
+      "name": "Панель управления",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "086",
+      "yml_id_original": "086",
+      "name": "Парковый светильник",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "046",
+      "yml_id_original": "046",
+      "name": "Плафон",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "002",
+      "yml_id_original": "002",
+      "name": "Подвесной светильник",
+      "parent_id": null,
+      "level": 0,
+      "children": [
+        {
+          "id": "065",
+          "yml_id_original": "065",
+          "name": "Комплектующие для светильника",
+          "parent_id": "002",
+          "level": 1,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "010",
+      "yml_id_original": "010",
+      "name": "Подсветка",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "013",
+      "yml_id_original": "013",
+      "name": "Подсветка для лестниц",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "003",
+      "yml_id_original": "003",
+      "name": "Потолочный светильник",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "079",
+      "yml_id_original": "079",
+      "name": "Прожектор",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "094",
+      "yml_id_original": "094",
+      "name": "Профиль",
+      "parent_id": null,
+      "level": 0,
+      "children": [
+        {
+          "id": "114",
+          "yml_id_original": "114",
+          "name": "Комплектующие для профиля",
+          "parent_id": "094",
+          "level": 1,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "106",
+      "yml_id_original": "106",
+      "name": "Пульт",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "047",
+      "yml_id_original": "047",
+      "name": "Пульт для управления освещением",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "099",
+      "yml_id_original": "099",
+      "name": "Роторная беспроводная панель управления",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "101",
+      "yml_id_original": "101",
+      "name": "Роторная панель управления",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "055",
+      "yml_id_original": "055",
+      "name": "Садово-парковый светильник",
+      "parent_id": null,
+      "level": 0,
+      "children": [
+        {
+          "id": "087",
+          "yml_id_original": "087",
+          "name": "Столб для паркового светильника",
+          "parent_id": "055",
+          "level": 1,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "081",
+      "yml_id_original": "081",
+      "name": "Светильник",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "049",
+      "yml_id_original": "049",
+      "name": "Светодиодная лента",
+      "parent_id": null,
+      "level": 0,
+      "children": [
+        {
+          "id": "050_2",
+          "yml_id_original": "050",
+          "name": "Комплектующие к светодиодной ленте",
+          "parent_id": "049",
+          "level": 1,
+          "children": []
+        },
+        {
+          "id": "050",
+          "yml_id_original": "050",
+          "name": "Комплектующие к светодиодной ленте с токоведущими элементами",
+          "parent_id": "049",
+          "level": 1,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "008",
+      "yml_id_original": "008",
+      "name": "Спот",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "ОК",
+      "yml_id_original": "ОК",
+      "name": "Товар",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "083",
+      "yml_id_original": "083",
+      "name": "Токоведущий светильник для уличной трековой систем",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "070",
+      "yml_id_original": "070",
+      "name": "Токопроводящая текстильная лента",
+      "parent_id": null,
+      "level": 0,
+      "children": [
+        {
+          "id": "071",
+          "yml_id_original": "071",
+          "name": "Комплектующие для текстильной подвесной системы",
+          "parent_id": "070",
+          "level": 1,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "ТО",
+      "yml_id_original": "ТО",
+      "name": "Торговое оборудование",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "056",
+      "yml_id_original": "056",
+      "name": "Трековый подвесной светильник",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "009",
+      "yml_id_original": "009",
+      "name": "Трековый светильник",
+      "parent_id": null,
+      "level": 0,
+      "children": [
+        {
+          "id": "063",
+          "yml_id_original": "063",
+          "name": "Комплектующие для встраиваемой трековой системы",
+          "parent_id": "009",
+          "level": 1,
+          "children": []
+        },
+        {
+          "id": "064",
+          "yml_id_original": "064",
+          "name": "Комплектующие для накладной трековой системы",
+          "parent_id": "009",
+          "level": 1,
+          "children": []
+        },
+        {
+          "id": "067",
+          "yml_id_original": "067",
+          "name": "Комплектующие для трекового светильника",
+          "parent_id": "009",
+          "level": 1,
+          "children": []
+        },
+        {
+          "id": "066",
+          "yml_id_original": "066",
+          "name": "Комплектующие для трековой системы",
+          "parent_id": "009",
+          "level": 1,
+          "children": []
+        },
+        {
+          "id": "084",
+          "yml_id_original": "084",
+          "name": "Комплектующие для уличной трековой системы",
+          "parent_id": "009",
+          "level": 1,
+          "children": []
+        },
+        {
+          "id": "126",
+          "yml_id_original": "126",
+          "name": "Комплектующие для уличной трековой системы с токоведущими элементами",
+          "parent_id": "009",
+          "level": 1,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "069",
+      "yml_id_original": "069",
+      "name": "Уличная розетка",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "085",
+      "yml_id_original": "085",
+      "name": "Уличный трековый светильник",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "033",
+      "yml_id_original": "033",
+      "name": "Универсальное крепление",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "111",
+      "yml_id_original": "111",
+      "name": "Усилитель",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "052",
+      "yml_id_original": "052",
+      "name": "Шинопровод",
+      "parent_id": null,
+      "level": 0,
+      "children": [
+        {
+          "id": "059",
+          "yml_id_original": "059",
+          "name": "Шинопровод встраиваемый",
+          "parent_id": "052",
+          "level": 1,
+          "children": []
+        },
+        {
+          "id": "060",
+          "yml_id_original": "060",
+          "name": "Шинопровод встраиваемый для натяжного потолка",
+          "parent_id": "052",
+          "level": 1,
+          "children": []
+        },
+        {
+          "id": "061",
+          "yml_id_original": "061",
+          "name": "Шинопровод накладной",
+          "parent_id": "052",
+          "level": 1,
+          "children": []
+        },
+        {
+          "id": "062",
+          "yml_id_original": "062",
+          "name": "Шинопровод накладной/подвесной",
+          "parent_id": "052",
+          "level": 1,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "073",
+      "yml_id_original": "073",
+      "name": "Led модуль",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    },
+    {
+      "id": "048",
+      "yml_id_original": "048",
+      "name": "WIFI модуль",
+      "parent_id": null,
+      "level": 0,
+      "children": []
+    }
+  ],
+  "statistics": {
+    "total_categories_in_db": 4,
+    "categories_to_delete": 3,
+    "categories_to_create": 68,
+    "duplicates_in_yml": 1,
+    "root_categories_in_yml": 50,
+    "max_level_in_yml": 1
+  }
+}
