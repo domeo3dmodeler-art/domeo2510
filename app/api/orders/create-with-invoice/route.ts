@@ -28,7 +28,8 @@ async function generateOrderNumber(): Promise<string> {
   return `Заказ-${nextNumber}`;
 }
 
-// POST /api/orders/create-with-invoice - Создание заказа и счета из корзины
+// POST /api/orders/create-with-invoice - DEPRECATED: Используйте POST /api/orders для создания заказа
+// Этот endpoint оставлен для обратной совместимости, но теперь просто создает Order
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -132,104 +133,14 @@ export async function POST(req: NextRequest) {
     // Шаг 2: Создаем Invoice, привязанный к Order
     console.log('🧾 Создание счета для заказа...');
 
-    // Генерируем номер счета
-    const invoiceNumber = `Счет-${Date.now()}`;
-    
-    // Подготавливаем items для счета (преобразуем формат корзины)
-    const invoiceItems = items.map((item: any) => ({
-      product_id: item.productId || item.id || 'unknown',
-      quantity: item.qty || item.quantity || 1,
-      unit_price: item.unitPrice || item.price || 0,
-      total_price: (item.qty || item.quantity || 1) * (item.unitPrice || item.price || 0),
-      notes: item.name || item.model || item.notes || null
-    }));
-
-    // Создаем счет
-    const invoice = await prisma.invoice.create({
-      data: {
-        number: invoiceNumber,
-        client_id,
-        order_id: order.id, // Связываем счет с заказом
-        created_by: userId,
-        status: 'DRAFT',
-        subtotal: subtotal || total_amount,
-        tax_amount: tax_amount || 0,
-        total_amount: total_amount,
-        currency: 'RUB',
-        notes: notes || `Счет для заказа ${orderNumber}`,
-        cart_data: JSON.stringify(items),
-        parent_document_id: parent_document_id || null,
-        cart_session_id: finalCartSessionId
-      },
-      include: {
-        invoice_items: true
-      }
-    });
-
-    // Создаем элементы счета
-    for (const item of invoiceItems) {
-      await prisma.invoiceItem.create({
-        data: {
-          invoice_id: invoice.id,
-          product_id: item.product_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.total_price,
-          notes: item.notes
-        }
-      });
-    }
-
-    // Обновляем заказ, привязывая к нему счет
-    const updatedOrder = await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        invoice_id: invoice.id
-      },
-      include: {
-        client: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            middleName: true,
-            phone: true,
-            address: true
-          }
-        },
-        invoice: {
-          select: {
-            id: true,
-            number: true,
-            status: true,
-            total_amount: true
-          }
-        }
-      }
-    });
-
-    console.log(`✅ Счет создан: ${invoiceNumber} (ID: ${invoice.id}) для заказа ${orderNumber}`);
-
+    // Возвращаем только созданный Order
+    // Invoice создается отдельно через POST /api/invoices или /api/documents/create
+    // с parent_document_id = order.id
     return NextResponse.json({
       success: true,
-      order: {
-        id: updatedOrder.id,
-        number: updatedOrder.number,
-        client_id: updatedOrder.client_id,
-        invoice_id: updatedOrder.invoice_id,
-        status: updatedOrder.status,
-        created_at: updatedOrder.created_at,
-        client: updatedOrder.client,
-        invoice: updatedOrder.invoice
-      },
-      invoice: {
-        id: invoice.id,
-        number: invoice.number,
-        status: invoice.status,
-        total_amount: invoice.total_amount,
-        order_id: invoice.order_id
-      },
-      message: `Заказ ${orderNumber} и счет ${invoiceNumber} созданы успешно`
+      order: order,
+      message: `Заказ ${order.number} создан успешно. Для создания счета используйте POST /api/invoices с parent_document_id = ${order.id}`,
+      deprecated: true
     });
 
   } catch (error) {

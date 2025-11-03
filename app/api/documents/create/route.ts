@@ -216,10 +216,11 @@ async function findExistingDocument(
     const contentHash = createContentHash(clientId, items, totalAmount);
 
     if (type === 'quote') {
+      // Quote теперь создается на основе Order (parent_document_id = orderId)
       // Этап 1: Строгий поиск по всем критериям
       let existingQuote = await prisma.quote.findFirst({
         where: {
-          parent_document_id: parentDocumentId,
+          parent_document_id: parentDocumentId, // ID Order
           cart_session_id: cartSessionId,
           client_id: clientId,
           total_amount: totalAmount
@@ -240,7 +241,7 @@ async function findExistingDocument(
       const candidates = await prisma.quote.findMany({
         where: {
           client_id: clientId, // Только для того же клиента!
-          parent_document_id: parentDocumentId,
+          parent_document_id: parentDocumentId, // ID Order
           // Допуск на округление суммы (0.01)
           total_amount: {
             gte: totalAmount - 0.01,
@@ -284,7 +285,7 @@ async function findExistingDocument(
       const candidates = await prisma.invoice.findMany({
         where: {
           client_id: clientId, // Только для того же клиента!
-          parent_document_id: parentDocumentId,
+          parent_document_id: parentDocumentId, // ID Order
           total_amount: {
             gte: totalAmount - 0.01,
             lte: totalAmount + 0.01
@@ -302,63 +303,49 @@ async function findExistingDocument(
       }
       
     } else if (type === 'order') {
-      // Этап 1: Строгий поиск по всем критериям
-      // Для Order проверяем через invoice.cart_data и invoice.total_amount
+      // Order - основной документ, parent_document_id всегда null
+      // Проверяем через cart_data и total_amount в самой модели Order
       let existingOrder = await prisma.order.findFirst({
         where: {
-          parent_document_id: parentDocumentId,
+          parent_document_id: null, // Order - основной документ
           cart_session_id: cartSessionId,
-          client_id: clientId
-        } as any,
-        include: {
-          invoice: {
-            select: {
-              cart_data: true,
-              total_amount: true
-            }
+          client_id: clientId,
+          total_amount: {
+            gte: totalAmount - 0.01,
+            lte: totalAmount + 0.01
           }
-        },
+        } as any,
         orderBy: { created_at: 'desc' }
       });
       
-      if (existingOrder && existingOrder.invoice) {
-        // Проверяем сумму через invoice
-        if (Math.abs(existingOrder.invoice.total_amount - totalAmount) <= 0.01) {
-          if (compareCartContent(items, existingOrder.invoice.cart_data)) {
-            console.log(`✅ Найден существующий заказ (строгое совпадение): ${existingOrder.number} (ID: ${existingOrder.id})`);
-            return existingOrder;
-          }
+      if (existingOrder) {
+        // Проверяем содержимое через cart_data в Order
+        if (existingOrder.cart_data && compareCartContent(items, existingOrder.cart_data)) {
+          console.log(`✅ Найден существующий заказ (строгое совпадение): ${existingOrder.number} (ID: ${existingOrder.id})`);
+          return existingOrder;
         }
       }
       
-      // Этап 2: Поиск по содержимому корзины через invoice
+      // Этап 2: Поиск по содержимому корзины
       // ВАЖНО: Ищем только в документах ТОГО ЖЕ клиента
       const candidates = await prisma.order.findMany({
         where: {
           client_id: clientId,
-          parent_document_id: parentDocumentId
-        } as any,
-        include: {
-          invoice: {
-            select: {
-              cart_data: true,
-              total_amount: true
-            }
+          parent_document_id: null, // Order - основной документ
+          total_amount: {
+            gte: totalAmount - 0.01,
+            lte: totalAmount + 0.01
           }
-        },
+        } as any,
         orderBy: { created_at: 'desc' },
         take: 10
       });
       
       for (const candidate of candidates) {
-        if (candidate.invoice && candidate.invoice.cart_data) {
-          // Проверяем сумму и содержимое через invoice
-          if (Math.abs(candidate.invoice.total_amount - totalAmount) <= 0.01) {
-            if (compareCartContent(items, candidate.invoice.cart_data)) {
-              console.log(`✅ Найден существующий заказ (по содержимому): ${candidate.number} (ID: ${candidate.id})`);
-              return candidate;
-            }
-          }
+        // Проверяем содержимое через cart_data в Order
+        if (candidate.cart_data && compareCartContent(items, candidate.cart_data)) {
+          console.log(`✅ Найден существующий заказ (по содержимому): ${candidate.number} (ID: ${candidate.id})`);
+          return candidate;
         }
       }
     } else if (type === 'supplier_order') {
@@ -439,12 +426,34 @@ async function createDocumentRecord(
 
     return quote;
   } else if (type === 'invoice') {
+    // Invoice создается на основе Order
+    // Если parent_document_id указывает на Order, устанавливаем order_id
+    let orderId: string | null = null;
+    if (data.parent_document_id) {
+      // Проверяем, что parent_document_id указывает на Order
+      const parentOrder = await prisma.order.findUnique({
+        where: { id: data.parent_document_id },
+        select: { id: true }
+      });
+      if (parentOrder) {
+        orderId = parentOrder.id;
+        // Проверяем, что у Order еще нет Invoice
+        const existingInvoiceForOrder = await prisma.invoice.findFirst({
+          where: { order_id: orderId }
+        });
+        if (existingInvoiceForOrder) {
+          throw new Error(`У заказа ${data.parent_document_id} уже есть счет ${existingInvoiceForOrder.number}`);
+        }
+      }
+    }
+
     const invoice = await prisma.invoice.create({
       data: {
         number: data.number,
-        parent_document_id: data.parent_document_id,
+        parent_document_id: data.parent_document_id, // ID Order
         cart_session_id: data.cart_session_id,
         client_id: data.client_id,
+        order_id: orderId, // Связь с Order через order_id
         created_by: data.created_by,
         subtotal: data.subtotal,
         tax_amount: data.tax_amount,
@@ -453,6 +462,14 @@ async function createDocumentRecord(
         cart_data: cartData
       }
     });
+
+    // Если invoice создан для Order, обновляем Order.invoice_id
+    if (orderId) {
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { invoice_id: invoice.id }
+      });
+    }
 
     // Создаем элементы счета
     for (const item of data.items) {
@@ -470,21 +487,20 @@ async function createDocumentRecord(
 
     return invoice;
   } else if (type === 'order') {
-    // Для Order создаем базовую запись без total_amount, subtotal, tax_amount, cart_data
-    // Эти данные хранятся в Invoice
+    // Order - основной документ, создается с cart_data и total_amount для дедубликации
+    // parent_document_id всегда null для Order из корзины
     const order = await prisma.order.create({
       data: {
         number: data.number,
-        parent_document_id: data.parent_document_id,
+        parent_document_id: null, // Order - основной документ
         cart_session_id: data.cart_session_id,
         client_id: data.client_id,
         status: 'NEW_PLANNED',
+        cart_data: cartData, // Сохраняем cart_data для дедубликации
+        total_amount: data.total_amount, // Сохраняем total_amount для дедубликации
         notes: data.notes
       }
     });
-
-    // Примечание: элементы заказа не создаются здесь, так как они хранятся в Invoice
-    // Если нужно создать OrderItem, нужно сначала создать Invoice с order_id
 
     return order;
   } else if (type === 'supplier_order') {

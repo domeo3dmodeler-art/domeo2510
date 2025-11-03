@@ -558,8 +558,10 @@ model Order {
   verification_notes  String?   // Примечания проверки
   
   // Дедубликация
-  parent_document_id  String?   // Универсальная ссылка на родительский документ
+  parent_document_id  String?   // Универсальная ссылка на родительский документ (null для Order как основного документа)
   cart_session_id     String?   // Сессия корзины для группировки документов
+  cart_data           String?   // Данные корзины для перегенерации и дедубликации (JSON строка)
+  total_amount        Float?    // Общая сумма заказа (для дедубликации)
   
   notes               String?
   created_at          DateTime  @default(now())

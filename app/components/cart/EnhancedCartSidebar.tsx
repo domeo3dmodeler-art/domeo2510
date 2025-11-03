@@ -422,7 +422,8 @@ export default function EnhancedCartSidebar({
                         0
                       );
 
-                      const response = await fetch('/api/orders/create-with-invoice', {
+                      // Создаем Order (основной документ) из корзины
+                      const response = await fetch('/api/orders', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -437,14 +438,16 @@ export default function EnhancedCartSidebar({
 
                       if (response.ok) {
                         const result = await response.json();
-                        toast.success(result.message || 'Заказ и счет созданы успешно!');
+                        const order = result.order;
+                        toast.success(`Заказ ${order?.number || ''} создан успешно!`);
                         
                         // Добавляем в список созданных документов
-                        setCreatedDocuments(prev => [
-                          ...prev,
-                          { type: 'order', ...result.order },
-                          { type: 'invoice', ...result.invoice }
-                        ]);
+                        if (order) {
+                          setCreatedDocuments(prev => [
+                            ...prev,
+                            { type: 'order', ...order }
+                          ]);
+                        }
 
                         // Корзина остается активной (не очищаем)
                       } else {
@@ -452,8 +455,8 @@ export default function EnhancedCartSidebar({
                         toast.error(`Ошибка: ${error.error}`);
                       }
                     } catch (error) {
-                      console.error('Error creating order and invoice:', error);
-                      toast.error('Ошибка при создании заказа и счета');
+                      console.error('Error creating order:', error);
+                      toast.error('Ошибка при создании заказа');
                     } finally {
                       setIsExporting(false);
                     }

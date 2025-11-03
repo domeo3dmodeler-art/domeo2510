@@ -3710,7 +3710,8 @@ function CartManager({
 
                     const totalAmount = cart.reduce((sum, item) => sum + (item.unitPrice || 0) * (item.qty || 1), 0);
 
-                    const response = await fetch('/api/orders/create-with-invoice', {
+                    // Создаем Order (основной документ) из корзины
+                    const response = await fetch('/api/orders', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
@@ -3725,15 +3726,16 @@ function CartManager({
 
                     if (response.ok) {
                       const result = await response.json();
-                      alert(result.message || 'Заказ и счет созданы успешно!');
+                      const order = result.order;
+                      alert(`Заказ ${order?.number || ''} создан успешно!`);
                       // Корзина остается активной (не очищаем)
                     } else {
                       const error = await response.json();
                       alert(`Ошибка: ${error.error}`);
                     }
                   } catch (error) {
-                    console.error('Error creating order and invoice:', error);
-                    alert('Ошибка при создании заказа и счета');
+                    console.error('Error creating order:', error);
+                    alert('Ошибка при создании заказа');
                   }
                 }}
               className="flex items-center space-x-1 px-3 py-1 text-sm border border-orange-500 bg-orange-600 text-white hover:bg-orange-700 transition-all duration-200"
