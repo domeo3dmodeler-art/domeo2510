@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateCartSessionId } from '@/lib/utils/cart-session';
+import jwt from 'jsonwebtoken';
 
 // Импортируем функции дедубликации из app/api/documents/create/route.ts
 // Для этого нам нужно либо экспортировать их, либо скопировать логику
@@ -181,6 +182,32 @@ async function findExistingOrder(
 // POST /api/orders - Создание нового заказа
 export async function POST(req: NextRequest) {
   try {
+    // Получаем токен из заголовков или cookie
+    let token: string | null = null;
+    const authHeader = req.headers.get('authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
+    if (!token) {
+      const cookies = req.cookies;
+      token = cookies.get('auth-token')?.value || cookies.get('domeo-auth-token')?.value || null;
+    }
+
+    // Извлекаем информацию о пользователе из токена
+    let userId: string | null = null;
+    let userRole: string | null = null;
+    
+    if (token) {
+      try {
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "your-super-secret-jwt-key-change-this-in-production-min-32-chars");
+        userId = decoded.userId || null;
+        userRole = decoded.role || null;
+      } catch (jwtError) {
+        console.warn('⚠️ Ошибка декодирования JWT токена:', jwtError);
+        // Продолжаем без токена (для системных операций)
+      }
+    }
+
     const body = await req.json();
     const { 
       invoice_id, 
