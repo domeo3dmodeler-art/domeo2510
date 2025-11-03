@@ -1134,7 +1134,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
               </div>
             </div>
           </Card>
-      </div>
+        </div>
 
         <div className="md:col-span-1">
           <Card variant="base">
