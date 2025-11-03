@@ -72,13 +72,13 @@ function DashboardContent() {
             { title: 'Пользователи', count: userCount, link: '/admin/users', icon: '👥' },
             { title: 'Импорт прайсов', count: stats?.total?.totalImports || 0, link: '/admin/import', icon: '📊' },
             { title: 'Товары', count: stats?.total?.totalProducts || 0, link: '/admin/catalog/products', icon: '📦' }
-          ],
+          ].filter(Boolean), // Фильтруем undefined/null элементы
           quickActions: [
             { title: 'Создать категорию', link: '/admin/categories/builder', icon: '➕' },
             { title: 'Импорт прайса', link: '/admin/import', icon: '📥' },
             { title: 'Управление пользователями', link: '/admin/users', icon: '👤' },
             { title: 'Настройки системы', link: '/admin/settings', icon: '⚙️' }
-          ]
+          ].filter(Boolean) // Фильтруем undefined/null элементы
         };
       case 'executor':
         return {
@@ -89,13 +89,13 @@ function DashboardContent() {
             { title: 'Заказы у поставщика', count: '5', link: '/factory', icon: '🏭' },
             { title: 'Выполненные', count: '32', link: '/orders?status=completed', icon: '✅' },
             { title: 'Уведомления', count: '3', link: '/notifications', icon: '🔔' }
-          ],
+          ].filter(Boolean), // Фильтруем undefined/null элементы
           quickActions: [
             { title: 'Новые заказы', link: '/orders?status=new', icon: '🆕' },
             { title: 'Заказ у поставщика', link: '/factory', icon: '🏭' },
             { title: 'Отслеживание', link: '/tracking', icon: '📍' },
             { title: 'Уведомления', link: '/notifications', icon: '🔔' }
-          ]
+          ].filter(Boolean) // Фильтруем undefined/null элементы
         };
       default:
         return {
@@ -106,6 +106,16 @@ function DashboardContent() {
         };
     }
   }, [user, stats, userCount]); // Убрали complectatorStats - для complectator roleContent не используется
+  
+  // Дополнительная защита: убеждаемся что widgets и quickActions всегда массивы
+  const safeRoleContent = useMemo(() => {
+    if (!roleContent) return { title: '', description: '', widgets: [], quickActions: [] };
+    return {
+      ...roleContent,
+      widgets: Array.isArray(roleContent.widgets) ? roleContent.widgets.filter(Boolean) : [],
+      quickActions: Array.isArray(roleContent.quickActions) ? roleContent.quickActions.filter(Boolean) : []
+    };
+  }, [roleContent]);
 
   // Определяем fetchStats ПЕРЕД использованием в useEffect
   const fetchStats = useCallback(async () => {
@@ -323,13 +333,13 @@ function DashboardContent() {
   if (user.role === 'admin') {
     return (
       <AdminLayout
-        title={roleContent.title}
-        subtitle={roleContent.description}
+        title={safeRoleContent.title}
+        subtitle={safeRoleContent.description}
       >
         <div className="space-y-8">
           {/* Widgets Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {roleContent.widgets.filter(widget => widget).map((widget, index) => (
+            {safeRoleContent.widgets.map((widget, index) => (
               <Card key={index} variant="interactive" className="hover:border-black transition-all duration-200">
                 <div className="p-6">
                   <div className="flex items-center justify-between">
@@ -349,7 +359,7 @@ function DashboardContent() {
             <div className="p-6">
               <h2 className="text-xl font-semibold text-black mb-4">Быстрые действия</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {roleContent.quickActions.filter(action => action).map((action, index) => (
+                {safeRoleContent.quickActions.map((action, index) => (
                   <Button
                     key={index}
                     variant="secondary"
@@ -491,13 +501,13 @@ function DashboardContent() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-black">{roleContent.title}</h1>
-          <p className="text-gray-600 mt-2">{roleContent.description}</p>
+          <h1 className="text-3xl font-bold text-black">{safeRoleContent.title}</h1>
+          <p className="text-gray-600 mt-2">{safeRoleContent.description}</p>
         </div>
 
         {/* Widgets Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {roleContent.widgets.filter(widget => widget).map((widget, index) => (
+          {safeRoleContent.widgets.map((widget, index) => (
             <div
               key={index}
               onClick={() => router.push(widget.link)}
@@ -520,7 +530,7 @@ function DashboardContent() {
         <div className="bg-gray-50 p-6">
           <h2 className="text-xl font-semibold text-black mb-4">Быстрые действия</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {roleContent.quickActions.filter(action => action).map((action, index) => (
+            {safeRoleContent.quickActions.map((action, index) => (
               <button
                 key={index}
                 onClick={() => router.push(action.link)}
