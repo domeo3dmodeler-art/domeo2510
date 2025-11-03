@@ -395,10 +395,24 @@ async function createDocumentRecord(
   const contentHash = createContentHash(data.client_id, data.items, data.total_amount);
 
   if (type === 'quote') {
+    // Quote создается на основе Order
+    // Если parent_document_id указан, проверяем что это Order
+    if (data.parent_document_id) {
+      const parentOrder = await prisma.order.findUnique({
+        where: { id: data.parent_document_id },
+        select: { id: true }
+      });
+      if (!parentOrder) {
+        throw new Error(`Заказ ${data.parent_document_id} не найден. Quote должен создаваться на основе Order.`);
+      }
+    }
+    // Если parent_document_id не указан, можно создать Quote без Order для обратной совместимости
+    // но рекомендуется всегда создавать Order первым
+
     const quote = await prisma.quote.create({
       data: {
         number: data.number,
-        parent_document_id: data.parent_document_id,
+        parent_document_id: data.parent_document_id, // ID Order или null
         cart_session_id: data.cart_session_id,
         client_id: data.client_id,
         created_by: data.created_by,
@@ -504,15 +518,27 @@ async function createDocumentRecord(
 
     return order;
   } else if (type === 'supplier_order') {
+    // SupplierOrder создается на основе Order
+    // Если parent_document_id указан, проверяем что это Order
+    if (data.parent_document_id) {
+      const parentOrder = await prisma.order.findUnique({
+        where: { id: data.parent_document_id },
+        select: { id: true }
+      });
+      if (!parentOrder) {
+        throw new Error(`Заказ ${data.parent_document_id} не найден. SupplierOrder должен создаваться на основе Order.`);
+      }
+    }
+    
     const supplierOrder = await prisma.supplierOrder.create({
       data: {
-        parent_document_id: data.parent_document_id,
+        parent_document_id: data.parent_document_id, // ID Order
         cart_session_id: data.cart_session_id,
         executor_id: data.created_by,
         supplier_name: 'Поставщик', // Можно передавать в параметрах
         notes: data.notes,
         cart_data: cartData,
-        total_amount: data.total_amount // Добавляем общую сумму
+        total_amount: data.total_amount
       }
     });
 

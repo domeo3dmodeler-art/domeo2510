@@ -424,12 +424,33 @@ async function createDocumentRecord(
 
     return quote;
   } else if (type === 'invoice') {
+    // Invoice создается на основе Order
+    // Если parent_document_id указан, устанавливаем order_id
+    let orderId: string | null = null;
+    if (data.parent_document_id) {
+      const parentOrder = await prisma.order.findUnique({
+        where: { id: data.parent_document_id },
+        select: { id: true }
+      });
+      if (parentOrder) {
+        orderId = parentOrder.id;
+        // Проверяем, что у Order еще нет Invoice
+        const existingInvoiceForOrder = await prisma.invoice.findFirst({
+          where: { order_id: orderId }
+        });
+        if (existingInvoiceForOrder) {
+          throw new Error(`У заказа ${data.parent_document_id} уже есть счет ${existingInvoiceForOrder.number}`);
+        }
+      }
+    }
+
     const invoice = await prisma.invoice.create({
       data: {
         number: data.number,
-        parent_document_id: data.parent_document_id,
+        parent_document_id: data.parent_document_id, // ID Order
         cart_session_id: data.cart_session_id,
         client_id: data.client_id,
+        order_id: orderId, // Связь с Order через order_id
         created_by: data.created_by,
         subtotal: data.subtotal,
         tax_amount: data.tax_amount,
@@ -439,6 +460,14 @@ async function createDocumentRecord(
         cart_data: cartData
       } as any
     });
+
+    // Если invoice создан для Order, обновляем Order.invoice_id
+    if (orderId) {
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { invoice_id: invoice.id }
+      });
+    }
 
     // Создаем элементы счета
     for (const item of data.items) {
@@ -474,15 +503,27 @@ async function createDocumentRecord(
 
     return order;
   } else if (type === 'supplier_order') {
+    // SupplierOrder создается на основе Order
+    // Если parent_document_id указан, проверяем что это Order
+    if (data.parent_document_id) {
+      const parentOrder = await prisma.order.findUnique({
+        where: { id: data.parent_document_id },
+        select: { id: true }
+      });
+      if (!parentOrder) {
+        throw new Error(`Заказ ${data.parent_document_id} не найден. SupplierOrder должен создаваться на основе Order.`);
+      }
+    }
+    
     const supplierOrder = await prisma.supplierOrder.create({
       data: {
-        parent_document_id: data.parent_document_id,
+        parent_document_id: data.parent_document_id, // ID Order
         cart_session_id: data.cart_session_id,
         executor_id: data.created_by,
         supplier_name: 'Поставщик', // Можно передавать в параметрах
         notes: data.notes,
         cart_data: cartData,
-        total_amount: data.total_amount // Добавляем общую сумму
+        total_amount: data.total_amount
       } as any
     });
 

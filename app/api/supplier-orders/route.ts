@@ -7,43 +7,60 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { invoiceId, orderId, supplierName, supplierEmail, supplierPhone, expectedDate, notes, cartData } = body;
     
-    // Поддержка как invoiceId, так и orderId для совместимости
-    const finalInvoiceId = invoiceId || orderId;
+    // SupplierOrder теперь создается на основе Order (не Invoice)
+    // Поддержка orderId как основного параметра, invoiceId для обратной совместимости
+    let finalOrderId = orderId;
     
-    console.log('🚀 Creating supplier order:', { invoiceId: finalInvoiceId, orderId, supplierName, supplierEmail, supplierPhone, expectedDate, notes });
+    // Если передан invoiceId, находим связанный Order
+    if (!finalOrderId && invoiceId) {
+      const invoice = await prisma.invoice.findUnique({
+        where: { id: invoiceId },
+        select: { order_id: true }
+      });
+      if (invoice && invoice.order_id) {
+        finalOrderId = invoice.order_id;
+        console.log(`📋 Найден Order ${finalOrderId} для Invoice ${invoiceId}`);
+      }
+    }
+    
+    console.log('🚀 Creating supplier order:', { invoiceId, orderId: finalOrderId, supplierName, supplierEmail, supplierPhone, expectedDate, notes });
     console.log('📦 Received cartData:', cartData);
-    console.log('📦 Received cartData type:', typeof cartData);
-    console.log('📦 Received cartData items:', cartData?.items);
-    console.log('📦 Received cartData items count:', cartData?.items?.length);
 
-    if (!finalInvoiceId) {
-      console.error('❌ Missing invoiceId or orderId in request body:', body);
-      return NextResponse.json({ error: 'invoiceId or orderId is required' }, { status: 400 });
+    if (!finalOrderId) {
+      console.error('❌ Missing orderId in request body. SupplierOrder должен создаваться на основе Order.', body);
+      return NextResponse.json({ error: 'orderId is required. SupplierOrder должен создаваться на основе Order.' }, { status: 400 });
     }
 
-    // Проверяем, что счет существует
-    const invoice = await prisma.invoice.findUnique({
-      where: { id: finalInvoiceId },
+    // Проверяем, что Order существует
+    const order = await prisma.order.findUnique({
+      where: { id: finalOrderId },
       select: { 
         id: true, 
         client_id: true, 
         cart_session_id: true,
         number: true,
-        total_amount: true
+        total_amount: true,
+        invoice: {
+          select: {
+            id: true,
+            number: true,
+            total_amount: true
+          }
+        }
       }
     });
 
-    if (!invoice) {
-      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+    if (!order) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
     // Генерируем cart_session_id для группировки документов
-    const cartSessionId = invoice.cart_session_id || generateCartSessionId();
+    const cartSessionId = order.cart_session_id || generateCartSessionId();
     
-    // Проверяем, есть ли уже заказ у поставщика для этого счета
+    // Проверяем, есть ли уже заказ у поставщика для этого Order
     const existingSupplierOrder = await prisma.supplierOrder.findFirst({
       where: {
-        parent_document_id: finalInvoiceId,
+        parent_document_id: finalOrderId, // Теперь используем orderId
         cart_session_id: cartSessionId
       },
       orderBy: { created_at: 'desc' }
@@ -57,11 +74,12 @@ export async function POST(request: NextRequest) {
       supplierOrder = existingSupplierOrder;
     } else {
       // Создаем новый заказ у поставщика
-      console.log(`🆕 Создаем новый заказ у поставщика для счета: ${finalInvoiceId}`);
-      // Генерируем номер заказа у поставщика на основе номера счета
-      const supplierOrderNumber = `SUPPLIER-${invoice.number}`;
+      console.log(`🆕 Создаем новый заказ у поставщика для Order: ${finalOrderId}`);
+      // Генерируем номер заказа у поставщика на основе номера Order или Invoice
+      const sourceNumber = order.invoice?.number || order.number;
+      const supplierOrderNumber = `SUPPLIER-${sourceNumber}`;
       
-      // Вычисляем общую сумму из данных корзины или используем сумму счета
+      // Вычисляем общую сумму из данных корзины или используем сумму Order/Invoice
       let totalAmount = 0;
       if (cartData && cartData.items && cartData.items.length > 0) {
         totalAmount = cartData.items.reduce((sum: number, item: any) => {
@@ -71,22 +89,25 @@ export async function POST(request: NextRequest) {
         }, 0);
       }
       
-      // Если сумма из корзины равна 0 или корзина пустая, используем сумму счета
-      if (totalAmount === 0 && invoice.total_amount > 0) {
-        totalAmount = invoice.total_amount;
-        console.log(`💰 Используем сумму счета: ${totalAmount}`);
-      } else if (totalAmount > 0) {
-        console.log(`💰 Используем сумму из корзины: ${totalAmount}`);
+      // Если сумма из корзины равна 0 или корзина пустая, используем сумму Order или Invoice
+      if (totalAmount === 0) {
+        if (order.total_amount && order.total_amount > 0) {
+          totalAmount = order.total_amount;
+          console.log(`💰 Используем сумму Order: ${totalAmount}`);
+        } else if (order.invoice?.total_amount && order.invoice.total_amount > 0) {
+          totalAmount = order.invoice.total_amount;
+          console.log(`💰 Используем сумму Invoice: ${totalAmount}`);
+        }
       } else {
-        console.log(`⚠️ Сумма не определена: корзина=${cartData?.items?.length || 0}, счет=${invoice.total_amount}`);
+        console.log(`💰 Используем сумму из корзины: ${totalAmount}`);
       }
 
       supplierOrder = await prisma.supplierOrder.create({
         data: {
           number: supplierOrderNumber,
-          parent_document_id: finalInvoiceId,
+          parent_document_id: finalOrderId, // Теперь используем orderId
           cart_session_id: cartSessionId,
-          executor_id: invoice.client_id,
+          executor_id: order.client_id,
           supplier_name: supplierName || 'Поставщик не указан',
           supplier_email: supplierEmail || '',
           supplier_phone: supplierPhone || '',
@@ -94,7 +115,7 @@ export async function POST(request: NextRequest) {
           order_date: new Date(),
           expected_date: expectedDate ? new Date(expectedDate) : null,
           notes: notes || '',
-          cart_data: cartData ? JSON.stringify(cartData) : null,
+          cart_data: cartData ? JSON.stringify(cartData) : (order.cart_data || null),
           total_amount: totalAmount
         }
       });
@@ -122,13 +143,28 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const invoiceId = searchParams.get('invoiceId');
+    const orderId = searchParams.get('orderId');
     
-    if (!invoiceId) {
-      return NextResponse.json({ error: 'invoiceId is required' }, { status: 400 });
+    // Поддержка как orderId, так и invoiceId для обратной совместимости
+    let finalOrderId = orderId;
+    
+    if (!finalOrderId && invoiceId) {
+      // Если передан invoiceId, находим связанный Order
+      const invoice = await prisma.invoice.findUnique({
+        where: { id: invoiceId },
+        select: { order_id: true }
+      });
+      if (invoice && invoice.order_id) {
+        finalOrderId = invoice.order_id;
+      }
+    }
+    
+    if (!finalOrderId) {
+      return NextResponse.json({ error: 'orderId or invoiceId is required' }, { status: 400 });
     }
 
     const supplierOrders = await prisma.supplierOrder.findMany({
-      where: { parent_document_id: invoiceId },
+      where: { parent_document_id: finalOrderId }, // Ищем по orderId
       orderBy: { created_at: 'desc' }
     });
 

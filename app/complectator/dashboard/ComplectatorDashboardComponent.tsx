@@ -744,33 +744,13 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       });
 
       if (response.ok) {
-        // Получаем PDF файл и скачиваем его
-        const pdfBlob = await response.blob();
-        const url = window.URL.createObjectURL(pdfBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        
-        // Получаем имя файла из заголовков ответа
-        const contentDisposition = response.headers.get('content-disposition');
-        let filename = 'invoice.pdf';
-        if (contentDisposition) {
-          const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-          if (filenameMatch) {
-            filename = filenameMatch[1];
-          }
-        }
-        
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
+        const result = await response.json();
+        toast.success(`Счет создан успешно на основе заказа ${orderId}`);
         
         // Обновляем данные клиента
         if (selectedClient) {
           fetchClientDocuments(selectedClient);
         }
-        toast.success('Счет создан и скачан успешно');
       } else {
         const createInvoiceErrorResponse = await response.json();
         toast.error(`Ошибка: ${createInvoiceErrorResponse.error}`);
