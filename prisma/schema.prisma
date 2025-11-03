@@ -49,7 +49,6 @@ model Client {
   orders        Order[]
   documents     Document[]
   notifications Notification[]
-  applications  Application[]
 
   @@index([phone])
   @@index([firstName, lastName])
@@ -359,6 +358,7 @@ model Invoice {
   number             String    @unique
   parent_document_id String?   // Универсальная ссылка на родительский документ
   cart_session_id    String?   // Сессия корзины для группировки документов
+  order_id           String?   // ID заказа (один счет на заказ)
   client_id          String
   created_by         String
   status             String    @default("DRAFT")
@@ -376,13 +376,14 @@ model Invoice {
   // Связи
   client         Client      @relation(fields: [client_id], references: [id], onDelete: Cascade)
   invoice_items  InvoiceItem[]
-  applications   Application[]
+  order          Order?      @relation(fields: [order_id], references: [id])
 
   @@index([client_id])
   @@index([status])
   @@index([created_at])
   @@index([created_by])
   @@index([parent_document_id])
+  @@index([order_id])
   @@map("invoices")
 }
 
@@ -577,16 +578,17 @@ model Notification {
   @@index([created_at])
 }
 
-// Заявки (Applications) - система управления заявками для исполнителя
-model Application {
+// Заказы (Orders) - основная сущность для управления заказами
+// К заказу привязан один счет (Invoice)
+model Order {
   id                  String    @id @default(cuid())
-  number              String    @unique // Номер заявки (например, APP-XXXXXX)
+  number              String    @unique // Номер заказа (например, Заказ-123)
   client_id           String
-  invoice_id          String?   // Связанный счет (оплаченная заявка)
+  invoice_id          String?   // Связанный счет (один счет на заказ)
   lead_number         String?   // Номер лида
   complectator_id     String?   // ID комплектатора
   executor_id         String?   // ID исполнителя
-  status              String    @default("NEW_PLANNED")
+  status              String    @default("NEW_PLANNED") // Статусы синхронизируются со статусами Invoice
   
   // Данные проекта
   project_file_url    String?   // URL файла проекта/планировки (обязательное для проверки)
@@ -602,6 +604,10 @@ model Application {
   verification_status String?   // "PENDING" | "VERIFIED" | "FAILED"
   verification_notes  String?   // Примечания проверки
   
+  // Дедубликация
+  parent_document_id  String?   // Универсальная ссылка на родительский документ
+  cart_session_id     String?   // Сессия корзины для группировки документов
+  
   notes               String?
   created_at          DateTime  @default(now())
   updated_at          DateTime  @updatedAt
@@ -615,5 +621,7 @@ model Application {
   @@index([invoice_id])
   @@index([executor_id])
   @@index([created_at])
-  @@map("applications")
+  @@index([parent_document_id])
+  @@index([cart_session_id])
+  @@map("orders")
 }

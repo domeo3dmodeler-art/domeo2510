@@ -303,42 +303,62 @@ async function findExistingDocument(
       
     } else if (type === 'order') {
       // Этап 1: Строгий поиск по всем критериям
+      // Для Order проверяем через invoice.cart_data и invoice.total_amount
       let existingOrder = await prisma.order.findFirst({
         where: {
           parent_document_id: parentDocumentId,
           cart_session_id: cartSessionId,
-          client_id: clientId,
-          total_amount: totalAmount
+          client_id: clientId
         } as any,
+        include: {
+          invoice: {
+            select: {
+              cart_data: true,
+              total_amount: true
+            }
+          }
+        },
         orderBy: { created_at: 'desc' }
       });
       
-      if (existingOrder) {
-        if (compareCartContent(items, existingOrder.cart_data)) {
-          console.log(`✅ Найден существующий заказ (строгое совпадение): ${existingOrder.number} (ID: ${existingOrder.id})`);
-          return existingOrder;
+      if (existingOrder && existingOrder.invoice) {
+        // Проверяем сумму через invoice
+        if (Math.abs(existingOrder.invoice.total_amount - totalAmount) <= 0.01) {
+          if (compareCartContent(items, existingOrder.invoice.cart_data)) {
+            console.log(`✅ Найден существующий заказ (строгое совпадение): ${existingOrder.number} (ID: ${existingOrder.id})`);
+            return existingOrder;
+          }
         }
       }
       
-      // Этап 2: Поиск по содержимому корзины
-      // ВАЖНО: Ищем только в документах ТОГО ЖЕ клиента - разные клиенты могут иметь одинаковые товары
+      // Этап 2: Поиск по содержимому корзины через invoice
+      // ВАЖНО: Ищем только в документах ТОГО ЖЕ клиента
       const candidates = await prisma.order.findMany({
         where: {
-          client_id: clientId, // Только для того же клиента!
-          parent_document_id: parentDocumentId,
-          total_amount: {
-            gte: totalAmount - 0.01,
-            lte: totalAmount + 0.01
-          }
+          client_id: clientId,
+          parent_document_id: parentDocumentId
         } as any,
+        include: {
+          invoice: {
+            select: {
+              cart_data: true,
+              total_amount: true
+            }
+          }
+        },
         orderBy: { created_at: 'desc' },
         take: 10
       });
       
       for (const candidate of candidates) {
-        if (compareCartContent(items, candidate.cart_data)) {
-          console.log(`✅ Найден существующий заказ (по содержимому): ${candidate.number} (ID: ${candidate.id})`);
-          return candidate;
+        if (candidate.invoice && candidate.invoice.cart_data) {
+          // Проверяем сумму и содержимое через invoice
+          if (Math.abs(candidate.invoice.total_amount - totalAmount) <= 0.01) {
+            if (compareCartContent(items, candidate.invoice.cart_data)) {
+              console.log(`✅ Найден существующий заказ (по содержимому): ${candidate.number} (ID: ${candidate.id})`);
+              return candidate;
+            }
+          }
         }
       }
     } else if (type === 'supplier_order') {
@@ -450,34 +470,21 @@ async function createDocumentRecord(
 
     return invoice;
   } else if (type === 'order') {
+    // Для Order создаем базовую запись без total_amount, subtotal, tax_amount, cart_data
+    // Эти данные хранятся в Invoice
     const order = await prisma.order.create({
       data: {
         number: data.number,
         parent_document_id: data.parent_document_id,
         cart_session_id: data.cart_session_id,
         client_id: data.client_id,
-        created_by: data.created_by,
-        subtotal: data.subtotal,
-        tax_amount: data.tax_amount,
-        total_amount: data.total_amount,
-        notes: data.notes,
-        cart_data: cartData
+        status: 'NEW_PLANNED',
+        notes: data.notes
       }
     });
 
-    // Создаем элементы заказа
-    for (const item of data.items) {
-      await prisma.orderItem.create({
-        data: {
-          order_id: order.id,
-          product_id: item.product_id || 'unknown',
-          quantity: item.quantity || 1,
-          unit_price: item.price || 0,
-          total_price: (item.price || 0) * (item.quantity || 1),
-          notes: item.notes
-        }
-      });
-    }
+    // Примечание: элементы заказа не создаются здесь, так как они хранятся в Invoice
+    // Если нужно создать OrderItem, нужно сначала создать Invoice с order_id
 
     return order;
   } else if (type === 'supplier_order') {

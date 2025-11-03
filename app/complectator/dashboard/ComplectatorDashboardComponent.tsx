@@ -100,11 +100,13 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     lastDoc?: { type: 'quote'|'invoice'; status: string; id: string; date: string; total?: number };
   }>>([]);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
-  const [clientTab, setClientTab] = useState<'quotes'|'invoices'>('quotes');
+  const [clientTab, setClientTab] = useState<'quotes'|'invoices'|'orders'>('quotes');
   const [quotes, setQuotes] = useState<Array<{ id: string; number: string; date: string; status: 'Черновик'|'Отправлено'|'Согласовано'|'Отказ'; total: number }>>([]);
   const [invoices, setInvoices] = useState<Array<{ id: string; number: string; date: string; status: 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'; total: number; dueAt?: string }>>([]);
+  const [orders, setOrders] = useState<Array<{ id: string; number: string; date: string; status: 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'; total: number; invoice_id?: string }>>([]);
   const [quotesFilter, setQuotesFilter] = useState<'all'|'Черновик'|'Отправлено'|'Согласовано'|'Отказ'>('all');
   const [invoicesFilter, setInvoicesFilter] = useState<'all'|'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'>('all');
+  const [ordersFilter, setOrdersFilter] = useState<'all'|'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'>('all');
   const [showInWorkOnly, setShowInWorkOnly] = useState(false);
   const [showCreateClientForm, setShowCreateClientForm] = useState(false);
   const [newClientData, setNewClientData] = useState({
@@ -274,6 +276,56 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
   }, [isStatusBlocked]);
 
   // Загрузка документов клиента (зависит от fetchAllCommentsCount и loadBlockedStatuses)
+  // Загрузка заказов клиента
+  const fetchClientOrders = useCallback(async (clientId: string) => {
+    try {
+      const response = await fetch(`/api/orders?client_id=${clientId}`);
+      if (response.ok) {
+        const data = await response.json();
+        // Преобразуем заказы, синхронизируя статусы со статусами счетов
+        const formattedOrders = (data.orders || []).map((order: any) => {
+          // Если у заказа есть счет, берем статус из счета, иначе используем статус заказа
+          let orderStatus: string = order.status;
+          if (order.invoice && order.invoice.status) {
+            // Маппим статусы счета на статусы заказа для комплектатора
+            const invoiceStatusMap: Record<string, string> = {
+              'DRAFT': 'Черновик',
+              'SENT': 'Отправлен',
+              'PAID': 'Оплачен/Заказ',
+              'ORDERED': 'Заказ размещен',
+              'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
+              'COMPLETED': 'Исполнен',
+              'CANCELLED': 'Отменен'
+            };
+            orderStatus = invoiceStatusMap[order.invoice.status] || 'Черновик';
+          } else {
+            // Если счета нет, маппим статус заказа на статусы счетов
+            const orderStatusMap: Record<string, string> = {
+              'NEW_PLANNED': 'Черновик',
+              'UNDER_REVIEW': 'Черновик',
+              'AWAITING_MEASUREMENT': 'Черновик',
+              'AWAITING_INVOICE': 'Черновик',
+              'COMPLETED': 'Исполнен'
+            };
+            orderStatus = orderStatusMap[order.status] || 'Черновик';
+          }
+
+          return {
+            id: order.id,
+            number: order.number,
+            date: new Date(order.created_at).toLocaleDateString('ru-RU'),
+            status: orderStatus as 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен',
+            total: order.invoice?.total_amount || 0,
+            invoice_id: order.invoice_id
+          };
+        });
+        setOrders(formattedOrders);
+      }
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    }
+  }, []);
+
   const fetchClientDocuments = useCallback(async (clientId: string) => {
     try {
       // Показываем индикатор загрузки
@@ -937,7 +989,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
   const focusOnDocument = useCallback((documentId: string) => {
     // Находим клиента, у которого есть этот документ
     const clientWithDocument = clients.find(client => {
-      return quotes.some(q => q.id === documentId) || invoices.some(i => i.id === documentId);
+      return quotes.some(q => q.id === documentId) || invoices.some(i => i.id === documentId) || orders.some(o => o.id === documentId);
     });
     
     if (clientWithDocument) {
@@ -947,9 +999,11 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         setClientTab('quotes');
       } else if (invoices.some(i => i.id === documentId)) {
         setClientTab('invoices');
+      } else if (orders.some(o => o.id === documentId)) {
+        setClientTab('orders');
       }
     }
-  }, [clients, quotes, invoices]);
+  }, [clients, quotes, invoices, orders]);
 
   // Обработка фокуса из URL параметров
   useEffect(() => {
@@ -960,7 +1014,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       // Очищаем URL параметр
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, [clients, quotes, invoices, focusOnDocument]);
+  }, [clients, quotes, invoices, orders, focusOnDocument]);
 
   if (loading) {
     return (
@@ -1062,8 +1116,9 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                   <nav className="-mb-px flex space-x-6">
                     {([
                       {id:'quotes',name:'КП',icon:FileText},
-                      {id:'invoices',name:'Счета',icon:Download}
-                    ] as Array<{id:'quotes'|'invoices';name:string;icon:any}>).map((t) => (
+                      {id:'invoices',name:'Счета',icon:Download},
+                      {id:'orders',name:'Заказы',icon:Package}
+                    ] as Array<{id:'quotes'|'invoices'|'orders';name:string;icon:any}>).map((t) => (
             <button
                         key={t.id}
                         onClick={() => setClientTab(t.id)}
@@ -1300,6 +1355,57 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                         <div className="text-sm text-gray-500">Нет счетов по выбранному фильтру</div>
                       )}
                 </div>
+                  </>
+                )}
+
+                {clientTab==='orders' && (
+                  <>
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                      {(['all','Черновик','Отправлен','Оплачен/Заказ','Отменен','Заказ размещен','Получен от поставщика','Исполнен'] as const).map(s => (
+                        <button key={s}
+                          onClick={() => setOrdersFilter(s)}
+                          className={`px-3 py-1 text-sm border ${ordersFilter===s?'border-black bg-black text-white':'border-gray-300 hover:border-black'}`}
+                        >{s==='all'?'Все':s}</button>
+                      ))}
+                    </div>
+                    <div className="space-y-2">
+                      {orders.filter(o => ordersFilter==='all' || o.status===ordersFilter).map(o => (
+                        <div key={o.id} className="border border-gray-200 p-3 hover:border-black transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3">
+                                <div className="font-medium text-black">{o.number}</div>
+                                <div className="text-sm text-gray-600">от {o.date}</div>
+                                <span className={`px-2 py-0.5 text-xs border rounded ${badgeByInvoiceStatus(o.status)}`}>
+                                  {o.status}
+                                </span>
+                                {o.total > 0 && (
+                                  <div className="text-sm text-gray-600">
+                                    {o.total.toLocaleString('ru-RU')} ₽
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              {o.invoice_id && (
+                                <button
+                                  onClick={() => {
+                                    setClientTab('invoices');
+                                  }}
+                                  className="text-xs text-blue-600 hover:underline"
+                                  title="Перейти к счету"
+                                >
+                                  Счет
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {orders.filter(o => ordersFilter==='all' || o.status===ordersFilter).length===0 && (
+                        <div className="text-sm text-gray-500">Нет заказов по выбранному фильтру</div>
+                      )}
+                    </div>
                   </>
                 )}
                 </div>

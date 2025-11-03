@@ -76,7 +76,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     // Проверяем права на изменение статуса по роли
-    if (userRole) {
+    // Исключение: если статус уже PAID и пользователь пытается установить PAID повторно,
+    // разрешаем это для создания заявки (может быть полезно, если заявка не была создана ранее)
+    if (userRole && !(status === 'PAID' && existingInvoice.status === 'PAID')) {
       const canChange = canUserChangeStatus(userRole, 'invoice', existingInvoice.status);
       if (!canChange) {
         console.log('🔒 API: User does not have permission to change status:', { userRole, currentStatus: existingInvoice.status });
@@ -148,18 +150,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     console.log('✅ API: Invoice updated successfully:', updatedInvoice);
 
-    // Автоматическое создание заявки при оплате счета
+    // Автоматическое создание заказа при оплате счета
     if (status === 'PAID' && !wasPaid) {
       try {
-        console.log('📝 Создание заявки для оплаченного счета:', id);
+        console.log('📝 Создание заказа для оплаченного счета:', id);
         
-        // Проверяем, не существует ли уже заявка для этого счета
-        const existingApplication = await prisma.application.findFirst({
+        // Проверяем, не существует ли уже заказ для этого счета
+        const existingOrder = await prisma.order.findFirst({
           where: { invoice_id: id }
         });
 
-        if (existingApplication) {
-          console.log('⚠️ Заявка для этого счета уже существует:', existingApplication.id);
+        if (existingOrder) {
+          console.log('⚠️ Заказ для этого счета уже существует:', existingOrder.id);
         } else {
           // Получаем информацию о создателе счета (комплектаторе)
           let complectatorId: string | null = null;
@@ -208,43 +210,76 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             console.warn('⚠️ Не удалось получить исполнителя из токена:', tokenError);
           }
 
-          // Генерируем номер заявки
-          const generateApplicationNumber = (): string => {
-            const timestamp = Date.now();
-            const random = Math.floor(Math.random() * 1000);
-            return `APP-${timestamp}-${random}`;
+          // Генерируем номер заказа в формате "Заказ-XXX"
+          const generateOrderNumber = async (): Promise<string> => {
+            const lastOrder = await prisma.order.findFirst({
+              where: {
+                number: {
+                  startsWith: 'Заказ-'
+                }
+              },
+              orderBy: {
+                created_at: 'desc'
+              }
+            });
+
+            let nextNumber = 1;
+
+            if (lastOrder && lastOrder.number.startsWith('Заказ-')) {
+              const match = lastOrder.number.match(/^Заказ-(\d+)$/);
+              if (match && match[1]) {
+                nextNumber = parseInt(match[1], 10) + 1;
+              }
+            }
+
+            return `Заказ-${nextNumber}`;
           };
 
-          let applicationNumber = generateApplicationNumber();
-          let exists = await prisma.application.findUnique({
-            where: { number: applicationNumber }
+          let orderNumber = await generateOrderNumber();
+          let exists = await prisma.order.findUnique({
+            where: { number: orderNumber }
           });
 
+          let counter = 1;
           while (exists) {
-            applicationNumber = generateApplicationNumber();
-            exists = await prisma.application.findUnique({
-              where: { number: applicationNumber }
+            const match = orderNumber.match(/^Заказ-(\d+)$/);
+            const baseNumber = match ? parseInt(match[1], 10) : counter;
+            orderNumber = `Заказ-${baseNumber + counter}`;
+            exists = await prisma.order.findUnique({
+              where: { number: orderNumber }
             });
+            counter++;
           }
 
-          // Создаем заявку
-          const newApplication = await prisma.application.create({
+          // Получаем cart_session_id из счета для дедубликации
+          const invoiceForOrder = await prisma.invoice.findUnique({
+            where: { id },
+            select: {
+              cart_session_id: true,
+              parent_document_id: true
+            }
+          });
+
+          // Создаем заказ
+          const newOrder = await prisma.order.create({
             data: {
-              number: applicationNumber,
+              number: orderNumber,
               client_id: invoiceClientId,
               invoice_id: id,
               lead_number: clientLeadNumber,
               complectator_id: complectatorId,
               executor_id: executorId,
-              status: 'NEW_PLANNED'
+              status: 'NEW_PLANNED',
+              parent_document_id: invoiceForOrder?.parent_document_id || null,
+              cart_session_id: invoiceForOrder?.cart_session_id || null
             }
           });
 
-          console.log('✅ Заявка создана автоматически:', newApplication.id);
+          console.log('✅ Заказ создан автоматически:', newOrder.id);
         }
-      } catch (applicationError) {
-        console.error('❌ Ошибка при создании заявки:', applicationError);
-        // Не прерываем выполнение, если не удалось создать заявку
+      } catch (orderError) {
+        console.error('❌ Ошибка при создании заказа:', orderError);
+        // Не прерываем выполнение, если не удалось создать заказ
       }
     }
 

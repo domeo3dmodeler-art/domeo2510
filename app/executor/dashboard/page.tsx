@@ -31,7 +31,7 @@ import {
   MoreVertical
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
-import { ApplicationsBoard } from '../../../components/executor/ApplicationsBoard';
+import { OrdersBoard } from '../../../components/executor/OrdersBoard';
 
 // Маппинг статусов Счетов из API в русские (определяем на уровне модуля до компонента)
 const mapInvoiceStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен' => {
@@ -928,13 +928,13 @@ export default function ExecutorDashboard() {
           <Card variant="base">
             <div className="p-4 border-b border-gray-100">
               <h3 className="text-lg font-semibold text-black flex items-center">
-                <FileText className="h-5 w-5 mr-2"/>Табло заявок
+                <FileText className="h-5 w-5 mr-2"/>Табло заказов
               </h3>
             </div>
 
             <div className="p-4">
               {user?.id ? (
-                <ApplicationsBoard executorId={user.id} />
+                <OrdersBoard executorId={user.id} />
               ) : (
                 <div className="text-gray-600">Загрузка...</div>
               )}

@@ -131,16 +131,21 @@ export async function GET(req: NextRequest) {
     // Строим фильтр
     const where: any = {};
 
+    // Базовые фильтры (AND)
     if (status) {
       where.status = status;
     }
 
-    if (executor_id) {
-      where.executor_id = executor_id;
-    }
-
     if (client_id) {
       where.client_id = client_id;
+    }
+
+    // Фильтр по executor_id: показываем заявки, где executor_id равен переданному ID ИЛИ null (неназначенные заявки)
+    if (executor_id) {
+      where.OR = [
+        { executor_id: executor_id },
+        { executor_id: null }
+      ];
     }
 
     // Получаем заявки
