@@ -13,9 +13,12 @@ if (-not (Test-Path ".env.local")) {
     Write-Host "# Сначала создайте туннель: ssh -L 5433:localhost:5432 ubuntu@130.193.40.35" -ForegroundColor Gray
     Write-Host "DATABASE_URL=`"postgresql://staging_user:staging_password@localhost:5433/domeo_staging?schema=public`"" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "Или создайте локальную БД через Docker:" -ForegroundColor Cyan
-    Write-Host "docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=domeo_local postgres:15" -ForegroundColor Gray
-    Write-Host "DATABASE_URL=`"postgresql://postgres:postgres@localhost:5432/domeo_local?schema=public`"" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "Рекомендуется: SSH туннель к staging БД" -ForegroundColor Cyan
+    Write-Host "1. Создайте SSH туннель в отдельном терминале:" -ForegroundColor Gray
+    Write-Host "   ssh -L 5432:localhost:5432 ubuntu@130.193.40.35" -ForegroundColor Yellow
+    Write-Host "2. Используйте этот DATABASE_URL:" -ForegroundColor Gray
+    Write-Host "   DATABASE_URL=`"postgresql://staging_user:staging_password@localhost:5432/domeo_staging?schema=public`"" -ForegroundColor Yellow
     Write-Host ""
     
     $create = Read-Host "Создать .env.local сейчас? (y/n)"
