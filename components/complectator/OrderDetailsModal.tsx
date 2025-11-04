@@ -68,7 +68,6 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
   const [order, setOrder] = useState<OrderData | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'items'>('items');
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isCommentsModalOpen, setIsCommentsModalOpen] = useState(false);
   const [exportingInvoice, setExportingInvoice] = useState(false);
@@ -264,7 +263,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                 </div>
               </div>
               
-              {/* Табы действий */}
+              {/* Действия */}
               <div className="flex items-center space-x-4 mt-2">
                 <button 
                   onClick={() => setIsCommentsModalOpen(true)}
@@ -284,6 +283,80 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                   </div>
                   <span className="text-xs">История</span>
                 </button>
+                {order.invoice && (
+                  <button
+                    onClick={async () => {
+                      if (!order.invoice) return;
+                      setExportingInvoice(true);
+                      try {
+                        const response = await fetch(`/api/documents/${order.invoice.id}/export?format=pdf`);
+                        if (response.ok) {
+                          const blob = await response.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `Счет-${order.invoice.number}.pdf`;
+                          document.body.appendChild(a);
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                          document.body.removeChild(a);
+                          toast.success('Счет успешно экспортирован');
+                        } else {
+                          toast.error('Ошибка при экспорте счета');
+                        }
+                      } catch (error) {
+                        console.error('Error exporting invoice:', error);
+                        toast.error('Ошибка при экспорте счета');
+                      } finally {
+                        setExportingInvoice(false);
+                      }
+                    }}
+                    disabled={exportingInvoice}
+                    className="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
+                  >
+                    <Download className="h-3 w-3" />
+                    <span className="text-xs">Экспорт счета</span>
+                  </button>
+                )}
+                {quotes.length > 0 && (
+                  <div className="flex items-center space-x-2">
+                    {quotes.map((quote) => (
+                      <button
+                        key={quote.id}
+                        onClick={async () => {
+                          setExportingQuote(quote.id);
+                          try {
+                            const response = await fetch(`/api/quotes/${quote.id}/export/pdf`);
+                            if (response.ok) {
+                              const blob = await response.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `КП-${quote.number}.pdf`;
+                              document.body.appendChild(a);
+                              a.click();
+                              window.URL.revokeObjectURL(url);
+                              document.body.removeChild(a);
+                              toast.success('КП успешно экспортирован');
+                            } else {
+                              toast.error('Ошибка при экспорте КП');
+                            }
+                          } catch (error) {
+                            console.error('Error exporting quote:', error);
+                            toast.error('Ошибка при экспорте КП');
+                          } finally {
+                            setExportingQuote(null);
+                          }
+                        }}
+                        disabled={exportingQuote === quote.id}
+                        className="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
+                      >
+                        <Download className="h-3 w-3" />
+                        <span className="text-xs">Экспорт КП {quote.number}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -323,8 +396,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
             </div>
 
             {/* Контент товаров */}
-            {
-              <div className="mb-6">
+            <div className="mb-6">
                 {items.length > 0 ? (
                   <>
                     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -411,115 +483,6 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                   </div>
                 )}
               </div>
-            )}
-
-            {activeTab === 'invoice' && (
-              <div className="mb-6">
-                {order.invoice ? (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center space-x-2 mb-3">
-                      <CreditCard className="h-4 w-4 text-gray-600" />
-                      <span className="font-semibold text-gray-900">Счет {order.invoice.number}</span>
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      <div>
-                        <span className="text-gray-600">Статус:</span>{' '}
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${
-                          STATUS_COLORS[order.invoice.status] || 'bg-gray-100 text-gray-800 border-gray-200'
-                        }`}>
-                          {getStatusLabel(order.invoice.status, 'invoice')}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Сумма:</span>{' '}
-                        <span className="font-medium">{order.invoice.total_amount.toLocaleString('ru-RU')} ₽</span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-3">
-                        <button
-                          onClick={() => {
-                            // Открыть DocumentQuickViewModal для счета
-                            if (order.invoice) {
-                              window.location.href = `/documents/${order.invoice.id}`;
-                            }
-                          }}
-                          className="text-xs text-blue-600 hover:underline"
-                        >
-                          Открыть детали счета
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (!order.invoice) return;
-                            try {
-                              const response = await fetch(`/api/documents/${order.invoice.id}/export?format=pdf`);
-                              if (response.ok) {
-                                const blob = await response.blob();
-                                const url = window.URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = `Счет-${order.invoice.number}.pdf`;
-                                document.body.appendChild(a);
-                                a.click();
-                                window.URL.revokeObjectURL(url);
-                                document.body.removeChild(a);
-                                toast.success('Счет успешно экспортирован');
-                              } else {
-                                toast.error('Ошибка при экспорте счета');
-                              }
-                            } catch (error) {
-                              console.error('Error exporting invoice:', error);
-                              toast.error('Ошибка при экспорте счета');
-                            }
-                          }}
-                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
-                        >
-                          <Download className="h-3 w-3" />
-                          Экспорт счета
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    Счет не создан
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'quotes' && (
-              <div className="mb-6">
-                {quotes.length > 0 ? (
-                  <div className="space-y-2">
-                    {quotes.map((quote) => (
-                      <div key={quote.id} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <FileText className="h-4 w-4 text-gray-600" />
-                          <span className="font-semibold text-gray-900">КП {quote.number}</span>
-                        </div>
-                        <div className="space-y-1 text-sm">
-                          <div>
-                            <span className="text-gray-600">Статус:</span>{' '}
-                            <span className="font-medium">{quote.status}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">Сумма:</span>{' '}
-                            <span className="font-medium">{quote.total_amount.toLocaleString('ru-RU')} ₽</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">Дата:</span>{' '}
-                            <span className="font-medium">{new Date(quote.created_at).toLocaleDateString('ru-RU')}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    КП не найдены
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         ) : (
           <div className="text-center py-8">
