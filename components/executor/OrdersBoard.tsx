@@ -252,55 +252,56 @@ export function OrdersBoard({ executorId }: OrdersBoardProps) {
                   </td>
                 </tr>
               ) : (
-                filteredOrders.map((order) => {
-                  const statusConfig = ORDER_STATUSES[order.status];
-                  if (!statusConfig || !statusConfig.icon) return null;
-                  const StatusIcon = statusConfig.icon;
-                  
-                  return (
-                    <tr
-                      key={order.id}
-                      className="hover:bg-gray-50 cursor-pointer transition-colors"
-                      onClick={() => handleOrderClick(order)}
-                    >
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {formatDate(order.created_at)}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {order.lead_number || '-'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {order.complectator_name || '-'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {order.client.fullName}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        <div className="max-w-xs truncate" title={order.client.address}>
-                          {order.client.address}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig.color}`}>
-                          <StatusIcon className="h-3 w-3 mr-1" />
-                          {statusConfig.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOrderClick(order);
-                          }}
-                          className="text-gray-600 hover:text-black transition-colors"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-                .filter(Boolean)}
+                filteredOrders
+                  .map((order) => {
+                    const statusConfig = ORDER_STATUSES[order.status];
+                    if (!statusConfig || !statusConfig.icon) return null;
+                    const StatusIcon = statusConfig.icon;
+                    
+                    return (
+                      <tr
+                        key={order.id}
+                        className="hover:bg-gray-50 cursor-pointer transition-colors"
+                        onClick={() => handleOrderClick(order)}
+                      >
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {formatDate(order.created_at)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {order.lead_number || '-'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {order.complectator_name || '-'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {order.client.fullName}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          <div className="max-w-xs truncate" title={order.client.address}>
+                            {order.client.address}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig.color}`}>
+                            <StatusIcon className="h-3 w-3 mr-1" />
+                            {statusConfig.label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOrderClick(order);
+                            }}
+                            className="text-gray-600 hover:text-black transition-colors"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                  .filter(Boolean)
               )}
             </tbody>
           </table>
