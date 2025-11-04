@@ -365,44 +365,173 @@ function OrderDetailModal({
     fetchSupplierOrders();
   }, [fetchSupplierOrders]);
   
-  // Экспорт счета в PDF
+  // Экспорт счета в PDF (использует механизм экспорта из корзины)
   const handleExportInvoicePDF = async () => {
-    if (!currentOrder.invoice?.id) {
-      toast.error('Счет не найден');
+    if (!currentOrder.invoice?.id || !currentOrder.invoice?.cart_data) {
+      toast.error('Счет не найден или нет данных корзины');
       return;
     }
     try {
-      const response = await fetch(`/api/documents/${currentOrder.invoice.id}/export?format=pdf`, {
-        method: 'POST'
+      setLoading(true);
+      
+      // Получаем данные корзины из invoice
+      let cartData;
+      try {
+        cartData = typeof currentOrder.invoice.cart_data === 'string' 
+          ? JSON.parse(currentOrder.invoice.cart_data) 
+          : currentOrder.invoice.cart_data;
+      } catch (parseError) {
+        console.error('Error parsing invoice cart_data:', parseError);
+        toast.error('Ошибка парсинга данных корзины');
+        setLoading(false);
+        return;
+      }
+
+      const items = (cartData.items || []).map((item: any) => ({
+        id: item.id || item.productId,
+        productId: item.productId || item.id,
+        name: item.name || item.model,
+        model: item.model || item.name,
+        qty: item.qty || item.quantity || 1,
+        quantity: item.qty || item.quantity || 1,
+        unitPrice: item.unitPrice || item.price || 0,
+        price: item.unitPrice || item.price || 0,
+        width: item.width,
+        height: item.height,
+        color: item.color,
+        finish: item.finish,
+        type: item.type,
+        sku_1c: item.sku_1c,
+        handleId: item.handleId,
+        handleName: item.handleName
+      }));
+
+      if (items.length === 0) {
+        toast.error('Корзина счета пуста');
+        setLoading(false);
+        return;
+      }
+
+      // Используем механизм экспорта из корзины
+      const response = await fetch('/api/export/fast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'invoice',
+          format: 'pdf',
+          clientId: currentOrder.client_id,
+          items,
+          totalAmount: currentOrder.invoice.total_amount,
+          parentDocumentId: currentOrder.id,
+          cartSessionId: currentOrder.cart_session_id
+        })
       });
+
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${currentOrder.invoice.number}.pdf`;
+        const contentDisposition = response.headers.get('content-disposition');
+        a.download = contentDisposition?.match(/filename="(.+)"/)?.[1] || `${currentOrder.invoice.number}.pdf`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
         toast.success('Счет экспортирован в PDF');
       } else {
-        toast.error('Ошибка экспорта счета');
+        const error = await response.json();
+        toast.error(error.error || 'Ошибка экспорта счета');
       }
     } catch (error) {
       console.error('Error exporting invoice:', error);
       toast.error('Ошибка экспорта счета');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Экспорт заказа у поставщика
+  // Экспорт заказа у поставщика (использует механизм экспорта из корзины)
   const handleExportSupplierOrder = async () => {
     if (supplierOrders.length === 0) {
       toast.error('Заказ у поставщика не найден');
       return;
     }
     const supplierOrder = supplierOrders[0];
+    
     try {
+      setLoading(true);
+      
+      // Получаем данные корзины из supplier order
+      let cartData;
+      try {
+        cartData = typeof supplierOrder.cart_data === 'string' 
+          ? JSON.parse(supplierOrder.cart_data) 
+          : supplierOrder.cart_data;
+      } catch (parseError) {
+        console.error('Error parsing supplier order cart_data:', parseError);
+        // Если нет cart_data, используем существующий API
+        const response = await fetch(`/api/supplier-orders/${supplierOrder.id}/excel`);
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${supplierOrder.number}.xlsx`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+          toast.success('Заказ у поставщика экспортирован');
+        } else {
+          toast.error('Ошибка экспорта заказа у поставщика');
+        }
+        setLoading(false);
+        return;
+      }
+
+      const items = (cartData.items || []).map((item: any) => ({
+        id: item.id || item.productId,
+        productId: item.productId || item.id,
+        name: item.name || item.model,
+        model: item.model || item.name,
+        qty: item.qty || item.quantity || 1,
+        quantity: item.qty || item.quantity || 1,
+        unitPrice: item.unitPrice || item.price || 0,
+        price: item.unitPrice || item.price || 0,
+        width: item.width,
+        height: item.height,
+        color: item.color,
+        finish: item.finish,
+        type: item.type,
+        sku_1c: item.sku_1c,
+        handleId: item.handleId,
+        handleName: item.handleName
+      }));
+
+      if (items.length === 0) {
+        // Fallback на существующий API
+        const response = await fetch(`/api/supplier-orders/${supplierOrder.id}/excel`);
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${supplierOrder.number}.xlsx`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+          toast.success('Заказ у поставщика экспортирован');
+        } else {
+          toast.error('Ошибка экспорта заказа у поставщика');
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Используем механизм экспорта из корзины для Excel
+      // Но supplier_order не поддерживается в /api/export/fast, используем прямой API
       const response = await fetch(`/api/supplier-orders/${supplierOrder.id}/excel`);
       if (response.ok) {
         const blob = await response.blob();
@@ -421,6 +550,8 @@ function OrderDetailModal({
     } catch (error) {
       console.error('Error exporting supplier order:', error);
       toast.error('Ошибка экспорта заказа у поставщика');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -654,9 +785,9 @@ function OrderDetailModal({
         <div className="p-6">
           {/* Заголовок */}
           <div className="flex justify-between items-center mb-6 border-b pb-4">
-            <div>
-              <h2 className="text-2xl font-bold text-black">{currentOrder.number}</h2>
-              <div className="flex items-center space-x-2 mt-2">
+            <div className="flex-1">
+              <div className="flex items-center space-x-4">
+                <h2 className="text-2xl font-bold text-black">{currentOrder.number}</h2>
                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${statusConfig.color}`}>
                   <StatusIcon className="h-4 w-4 mr-1" />
                   {statusConfig.label}
@@ -708,13 +839,23 @@ function OrderDetailModal({
                 </div>
               </Card>
 
+              {/* Лид */}
+              {currentOrder.lead_number && (
+                <Card variant="base" className="p-4">
+                  <div className="text-sm">
+                    <span className="text-gray-600">Лид:</span>{' '}
+                    <span className="font-medium">{currentOrder.lead_number}</span>
+                  </div>
+                </Card>
+              )}
+
               {/* Кнопки экспорта */}
               <div className="flex space-x-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleExportInvoicePDF}
-                  disabled={!currentOrder.invoice?.id}
+                  disabled={loading || !currentOrder.invoice?.id || !currentOrder.invoice?.cart_data}
                   className="flex-1"
                 >
                   <Download className="h-4 w-4 mr-2" />
@@ -724,7 +865,7 @@ function OrderDetailModal({
                   variant="outline"
                   size="sm"
                   onClick={handleExportSupplierOrder}
-                  disabled={supplierOrders.length === 0}
+                  disabled={loading || supplierOrders.length === 0}
                   className="flex-1"
                 >
                   <Download className="h-4 w-4 mr-2" />
