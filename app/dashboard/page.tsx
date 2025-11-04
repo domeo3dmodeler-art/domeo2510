@@ -92,31 +92,64 @@ function DashboardContent() {
   
   // Дополнительная защита: убеждаемся что widgets и quickActions всегда массивы
   const safeRoleContent = useMemo(() => {
-    if (!roleContent) return { title: '', description: '', widgets: [], quickActions: [] };
-    
-    // Для executor и complectator возвращаем пустые массивы - они не используются
+    // Ранний возврат для executor и complectator - их дашборды рендерятся отдельно
     if (user && (user.role === 'executor' || user.role === 'complectator')) {
       return {
-        ...roleContent,
+        title: user.role === 'complectator' ? 'Личный кабинет комплектатора' : 'Личный кабинет исполнителя',
+        description: user.role === 'complectator' ? 'Работа с клиентами и коммерческими предложениями' : 'Исполнение заказов и работа с фабрикой',
         widgets: [],
         quickActions: []
       };
     }
     
+    if (!roleContent) return { title: '', description: '', widgets: [], quickActions: [] };
+    
+    // Улучшенная фильтрация: гарантируем что все элементы имеют icon ДО маппинга
+    const safeWidgets = Array.isArray(roleContent.widgets) 
+      ? roleContent.widgets
+          // Первая фильтрация: только валидные объекты с обязательными полями
+          .filter(w => {
+            if (!w || typeof w !== 'object') return false;
+            if (!w.title || !w.link) return false;
+            // Проверяем icon явно
+            if (w.icon === undefined || w.icon === null) return false;
+            return true;
+          })
+          // Маппинг с гарантией наличия icon
+          .map(w => ({
+            title: w.title,
+            link: w.link,
+            count: w.count ?? 0,
+            icon: w.icon ?? '📊' // Fallback на всякий случай
+          }))
+          // Финальная фильтрация после маппинга
+          .filter(w => w && w.title && w.link && w.icon !== undefined && w.icon !== null)
+      : [];
+    
+    const safeQuickActions = Array.isArray(roleContent.quickActions)
+      ? roleContent.quickActions
+          // Первая фильтрация: только валидные объекты с обязательными полями
+          .filter(a => {
+            if (!a || typeof a !== 'object') return false;
+            if (!a.title || !a.link) return false;
+            // Проверяем icon явно
+            if (a.icon === undefined || a.icon === null) return false;
+            return true;
+          })
+          // Маппинг с гарантией наличия icon
+          .map(a => ({
+            title: a.title,
+            link: a.link,
+            icon: a.icon ?? '⚡' // Fallback на всякий случай
+          }))
+          // Финальная фильтрация после маппинга
+          .filter(a => a && a.title && a.link && a.icon !== undefined && a.icon !== null)
+      : [];
+    
     return {
       ...roleContent,
-      widgets: Array.isArray(roleContent.widgets) 
-        ? roleContent.widgets
-            .filter(w => w != null && typeof w === 'object' && w.title && w.link && (w.icon !== undefined && w.icon !== null))
-            .map(w => ({ ...w, icon: w?.icon ?? '📊' }))
-            .filter(w => w != null && w.icon !== undefined && w.icon !== null)
-        : [],
-      quickActions: Array.isArray(roleContent.quickActions)
-        ? roleContent.quickActions
-            .filter(a => a != null && typeof a === 'object' && a.title && a.link && (a.icon !== undefined && a.icon !== null))
-            .map(a => ({ ...a, icon: a?.icon ?? '⚡' }))
-            .filter(a => a != null && a.icon !== undefined && a.icon !== null)
-        : []
+      widgets: safeWidgets,
+      quickActions: safeQuickActions
     };
   }, [roleContent, user]);
 
@@ -343,9 +376,11 @@ function DashboardContent() {
           {/* Widgets Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {safeRoleContent.widgets
-              .filter(w => w != null && typeof w === 'object' && w.title && w.link && (w.icon !== undefined && w.icon !== null))
               .map((widget, index) => {
-                if (!widget || !widget.title || !widget.link || (widget.icon === undefined || widget.icon === null)) return null;
+                // Дополнительная защита перед рендерингом
+                if (!widget || !widget.title || !widget.link || widget.icon === undefined || widget.icon === null) {
+                  return null;
+                }
                 return (
               <Card key={index} variant="interactive" className="hover:border-black transition-all duration-200">
                 <div className="p-6">
@@ -368,9 +403,11 @@ function DashboardContent() {
               <h2 className="text-xl font-semibold text-black mb-4">Быстрые действия</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {safeRoleContent.quickActions
-                  .filter(a => a != null && typeof a === 'object' && a.title && a.link && (a.icon !== undefined && a.icon !== null))
                   .map((action, index) => {
-                    if (!action || !action.title || !action.link || (action.icon === undefined || action.icon === null)) return null;
+                    // Дополнительная защита перед рендерингом
+                    if (!action || !action.title || !action.link || action.icon === undefined || action.icon === null) {
+                      return null;
+                    }
                     return (
                   <Button
                     key={index}
@@ -521,9 +558,11 @@ function DashboardContent() {
         {/* Widgets Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {safeRoleContent.widgets
-            .filter(w => w != null && typeof w === 'object' && w.title && w.link && (w.icon !== undefined && w.icon !== null))
             .map((widget, index) => {
-              if (!widget || !widget.title || !widget.link || (widget.icon === undefined || widget.icon === null)) return null;
+              // Дополнительная защита перед рендерингом
+              if (!widget || !widget.title || !widget.link || widget.icon === undefined || widget.icon === null) {
+                return null;
+              }
               return (
             <div
               key={index}
@@ -549,9 +588,11 @@ function DashboardContent() {
           <h2 className="text-xl font-semibold text-black mb-4">Быстрые действия</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {safeRoleContent.quickActions
-              .filter(a => a != null && typeof a === 'object' && a.title && a.link && (a.icon !== undefined && a.icon !== null))
               .map((action, index) => {
-                if (!action || !action.title || !action.link || (action.icon === undefined || action.icon === null)) return null;
+                // Дополнительная защита перед рендерингом
+                if (!action || !action.title || !action.link || action.icon === undefined || action.icon === null) {
+                  return null;
+                }
                 return (
               <button
                 key={index}

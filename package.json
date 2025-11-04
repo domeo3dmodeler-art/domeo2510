@@ -30,6 +30,7 @@
     "prisma:seed": "tsx prisma/seed.ts",
     "export:categories-hierarchy": "tsx scripts/export-categories-hierarchy.ts",
     "export:yml-categories-hierarchy": "tsx scripts/export-yml-categories-hierarchy.ts",
+    "compare:yml-csv": "tsx scripts/compare-yml-csv.ts",
     "db:init": "npm run prisma:generate && npm run prisma:migrate:deploy && npm run prisma:seed",
     "db:reset": "prisma migrate reset --force",
     "backup": "echo 'Backup script not implemented yet'",
