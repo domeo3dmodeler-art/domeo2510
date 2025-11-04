@@ -339,8 +339,8 @@ function OrderDetailModal({
   const [showProjectUpload, setShowProjectUpload] = useState(false);
   const [showFilesUpload, setShowFilesUpload] = useState(false);
   const [projectFile, setProjectFile] = useState<File | null>(null);
-  const [wholesaleInvoices, setWholesaleInvoices] = useState<File[]>([]);
-  const [technicalSpecs, setTechnicalSpecs] = useState<File[]>([]);
+  const [showTechSpecsUpload, setShowTechSpecsUpload] = useState(false);
+  const [techSpecsFiles, setTechSpecsFiles] = useState<File[]>([]);
   const [newStatus, setNewStatus] = useState<string>(order.status);
   const [requireMeasurement, setRequireMeasurement] = useState(false);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
@@ -367,49 +367,69 @@ function OrderDetailModal({
   
   // Экспорт счета в PDF (использует механизм экспорта из корзины)
   const handleExportInvoicePDF = async () => {
-    if (!currentOrder.invoice?.id || !currentOrder.invoice?.cart_data) {
-      toast.error('Счет не найден или нет данных корзины');
+    if (!currentOrder.invoice?.id) {
+      toast.error('Счет не найден');
       return;
     }
     try {
       setLoading(true);
       
-      // Получаем данные корзины из invoice
+      // Получаем данные корзины из invoice или используем данные из order
       let cartData;
-      try {
-        cartData = typeof currentOrder.invoice.cart_data === 'string' 
-          ? JSON.parse(currentOrder.invoice.cart_data) 
-          : currentOrder.invoice.cart_data;
-      } catch (parseError) {
-        console.error('Error parsing invoice cart_data:', parseError);
-        toast.error('Ошибка парсинга данных корзины');
-        setLoading(false);
-        return;
+      let items: any[] = [];
+      
+      // Сначала пробуем получить из invoice.cart_data
+      if (currentOrder.invoice.cart_data) {
+        try {
+          cartData = typeof currentOrder.invoice.cart_data === 'string' 
+            ? JSON.parse(currentOrder.invoice.cart_data) 
+            : currentOrder.invoice.cart_data;
+          items = (cartData.items || []).map((item: any) => ({
+            id: item.id || item.productId,
+            productId: item.productId || item.id,
+            name: item.name || item.model,
+            model: item.model || item.name,
+            qty: item.qty || item.quantity || 1,
+            quantity: item.qty || item.quantity || 1,
+            unitPrice: item.unitPrice || item.price || 0,
+            price: item.unitPrice || item.price || 0,
+            width: item.width,
+            height: item.height,
+            color: item.color,
+            finish: item.finish,
+            type: item.type,
+            sku_1c: item.sku_1c,
+            handleId: item.handleId,
+            handleName: item.handleName
+          }));
+        } catch (parseError) {
+          console.error('Error parsing invoice cart_data:', parseError);
+        }
       }
-
-      const items = (cartData.items || []).map((item: any) => ({
-        id: item.id || item.productId,
-        productId: item.productId || item.id,
-        name: item.name || item.model,
-        model: item.model || item.name,
-        qty: item.qty || item.quantity || 1,
-        quantity: item.qty || item.quantity || 1,
-        unitPrice: item.unitPrice || item.price || 0,
-        price: item.unitPrice || item.price || 0,
-        width: item.width,
-        height: item.height,
-        color: item.color,
-        finish: item.finish,
-        type: item.type,
-        sku_1c: item.sku_1c,
-        handleId: item.handleId,
-        handleName: item.handleName
-      }));
-
+      
+      // Если нет cart_data в invoice, пробуем использовать прямой экспорт через API
       if (items.length === 0) {
-        toast.error('Корзина счета пуста');
-        setLoading(false);
-        return;
+        const response = await fetch(`/api/documents/${currentOrder.invoice.id}/export?format=pdf`, {
+          method: 'POST'
+        });
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${currentOrder.invoice.number}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+          toast.success('Счет экспортирован в PDF');
+          setLoading(false);
+          return;
+        } else {
+          toast.error('Ошибка экспорта счета');
+          setLoading(false);
+          return;
+        }
       }
 
       // Используем механизм экспорта из корзины
@@ -602,9 +622,46 @@ function OrderDetailModal({
     }
   };
 
-  // Загрузка оптовых счетов и техзаданий
-  const handleFilesUpload = async () => {
-    if (wholesaleInvoices.length === 0 && technicalSpecs.length === 0) {
+  // Загрузка только тех. заданий
+  const handleTechSpecsUpload = async () => {
+    if (techSpecsFiles.length === 0) {
+      toast.error('Выберите файлы для загрузки');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const formData = new FormData();
+      
+      techSpecsFiles.forEach(file => {
+        formData.append('technical_specs', file);
+      });
+
+      const response = await fetch(`/api/orders/${order.id}/files`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (response.ok) {
+        toast.success('Тех. задания загружены успешно');
+        await fetchOrder();
+        setShowTechSpecsUpload(false);
+        setTechSpecsFiles([]);
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Ошибка загрузки тех. заданий');
+      }
+    } catch (error) {
+      console.error('Error uploading tech specs:', error);
+      toast.error('Ошибка загрузки тех. заданий');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Загрузка только оптовых счетов
+  const handleWholesaleInvoicesUpload = async () => {
+    if (wholesaleInvoices.length === 0) {
       toast.error('Выберите файлы для загрузки');
       return;
     }
@@ -616,10 +673,6 @@ function OrderDetailModal({
       wholesaleInvoices.forEach(file => {
         formData.append('wholesale_invoices', file);
       });
-      
-      technicalSpecs.forEach(file => {
-        formData.append('technical_specs', file);
-      });
 
       const response = await fetch(`/api/orders/${order.id}/files`, {
         method: 'POST',
@@ -627,18 +680,17 @@ function OrderDetailModal({
       });
 
       if (response.ok) {
-        toast.success('Файлы загружены успешно');
+        toast.success('Оптовые счета загружены успешно');
         await fetchOrder();
         setShowFilesUpload(false);
         setWholesaleInvoices([]);
-        setTechnicalSpecs([]);
       } else {
         const error = await response.json();
-        toast.error(error.error || 'Ошибка загрузки файлов');
+        toast.error(error.error || 'Ошибка загрузки оптовых счетов');
       }
     } catch (error) {
-      console.error('Error uploading files:', error);
-      toast.error('Ошибка загрузки файлов');
+      console.error('Error uploading wholesale invoices:', error);
+      toast.error('Ошибка загрузки оптовых счетов');
     } finally {
       setLoading(false);
     }
@@ -855,7 +907,7 @@ function OrderDetailModal({
                   variant="outline"
                   size="sm"
                   onClick={handleExportInvoicePDF}
-                  disabled={loading || !currentOrder.invoice?.id || !currentOrder.invoice?.cart_data}
+                  disabled={loading || !currentOrder.invoice?.id}
                   className="flex-1"
                 >
                   <Download className="h-4 w-4 mr-2" />
@@ -982,22 +1034,32 @@ function OrderDetailModal({
               <Card variant="base" className="p-4">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-semibold text-black">Тех. задания</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (currentOrder.invoice?.cart_data) {
-                        loadDoorsFromInvoice();
-                      }
-                    }}
-                    disabled={!currentOrder.invoice?.cart_data}
-                  >
-                    Загрузить из счета
-                  </Button>
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowTechSpecsUpload(true)}
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Загрузить
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (currentOrder.invoice?.cart_data) {
+                          loadDoorsFromInvoice();
+                        }
+                      }}
+                      disabled={!currentOrder.invoice?.cart_data}
+                    >
+                      Загрузить из счета
+                    </Button>
+                  </div>
                 </div>
                 
                 {currentOrder.door_dimensions && currentOrder.door_dimensions.length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-3 mb-4">
                     {currentOrder.door_dimensions.map((door: any, index: number) => (
                       <div key={index} className="border rounded p-3">
                         <div className="font-medium mb-2">Дверь {index + 1}</div>
@@ -1027,51 +1089,14 @@ function OrderDetailModal({
                     ))}
                   </div>
                 ) : (
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-gray-500 mb-4">
                     Тех. задания не указаны. Загрузите из счета или введите вручную.
-                  </div>
-                )}
-              </Card>
-
-              {/* Оптовые счета */}
-              <Card variant="base" className="p-4">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-semibold text-black">Оптовые счета</h3>
-                  {currentOrder.status === 'AWAITING_INVOICE' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowFilesUpload(true)}
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      Загрузить файлы
-                    </Button>
-                  )}
-                </div>
-                
-                {currentOrder.wholesale_invoices.length > 0 && (
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium mb-2">Оптовые счета:</h4>
-                    <div className="space-y-1">
-                      {currentOrder.wholesale_invoices.map((url: string, index: number) => (
-                        <a
-                          key={index}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline text-sm flex items-center"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          Счет {index + 1}
-                        </a>
-                      ))}
-                    </div>
                   </div>
                 )}
 
                 {currentOrder.technical_specs.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium mb-2">Техзадания:</h4>
+                  <div className="border-t pt-3">
+                    <h4 className="text-sm font-medium mb-2">Загруженные файлы:</h4>
                     <div className="space-y-1">
                       {currentOrder.technical_specs.map((url: string, index: number) => (
                         <a
@@ -1086,6 +1111,42 @@ function OrderDetailModal({
                         </a>
                       ))}
                     </div>
+                  </div>
+                )}
+              </Card>
+
+              {/* Оптовые счета */}
+              <Card variant="base" className="p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-semibold text-black">Оптовые счета</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowFilesUpload(true)}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Загрузить
+                  </Button>
+                </div>
+                
+                {currentOrder.wholesale_invoices.length > 0 ? (
+                  <div className="space-y-1">
+                    {currentOrder.wholesale_invoices.map((url: string, index: number) => (
+                      <a
+                        key={index}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline text-sm flex items-center"
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        Счет {index + 1}
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500">
+                    Оптовые счета не загружены
                   </div>
                 )}
               </Card>
@@ -1116,11 +1177,43 @@ function OrderDetailModal({
           </div>
         )}
 
+        {/* Модальное окно загрузки тех. заданий */}
+        {showTechSpecsUpload && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-lg font-semibold mb-4">Загрузка тех. заданий</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Техзадания на проемы (PDF)</label>
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    multiple
+                    onChange={(e) => setTechSpecsFiles(Array.from(e.target.files || []))}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+              <div className="flex space-x-2 mt-4">
+                <Button onClick={handleTechSpecsUpload} disabled={loading || techSpecsFiles.length === 0} className="flex-1">
+                  {loading ? 'Загрузка...' : 'Загрузить'}
+                </Button>
+                <Button variant="outline" onClick={() => {
+                  setShowTechSpecsUpload(false);
+                  setTechSpecsFiles([]);
+                }} className="flex-1">
+                  Отмена
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Модальное окно загрузки файлов */}
         {showFilesUpload && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
             <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-lg font-semibold mb-4">Загрузка файлов</h3>
+              <h3 className="text-lg font-semibold mb-4">Загрузка оптовых счетов</h3>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">Оптовые счета (PDF, Excel)</label>
@@ -1132,22 +1225,15 @@ function OrderDetailModal({
                     className="w-full"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Техзадания на проемы (PDF)</label>
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    multiple
-                    onChange={(e) => setTechnicalSpecs(Array.from(e.target.files || []))}
-                    className="w-full"
-                  />
-                </div>
               </div>
               <div className="flex space-x-2 mt-4">
-                <Button onClick={handleFilesUpload} disabled={loading} className="flex-1">
+                <Button onClick={handleWholesaleInvoicesUpload} disabled={loading || wholesaleInvoices.length === 0} className="flex-1">
                   {loading ? 'Загрузка...' : 'Загрузить'}
                 </Button>
-                <Button variant="outline" onClick={() => setShowFilesUpload(false)} className="flex-1">
+                <Button variant="outline" onClick={() => {
+                  setShowFilesUpload(false);
+                  setWholesaleInvoices([]);
+                }} className="flex-1">
                   Отмена
                 </Button>
               </div>
