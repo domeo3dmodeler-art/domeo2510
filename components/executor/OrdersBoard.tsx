@@ -341,6 +341,7 @@ function OrderDetailModal({
   const [projectFile, setProjectFile] = useState<File | null>(null);
   const [showTechSpecsUpload, setShowTechSpecsUpload] = useState(false);
   const [techSpecsFiles, setTechSpecsFiles] = useState<File[]>([]);
+  const [wholesaleInvoices, setWholesaleInvoices] = useState<File[]>([]);
   const [newStatus, setNewStatus] = useState<string>(order.status);
   const [requireMeasurement, setRequireMeasurement] = useState(false);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
