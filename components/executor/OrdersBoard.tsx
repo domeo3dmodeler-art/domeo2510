@@ -846,6 +846,200 @@ function OrderDetailModal({
                 </div>
               </Card>
 
+              {/* Кнопки экспорта */}
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportInvoicePDF}
+                  disabled={loading || !currentOrder.invoice?.id}
+                  className="flex-1"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Оплаченный счет
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportSupplierOrder}
+                  disabled={loading}
+                  className="flex-1"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Заказ из БД
+                </Button>
+              </div>
+
+              {/* Блок Действия */}
+              <Card variant="base" className="p-4">
+                <h3 className="font-semibold text-black mb-3">Действия</h3>
+                <div className="space-y-2">
+                  {currentOrder.status === 'UNDER_REVIEW' && 
+                   currentOrder.project_file_url && 
+                   currentOrder.invoice && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleVerify}
+                      disabled={loading}
+                      className="w-full"
+                    >
+                      Проверить данные дверей
+                    </Button>
+                  )}
+                  {availableStatuses.length > 0 && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => {
+                        setNewStatus(availableStatuses[0]);
+                        setShowStatusChangeModal(true);
+                      }}
+                      className="w-full"
+                    >
+                      Изменить статус
+                    </Button>
+                  )}
+                </div>
+                
+                {/* Статус проверки */}
+                {currentOrder.verification_status && (
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="text-sm">
+                      <span className="text-gray-600">Статус проверки:</span>{' '}
+                      <span className={`font-medium ${
+                        currentOrder.verification_status === 'VERIFIED' 
+                          ? 'text-green-600' 
+                          : currentOrder.verification_status === 'FAILED' 
+                          ? 'text-red-600' 
+                          : 'text-gray-600'
+                      }`}>
+                        {currentOrder.verification_status === 'VERIFIED' 
+                          ? 'Проверено' 
+                          : currentOrder.verification_status === 'FAILED' 
+                          ? 'Ошибка проверки' 
+                          : 'Ожидает проверки'
+                        }
+                      </span>
+                    </div>
+                    {currentOrder.verification_notes && (
+                      <div className="text-sm text-gray-600 mt-1">
+                        {currentOrder.verification_notes}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Card>
+            </div>
+
+            {/* Правая колонка */}
+            <div className="space-y-6">
+              {/* Проект/планировка */}
+              <Card variant="base" className="p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-semibold text-black">Проект/планировка</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowProjectUpload(true)}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Загрузить
+                  </Button>
+                </div>
+                {currentOrder.project_file_url && (
+                  <div className="space-y-1">
+                    <a
+                      href={currentOrder.project_file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline text-sm flex items-center"
+                    >
+                      <Download className="h-3 w-3 mr-1" />
+                      Проект
+                    </a>
+                  </div>
+                )}
+              </Card>
+
+              {/* Тех. задания */}
+              <Card variant="base" className="p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-semibold text-black">Тех. задания</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowTechSpecsUpload(true)}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Загрузить
+                  </Button>
+                </div>
+                
+                {currentOrder.door_dimensions && currentOrder.door_dimensions.length > 0 ? (
+                  <div className="space-y-3 mb-4">
+                    {currentOrder.door_dimensions.map((door: any, index: number) => (
+                      <div key={index} className="border rounded p-3">
+                        <div className="font-medium mb-2">Дверь {index + 1}</div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="text-gray-600">Размер:</span>{' '}
+                            <span className="font-medium">{door.width} x {door.height} мм</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Количество:</span>{' '}
+                            <span className="font-medium">{door.quantity} шт.</span>
+                          </div>
+                          {door.opening_side && (
+                            <div>
+                              <span className="text-gray-600">Открывание:</span>{' '}
+                              <span className="font-medium">{door.opening_side === 'LEFT' ? 'Левое' : door.opening_side === 'RIGHT' ? 'Правое' : door.opening_side}</span>
+                            </div>
+                          )}
+                          {door.latches_count !== undefined && (
+                            <div>
+                              <span className="text-gray-600">Завертки:</span>{' '}
+                              <span className="font-medium">{door.latches_count} шт.</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                {currentOrder.technical_specs.length > 0 && (
+                  <div className="space-y-1">
+                    {currentOrder.technical_specs.map((url: string, index: number) => (
+                      <a
+                        key={index}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline text-sm flex items-center"
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        Техзадание {index + 1}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </Card>
+
+              {/* Оптовые счета */}
+              <Card variant="base" className="p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-semibold text-black">Оптовые счета</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowFilesUpload(true)}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Загрузить
+                  </Button>
+                </div>
+                
                 {currentOrder.wholesale_invoices.length > 0 && (
                   <div className="space-y-1">
                     {currentOrder.wholesale_invoices.map((url: string, index: number) => (
@@ -862,6 +1056,67 @@ function OrderDetailModal({
                     ))}
                   </div>
                 )}
+              </Card>
+            </div>
+          </div>
+
+          {/* Блок Товары */}
+          <Card variant="base" className="p-4 mt-6">
+            <h3 className="font-semibold text-black mb-3">Товары</h3>
+            {currentOrder.invoice?.cart_data ? (
+              <div className="space-y-2">
+                {(() => {
+                  try {
+                    const cartData = typeof currentOrder.invoice.cart_data === 'string' 
+                      ? JSON.parse(currentOrder.invoice.cart_data) 
+                      : currentOrder.invoice.cart_data;
+                    const items = cartData.items || [];
+                    const total = items.reduce((sum: number, item: any) => {
+                      const qty = item.qty || item.quantity || 1;
+                      const price = item.unitPrice || item.price || 0;
+                      return sum + (qty * price);
+                    }, 0);
+
+                    return (
+                      <>
+                        <div className="space-y-2">
+                          {items.map((item: any, index: number) => {
+                            const qty = item.qty || item.quantity || 1;
+                            const price = item.unitPrice || item.price || 0;
+                            const itemTotal = qty * price;
+                            return (
+                              <div key={index} className="flex justify-between items-start py-2 border-b last:border-0">
+                                <div className="flex-1">
+                                  <div className="font-medium">{item.name || item.model || `Товар ${index + 1}`}</div>
+                                  {item.model && item.model !== item.name && (
+                                    <div className="text-sm text-gray-600">{item.model}</div>
+                                  )}
+                                  <div className="text-sm text-gray-500">
+                                    {qty} шт. × {price.toLocaleString('ru-RU')} ₽
+                                  </div>
+                                </div>
+                                <div className="font-medium text-right">
+                                  {itemTotal.toLocaleString('ru-RU')} ₽
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="mt-4 pt-4 border-t flex justify-between items-center">
+                          <span className="font-semibold text-lg">Итого:</span>
+                          <span className="font-semibold text-lg">{total.toLocaleString('ru-RU')} ₽</span>
+                        </div>
+                      </>
+                    );
+                  } catch (error) {
+                    return <div className="text-sm text-gray-500">Ошибка загрузки товаров</div>;
+                  }
+                })()}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500">Товары не указаны</div>
+            )}
+          </Card>
               </Card>
             </div>
           </div>
