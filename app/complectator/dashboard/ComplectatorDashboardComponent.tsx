@@ -77,7 +77,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     lastDoc?: { type: 'quote'|'invoice'; status: string; id: string; date: string; total?: number };
   }>>([]);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
-  const [orders, setOrders] = useState<Array<{ id: string; number: string; date: string; status: typeof COMPLECTATOR_FILTER_STATUSES[number]; total: number; invoice_id?: string }>>([]);
+  const [orders, setOrders] = useState<Array<{ id: string; number: string; date: string; status: typeof COMPLECTATOR_FILTER_STATUSES[number]; total: number; invoice_id?: string; originalStatus?: string }>>([]);
   const [ordersFilter, setOrdersFilter] = useState<typeof COMPLECTATOR_FILTER_STATUSES[number]>('all');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
@@ -287,9 +287,24 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
             id: order.id,
             number: order.number,
             date: new Date(order.created_at).toLocaleDateString('ru-RU'),
-            status: orderStatus as typeof COMPLECTATOR_FILTER_STATUSES[number],
+            // Маппим статус на фильтруемый статус (только управляемые статусы комплектатора)
+            // Статусы исполнителя (ORDERED, RECEIVED_FROM_SUPPLIER, COMPLETED) маппируем в "Оплачен/Заказ"
+            status: (() => {
+              // Если статус из фильтров комплектатора, возвращаем его
+              if (['Черновик', 'Отправлен', 'Оплачен/Заказ', 'Отменен'].includes(orderStatus)) {
+                return orderStatus as typeof COMPLECTATOR_FILTER_STATUSES[number];
+              }
+              // Статусы исполнителя маппируем в "Оплачен/Заказ"
+              if (['Заказ размещен', 'Получен от поставщика', 'Исполнен'].includes(orderStatus)) {
+                return 'Оплачен/Заказ' as typeof COMPLECTATOR_FILTER_STATUSES[number];
+              }
+              // По умолчанию "Черновик"
+              return 'Черновик' as typeof COMPLECTATOR_FILTER_STATUSES[number];
+            })(),
             total: order.invoice?.total_amount || 0,
-            invoice_id: order.invoice_id
+            invoice_id: order.invoice_id,
+            // Сохраняем оригинальный статус для отображения
+            originalStatus: orderStatus
           };
         });
         setOrders(formattedOrders);
@@ -1063,8 +1078,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                               <div className="flex items-center space-x-3">
                                 <div className="font-medium text-black">{o.number}</div>
                                 <div className="text-sm text-gray-600">от {o.date}</div>
-                                <span className={`px-2 py-0.5 text-xs border rounded ${badgeByInvoiceStatus(o.status)}`}>
-                                  {o.status}
+                                <span className={`px-2 py-0.5 text-xs border rounded ${badgeByInvoiceStatus(o.originalStatus || o.status)}`}>
+                                  {o.originalStatus || o.status}
                                 </span>
                                 {o.total > 0 && (
                                   <div className="text-sm text-gray-600">
