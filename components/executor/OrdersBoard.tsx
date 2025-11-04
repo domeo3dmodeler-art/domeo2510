@@ -1118,62 +1118,6 @@ function OrderDetailModal({
             )}
           </Card>
         </div>
-          <Card variant="base" className="p-4 mt-6">
-            <h3 className="font-semibold text-black mb-3">Товары</h3>
-            {currentOrder.invoice?.cart_data ? (
-              <div className="space-y-2">
-                {(() => {
-                  try {
-                    const cartData = typeof currentOrder.invoice.cart_data === 'string' 
-                      ? JSON.parse(currentOrder.invoice.cart_data) 
-                      : currentOrder.invoice.cart_data;
-                    const items = cartData.items || [];
-                    const total = items.reduce((sum: number, item: any) => {
-                      const qty = item.qty || item.quantity || 1;
-                      const price = item.unitPrice || item.price || 0;
-                      return sum + (qty * price);
-                    }, 0);
-
-                    return (
-                      <>
-                        <div className="space-y-2">
-                          {items.map((item: any, index: number) => {
-                            const qty = item.qty || item.quantity || 1;
-                            const price = item.unitPrice || item.price || 0;
-                            const itemTotal = qty * price;
-                            return (
-                              <div key={index} className="flex justify-between items-start py-2 border-b last:border-0">
-                                <div className="flex-1">
-                                  <div className="font-medium">{item.name || item.model || `Товар ${index + 1}`}</div>
-                                  {item.model && item.model !== item.name && (
-                                    <div className="text-sm text-gray-600">{item.model}</div>
-                                  )}
-                                  <div className="text-sm text-gray-500">
-                                    {qty} шт. × {price.toLocaleString('ru-RU')} ₽
-                                  </div>
-                                </div>
-                                <div className="font-medium text-right">
-                                  {itemTotal.toLocaleString('ru-RU')} ₽
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <div className="mt-4 pt-4 border-t flex justify-between items-center">
-                          <span className="font-semibold text-lg">Итого:</span>
-                          <span className="font-semibold text-lg">{total.toLocaleString('ru-RU')} ₽</span>
-                        </div>
-                      </>
-                    );
-                  } catch (error) {
-                    return <div className="text-sm text-gray-500">Ошибка загрузки товаров</div>;
-                  }
-                })()}
-              </div>
-            ) : (
-              <div className="text-sm text-gray-500">Товары не указаны</div>
-            )}
-          </Card>
 
               {/* Блок Действия */}
               <Card variant="base" className="p-4">
