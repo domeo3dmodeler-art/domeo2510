@@ -1117,11 +1117,7 @@ function OrderDetailModal({
               <div className="text-sm text-gray-500">Товары не указаны</div>
             )}
           </Card>
-              </Card>
-            </div>
-          </div>
-
-          {/* Блок Товары */}
+        </div>
           <Card variant="base" className="p-4 mt-6">
             <h3 className="font-semibold text-black mb-3">Товары</h3>
             {currentOrder.invoice?.cart_data ? (
