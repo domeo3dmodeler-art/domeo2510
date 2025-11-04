@@ -846,21 +846,13 @@ function OrderDetailModal({
                 </div>
               </Card>
 
-              {/* Лид */}
-              {currentOrder.lead_number && (
-                <Card variant="base" className="p-4">
-                  <div className="text-sm">
-                    <span className="text-gray-600">Лид:</span>{' '}
-                    <span className="font-medium">{currentOrder.lead_number}</span>
-                  </div>
-                </Card>
-              )}
+              {/* Кнопки экспорта */}
               <div className="flex space-x-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleExportInvoicePDF}
-                  disabled={loading}
+                  disabled={loading || !currentOrder.invoice?.id}
                   className="flex-1"
                 >
                   <Download className="h-4 w-4 mr-2" />
@@ -946,40 +938,27 @@ function OrderDetailModal({
               <Card variant="base" className="p-4">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-semibold text-black">Проект/планировка</h3>
-                  {!currentOrder.project_file_url && (
-                    <span className="text-red-600 text-xs">* Обязательно</span>
-                  )}
-                </div>
-                {currentOrder.project_file_url ? (
-                  <div className="space-y-2">
-                    <a
-                      href={currentOrder.project_file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline flex items-center"
-                    >
-                      <FileText className="h-4 w-4 mr-1" />
-                      Открыть проект
-                    </a>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowProjectUpload(true)}
-                      className="w-full"
-                    >
-                      Заменить файл
-                    </Button>
-                  </div>
-                ) : (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setShowProjectUpload(true)}
-                    className="w-full"
                   >
                     <Upload className="h-4 w-4 mr-2" />
-                    Загрузить проект
+                    Загрузить
                   </Button>
+                </div>
+                {currentOrder.project_file_url && (
+                  <div className="space-y-1">
+                    <a
+                      href={currentOrder.project_file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline text-sm flex items-center"
+                    >
+                      <Download className="h-3 w-3 mr-1" />
+                      Проект
+                    </a>
+                  </div>
                 )}
               </Card>
 
@@ -987,28 +966,14 @@ function OrderDetailModal({
               <Card variant="base" className="p-4">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-semibold text-black">Тех. задания</h3>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowTechSpecsUpload(true)}
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      Загрузить
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        if (currentOrder.invoice?.cart_data) {
-                          loadDoorsFromInvoice();
-                        }
-                      }}
-                      disabled={!currentOrder.invoice?.cart_data}
-                    >
-                      Загрузить из счета
-                    </Button>
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowTechSpecsUpload(true)}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Загрузить
+                  </Button>
                 </div>
                 
                 {currentOrder.door_dimensions && currentOrder.door_dimensions.length > 0 ? (
@@ -1041,29 +1006,22 @@ function OrderDetailModal({
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <div className="text-sm text-gray-500 mb-4">
-                    Тех. задания не указаны. Загрузите из счета или введите вручную.
-                  </div>
-                )}
+                ) : null}
 
                 {currentOrder.technical_specs.length > 0 && (
-                  <div className="border-t pt-3">
-                    <h4 className="text-sm font-medium mb-2">Загруженные файлы:</h4>
-                    <div className="space-y-1">
-                      {currentOrder.technical_specs.map((url: string, index: number) => (
-                        <a
-                          key={index}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline text-sm flex items-center"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          Техзадание {index + 1}
-                        </a>
-                      ))}
-                    </div>
+                  <div className="space-y-1">
+                    {currentOrder.technical_specs.map((url: string, index: number) => (
+                      <a
+                        key={index}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline text-sm flex items-center"
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        Техзадание {index + 1}
+                      </a>
+                    ))}
                   </div>
                 )}
               </Card>
