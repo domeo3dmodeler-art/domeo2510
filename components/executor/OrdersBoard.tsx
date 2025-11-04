@@ -16,15 +16,17 @@ import {
   XCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { ORDER_STATUSES_EXECUTOR } from '@/lib/utils/document-statuses';
+import { getOrderDisplayStatus } from '@/lib/utils/order-status-display';
 
-// Статусы заказов для исполнителя
+// Статусы заказов для исполнителя - используем единый источник истины
 const ORDER_STATUSES = {
-  NEW_PLANNED: { label: 'Новый заказ', color: 'bg-gray-100 text-gray-800', icon: FileText },
-  UNDER_REVIEW: { label: 'На проверке', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
-  AWAITING_MEASUREMENT: { label: 'Ждет замер', color: 'bg-orange-100 text-orange-800', icon: AlertCircle },
-  AWAITING_INVOICE: { label: 'Ожидает счет', color: 'bg-blue-100 text-blue-800', icon: Upload },
-  COMPLETED: { label: 'Выполнена', color: 'bg-green-100 text-green-800', icon: CheckCircle }
-};
+  NEW_PLANNED: { label: ORDER_STATUSES_EXECUTOR.NEW_PLANNED.label, color: 'bg-gray-100 text-gray-800', icon: FileText },
+  UNDER_REVIEW: { label: ORDER_STATUSES_EXECUTOR.UNDER_REVIEW.label, color: 'bg-yellow-100 text-yellow-800', icon: Clock },
+  AWAITING_MEASUREMENT: { label: ORDER_STATUSES_EXECUTOR.AWAITING_MEASUREMENT.label, color: 'bg-orange-100 text-orange-800', icon: AlertCircle },
+  AWAITING_INVOICE: { label: ORDER_STATUSES_EXECUTOR.AWAITING_INVOICE.label, color: 'bg-blue-100 text-blue-800', icon: Upload },
+  COMPLETED: { label: ORDER_STATUSES_EXECUTOR.COMPLETED.label, color: 'bg-green-100 text-green-800', icon: CheckCircle }
+} as const;
 
 interface Order {
   id: string;
@@ -45,6 +47,9 @@ interface Order {
   verification_status: string | null;
   verification_notes: string | null;
   notes: string | null;
+  cart_data?: any;
+  cart_session_id?: string | null;
+  total_amount?: number | null;
   created_at: string;
   updated_at: string;
   client: {
@@ -61,6 +66,7 @@ interface Order {
     number: string;
     status: string;
     total_amount: number;
+    cart_data?: any;
   } | null;
 }
 
@@ -372,6 +378,13 @@ function OrderDetailModal({
       toast.error('Счет не найден');
       return;
     }
+    
+    // Проверяем статус счета - экспорт доступен только для оплаченных счетов
+    if (currentOrder.invoice.status !== 'PAID') {
+      toast.error('Экспорт доступен только для оплаченных счетов');
+      return;
+    }
+    
     try {
       setLoading(true);
       
@@ -379,13 +392,16 @@ function OrderDetailModal({
       let cartData;
       let items: any[] = [];
       
-      // Сначала пробуем получить из invoice.cart_data
-      if (currentOrder.invoice.cart_data) {
+      // Сначала пробуем получить из invoice.cart_data, если нет - из order.cart_data
+      const sourceCartData = currentOrder.invoice?.cart_data || currentOrder.cart_data;
+      
+      if (sourceCartData) {
         try {
-          cartData = typeof currentOrder.invoice.cart_data === 'string' 
-            ? JSON.parse(currentOrder.invoice.cart_data) 
-            : currentOrder.invoice.cart_data;
-          items = (cartData.items || []).map((item: any) => ({
+          cartData = typeof sourceCartData === 'string' 
+            ? JSON.parse(sourceCartData) 
+            : sourceCartData;
+          const rawItems = cartData.items || (Array.isArray(cartData) ? cartData : []);
+          items = rawItems.map((item: any) => ({
             id: item.id || item.productId,
             productId: item.productId || item.id,
             name: item.name || item.model,
@@ -408,8 +424,8 @@ function OrderDetailModal({
         }
       }
       
-      // Если нет cart_data в invoice, пробуем использовать прямой экспорт через API
-      if (items.length === 0) {
+      // Если нет cart_data ни в invoice, ни в order, пробуем использовать прямой экспорт через API
+      if (items.length === 0 && currentOrder.invoice?.id) {
         const response = await fetch(`/api/documents/${currentOrder.invoice.id}/export?format=pdf`, {
           method: 'POST'
         });
@@ -683,16 +699,21 @@ function OrderDetailModal({
     }
   };
 
-  // Загрузка данных дверей из счета
+  // Загрузка данных дверей из счета или заказа
   const loadDoorsFromInvoice = async () => {
     try {
-      if (!currentOrder.invoice?.cart_data) {
-        toast.error('Нет данных корзины в счете');
+      // Используем cart_data из invoice или order
+      const sourceCartData = currentOrder.invoice?.cart_data || currentOrder.cart_data;
+      
+      if (!sourceCartData) {
+        toast.error('Нет данных корзины');
         return;
       }
 
-      const cartData = JSON.parse(currentOrder.invoice.cart_data);
-      const items = cartData.items || [];
+      const cartData = typeof sourceCartData === 'string' 
+        ? JSON.parse(sourceCartData) 
+        : sourceCartData;
+      const items = cartData.items || (Array.isArray(cartData) ? cartData : []);
 
       const doorDimensions = items.map((item: any) => ({
         width: item.width || 0,
@@ -1063,255 +1084,72 @@ function OrderDetailModal({
           {/* Блок Товары */}
           <Card variant="base" className="p-4 mt-6">
             <h3 className="font-semibold text-black mb-3">Товары</h3>
-            {currentOrder.invoice?.cart_data ? (
-              <div className="space-y-2">
-                {(() => {
-                  try {
-                    const cartData = typeof currentOrder.invoice.cart_data === 'string' 
-                      ? JSON.parse(currentOrder.invoice.cart_data) 
-                      : currentOrder.invoice.cart_data;
-                    const items = cartData.items || [];
-                    const total = items.reduce((sum: number, item: any) => {
-                      const qty = item.qty || item.quantity || 1;
-                      const price = item.unitPrice || item.price || 0;
-                      return sum + (qty * price);
-                    }, 0);
+            {(() => {
+              // Используем cart_data из invoice, если есть, иначе из order
+              const sourceCartData = currentOrder.invoice?.cart_data || currentOrder.cart_data;
+              
+              if (!sourceCartData) {
+                return <div className="text-sm text-gray-500">Товары не указаны</div>;
+              }
+              
+              try {
+                const cartData = typeof sourceCartData === 'string' 
+                  ? JSON.parse(sourceCartData) 
+                  : sourceCartData;
+                const items = cartData.items || (Array.isArray(cartData) ? cartData : []);
+                
+                if (items.length === 0) {
+                  return <div className="text-sm text-gray-500">Товары не указаны</div>;
+                }
+                
+                const total = items.reduce((sum: number, item: any) => {
+                  const qty = item.qty || item.quantity || 1;
+                  const price = item.unitPrice || item.price || 0;
+                  return sum + (qty * price);
+                }, 0);
 
-                    return (
-                      <>
-                        <div className="space-y-2">
-                          {items.map((item: any, index: number) => {
-                            const qty = item.qty || item.quantity || 1;
-                            const price = item.unitPrice || item.price || 0;
-                            const itemTotal = qty * price;
-                            return (
-                              <div key={index} className="flex justify-between items-start py-2 border-b last:border-0">
-                                <div className="flex-1">
-                                  <div className="font-medium">{item.name || item.model || `Товар ${index + 1}`}</div>
-                                  {item.model && item.model !== item.name && (
-                                    <div className="text-sm text-gray-600">{item.model}</div>
-                                  )}
-                                  <div className="text-sm text-gray-500">
-                                    {qty} шт. × {price.toLocaleString('ru-RU')} ₽
-                                  </div>
+                return (
+                  <>
+                    <div className="space-y-2">
+                      {items.map((item: any, index: number) => {
+                        const qty = item.qty || item.quantity || 1;
+                        const price = item.unitPrice || item.price || 0;
+                        const itemTotal = qty * price;
+                        return (
+                          <div key={index} className="flex justify-between items-start py-2 border-b last:border-0">
+                            <div className="flex-1">
+                              <div className="font-medium">{item.name || item.model || `Товар ${index + 1}`}</div>
+                              {item.model && item.model !== item.name && (
+                                <div className="text-sm text-gray-600">{item.model}</div>
+                              )}
+                              {item.width && item.height && (
+                                <div className="text-sm text-gray-500">
+                                  Размер: {item.width} × {item.height} мм
                                 </div>
-                                <div className="font-medium text-right">
-                                  {itemTotal.toLocaleString('ru-RU')} ₽
-                                </div>
+                              )}
+                              <div className="text-sm text-gray-500">
+                                {qty} шт. × {price.toLocaleString('ru-RU')} ₽
                               </div>
-                            );
-                          })}
-                        </div>
-                        <div className="mt-4 pt-4 border-t flex justify-between items-center">
-                          <span className="font-semibold text-lg">Итого:</span>
-                          <span className="font-semibold text-lg">{total.toLocaleString('ru-RU')} ₽</span>
-                        </div>
-                      </>
-                    );
-                  } catch (error) {
-                    return <div className="text-sm text-gray-500">Ошибка загрузки товаров</div>;
-                  }
-                })()}
-              </div>
-            ) : (
-              <div className="text-sm text-gray-500">Товары не указаны</div>
-            )}
-          </Card>
-        </div>
-
-              {/* Блок Действия */}
-              <Card variant="base" className="p-4">
-                <h3 className="font-semibold text-black mb-3">Действия</h3>
-                <div className="space-y-2">
-                  {currentOrder.status === 'UNDER_REVIEW' && 
-                   currentOrder.project_file_url && 
-                   currentOrder.invoice && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleVerify}
-                      disabled={loading}
-                      className="w-full"
-                    >
-                      Проверить данные дверей
-                    </Button>
-                  )}
-                  {availableStatuses.length > 0 && (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => {
-                        setNewStatus(availableStatuses[0]);
-                        setShowStatusChangeModal(true);
-                      }}
-                      className="w-full"
-                    >
-                      Изменить статус
-                    </Button>
-                  )}
-                </div>
-                
-                {/* Статус проверки */}
-                {currentOrder.verification_status && (
-                  <div className="mt-4 pt-4 border-t">
-                    <div className="text-sm">
-                      <span className="text-gray-600">Статус проверки:</span>{' '}
-                      <span className={`font-medium ${
-                        currentOrder.verification_status === 'VERIFIED' 
-                          ? 'text-green-600' 
-                          : currentOrder.verification_status === 'FAILED' 
-                          ? 'text-red-600' 
-                          : 'text-gray-600'
-                      }`}>
-                        {currentOrder.verification_status === 'VERIFIED' 
-                          ? 'Проверено' 
-                          : currentOrder.verification_status === 'FAILED' 
-                          ? 'Ошибка проверки' 
-                          : 'Ожидает проверки'
-                        }
-                      </span>
+                            </div>
+                            <div className="font-medium text-right">
+                              {itemTotal.toLocaleString('ru-RU')} ₽
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    {currentOrder.verification_notes && (
-                      <div className="text-sm text-gray-600 mt-1">
-                        {currentOrder.verification_notes}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </Card>
-            </div>
-
-            {/* Правая колонка */}
-            <div className="space-y-6">
-              {/* Проект/планировка */}
-              <Card variant="base" className="p-4">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-semibold text-black">Проект/планировка</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowProjectUpload(true)}
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Загрузить
-                  </Button>
-                </div>
-                {currentOrder.project_file_url && (
-                  <div className="space-y-1">
-                    <a
-                      href={currentOrder.project_file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline text-sm flex items-center"
-                    >
-                      <Download className="h-3 w-3 mr-1" />
-                      Проект
-                    </a>
-                  </div>
-                )}
-              </Card>
-
-              {/* Тех. задания */}
-              <Card variant="base" className="p-4">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-semibold text-black">Тех. задания</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowTechSpecsUpload(true)}
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Загрузить
-                  </Button>
-                </div>
-                
-                {currentOrder.door_dimensions && currentOrder.door_dimensions.length > 0 ? (
-                  <div className="space-y-3 mb-4">
-                    {currentOrder.door_dimensions.map((door: any, index: number) => (
-                      <div key={index} className="border rounded p-3">
-                        <div className="font-medium mb-2">Дверь {index + 1}</div>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <span className="text-gray-600">Размер:</span>{' '}
-                            <span className="font-medium">{door.width} x {door.height} мм</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">Количество:</span>{' '}
-                            <span className="font-medium">{door.quantity} шт.</span>
-                          </div>
-                          {door.opening_side && (
-                            <div>
-                              <span className="text-gray-600">Открывание:</span>{' '}
-                              <span className="font-medium">{door.opening_side === 'LEFT' ? 'Левое' : door.opening_side === 'RIGHT' ? 'Правое' : door.opening_side}</span>
-                            </div>
-                          )}
-                          {door.latches_count !== undefined && (
-                            <div>
-                              <span className="text-gray-600">Завертки:</span>{' '}
-                              <span className="font-medium">{door.latches_count} шт.</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-
-                {currentOrder.technical_specs.length > 0 && (
-                  <div className="space-y-1">
-                    {currentOrder.technical_specs.map((url: string, index: number) => (
-                      <a
-                        key={index}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline text-sm flex items-center"
-                      >
-                        <Download className="h-3 w-3 mr-1" />
-                        Техзадание {index + 1}
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </Card>
-
-              {/* Оптовые счета */}
-              <Card variant="base" className="p-4">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-semibold text-black">Оптовые счета</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowFilesUpload(true)}
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Загрузить
-                  </Button>
-                </div>
-                
-                {currentOrder.wholesale_invoices.length > 0 ? (
-                  <div className="space-y-1">
-                    {currentOrder.wholesale_invoices.map((url: string, index: number) => (
-                      <a
-                        key={index}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline text-sm flex items-center"
-                      >
-                        <Download className="h-3 w-3 mr-1" />
-                        Счет {index + 1}
-                      </a>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-sm text-gray-500">
-                    Оптовые счета не загружены
-                  </div>
-                )}
-              </Card>
-            </div>
-          </div>
+                    <div className="mt-4 pt-4 border-t flex justify-between items-center">
+                      <span className="font-semibold text-lg">Итого:</span>
+                      <span className="font-semibold text-lg">{total.toLocaleString('ru-RU')} ₽</span>
+                    </div>
+                  </>
+                );
+              } catch (error) {
+                console.error('Error parsing cart_data:', error);
+                return <div className="text-sm text-gray-500">Ошибка загрузки товаров</div>;
+              }
+            })()}
+          </Card>
         </div>
 
         {/* Модальное окно загрузки проекта */}

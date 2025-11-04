@@ -82,6 +82,15 @@ export async function GET(
       notes: order.notes,
       created_at: order.created_at,
       updated_at: order.updated_at,
+      cart_data: order.cart_data ? (() => {
+        try {
+          return typeof order.cart_data === 'string' ? JSON.parse(order.cart_data) : order.cart_data;
+        } catch {
+          return null;
+        }
+      })() : null,
+      cart_session_id: order.cart_session_id,
+      total_amount: order.total_amount,
       client: {
         id: order.client.id,
         firstName: order.client.firstName,
@@ -95,7 +104,13 @@ export async function GET(
       },
       invoice: order.invoice ? {
         ...order.invoice,
-        cart_data: order.invoice.cart_data ? JSON.parse(order.invoice.cart_data) : null
+        cart_data: order.invoice.cart_data ? (() => {
+          try {
+            return typeof order.invoice.cart_data === 'string' ? JSON.parse(order.invoice.cart_data) : order.invoice.cart_data;
+          } catch {
+            return null;
+          }
+        })() : null
       } : null
     };
 

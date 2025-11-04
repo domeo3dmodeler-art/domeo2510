@@ -49,23 +49,29 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     console.log('📦 Supplier order cart_data:', supplierOrder.cart_data);
     console.log('📦 Supplier order ID:', supplierOrder.id);
 
-    // Получаем связанный счет (Invoice) и клиента
-    // SupplierOrder теперь связан с Invoice, а не с Order
-    const invoice = await prisma.invoice.findUnique({
+    // Получаем связанный Order и клиента через Order
+    // SupplierOrder связан с Order через parent_document_id
+    const order = await prisma.order.findUnique({
       where: { id: supplierOrder.parent_document_id },
       select: {
         id: true,
-        client_id: true
+        client_id: true,
+        invoice: {
+          select: {
+            id: true,
+            status: true
+          }
+        }
       }
     });
 
-    if (!invoice) {
-      return NextResponse.json({ error: 'Related invoice not found' }, { status: 404 });
+    if (!order) {
+      return NextResponse.json({ error: 'Related order not found' }, { status: 404 });
     }
 
-    // Получаем клиента по client_id
+    // Получаем клиента по client_id из Order
     const client = await prisma.client.findUnique({
-      where: { id: invoice.client_id },
+      where: { id: order.client_id },
       select: {
         id: true,
         firstName: true,

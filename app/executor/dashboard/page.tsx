@@ -32,47 +32,17 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { OrdersBoard } from '../../../components/executor/OrdersBoard';
+import { 
+  mapInvoiceStatusToRussian, 
+  mapSupplierOrderStatusToRussian,
+  getInvoiceFilterStatuses,
+  getSupplierOrderFilterStatuses
+} from '@/lib/utils/status-mapping';
+import { INVOICE_STATUSES } from '@/lib/utils/document-statuses';
 
-// Маппинг статусов Счетов из API в русские (определяем на уровне модуля до компонента)
-const mapInvoiceStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен' => {
-  const statusMap: Record<string, 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'> = {
-    'DRAFT': 'Черновик',
-    'SENT': 'Отправлен',
-    'PAID': 'Оплачен/Заказ',
-    'ORDERED': 'Заказ размещен',
-    'CANCELLED': 'Отменен',
-    'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
-    'COMPLETED': 'Исполнен',
-    // Поддержка старых строчных статусов
-    'draft': 'Черновик',
-    'sent': 'Отправлен',
-    'paid': 'Оплачен/Заказ',
-    'ordered': 'Заказ размещен',
-    'cancelled': 'Отменен',
-      'in_production': 'Заказ размещен', // Маппинг на существующий статус
-    'received': 'Получен от поставщика',
-    'completed': 'Исполнен'
-  };
-  return statusMap[apiStatus] || 'Черновик';
-};
-
-// Маппинг статусов Заказов у поставщика из API в русские (определяем на уровне модуля до компонента)
-const mapSupplierOrderStatus = (apiStatus: string): 'Черновик'|'Отправлен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен' => {
-  const statusMap: Record<string, 'Черновик'|'Отправлен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'> = {
-    'PENDING': 'Черновик',
-    'SENT': 'Отправлен',
-    'ORDERED': 'Заказ размещен',
-    'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
-    'COMPLETED': 'Исполнен',
-    // Поддержка старых строчных статусов
-    'pending': 'Черновик',
-    'sent': 'Отправлен',
-    'in_production': 'Заказ размещен',
-    'received_from_supplier': 'Получен от поставщика',
-    'completed': 'Исполнен'
-  };
-  return statusMap[apiStatus] || 'Черновик';
-};
+// Типы для фильтров на основе констант
+type InvoiceFilterStatus = 'all' | typeof INVOICE_STATUSES[keyof typeof INVOICE_STATUSES]['label'];
+type SupplierOrderFilterStatus = 'all' | 'Черновик' | 'Отправлен' | 'Заказ размещен' | 'Получен от поставщика' | 'Исполнен';
 
 interface ExecutorStats {
   totalOrders: number;
@@ -100,10 +70,10 @@ export default function ExecutorDashboard() {
   }>>([]);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [clientTab, setClientTab] = useState<'invoices'|'supplier_orders'>('invoices');
-  const [invoices, setInvoices] = useState<Array<{ id: string; number: string; date: string; status: 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'; total: number; dueAt?: string }>>([]);
-  const [supplierOrders, setSupplierOrders] = useState<Array<{ id: string; number: string; date: string; status: 'Черновик'|'Отправлен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'; total: number; supplierName?: string; invoiceInfo?: { id: string; number: string; total_amount: number } }>>([]);
-  const [invoicesFilter, setInvoicesFilter] = useState<'all'|'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'>('all');
-  const [supplierOrdersFilter, setSupplierOrdersFilter] = useState<'all'|'Черновик'|'Отправлен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен'>('all');
+  const [invoices, setInvoices] = useState<Array<{ id: string; number: string; date: string; status: InvoiceFilterStatus; total: number; dueAt?: string }>>([]);
+  const [supplierOrders, setSupplierOrders] = useState<Array<{ id: string; number: string; date: string; status: SupplierOrderFilterStatus; total: number; supplierName?: string; invoiceInfo?: { id: string; number: string; total_amount: number } }>>([]);
+  const [invoicesFilter, setInvoicesFilter] = useState<InvoiceFilterStatus>('all');
+  const [supplierOrdersFilter, setSupplierOrdersFilter] = useState<SupplierOrderFilterStatus>('all');
   const [showInWorkOnly, setShowInWorkOnly] = useState(false);
   const [showCreateClientForm, setShowCreateClientForm] = useState(false);
   const [deleteModal, setDeleteModal] = useState<{
@@ -239,7 +209,7 @@ export default function ExecutorDashboard() {
           id: invoice.id,
           number: invoice.number ? invoice.number.replace('INVOICE-', 'СЧ-') : `СЧ-${invoice.id.slice(-6)}`,
           date: new Date(invoice.created_at).toISOString().split('T')[0],
-          status: mapInvoiceStatus(invoice.status),
+          status: mapInvoiceStatusToRussian(invoice.status) as InvoiceFilterStatus,
           total: Number(invoice.total_amount) || 0,
           dueAt: invoice.due_date ? new Date(invoice.due_date).toISOString().split('T')[0] : undefined
         }));
@@ -251,7 +221,7 @@ export default function ExecutorDashboard() {
           id: so.id,
           number: so.number ? so.number.replace('SUPPLIER-', 'Заказ-') : `Заказ-${so.id.slice(-6)}`, // Заменяем SUPPLIER- на Заказ-
           date: new Date(so.created_at).toISOString().split('T')[0],
-          status: mapSupplierOrderStatus(so.status),
+          status: mapSupplierOrderStatusToRussian(so.status) as SupplierOrderFilterStatus,
           total: so.total_amount || so.order?.total_amount || 0, // Используем total_amount из заказа у поставщика
           supplierName: so.supplier_name,
           invoiceInfo: so.invoiceInfo // Добавляем информацию о счете
@@ -301,14 +271,11 @@ export default function ExecutorDashboard() {
 
   // Оптимизированная фильтрация клиентов с мемоизацией
   const filteredClients = useMemo(() => {
-    // Inline функция для определения терминального статуса (избегаем проблем с инициализацией)
+    // Используем функцию из общего модуля для определения терминального статуса
+    const { isTerminalStatus } = require('@/lib/utils/status-mapping');
     const isTerminal = (doc?: { type: 'invoice'|'supplier_order'; status: string }) => {
       if (!doc) return false;
-      if (doc.type === 'invoice') {
-        return doc.status === 'Исполнен' || doc.status === 'Отменен';
-      }
-      // supplier_order
-      return doc.status === 'Исполнен';
+      return isTerminalStatus(doc.status, doc.type);
     };
     
     return clients
@@ -342,7 +309,7 @@ export default function ExecutorDashboard() {
     return `+7 (${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6,8)}-${d.slice(8,10)}`;
   };
 
-  const badgeByInvoiceStatus = (s: 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен') => {
+  const badgeByInvoiceStatus = (s: InvoiceFilterStatus) => {
     switch (s) {
       case 'Черновик': return 'border-gray-300 text-gray-700';
       case 'Отправлен': return 'border-blue-300 text-blue-700';
@@ -354,7 +321,7 @@ export default function ExecutorDashboard() {
     }
   };
 
-  const badgeBySupplierOrderStatus = (s: 'Черновик'|'Отправлен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен') => {
+  const badgeBySupplierOrderStatus = (s: SupplierOrderFilterStatus) => {
     switch (s) {
       case 'Черновик': return 'border-gray-300 text-gray-700';
       case 'Отправлен': return 'border-blue-300 text-blue-700';
@@ -970,9 +937,9 @@ export default function ExecutorDashboard() {
                 {clientTab==='invoices' && (
                   <>
                     <div className="mb-3 flex flex-wrap items-center gap-2">
-                      {(['all','Черновик','Отправлен','Оплачен/Заказ','Отменен','Заказ размещен','Получен от поставщика','Исполнен'] as const).map(s => (
+                      {(['all', ...getInvoiceFilterStatuses()] as InvoiceFilterStatus[]).map(s => (
                         <button key={s}
-                          onClick={() => setInvoicesFilter(s)}
+                          onClick={() => setInvoicesFilter(s as InvoiceFilterStatus)}
                           className={`px-3 py-1 text-sm border ${invoicesFilter===s?'border-black bg-black text-white':'border-gray-300 hover:border-black'}`}
                         >{s==='all'?'Все':s}</button>
                       ))}

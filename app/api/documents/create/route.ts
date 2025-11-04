@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
       tax_amount = 0,
       notes,
       prevent_duplicates = true,
-      created_by = userId || 'system'
+      created_by
     } = body;
 
     console.log(`🆕 Создание документа типа ${type}, родитель: ${parent_document_id || 'нет'}`);
@@ -32,6 +32,9 @@ export async function POST(req: NextRequest) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
     const userId = decoded.userId;
     const userRole = decoded.role;
+    
+    // Используем userId из токена если created_by не указан
+    const finalCreatedBy = created_by || userId || 'system';
 
     // Проверяем права на создание документа
     if (!canUserCreateDocument(userRole, type)) {
@@ -81,7 +84,7 @@ export async function POST(req: NextRequest) {
         subtotal,
         tax_amount,
         notes,
-        created_by
+        created_by: finalCreatedBy
       });
       documentId = dbResult.id;
       console.log(`✅ Запись в БД создана: ${type} #${dbResult.id}`);

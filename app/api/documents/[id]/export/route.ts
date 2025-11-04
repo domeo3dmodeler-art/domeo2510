@@ -40,12 +40,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         document = quote;
         documentType = 'quote';
       } else {
-        // Проверяем в таблице заказов
+    // Проверяем в таблице заказов
         const order = await prisma.order.findUnique({
           where: { id },
           include: {
             client: true,
-            order_items: true
+            invoice: {
+              select: {
+                id: true,
+                number: true,
+                status: true,
+                cart_data: true
+              }
+            }
           }
         });
 
@@ -67,13 +74,81 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     console.log(`✅ Найден документ типа ${documentType}: ${document.number}`);
 
     // Получаем данные корзины из соответствующих полей
-    let cartData = [];
-    if (documentType === 'quote' && document.quote_items) {
-      cartData = document.quote_items;
-    } else if (documentType === 'invoice' && document.invoice_items) {
-      cartData = document.invoice_items;
-    } else if (documentType === 'order' && document.order_items) {
-      cartData = document.order_items;
+    let cartData: any[] = [];
+    
+    if (documentType === 'quote') {
+      // Для Quote используем quote_items или cart_data
+      if (document.quote_items && document.quote_items.length > 0) {
+        cartData = document.quote_items.map((item: any) => ({
+          id: item.product_id,
+          name: item.notes || `Товар ${item.product_id}`,
+          quantity: item.quantity,
+          qty: item.quantity,
+          unitPrice: item.unit_price,
+          price: item.unit_price,
+          total: item.total_price
+        }));
+      } else if (document.cart_data) {
+        try {
+          const parsed = typeof document.cart_data === 'string' 
+            ? JSON.parse(document.cart_data) 
+            : document.cart_data;
+          cartData = Array.isArray(parsed) ? parsed : (parsed.items || []);
+        } catch (e) {
+          console.error('Error parsing quote cart_data:', e);
+        }
+      }
+    } else if (documentType === 'invoice') {
+      // Для Invoice используем invoice_items или cart_data
+      if (document.invoice_items && document.invoice_items.length > 0) {
+        cartData = document.invoice_items.map((item: any) => ({
+          id: item.product_id,
+          name: item.notes || `Товар ${item.product_id}`,
+          quantity: item.quantity,
+          qty: item.quantity,
+          unitPrice: item.unit_price,
+          price: item.unit_price,
+          total: item.total_price
+        }));
+      } else if (document.cart_data) {
+        try {
+          const parsed = typeof document.cart_data === 'string' 
+            ? JSON.parse(document.cart_data) 
+            : document.cart_data;
+          cartData = Array.isArray(parsed) ? parsed : (parsed.items || []);
+        } catch (e) {
+          console.error('Error parsing invoice cart_data:', e);
+        }
+      }
+    } else if (documentType === 'order') {
+      // Для Order используем cart_data или cart_data из связанного Invoice
+      if (document.cart_data) {
+        try {
+          const parsed = typeof document.cart_data === 'string' 
+            ? JSON.parse(document.cart_data) 
+            : document.cart_data;
+          cartData = Array.isArray(parsed) ? parsed : (parsed.items || []);
+        } catch (e) {
+          console.error('Error parsing order cart_data:', e);
+        }
+      } else if (document.invoice?.cart_data) {
+        try {
+          const parsed = typeof document.invoice.cart_data === 'string' 
+            ? JSON.parse(document.invoice.cart_data) 
+            : document.invoice.cart_data;
+          cartData = Array.isArray(parsed) ? parsed : (parsed.items || []);
+        } catch (e) {
+          console.error('Error parsing invoice cart_data from order:', e);
+        }
+      }
+    }
+    
+    if (cartData.length === 0) {
+      console.log(`⚠️ Нет данных корзины для документа ${documentType}: ${document.number}`);
+      return NextResponse.json(
+        { error: 'Нет данных корзины для экспорта' },
+        { status: 400 }
+      );
     }
 
     // Формируем данные для экспорта
@@ -95,19 +170,43 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       // Используем существующий генератор PDF
       const { exportDocumentWithPDF } = await import('@/lib/export/puppeteer-generator');
       
+      // Преобразуем cartData в формат для экспорта
+      const itemsForExport = cartData.map((item: any) => ({
+        id: item.id || item.product_id,
+        productId: item.product_id || item.id,
+        name: item.name || item.model || `Товар ${item.id || item.product_id}`,
+        model: item.model || item.name,
+        qty: item.qty || item.quantity || 1,
+        quantity: item.qty || item.quantity || 1,
+        unitPrice: item.unitPrice || item.price || item.unit_price || 0,
+        price: item.unitPrice || item.price || item.unit_price || 0,
+        width: item.width,
+        height: item.height,
+        color: item.color,
+        finish: item.finish,
+        type: item.type || 'door',
+        sku_1c: item.sku_1c,
+        handleId: item.handleId,
+        handleName: item.handleName,
+        hardwareKitId: item.hardwareKitId,
+        hardwareKitName: item.hardwareKitName || item.hardware
+      }));
+      
       const result = await exportDocumentWithPDF(
         documentType as 'quote' | 'invoice' | 'order',
+        format as 'pdf',
         document.client_id,
-        cartData,
-        document.total_amount,
-        document.number
+        itemsForExport,
+        document.total_amount || 0,
+        document.cart_session_id || null,
+        document.parent_document_id || null
       );
 
-      if (result.success && result.buffer) {
+      if (result.buffer) {
         return new NextResponse(result.buffer, {
           headers: {
             'Content-Type': 'application/pdf',
-            'Content-Disposition': `attachment; filename="${document.number}.pdf"`,
+            'Content-Disposition': `attachment; filename="${result.filename || document.number}.pdf"`,
           },
         });
       } else {
@@ -117,27 +216,103 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         );
       }
     } else if (format === 'excel') {
-      // Используем существующий генератор Excel
-      const { generateExcel } = await import('@/lib/export/excel-generator');
+      // Используем генератор Excel из puppeteer-generator для консистентности
+      const { exportDocumentWithPDF } = await import('@/lib/export/puppeteer-generator');
       
-      const buffer = await generateExcel(exportData);
+      // Преобразуем cartData в формат для экспорта
+      const itemsForExport = cartData.map((item: any) => ({
+        id: item.id || item.product_id,
+        productId: item.product_id || item.id,
+        name: item.name || item.model || `Товар ${item.id || item.product_id}`,
+        model: item.model || item.name,
+        qty: item.qty || item.quantity || 1,
+        quantity: item.qty || item.quantity || 1,
+        unitPrice: item.unitPrice || item.price || item.unit_price || 0,
+        price: item.unitPrice || item.price || item.unit_price || 0,
+        width: item.width,
+        height: item.height,
+        color: item.color,
+        finish: item.finish,
+        type: item.type || 'door',
+        sku_1c: item.sku_1c,
+        handleId: item.handleId,
+        handleName: item.handleName,
+        hardwareKitId: item.hardwareKitId,
+        hardwareKitName: item.hardwareKitName || item.hardware
+      }));
       
-      return new NextResponse(buffer, {
-        headers: {
-          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'Content-Disposition': `attachment; filename="${document.number}.xlsx"`,
-        },
-      });
+      const result = await exportDocumentWithPDF(
+        documentType as 'quote' | 'invoice' | 'order',
+        format as 'excel',
+        document.client_id,
+        itemsForExport,
+        document.total_amount || 0,
+        document.cart_session_id || null,
+        document.parent_document_id || null
+      );
+
+      if (result.buffer) {
+        return new NextResponse(result.buffer, {
+          headers: {
+            'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition': `attachment; filename="${result.filename || document.number}.xlsx"`,
+          },
+        });
+      } else {
+        return NextResponse.json(
+          { error: 'Ошибка при генерации Excel' },
+          { status: 500 }
+        );
+      }
     } else if (format === 'csv') {
-      // Генерируем CSV
-      const csvContent = generateCSV(exportData);
+      // Используем генератор CSV из puppeteer-generator для консистентности
+      const { exportDocumentWithPDF } = await import('@/lib/export/puppeteer-generator');
       
-      return new NextResponse(csvContent, {
-        headers: {
-          'Content-Type': 'text/csv',
-          'Content-Disposition': `attachment; filename="${document.number}.csv"`,
-        },
-      });
+      // Преобразуем cartData в формат для экспорта
+      const itemsForExport = cartData.map((item: any) => ({
+        id: item.id || item.product_id,
+        productId: item.product_id || item.id,
+        name: item.name || item.model || `Товар ${item.id || item.product_id}`,
+        model: item.model || item.name,
+        qty: item.qty || item.quantity || 1,
+        quantity: item.qty || item.quantity || 1,
+        unitPrice: item.unitPrice || item.price || item.unit_price || 0,
+        price: item.unitPrice || item.price || item.unit_price || 0,
+        width: item.width,
+        height: item.height,
+        color: item.color,
+        finish: item.finish,
+        type: item.type || 'door',
+        sku_1c: item.sku_1c,
+        handleId: item.handleId,
+        handleName: item.handleName,
+        hardwareKitId: item.hardwareKitId,
+        hardwareKitName: item.hardwareKitName || item.hardware
+      }));
+      
+      const result = await exportDocumentWithPDF(
+        documentType as 'quote' | 'invoice' | 'order',
+        format as 'csv',
+        document.client_id,
+        itemsForExport,
+        document.total_amount || 0,
+        document.cart_session_id || null,
+        document.parent_document_id || null
+      );
+
+      if (result.buffer) {
+        return new NextResponse(result.buffer, {
+          headers: {
+            'Content-Type': 'text/csv',
+            'Content-Disposition': `attachment; filename="${result.filename || document.number}.csv"`,
+          },
+        });
+      } else {
+        return NextResponse.json(
+          { error: 'Ошибка при генерации CSV' },
+          { status: 500 }
+        );
+      }
     } else {
       return NextResponse.json(
         { error: 'Неподдерживаемый формат' },

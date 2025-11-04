@@ -28,10 +28,20 @@ import DocumentWorkflowIntegration from '@/app/components/documents/DocumentWork
 import { OrderDetailsModal } from '@/components/complectator/OrderDetailsModal';
 import { toast } from 'sonner';
 import { COMPLECTATOR_FILTER_STATUSES, getStatusLabel, ORDER_STATUSES_COMPLECTATOR, INVOICE_STATUSES, QUOTE_STATUSES } from '@/lib/utils/document-statuses';
+import { 
+  mapOrderStatusToRussianForComplectator,
+  mapQuoteStatusToRussian,
+  isTerminalStatus,
+  getQuoteFilterStatuses
+} from '@/lib/utils/status-mapping';
+import {
+  getOrderDisplayStatus,
+  getOrderFilterStatusForComplectator
+} from '@/lib/utils/order-status-display';
 
-// Маппинг статусов КП из API в русские (определяем на уровне модуля до компонента)
+// Маппинг статусов КП из API в русские (используем общий модуль)
 const mapQuoteStatus = (apiStatus: string): string => {
-  return getStatusLabel(apiStatus, 'quote');
+  return mapQuoteStatusToRussian(apiStatus);
 };
 
 // Маппинг статусов Счетов из API в русские (определяем на уровне модуля до компонента)
@@ -255,63 +265,27 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       const response = await fetch(`/api/orders?client_id=${clientId}`);
       if (response.ok) {
         const data = await response.json();
-        // Преобразуем заказы, синхронизируя статусы со статусами счетов
+        // Преобразуем заказы - ВСЕГДА используем статус Order, а не Invoice
         const formattedOrders = (data.orders || []).map((order: any) => {
-          // Определяем статус для отображения
-          let displayStatus: string = order.status;
-          let filterStatus: typeof COMPLECTATOR_FILTER_STATUSES[number] = 'Черновик';
+          // ВСЕГДА используем статус Order напрямую для отображения
+          const orderStatus = order.status; // API статус Order (NEW_PLANNED, UNDER_REVIEW, и т.д.)
           
-          // Если у заказа есть счет, берем статус из счета для комплектатора
-          if (order.invoice && order.invoice.status) {
-            const invoiceStatus = order.invoice.status;
-            // Маппим статусы счета на статусы заказа для комплектатора
-            const invoiceStatusMap: Record<string, string> = {
-              'DRAFT': 'Черновик',
-              'SENT': 'Отправлен',
-              'PAID': 'Оплачен/Заказ',
-              'CANCELLED': 'Отменен'
-            };
-            displayStatus = invoiceStatusMap[invoiceStatus] || 'Черновик';
-            filterStatus = (displayStatus as typeof COMPLECTATOR_FILTER_STATUSES[number]) || 'Черновик';
-          } else {
-            // Если счета нет, проверяем статус заказа
-            // Статусы исполнителя (NEW_PLANNED, UNDER_REVIEW, AWAITING_MEASUREMENT, AWAITING_INVOICE, COMPLETED)
-            const executorStatusMap: Record<string, string> = {
-              'NEW_PLANNED': 'Новый заказ',
-              'UNDER_REVIEW': 'На проверке',
-              'AWAITING_MEASUREMENT': 'Ждет замер',
-              'AWAITING_INVOICE': 'Ожидает счет',
-              'COMPLETED': 'Выполнена'
-            };
-            
-            // Маппим статусы исполнителя на русские названия
-            if (executorStatusMap[order.status]) {
-              displayStatus = executorStatusMap[order.status];
-              // Статусы исполнителя попадают в фильтр "Оплачен/Заказ"
-              filterStatus = 'Оплачен/Заказ';
-            } else {
-              // Статусы комплектатора (DRAFT, SENT, PAID, CANCELLED)
-              const complectatorStatusMap: Record<string, string> = {
-                'DRAFT': 'Черновик',
-                'SENT': 'Отправлен',
-                'PAID': 'Оплачен/Заказ',
-                'CANCELLED': 'Отменен'
-              };
-              displayStatus = complectatorStatusMap[order.status] || 'Черновик';
-              filterStatus = (displayStatus as typeof COMPLECTATOR_FILTER_STATUSES[number]) || 'Черновик';
-            }
-          }
+          // Используем унифицированную функцию для получения русского названия статуса
+          const displayStatus = getOrderDisplayStatus(orderStatus);
+          
+          // Используем унифицированную функцию для получения статуса фильтра
+          const filterStatus = getOrderFilterStatusForComplectator(orderStatus);
 
           return {
             id: order.id,
             number: order.number,
             date: new Date(order.created_at).toLocaleDateString('ru-RU'),
-            status: filterStatus,
+            status: filterStatus, // Для фильтрации
             total: order.invoice?.total_amount || 0,
             invoice_id: order.invoice_id,
-            // Сохраняем оригинальный статус для отображения (API статус для получения правильного бейджа)
-            originalStatus: order.status,
-            // Сохраняем отображаемый статус на русском
+            // Сохраняем оригинальный статус Order (API статус)
+            originalStatus: orderStatus,
+            // Сохраняем отображаемый статус на русском (всегда из Order, не из Invoice)
             displayStatus: displayStatus
           };
         });
@@ -368,12 +342,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       .filter(c => {
         if (!showInWorkOnly) return true;
         if (!c.lastDoc) return true;
-        // Проверка терминального статуса inline (избегаем проблем с инициализацией)
-        if (c.lastDoc.type === 'quote') {
-          return !(c.lastDoc.status === 'Согласовано' || c.lastDoc.status === 'Отказ');
-        }
-        // invoice
-        return !(c.lastDoc.status === 'Исполнен' || c.lastDoc.status === 'Отменен');
+        // Используем функцию из общего модуля для определения терминального статуса
+        return !isTerminalStatus(c.lastDoc.status, c.lastDoc.type);
       })
       .filter(c => {
         const q = search.trim().toLowerCase();
@@ -404,10 +374,10 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     return `+7 (${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6,8)}-${d.slice(8,10)}`;
   };
 
-  const badgeByQuoteStatus = (s: 'Черновик'|'Отправлено'|'Согласовано'|'Отказ') => {
+  const badgeByQuoteStatus = (s: 'Черновик'|'Отправлен'|'Согласовано'|'Отказ') => {
     switch (s) {
       case 'Черновик': return 'border-gray-300 text-gray-700';
-      case 'Отправлено': return 'border-blue-300 text-blue-700';
+      case 'Отправлен': return 'border-blue-300 text-blue-700';
       case 'Согласовано': return 'border-green-300 text-green-700';
       case 'Отказ': return 'border-red-300 text-red-700';
     }
@@ -523,7 +493,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       // Маппинг русских статусов на английские для API
       const statusMap: Record<string, string> = {
         'Черновик': 'DRAFT',
-        'Отправлено': 'SENT', 
+        'Отправлен': 'SENT', 
         'Согласовано': 'ACCEPTED',
         'Отказ': 'REJECTED'
       };
@@ -546,15 +516,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         const result = await response.json();
         console.log('✅ API Response data:', result);
         
-        // Маппинг обратно на русские статусы
-        const reverseStatusMap: Record<string, string> = {
-          'DRAFT': 'Черновик',
-          'SENT': 'Отправлено',
-          'ACCEPTED': 'Согласовано', 
-          'REJECTED': 'Отказ'
-        };
-        
-        const russianStatus = reverseStatusMap[result.quote.status] || result.quote.status;
+        // Используем функцию из общего модуля для маппинга обратно на русские статусы
+        const russianStatus = mapQuoteStatusToRussian(result.quote.status);
         console.log('🔄 Mapped status:', { apiStatus: result.quote.status, russianStatus });
         
         // Обновляем данные клиента
@@ -1225,13 +1188,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
           {statusDropdown.type === 'quote' && (
             <>
               {statusDropdown.id && (() => {
-                // Получаем данные КП из API для получения текущего статуса
-                // Для упрощения показываем все статусы
-                const getAllStatuses = () => {
-                  return ['Черновик', 'Отправлено', 'Согласовано', 'Отказ'];
-                };
-                
-                const allStatuses = getAllStatuses();
+                // Используем функцию из общего модуля для получения списка статусов
+                const allStatuses = getQuoteFilterStatuses();
                 
                 return allStatuses.map((status, index) => (
                   <div key={status}>

@@ -2,7 +2,7 @@
 // API роут для изменения статуса Счета
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma } from '@/lib/prisma';
 import { notifyUsersByRole, notifyUser } from '@/lib/notifications';
 import { isStatusBlocked } from '@/lib/validation/status-blocking';
 import { getStatusLabel } from '@/lib/utils/status-labels';

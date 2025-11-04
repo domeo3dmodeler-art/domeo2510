@@ -1,83 +1,49 @@
 // lib/utils/status-labels.ts
 
+import { getStatusLabel as getStatusLabelFromDocumentStatuses } from './document-statuses';
+
 /**
  * Получает русские названия статусов для всех типов документов
+ * Использует единый источник истины из document-statuses.ts
  */
 export function getStatusLabel(status: string, documentType: 'invoice' | 'quote' | 'order' | 'supplier_order'): string {
-  const statusLabels: Record<string, Record<string, string>> = {
-    invoice: {
-      'DRAFT': 'Черновик',
-      'SENT': 'Отправлен',
-      'PAID': 'Оплачен/Заказ',
-      'CANCELLED': 'Отменен',
-      'ORDERED': 'Заказ размещен',
-      'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
-      'COMPLETED': 'Исполнен'
-    },
-    quote: {
-      'DRAFT': 'Черновик',
-      'SENT': 'Отправлен',
-      'ACCEPTED': 'Принят',
-      'REJECTED': 'Отклонен',
-      'CANCELLED': 'Отменен'
-    },
-    order: {
-      'PENDING': 'Ожидает',
-      'CONFIRMED': 'Подтвержден',
-      'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
-      'COMPLETED': 'Исполнен',
-      'CANCELLED': 'Отменен'
-    },
-    supplier_order: {
-      'PENDING': 'Ожидает',
-      'ORDERED': 'Заказ размещен',
-      'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
-      'COMPLETED': 'Исполнен',
-      'CANCELLED': 'Отменен'
-    }
+  // Используем функцию из document-statuses.ts для консистентности
+  if (documentType === 'order') {
+    // Для order проверяем оба набора статусов (complectator и executor)
+    return getStatusLabelFromDocumentStatuses(status, 'order');
+  }
+  
+  // Для остальных типов документов используем соответствующий тип
+  const documentTypeMap: Record<string, 'invoice' | 'quote' | 'order' | 'order_complectator' | 'order_executor'> = {
+    'invoice': 'invoice',
+    'quote': 'quote',
+    'supplier_order': 'order' // SupplierOrder использует те же статусы что и Order
   };
-
-  return statusLabels[documentType]?.[status] || status;
+  
+  const mappedType = documentTypeMap[documentType] || documentType;
+  return getStatusLabelFromDocumentStatuses(status, mappedType as any);
 }
 
 /**
  * Получает английские статусы из русских названий
+ * Использует единый источник истины из document-statuses.ts
  */
 export function getEnglishStatus(russianStatus: string, documentType: 'invoice' | 'quote' | 'order' | 'supplier_order'): string {
-  const statusMappings: Record<string, Record<string, string>> = {
-    invoice: {
-      'Черновик': 'DRAFT',
-      'Отправлен': 'SENT',
-      'Оплачен/Заказ': 'PAID',
-      'Отменен': 'CANCELLED',
-      'Заказ размещен': 'ORDERED',
-      'Получен от поставщика': 'RECEIVED_FROM_SUPPLIER',
-      'Исполнен': 'COMPLETED'
-    },
-    quote: {
-      'Черновик': 'DRAFT',
-      'Отправлен': 'SENT',
-      'Принят': 'ACCEPTED',
-      'Отклонен': 'REJECTED',
-      'Отменен': 'CANCELLED'
-    },
-    order: {
-      'Ожидает': 'PENDING',
-      'Подтвержден': 'CONFIRMED',
-      'Получен от поставщика': 'RECEIVED_FROM_SUPPLIER',
-      'Исполнен': 'COMPLETED',
-      'Отменен': 'CANCELLED'
-    },
-    supplier_order: {
-      'Ожидает': 'PENDING',
-      'Заказ размещен': 'ORDERED',
-      'Получен от поставщика': 'RECEIVED_FROM_SUPPLIER',
-      'Исполнен': 'COMPLETED',
-      'Отменен': 'CANCELLED'
-    }
+  // Используем функцию из document-statuses.ts
+  const documentTypeMap: Record<string, 'invoice' | 'quote' | 'order_complectator' | 'order_executor'> = {
+    'invoice': 'invoice',
+    'quote': 'quote',
+    'order': 'order_complectator',
+    'supplier_order': 'order_complectator'
   };
-
-  return statusMappings[documentType]?.[russianStatus] || russianStatus;
+  
+  const mappedType = documentTypeMap[documentType];
+  if (mappedType) {
+    const { getStatusApiValue } = require('./document-statuses');
+    return getStatusApiValue(russianStatus, mappedType as any) || russianStatus;
+  }
+  
+  return russianStatus;
 }
 
 /**
