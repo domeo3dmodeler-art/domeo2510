@@ -345,6 +345,84 @@ function OrderDetailModal({
   const [requireMeasurement, setRequireMeasurement] = useState(false);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [verifyResult, setVerifyResult] = useState<any>(null);
+  const [supplierOrders, setSupplierOrders] = useState<any[]>([]);
+  
+  // Загрузка заказов у поставщика
+  const fetchSupplierOrders = useCallback(async () => {
+    if (!order.id) return;
+    try {
+      const response = await fetch(`/api/supplier-orders?orderId=${order.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSupplierOrders(data.supplierOrders || []);
+      }
+    } catch (error) {
+      console.error('Error fetching supplier orders:', error);
+    }
+  }, [order.id]);
+
+  useEffect(() => {
+    fetchSupplierOrders();
+  }, [fetchSupplierOrders]);
+  
+  // Экспорт счета в PDF
+  const handleExportInvoicePDF = async () => {
+    if (!currentOrder.invoice?.id) {
+      toast.error('Счет не найден');
+      return;
+    }
+    try {
+      const response = await fetch(`/api/documents/${currentOrder.invoice.id}/export?format=pdf`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${currentOrder.invoice.number}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        toast.success('Счет экспортирован в PDF');
+      } else {
+        toast.error('Ошибка экспорта счета');
+      }
+    } catch (error) {
+      console.error('Error exporting invoice:', error);
+      toast.error('Ошибка экспорта счета');
+    }
+  };
+
+  // Экспорт заказа у поставщика
+  const handleExportSupplierOrder = async () => {
+    if (supplierOrders.length === 0) {
+      toast.error('Заказ у поставщика не найден');
+      return;
+    }
+    const supplierOrder = supplierOrders[0];
+    try {
+      const response = await fetch(`/api/supplier-orders/${supplierOrder.id}/excel`);
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${supplierOrder.number}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        toast.success('Заказ у поставщика экспортирован');
+      } else {
+        toast.error('Ошибка экспорта заказа у поставщика');
+      }
+    } catch (error) {
+      console.error('Error exporting supplier order:', error);
+      toast.error('Ошибка экспорта заказа у поставщика');
+    }
+  };
 
   // Обновление данных заказа
   const fetchOrder = async () => {
@@ -577,7 +655,7 @@ function OrderDetailModal({
           {/* Заголовок */}
           <div className="flex justify-between items-center mb-6 border-b pb-4">
             <div>
-              <h2 className="text-2xl font-bold text-black">Заказ {currentOrder.number}</h2>
+              <h2 className="text-2xl font-bold text-black">{currentOrder.number}</h2>
               <div className="flex items-center space-x-2 mt-2">
                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${statusConfig.color}`}>
                   <StatusIcon className="h-4 w-4 mr-1" />
@@ -630,184 +708,31 @@ function OrderDetailModal({
                 </div>
               </Card>
 
-              {/* Связанный счет */}
-              {currentOrder.invoice && (
-                <Card variant="base" className="p-4">
-                  <h3 className="font-semibold text-black mb-3">Связанный счет</h3>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="text-gray-600">Номер:</span>{' '}
-                      <span className="font-medium">{currentOrder.invoice.number}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Сумма:</span>{' '}
-                      <span className="font-medium">{currentOrder.invoice.total_amount.toLocaleString('ru-RU')} ₽</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Статус:</span>{' '}
-                      <span className="font-medium">{currentOrder.invoice.status}</span>
-                    </div>
-                  </div>
-                </Card>
-              )}
+              {/* Кнопки экспорта */}
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportInvoicePDF}
+                  disabled={!currentOrder.invoice?.id}
+                  className="flex-1"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Оплаченный счет
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportSupplierOrder}
+                  disabled={supplierOrders.length === 0}
+                  className="flex-1"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Заказ из БД
+                </Button>
+              </div>
 
-              {/* Проект/планировка */}
-              <Card variant="base" className="p-4">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-semibold text-black">Проект/планировка</h3>
-                  {!currentOrder.project_file_url && (
-                    <span className="text-red-600 text-xs">* Обязательно</span>
-                  )}
-                </div>
-                {currentOrder.project_file_url ? (
-                  <div className="space-y-2">
-                    <a
-                      href={currentOrder.project_file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline flex items-center"
-                    >
-                      <FileText className="h-4 w-4 mr-1" />
-                      Открыть проект
-                    </a>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowProjectUpload(true)}
-                      className="w-full"
-                    >
-                      Заменить файл
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowProjectUpload(true)}
-                    className="w-full"
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Загрузить проект
-                  </Button>
-                )}
-              </Card>
-
-              {/* Данные дверей */}
-              <Card variant="base" className="p-4">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-semibold text-black">Данные дверей</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (currentOrder.invoice?.cart_data) {
-                        loadDoorsFromInvoice();
-                      }
-                    }}
-                    disabled={!currentOrder.invoice?.cart_data}
-                  >
-                    Загрузить из счета
-                  </Button>
-                </div>
-                
-                {currentOrder.door_dimensions && currentOrder.door_dimensions.length > 0 ? (
-                  <div className="space-y-3">
-                    {currentOrder.door_dimensions.map((door: any, index: number) => (
-                      <div key={index} className="border rounded p-3">
-                        <div className="font-medium mb-2">Дверь {index + 1}</div>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <span className="text-gray-600">Размер:</span>{' '}
-                            <span className="font-medium">{door.width} x {door.height} мм</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">Количество:</span>{' '}
-                            <span className="font-medium">{door.quantity} шт.</span>
-                          </div>
-                          {door.opening_side && (
-                            <div>
-                              <span className="text-gray-600">Открывание:</span>{' '}
-                              <span className="font-medium">{door.opening_side === 'LEFT' ? 'Левое' : door.opening_side === 'RIGHT' ? 'Правое' : door.opening_side}</span>
-                            </div>
-                          )}
-                          {door.latches_count !== undefined && (
-                            <div>
-                              <span className="text-gray-600">Завертки:</span>{' '}
-                              <span className="font-medium">{door.latches_count} шт.</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-sm text-gray-500">
-                    Данные дверей не указаны. Загрузите из счета или введите вручную.
-                  </div>
-                )}
-              </Card>
-            </div>
-
-            {/* Правая колонка */}
-            <div className="space-y-6">
-              {/* Оптовые счета и техзадания */}
-              <Card variant="base" className="p-4">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-semibold text-black">Оптовые счета и техзадания</h3>
-                  {currentOrder.status === 'AWAITING_INVOICE' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowFilesUpload(true)}
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      Загрузить файлы
-                    </Button>
-                  )}
-                </div>
-                
-                {currentOrder.wholesale_invoices.length > 0 && (
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium mb-2">Оптовые счета:</h4>
-                    <div className="space-y-1">
-                      {currentOrder.wholesale_invoices.map((url: string, index: number) => (
-                        <a
-                          key={index}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline text-sm flex items-center"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          Счет {index + 1}
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {currentOrder.technical_specs.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium mb-2">Техзадания:</h4>
-                    <div className="space-y-1">
-                      {currentOrder.technical_specs.map((url: string, index: number) => (
-                        <a
-                          key={index}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline text-sm flex items-center"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          Техзадание {index + 1}
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </Card>
-
-              {/* Действия */}
+              {/* Блок Действия */}
               <Card variant="base" className="p-4">
                 <h3 className="font-semibold text-black mb-3">Действия</h3>
                 <div className="space-y-2">
@@ -864,6 +789,162 @@ function OrderDetailModal({
                         {currentOrder.verification_notes}
                       </div>
                     )}
+                  </div>
+                )}
+              </Card>
+            </div>
+
+            {/* Правая колонка */}
+            <div className="space-y-6">
+              {/* Проект/планировка */}
+              <Card variant="base" className="p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-semibold text-black">Проект/планировка</h3>
+                  {!currentOrder.project_file_url && (
+                    <span className="text-red-600 text-xs">* Обязательно</span>
+                  )}
+                </div>
+                {currentOrder.project_file_url ? (
+                  <div className="space-y-2">
+                    <a
+                      href={currentOrder.project_file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline flex items-center"
+                    >
+                      <FileText className="h-4 w-4 mr-1" />
+                      Открыть проект
+                    </a>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowProjectUpload(true)}
+                      className="w-full"
+                    >
+                      Заменить файл
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowProjectUpload(true)}
+                    className="w-full"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Загрузить проект
+                  </Button>
+                )}
+              </Card>
+
+              {/* Тех. задания */}
+              <Card variant="base" className="p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-semibold text-black">Тех. задания</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (currentOrder.invoice?.cart_data) {
+                        loadDoorsFromInvoice();
+                      }
+                    }}
+                    disabled={!currentOrder.invoice?.cart_data}
+                  >
+                    Загрузить из счета
+                  </Button>
+                </div>
+                
+                {currentOrder.door_dimensions && currentOrder.door_dimensions.length > 0 ? (
+                  <div className="space-y-3">
+                    {currentOrder.door_dimensions.map((door: any, index: number) => (
+                      <div key={index} className="border rounded p-3">
+                        <div className="font-medium mb-2">Дверь {index + 1}</div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="text-gray-600">Размер:</span>{' '}
+                            <span className="font-medium">{door.width} x {door.height} мм</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Количество:</span>{' '}
+                            <span className="font-medium">{door.quantity} шт.</span>
+                          </div>
+                          {door.opening_side && (
+                            <div>
+                              <span className="text-gray-600">Открывание:</span>{' '}
+                              <span className="font-medium">{door.opening_side === 'LEFT' ? 'Левое' : door.opening_side === 'RIGHT' ? 'Правое' : door.opening_side}</span>
+                            </div>
+                          )}
+                          {door.latches_count !== undefined && (
+                            <div>
+                              <span className="text-gray-600">Завертки:</span>{' '}
+                              <span className="font-medium">{door.latches_count} шт.</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500">
+                    Тех. задания не указаны. Загрузите из счета или введите вручную.
+                  </div>
+                )}
+              </Card>
+
+              {/* Оптовые счета */}
+              <Card variant="base" className="p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-semibold text-black">Оптовые счета</h3>
+                  {currentOrder.status === 'AWAITING_INVOICE' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowFilesUpload(true)}
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Загрузить файлы
+                    </Button>
+                  )}
+                </div>
+                
+                {currentOrder.wholesale_invoices.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium mb-2">Оптовые счета:</h4>
+                    <div className="space-y-1">
+                      {currentOrder.wholesale_invoices.map((url: string, index: number) => (
+                        <a
+                          key={index}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline text-sm flex items-center"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          Счет {index + 1}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {currentOrder.technical_specs.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Техзадания:</h4>
+                    <div className="space-y-1">
+                      {currentOrder.technical_specs.map((url: string, index: number) => (
+                        <a
+                          key={index}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline text-sm flex items-center"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          Техзадание {index + 1}
+                        </a>
+                      ))}
+                    </div>
                   </div>
                 )}
               </Card>
