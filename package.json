@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev -p 3000",
     "dev:quick": "powershell -ExecutionPolicy Bypass -File scripts/dev-local-quick.ps1",
+    "dev:tunnel": "powershell -ExecutionPolicy Bypass -File scripts/start-ssh-tunnel.ps1",
     "build": "next build",
     "build:staging": "NODE_ENV=staging next build",
     "build:prod": "NODE_ENV=production next build",
