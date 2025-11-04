@@ -474,85 +474,39 @@ function OrderDetailModal({
 
   // Экспорт заказа у поставщика (использует механизм экспорта из корзины)
   const handleExportSupplierOrder = async () => {
+    // Загружаем заказы у поставщика если еще не загружены
+    if (supplierOrders.length === 0) {
+      try {
+        const response = await fetch(`/api/supplier-orders?orderId=${order.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          setSupplierOrders(data.supplierOrders || []);
+          if (data.supplierOrders && data.supplierOrders.length === 0) {
+            toast.error('Заказ у поставщика не найден');
+            return;
+          }
+        } else {
+          toast.error('Ошибка загрузки заказов у поставщика');
+          return;
+        }
+      } catch (error) {
+        console.error('Error fetching supplier orders:', error);
+        toast.error('Ошибка загрузки заказов у поставщика');
+        return;
+      }
+    }
+
     if (supplierOrders.length === 0) {
       toast.error('Заказ у поставщика не найден');
       return;
     }
+    
     const supplierOrder = supplierOrders[0];
     
     try {
       setLoading(true);
       
-      // Получаем данные корзины из supplier order
-      let cartData;
-      try {
-        cartData = typeof supplierOrder.cart_data === 'string' 
-          ? JSON.parse(supplierOrder.cart_data) 
-          : supplierOrder.cart_data;
-      } catch (parseError) {
-        console.error('Error parsing supplier order cart_data:', parseError);
-        // Если нет cart_data, используем существующий API
-        const response = await fetch(`/api/supplier-orders/${supplierOrder.id}/excel`);
-        if (response.ok) {
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${supplierOrder.number}.xlsx`;
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-          toast.success('Заказ у поставщика экспортирован');
-        } else {
-          toast.error('Ошибка экспорта заказа у поставщика');
-        }
-        setLoading(false);
-        return;
-      }
-
-      const items = (cartData.items || []).map((item: any) => ({
-        id: item.id || item.productId,
-        productId: item.productId || item.id,
-        name: item.name || item.model,
-        model: item.model || item.name,
-        qty: item.qty || item.quantity || 1,
-        quantity: item.qty || item.quantity || 1,
-        unitPrice: item.unitPrice || item.price || 0,
-        price: item.unitPrice || item.price || 0,
-        width: item.width,
-        height: item.height,
-        color: item.color,
-        finish: item.finish,
-        type: item.type,
-        sku_1c: item.sku_1c,
-        handleId: item.handleId,
-        handleName: item.handleName
-      }));
-
-      if (items.length === 0) {
-        // Fallback на существующий API
-        const response = await fetch(`/api/supplier-orders/${supplierOrder.id}/excel`);
-        if (response.ok) {
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${supplierOrder.number}.xlsx`;
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-          toast.success('Заказ у поставщика экспортирован');
-        } else {
-          toast.error('Ошибка экспорта заказа у поставщика');
-        }
-        setLoading(false);
-        return;
-      }
-
-      // Используем механизм экспорта из корзины для Excel
-      // Но supplier_order не поддерживается в /api/export/fast, используем прямой API
+      // Используем прямой API для экспорта
       const response = await fetch(`/api/supplier-orders/${supplierOrder.id}/excel`);
       if (response.ok) {
         const blob = await response.blob();
@@ -901,14 +855,12 @@ function OrderDetailModal({
                   </div>
                 </Card>
               )}
-
-              {/* Кнопки экспорта */}
               <div className="flex space-x-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleExportInvoicePDF}
-                  disabled={loading || !currentOrder.invoice?.id}
+                  disabled={loading}
                   className="flex-1"
                 >
                   <Download className="h-4 w-4 mr-2" />
@@ -918,7 +870,7 @@ function OrderDetailModal({
                   variant="outline"
                   size="sm"
                   onClick={handleExportSupplierOrder}
-                  disabled={loading || supplierOrders.length === 0}
+                  disabled={loading}
                   className="flex-1"
                 >
                   <Download className="h-4 w-4 mr-2" />
