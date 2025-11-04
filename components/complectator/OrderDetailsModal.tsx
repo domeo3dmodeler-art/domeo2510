@@ -283,7 +283,8 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                   </div>
                   <span className="text-xs">История</span>
                 </button>
-                {order.invoice && (
+                {/* Кнопка экспорта счета - показываем всегда, если есть счет */}
+                {order.invoice ? (
                   <button
                     onClick={async () => {
                       if (!order.invoice) return;
@@ -317,8 +318,18 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                     <Download className="h-3 w-3" />
                     <span className="text-xs">Экспорт счета</span>
                   </button>
+                ) : (
+                  <button
+                    disabled
+                    className="flex items-center space-x-1 text-gray-400 cursor-not-allowed"
+                    title="Счет не создан"
+                  >
+                    <Download className="h-3 w-3" />
+                    <span className="text-xs">Экспорт счета</span>
+                  </button>
                 )}
-                {quotes.length > 0 && (
+                {/* Кнопки экспорта КП - показываем всегда, если есть КП */}
+                {quotes.length > 0 ? (
                   <div className="flex items-center space-x-2">
                     {quotes.map((quote) => (
                       <button
@@ -356,6 +367,15 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                       </button>
                     ))}
                   </div>
+                ) : (
+                  <button
+                    disabled
+                    className="flex items-center space-x-1 text-gray-400 cursor-not-allowed"
+                    title="КП не созданы"
+                  >
+                    <Download className="h-3 w-3" />
+                    <span className="text-xs">Экспорт КП</span>
+                  </button>
                 )}
               </div>
             </div>
@@ -417,11 +437,12 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                             const totalPrice = quantity * unitPrice;
                             
                             // Определяем является ли товар ручкой
-                            // Проверяем несколько признаков: type, handleId, handleName, или низкая цена (ручки обычно до 5000)
+                            // Проверяем несколько признаков: type, handleId, handleName
+                            // Также проверяем по цене: если цена низкая (< 5000) и это не дверь (цена двери обычно > 60000), то это скорее всего ручка
                             const isHandle = item.type === 'handle' 
                               || item.handleId 
-                              || item.handleName 
-                              || (unitPrice < 5000 && (item.model?.includes('handle') || item.name?.includes('ручка') || item.name?.includes('handle')));
+                              || item.handleName
+                              || (unitPrice < 5000 && unitPrice > 0 && !item.model?.includes('DomeoDoors'));
                             
                             // Для ручек используем handleName, для остальных товаров - name/model
                             const displayName = isHandle
