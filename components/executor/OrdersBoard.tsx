@@ -581,7 +581,7 @@ function OrderDetailModal({
         await fetchOrder();
       } else {
         const error = await response.json();
-        toast.error(error.error || 'Ошибка загрузки данных дверей');
+        toast.error(error.error || 'Ошибка загрузки тех. заданий');
       }
     } catch (error) {
       console.error('Error loading doors from invoice:', error);
