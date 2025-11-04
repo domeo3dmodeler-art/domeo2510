@@ -68,9 +68,11 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
   const [order, setOrder] = useState<OrderData | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'items' | 'invoice' | 'quotes'>('items');
+  const [activeTab, setActiveTab] = useState<'items'>('items');
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isCommentsModalOpen, setIsCommentsModalOpen] = useState(false);
+  const [exportingInvoice, setExportingInvoice] = useState(false);
+  const [exportingQuote, setExportingQuote] = useState<string | null>(null);
 
   // Загрузка заказа
   const fetchOrder = useCallback(async () => {
@@ -313,44 +315,15 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
               )}
             </div>
 
-            {/* Табы контента */}
+            {/* Заголовок раздела товаров */}
             <div className="mb-4 border-b border-gray-200">
-              <nav className="-mb-px flex space-x-6">
-                <button
-                  onClick={() => setActiveTab('items')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'items'
-                      ? 'border-black text-black'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  Товары ({items.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('invoice')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'invoice'
-                      ? 'border-black text-black'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  Счет {order.invoice ? `(${order.invoice.number})` : ''}
-                </button>
-                <button
-                  onClick={() => setActiveTab('quotes')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'quotes'
-                      ? 'border-black text-black'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  КП ({quotes.length})
-                </button>
-              </nav>
+              <h3 className="text-sm font-medium text-gray-900 pb-2">
+                Товары ({items.length})
+              </h3>
             </div>
 
-            {/* Контент табов */}
-            {activeTab === 'items' && (
+            {/* Контент товаров */}
+            {
               <div className="mb-6">
                 {items.length > 0 ? (
                   <>
@@ -370,9 +343,17 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                             const quantity = item.quantity || item.qty || 1;
                             const unitPrice = item.unit_price || item.price || 0;
                             const totalPrice = quantity * unitPrice;
+                            
+                            // Определяем является ли товар ручкой
+                            // Проверяем несколько признаков: type, handleId, handleName, или низкая цена (ручки обычно до 5000)
+                            const isHandle = item.type === 'handle' 
+                              || item.handleId 
+                              || item.handleName 
+                              || (unitPrice < 5000 && (item.model?.includes('handle') || item.name?.includes('ручка') || item.name?.includes('handle')));
+                            
                             // Для ручек используем handleName, для остальных товаров - name/model
-                            const displayName = (item.type === 'handle' || item.handleId) 
-                              ? (item.handleName || item.name || 'Ручка')
+                            const displayName = isHandle
+                              ? (item.handleName || item.name || item.product_name || 'Ручка')
                               : (item.name || item.product_name || item.model || item.notes || 'Товар');
                             const cleanName = cleanProductName(displayName);
                             
