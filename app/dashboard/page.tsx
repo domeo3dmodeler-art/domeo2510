@@ -107,15 +107,15 @@ function DashboardContent() {
       ...roleContent,
       widgets: Array.isArray(roleContent.widgets) 
         ? roleContent.widgets
-            .filter(w => w != null && typeof w === 'object' && w.title && w.link)
+            .filter(w => w != null && typeof w === 'object' && w.title && w.link && (w.icon !== undefined && w.icon !== null))
             .map(w => ({ ...w, icon: w?.icon ?? '📊' }))
-            .filter(w => w != null) // Дополнительная фильтрация после map
+            .filter(w => w != null && w.icon !== undefined && w.icon !== null)
         : [],
       quickActions: Array.isArray(roleContent.quickActions)
         ? roleContent.quickActions
-            .filter(a => a != null && typeof a === 'object' && a.title && a.link)
+            .filter(a => a != null && typeof a === 'object' && a.title && a.link && (a.icon !== undefined && a.icon !== null))
             .map(a => ({ ...a, icon: a?.icon ?? '⚡' }))
-            .filter(a => a != null) // Дополнительная фильтрация после map
+            .filter(a => a != null && a.icon !== undefined && a.icon !== null)
         : []
     };
   }, [roleContent, user]);
@@ -343,9 +343,9 @@ function DashboardContent() {
           {/* Widgets Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {safeRoleContent.widgets
-              .filter(w => w != null && typeof w === 'object' && w.title && w.link && w.icon != null)
+              .filter(w => w != null && typeof w === 'object' && w.title && w.link && (w.icon !== undefined && w.icon !== null))
               .map((widget, index) => {
-                if (!widget || !widget.title || !widget.link) return null;
+                if (!widget || !widget.title || !widget.link || (widget.icon === undefined || widget.icon === null)) return null;
                 return (
               <Card key={index} variant="interactive" className="hover:border-black transition-all duration-200">
                 <div className="p-6">
@@ -368,9 +368,9 @@ function DashboardContent() {
               <h2 className="text-xl font-semibold text-black mb-4">Быстрые действия</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {safeRoleContent.quickActions
-                  .filter(a => a != null && typeof a === 'object' && a.title && a.link && a.icon != null)
+                  .filter(a => a != null && typeof a === 'object' && a.title && a.link && (a.icon !== undefined && a.icon !== null))
                   .map((action, index) => {
-                    if (!action || !action.title || !action.link) return null;
+                    if (!action || !action.title || !action.link || (action.icon === undefined || action.icon === null)) return null;
                     return (
                   <Button
                     key={index}
@@ -521,9 +521,9 @@ function DashboardContent() {
         {/* Widgets Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {safeRoleContent.widgets
-            .filter(w => w != null && typeof w === 'object' && w.title && w.link && w.icon != null)
+            .filter(w => w != null && typeof w === 'object' && w.title && w.link && (w.icon !== undefined && w.icon !== null))
             .map((widget, index) => {
-              if (!widget || !widget.title || !widget.link) return null;
+              if (!widget || !widget.title || !widget.link || (widget.icon === undefined || widget.icon === null)) return null;
               return (
             <div
               key={index}
@@ -549,9 +549,9 @@ function DashboardContent() {
           <h2 className="text-xl font-semibold text-black mb-4">Быстрые действия</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {safeRoleContent.quickActions
-              .filter(a => a != null && typeof a === 'object' && a.title && a.link && a.icon != null)
+              .filter(a => a != null && typeof a === 'object' && a.title && a.link && (a.icon !== undefined && a.icon !== null))
               .map((action, index) => {
-                if (!action || !action.title || !action.link) return null;
+                if (!action || !action.title || !action.link || (action.icon === undefined || action.icon === null)) return null;
                 return (
               <button
                 key={index}
