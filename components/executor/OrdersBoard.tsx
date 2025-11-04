@@ -185,20 +185,23 @@ export function OrdersBoard({ executorId }: OrdersBoardProps) {
         >
           Все ({orders.length})
         </button>
-        {Object.entries(ORDER_STATUSES).map(([status, config]) => {
-          const count = statusCounts[status];
-          const Icon = config.icon;
-          
-          return (
-            <button
-              key={status}
-              onClick={() => setActiveStatus(status as keyof typeof ORDER_STATUSES)}
-              className={`px-4 py-2 whitespace-nowrap font-medium border-b-2 transition-colors flex items-center space-x-2 ${
-                activeStatus === status
-                  ? 'border-black text-black'
-                  : 'border-transparent text-gray-600 hover:text-black'
-              }`}
-            >
+        {Object.entries(ORDER_STATUSES)
+          .filter(([, config]) => config && config.icon != null)
+          .map(([status, config]) => {
+            if (!config || !config.icon) return null;
+            const count = statusCounts[status];
+            const Icon = config.icon;
+            
+            return (
+              <button
+                key={status}
+                onClick={() => setActiveStatus(status as keyof typeof ORDER_STATUSES)}
+                className={`px-4 py-2 whitespace-nowrap font-medium border-b-2 transition-colors flex items-center space-x-2 ${
+                  activeStatus === status
+                    ? 'border-black text-black'
+                    : 'border-transparent text-gray-600 hover:text-black'
+                }`}
+              >
               <Icon className="h-4 w-4" />
               <span>{config.label}</span>
               {count > 0 && (
@@ -208,7 +211,8 @@ export function OrdersBoard({ executorId }: OrdersBoardProps) {
               )}
             </button>
           );
-        })}
+        })
+        .filter(Boolean)}
       </div>
 
       {/* Таблица заказов */}
@@ -250,6 +254,7 @@ export function OrdersBoard({ executorId }: OrdersBoardProps) {
               ) : (
                 filteredOrders.map((order) => {
                   const statusConfig = ORDER_STATUSES[order.status];
+                  if (!statusConfig || !statusConfig.icon) return null;
                   const StatusIcon = statusConfig.icon;
                   
                   return (
@@ -295,6 +300,7 @@ export function OrdersBoard({ executorId }: OrdersBoardProps) {
                     </tr>
                   );
                 })
+                .filter(Boolean)}
               )}
             </tbody>
           </table>

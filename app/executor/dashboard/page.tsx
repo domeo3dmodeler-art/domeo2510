@@ -398,7 +398,8 @@ export default function ExecutorDashboard() {
           middleName: '',
           phone: '',
           address: '',
-          objectId: ''
+          objectId: '',
+          compilationLeadNumber: ''
         });
         return data.client;
       } else {
@@ -948,15 +949,21 @@ export default function ExecutorDashboard() {
                     {([
                       {id:'invoices',name:'Счета',icon:Download},
                       {id:'supplier_orders',name:'Заказ у поставщика',icon:Package}
-                    ] as Array<{id:'invoices'|'supplier_orders';name:string;icon:any}>).map((t) => (
-            <button
-                        key={t.id}
-                        onClick={() => setClientTab(t.id)}
-                        className={`flex items-center py-2 px-1 border-b-2 font-medium text-sm ${clientTab===t.id?'border-black text-black':'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-                      >
-                        <t.icon className="h-4 w-4 mr-2"/>{t.name}
-            </button>
-          ))}
+                    ] as Array<{id:'invoices'|'supplier_orders';name:string;icon:any}>)
+                      .filter(t => t && t.icon != null)
+                      .map((t) => {
+                        if (!t || !t.icon) return null;
+                        const IconComponent = t.icon;
+                        return (
+                          <button
+                            key={t.id}
+                            onClick={() => setClientTab(t.id)}
+                            className={`flex items-center py-2 px-1 border-b-2 font-medium text-sm ${clientTab===t.id?'border-black text-black':'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                          >
+                            <IconComponent className="h-4 w-4 mr-2"/>{t.name}
+                          </button>
+                        );
+                      }).filter(Boolean)}
         </nav>
       </div>
 
@@ -1097,8 +1104,10 @@ export default function ExecutorDashboard() {
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       // Открываем модальное окно с правильным ID счета
-                                      setSelectedDocumentId(so.invoiceInfo.id);
-                                      setIsModalOpen(true);
+                                      if (so.invoiceInfo) {
+                                        setSelectedDocumentId(so.invoiceInfo.id);
+                                        setIsModalOpen(true);
+                                      }
                                     }}
                                     className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
                                   >
@@ -1266,7 +1275,7 @@ export default function ExecutorDashboard() {
                     return;
                   }
                   try {
-                    await createClient(newClientData);
+                    await createClient({ ...newClientData, compilationLeadNumber: newClientData.compilationLeadNumber || '' });
                   } catch (error) {
                     console.error('Error creating client:', error);
                   }
@@ -1371,7 +1380,7 @@ export default function ExecutorDashboard() {
                           if (response.ok) {
                             // Обновляем локальное состояние
                             setSupplierOrders(prev => prev.map(so => 
-                              so.id === supplierOrder.id ? { ...so, status } : so
+                              so.id === supplierOrder.id ? { ...so, status: status as typeof so.status } : so
                             ));
                             hideStatusDropdown();
                             toast.success(`Статус изменен на "${status}"`);
