@@ -124,7 +124,13 @@ export async function POST(req: NextRequest) {
         executor_id: null,
         status: 'NEW_PLANNED',
         parent_document_id: parent_document_id || null,
-        cart_session_id: finalCartSessionId
+        cart_session_id: finalCartSessionId,
+        cart_data: items && items.length > 0 
+          ? JSON.stringify({ items, total_amount: total_amount || 0 }) 
+          : (items && Array.isArray(items) 
+            ? JSON.stringify({ items: [], total_amount: total_amount || 0 })
+            : null),
+        total_amount: total_amount || 0
       }
     });
 

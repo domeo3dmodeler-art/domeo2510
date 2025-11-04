@@ -169,7 +169,14 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     if (order.cart_data) {
       try {
         const cartData = typeof order.cart_data === 'string' ? JSON.parse(order.cart_data) : order.cart_data;
-        return cartData.items || cartData || [];
+        // Поддерживаем оба формата: { items: [...] } и просто массив
+        if (cartData.items && Array.isArray(cartData.items)) {
+          return cartData.items;
+        }
+        if (Array.isArray(cartData)) {
+          return cartData;
+        }
+        return [];
       } catch (e) {
         console.error('Error parsing cart_data:', e);
       }
@@ -181,7 +188,14 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         const invoiceCartData = typeof order.invoice.cart_data === 'string' 
           ? JSON.parse(order.invoice.cart_data) 
           : order.invoice.cart_data;
-        return invoiceCartData.items || invoiceCartData || [];
+        // Поддерживаем оба формата: { items: [...] } и просто массив
+        if (invoiceCartData.items && Array.isArray(invoiceCartData.items)) {
+          return invoiceCartData.items;
+        }
+        if (Array.isArray(invoiceCartData)) {
+          return invoiceCartData;
+        }
+        return [];
       } catch (e) {
         console.error('Error parsing invoice cart_data:', e);
       }
@@ -438,7 +452,9 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                       <button
                         onClick={() => {
                           // Открыть DocumentQuickViewModal для счета
-                          window.location.href = `/documents/${order.invoice.id}`;
+                          if (order.invoice) {
+                            window.location.href = `/documents/${order.invoice.id}`;
+                          }
                         }}
                         className="text-xs text-blue-600 hover:underline mt-2"
                       >

@@ -308,7 +308,11 @@ export async function POST(req: NextRequest) {
           status: 'NEW_PLANNED',
           parent_document_id: null, // Order - основной документ, parent_document_id всегда null
           cart_session_id: finalCartSessionId,
-          cart_data: items && items.length > 0 ? JSON.stringify(items) : null,
+          cart_data: items && items.length > 0 
+            ? JSON.stringify({ items, total_amount: calculatedTotalAmount }) 
+            : (items && Array.isArray(items) 
+              ? JSON.stringify({ items: [], total_amount: calculatedTotalAmount })
+              : null),
           total_amount: calculatedTotalAmount,
           notes: notes || null
         },

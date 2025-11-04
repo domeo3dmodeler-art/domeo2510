@@ -873,8 +873,14 @@ function OrderDetailModal({
                   variant="outline"
                   size="sm"
                   onClick={handleExportInvoicePDF}
-                  disabled={loading || !currentOrder.invoice?.id}
+                  disabled={loading || !currentOrder.invoice?.id || currentOrder.invoice?.status !== 'PAID'}
                   className="flex-1"
+                  title={!currentOrder.invoice?.id 
+                    ? 'Счет не создан' 
+                    : currentOrder.invoice?.status !== 'PAID' 
+                    ? 'Экспорт доступен только для оплаченных счетов'
+                    : 'Экспортировать оплаченный счет'
+                  }
                 >
                   <Download className="h-4 w-4 mr-2" />
                   Оплаченный счет
@@ -1089,7 +1095,16 @@ function OrderDetailModal({
               const sourceCartData = currentOrder.invoice?.cart_data || currentOrder.cart_data;
               
               if (!sourceCartData) {
-                return <div className="text-sm text-gray-500">Товары не указаны</div>;
+                return (
+                  <div className="text-sm text-gray-500">
+                    <p>Товары не указаны</p>
+                    <p className="text-xs mt-1 text-gray-400">
+                      {!currentOrder.invoice?.cart_data && !currentOrder.cart_data 
+                        ? 'Заказ был создан без товаров. Товары можно добавить при создании Invoice или обновить Order через API.'
+                        : 'Не удалось загрузить данные товаров.'}
+                    </p>
+                  </div>
+                );
               }
               
               try {
