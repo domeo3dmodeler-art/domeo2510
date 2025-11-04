@@ -28,8 +28,21 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({ clients });
-  } catch (fetchClientsApiError) {
+  } catch (fetchClientsApiError: any) {
     console.error('Error fetching clients:', fetchClientsApiError);
+    
+    // Более детальная обработка ошибок
+    if (fetchClientsApiError.code === 'P1001') {
+      console.error('Не удается подключиться к базе данных. Проверьте SSH туннель.');
+      return NextResponse.json(
+        { 
+          error: 'Ошибка подключения к базе данных. Убедитесь, что SSH туннель запущен.',
+          details: 'Запустите SSH туннель: npm run dev:tunnel'
+        }, 
+        { status: 503 }
+      );
+    }
+    
     // Если ошибка связана с отсутствием поля compilationLeadNumber, возвращаем клиентов без этого поля
     if (fetchClientsApiError && typeof fetchClientsApiError === 'object' && 'code' in fetchClientsApiError && fetchClientsApiError.code === 'P2022') {
       console.warn('Field compilationLeadNumber does not exist, trying without it...');
@@ -51,9 +64,23 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ clients: clientsWithoutField });
       } catch (fallbackError) {
         console.error('Fallback query also failed:', fallbackError);
+        return NextResponse.json(
+          { 
+            error: 'Ошибка при получении клиентов',
+            details: fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
+          }, 
+          { status: 500 }
+        );
       }
     }
-    return NextResponse.json({ error: 'Ошибка при получении клиентов' }, { status: 500 });
+    
+    return NextResponse.json(
+      { 
+        error: 'Ошибка при получении клиентов',
+        details: fetchClientsApiError instanceof Error ? fetchClientsApiError.message : String(fetchClientsApiError)
+      }, 
+      { status: 500 }
+    );
   }
 }
 

@@ -186,27 +186,61 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     try {
       isClientsLoadingRef.current = true;
       const response = await fetch('/api/clients');
-      if (response.ok) {
-        const data = await response.json();
-        // Преобразуем данные клиентов в нужный формат
-        // Используем полное имя переменной clientItem вместо client для избежания проблем минификации
-        const formattedClients = data.clients.map((clientItem: any) => ({
-          id: clientItem.id,
-          firstName: clientItem.firstName,
-          lastName: clientItem.lastName,
-          middleName: clientItem.middleName,
-          phone: clientItem.phone,
-          address: clientItem.address,
-          objectId: clientItem.objectId,
-          lastActivityAt: clientItem.createdAt,
-          lastDoc: undefined // Будет загружаться отдельно при выборе клиента
-        }));
-        setClients(formattedClients);
-      } else {
-        console.error('Failed to fetch clients');
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText || `HTTP ${response.status}` };
+        }
+        
+        console.error('Failed to fetch clients:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+        
+        // Показываем пользователю понятное сообщение
+        if (response.status === 500) {
+          console.error('Ошибка подключения к базе данных. Убедитесь, что SSH туннель запущен.');
+        }
+        
+        return;
       }
+      
+      const data = await response.json();
+      
+      // Проверяем, что данные есть
+      if (!data || !data.clients) {
+        console.error('Invalid response format:', data);
+        return;
+      }
+      
+      // Преобразуем данные клиентов в нужный формат
+      const formattedClients = data.clients.map((clientItem: any) => ({
+        id: clientItem.id,
+        firstName: clientItem.firstName,
+        lastName: clientItem.lastName,
+        middleName: clientItem.middleName,
+        phone: clientItem.phone,
+        address: clientItem.address,
+        objectId: clientItem.objectId,
+        lastActivityAt: clientItem.createdAt,
+        lastDoc: undefined // Будет загружаться отдельно при выборе клиента
+      }));
+      
+      setClients(formattedClients);
     } catch (fetchClientsError) {
       console.error('Error fetching clients:', fetchClientsError);
+      
+      // Более детальная информация об ошибке
+      if (fetchClientsError instanceof TypeError && fetchClientsError.message.includes('fetch')) {
+        console.error('Ошибка сети. Проверьте, что dev сервер запущен на http://localhost:3000');
+      } else {
+        console.error('Неизвестная ошибка при загрузке клиентов:', fetchClientsError);
+      }
     } finally {
       isClientsLoadingRef.current = false;
     }
