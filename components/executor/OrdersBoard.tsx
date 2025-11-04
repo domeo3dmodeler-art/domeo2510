@@ -17,12 +17,12 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Статусы заказов
+// Статусы заказов для исполнителя
 const ORDER_STATUSES = {
   NEW_PLANNED: { label: 'Новый заказ', color: 'bg-gray-100 text-gray-800', icon: FileText },
   UNDER_REVIEW: { label: 'На проверке', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
-  AWAITING_MEASUREMENT: { label: 'Ждут замер', color: 'bg-orange-100 text-orange-800', icon: AlertCircle },
-  AWAITING_INVOICE: { label: 'Ожидают счет', color: 'bg-blue-100 text-blue-800', icon: Upload },
+  AWAITING_MEASUREMENT: { label: 'Ждет замер', color: 'bg-orange-100 text-orange-800', icon: AlertCircle },
+  AWAITING_INVOICE: { label: 'Ожидает счет', color: 'bg-blue-100 text-blue-800', icon: Upload },
   COMPLETED: { label: 'Выполнена', color: 'bg-green-100 text-green-800', icon: CheckCircle }
 };
 
