@@ -77,7 +77,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     lastDoc?: { type: 'quote'|'invoice'; status: string; id: string; date: string; total?: number };
   }>>([]);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
-  const [orders, setOrders] = useState<Array<{ id: string; number: string; date: string; status: typeof COMPLECTATOR_FILTER_STATUSES[number]; total: number; invoice_id?: string; originalStatus?: string }>>([]);
+  const [orders, setOrders] = useState<Array<{ id: string; number: string; date: string; status: typeof COMPLECTATOR_FILTER_STATUSES[number]; total: number; invoice_id?: string; originalStatus?: string; displayStatus?: string }>>([]);
   const [ordersFilter, setOrdersFilter] = useState<typeof COMPLECTATOR_FILTER_STATUSES[number]>('all');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
@@ -257,54 +257,62 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         const data = await response.json();
         // Преобразуем заказы, синхронизируя статусы со статусами счетов
         const formattedOrders = (data.orders || []).map((order: any) => {
-          // Если у заказа есть счет, берем статус из счета, иначе используем статус заказа
-          let orderStatus: string = order.status;
+          // Определяем статус для отображения
+          let displayStatus: string = order.status;
+          let filterStatus: typeof COMPLECTATOR_FILTER_STATUSES[number] = 'Черновик';
+          
+          // Если у заказа есть счет, берем статус из счета для комплектатора
           if (order.invoice && order.invoice.status) {
+            const invoiceStatus = order.invoice.status;
             // Маппим статусы счета на статусы заказа для комплектатора
             const invoiceStatusMap: Record<string, string> = {
               'DRAFT': 'Черновик',
               'SENT': 'Отправлен',
               'PAID': 'Оплачен/Заказ',
-              'ORDERED': 'Заказ размещен',
-              'RECEIVED_FROM_SUPPLIER': 'Получен от поставщика',
-              'COMPLETED': 'Исполнен',
               'CANCELLED': 'Отменен'
             };
-            orderStatus = invoiceStatusMap[order.invoice.status] || 'Черновик';
+            displayStatus = invoiceStatusMap[invoiceStatus] || 'Черновик';
+            filterStatus = (displayStatus as typeof COMPLECTATOR_FILTER_STATUSES[number]) || 'Черновик';
           } else {
-            // Если счета нет, маппим статус заказа на статусы счетов
-            const orderStatusMap: Record<string, string> = {
-              'NEW_PLANNED': 'Черновик',
-              'UNDER_REVIEW': 'Черновик',
-              'AWAITING_MEASUREMENT': 'Черновик',
-              'AWAITING_INVOICE': 'Черновик',
-              'COMPLETED': 'Исполнен'
+            // Если счета нет, проверяем статус заказа
+            // Статусы исполнителя (NEW_PLANNED, UNDER_REVIEW, AWAITING_MEASUREMENT, AWAITING_INVOICE, COMPLETED)
+            const executorStatusMap: Record<string, string> = {
+              'NEW_PLANNED': 'Новый заказ',
+              'UNDER_REVIEW': 'На проверке',
+              'AWAITING_MEASUREMENT': 'Ждет замер',
+              'AWAITING_INVOICE': 'Ожидает счет',
+              'COMPLETED': 'Выполнена'
             };
-            orderStatus = orderStatusMap[order.status] || 'Черновик';
+            
+            // Маппим статусы исполнителя на русские названия
+            if (executorStatusMap[order.status]) {
+              displayStatus = executorStatusMap[order.status];
+              // Статусы исполнителя попадают в фильтр "Оплачен/Заказ"
+              filterStatus = 'Оплачен/Заказ';
+            } else {
+              // Статусы комплектатора (DRAFT, SENT, PAID, CANCELLED)
+              const complectatorStatusMap: Record<string, string> = {
+                'DRAFT': 'Черновик',
+                'SENT': 'Отправлен',
+                'PAID': 'Оплачен/Заказ',
+                'CANCELLED': 'Отменен'
+              };
+              displayStatus = complectatorStatusMap[order.status] || 'Черновик';
+              filterStatus = (displayStatus as typeof COMPLECTATOR_FILTER_STATUSES[number]) || 'Черновик';
+            }
           }
 
           return {
             id: order.id,
             number: order.number,
             date: new Date(order.created_at).toLocaleDateString('ru-RU'),
-            // Маппим статус на фильтруемый статус (только управляемые статусы комплектатора)
-            // Статусы исполнителя (ORDERED, RECEIVED_FROM_SUPPLIER, COMPLETED) маппируем в "Оплачен/Заказ"
-            status: (() => {
-              // Если статус из фильтров комплектатора, возвращаем его
-              if (['Черновик', 'Отправлен', 'Оплачен/Заказ', 'Отменен'].includes(orderStatus)) {
-                return orderStatus as typeof COMPLECTATOR_FILTER_STATUSES[number];
-              }
-              // Статусы исполнителя маппируем в "Оплачен/Заказ"
-              if (['Заказ размещен', 'Получен от поставщика', 'Исполнен'].includes(orderStatus)) {
-                return 'Оплачен/Заказ' as typeof COMPLECTATOR_FILTER_STATUSES[number];
-              }
-              // По умолчанию "Черновик"
-              return 'Черновик' as typeof COMPLECTATOR_FILTER_STATUSES[number];
-            })(),
+            status: filterStatus,
             total: order.invoice?.total_amount || 0,
             invoice_id: order.invoice_id,
-            // Сохраняем оригинальный статус для отображения
-            originalStatus: orderStatus
+            // Сохраняем оригинальный статус для отображения (API статус для получения правильного бейджа)
+            originalStatus: order.status,
+            // Сохраняем отображаемый статус на русском
+            displayStatus: displayStatus
           };
         });
         setOrders(formattedOrders);
@@ -405,15 +413,20 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     }
   };
 
-  const badgeByInvoiceStatus = (s: 'Черновик'|'Отправлен'|'Оплачен/Заказ'|'Отменен'|'Заказ размещен'|'Получен от поставщика'|'Исполнен') => {
+  const badgeByInvoiceStatus = (s: string) => {
+    // Статусы комплектатора
     switch (s) {
       case 'Черновик': return 'border-gray-300 text-gray-700';
       case 'Отправлен': return 'border-blue-300 text-blue-700';
       case 'Оплачен/Заказ': return 'border-green-300 text-green-700';
       case 'Отменен': return 'border-red-300 text-red-700';
-      case 'Заказ размещен': return 'border-yellow-300 text-yellow-800';
-      case 'Получен от поставщика': return 'border-purple-300 text-purple-700';
-      case 'Исполнен': return 'border-emerald-300 text-emerald-700';
+      // Статусы исполнителя (комплектатор их видит, но не может изменять)
+      case 'Новый заказ': return 'border-blue-300 text-blue-700';
+      case 'На проверке': return 'border-yellow-300 text-yellow-800';
+      case 'Ждет замер': return 'border-orange-300 text-orange-800';
+      case 'Ожидает счет': return 'border-purple-300 text-purple-700';
+      case 'Выполнена': return 'border-emerald-300 text-emerald-700';
+      default: return 'border-gray-300 text-gray-700';
     }
   };
 
@@ -1078,8 +1091,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                               <div className="flex items-center space-x-3">
                                 <div className="font-medium text-black">{o.number}</div>
                                 <div className="text-sm text-gray-600">от {o.date}</div>
-                                <span className={`px-2 py-0.5 text-xs border rounded ${badgeByInvoiceStatus(o.originalStatus || o.status)}`}>
-                                  {o.originalStatus || o.status}
+                                <span className={`px-2 py-0.5 text-xs border rounded ${badgeByInvoiceStatus(o.displayStatus || o.status)}`}>
+                                  {o.displayStatus || o.status}
                                 </span>
                                 {o.total > 0 && (
                                   <div className="text-sm text-gray-600">

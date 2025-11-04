@@ -129,26 +129,30 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
   const getDisplayStatus = () => {
     if (!order) return null;
     
-    // Если у заказа есть счет, для комплектатора берем статус из счета
-    if (userRole === 'complectator' && order.invoice) {
-      const status = order.invoice.status;
-      const label = getStatusLabel(status, 'invoice');
-      const color = STATUS_COLORS[status] || 'bg-gray-100 text-gray-800 border-gray-200';
-      return { label, color, canManage: true };
-    }
-    
-    // Для комплектатора используем статусы Order, синхронизированные с Invoice
+    // Для комплектатора: если есть счет, берем статус из счета (DRAFT, SENT, PAID, CANCELLED)
+    // Если счета нет или статус заказа - статус исполнителя, показываем статус заказа
     if (userRole === 'complectator') {
-      const label = getStatusLabel(order.status, 'order_complectator');
+      // Если есть счет со статусом из управляемых комплектатором, используем его
+      if (order.invoice && ['DRAFT', 'SENT', 'PAID', 'CANCELLED'].includes(order.invoice.status)) {
+        const status = order.invoice.status;
+        const label = getStatusLabel(status, 'invoice');
+        const color = STATUS_COLORS[status] || 'bg-gray-100 text-gray-800 border-gray-200';
+        return { label, color, canManage: true };
+      }
+      
+      // Иначе используем статус заказа (может быть статус исполнителя)
+      const label = getStatusLabel(order.status, 'order');
       const color = STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-800 border-gray-200';
-      return { label, color, canManage: true };
+      // Комплектатор не может управлять статусами исполнителя
+      const canManage = ['DRAFT', 'SENT', 'PAID', 'CANCELLED'].includes(order.status);
+      return { label, color, canManage };
     }
     
     // Для исполнителя используем статусы Order
     if (userRole === 'executor') {
       const label = getStatusLabel(order.status, 'order_executor');
       const color = STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-800 border-gray-200';
-      return { label, color, canManage: false };
+      return { label, color, canManage: true };
     }
     
     // По умолчанию

@@ -26,34 +26,36 @@ export const QUOTE_STATUSES = {
 } as const;
 
 /**
- * Статусы Order для Комплектатора (синхронизированы со статусами Invoice)
+ * Статусы Order для Комплектатора
+ * Комплектатор может управлять только: Черновик, Отправлен, Оплачен/Заказ, Отменен
+ * После перехода в "Оплачен/Заказ" заказ переходит к Исполнителю и получает статус NEW_PLANNED
  */
 export const ORDER_STATUSES_COMPLECTATOR = {
   DRAFT: { label: 'Черновик', apiValue: 'DRAFT' },
   SENT: { label: 'Отправлен', apiValue: 'SENT' },
   PAID: { label: 'Оплачен/Заказ', apiValue: 'PAID' },
-  ORDERED: { label: 'Заказ размещен', apiValue: 'ORDERED' },
-  RECEIVED_FROM_SUPPLIER: { label: 'Получен от поставщика', apiValue: 'RECEIVED_FROM_SUPPLIER' },
-  COMPLETED: { label: 'Исполнен', apiValue: 'COMPLETED' },
   CANCELLED: { label: 'Отменен', apiValue: 'CANCELLED' }
 } as const;
 
 /**
  * Статусы Order для Исполнителя
+ * Эти статусы появляются после перехода комплектатора в статус "Оплачен/Заказ"
+ * Комплектатор видит эти статусы, но не может их изменять
  */
 export const ORDER_STATUSES_EXECUTOR = {
   NEW_PLANNED: { label: 'Новый заказ', apiValue: 'NEW_PLANNED' },
   UNDER_REVIEW: { label: 'На проверке', apiValue: 'UNDER_REVIEW' },
-  AWAITING_MEASUREMENT: { label: 'Ждут замер', apiValue: 'AWAITING_MEASUREMENT' },
-  AWAITING_INVOICE: { label: 'Ожидают счет', apiValue: 'AWAITING_INVOICE' },
+  AWAITING_MEASUREMENT: { label: 'Ждет замер', apiValue: 'AWAITING_MEASUREMENT' },
+  AWAITING_INVOICE: { label: 'Ожидает счет', apiValue: 'AWAITING_INVOICE' },
   COMPLETED: { label: 'Выполнена', apiValue: 'COMPLETED' }
 } as const;
 
 /**
  * Все статусы для фильтров Комплектатора
  * Комплектатор может управлять только: Черновик, Отправлен, Оплачен/Заказ, Отменен
- * Статусы "Заказ размещен", "Получен от поставщика", "Исполнен" - это статусы исполнителя,
- * комплектатор их видит, но не может управлять ими
+ * Статусы исполнителя (Новый заказ, На проверке, Ждет замер, Ожидает счет, Выполнена) 
+ * комплектатор видит в списке заказов, но не может их изменять
+ * Для фильтрации они попадают в категорию "Оплачен/Заказ"
  */
 export const COMPLECTATOR_FILTER_STATUSES = [
   'all',
