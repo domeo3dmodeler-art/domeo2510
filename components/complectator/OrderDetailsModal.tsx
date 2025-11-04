@@ -437,12 +437,11 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                             const totalPrice = quantity * unitPrice;
                             
                             // Определяем является ли товар ручкой
-                            // Проверяем несколько признаков: type, handleId, handleName
-                            // Также проверяем по цене: если цена низкая (< 5000) и это не дверь (цена двери обычно > 60000), то это скорее всего ручка
+                            // Проверяем поля товара: type, handleId, handleName
+                            // Ручка определяется только по наличию этих полей, не по цене
                             const isHandle = item.type === 'handle' 
-                              || item.handleId 
-                              || item.handleName
-                              || (unitPrice < 5000 && unitPrice > 0 && !item.model?.includes('DomeoDoors'));
+                              || !!item.handleId 
+                              || !!item.handleName;
                             
                             // Для ручек используем handleName, для остальных товаров - name/model
                             const displayName = isHandle
