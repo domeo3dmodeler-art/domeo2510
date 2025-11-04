@@ -577,7 +577,7 @@ function OrderDetailModal({
       });
 
       if (response.ok) {
-        toast.success('Данные дверей загружены из счета');
+        toast.success('Тех. задания загружены из счета');
         await fetchOrder();
       } else {
         const error = await response.json();
