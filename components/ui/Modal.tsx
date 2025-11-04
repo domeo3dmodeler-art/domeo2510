@@ -50,14 +50,12 @@ export function Modal({
     sm: 'max-w-sm',
     md: 'max-w-md',
     lg: 'max-w-lg',
-    xl: 'max-w-xl',
+    xl: 'max-w-[403px]', // Уменьшено на 30% от 576px (576 * 0.7 = 403.2)
     '2xl': 'max-w-2xl',
-    '3xl': 'max-w-3xl'
+    '3xl': 'max-w-[576px]' // Уменьшено на 25% от 768px (768 * 0.75 = 576)
   };
 
-
-  // Вычисляем ширину для 3xl: уменьшаем на 25% (768px * 0.75 = 576px)
-  const finalWidthClass = size === '3xl' ? 'max-w-[576px]' : sizeClasses[size];
+  const finalWidthClass = sizeClasses[size];
   
   return (
     <div className={styles.modal.overlay}>

@@ -225,7 +225,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         isOpen={isOpen}
         onClose={onClose}
         title=""
-        size="3xl"
+        size="xl"
       >
         {loading ? (
           <div className="flex items-center justify-center py-8">
@@ -239,7 +239,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                 <div className="flex items-center space-x-2">
                   <Package className="h-5 w-5 text-gray-600" />
                   <span className="font-semibold text-lg text-gray-900">
-                    Заказ {order.number}
+                    {order.number}
                   </span>
                   <span className="text-xs text-gray-500">
                     {new Date(order.created_at).toLocaleDateString('ru-RU')}
@@ -370,7 +370,11 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                             const quantity = item.quantity || item.qty || 1;
                             const unitPrice = item.unit_price || item.price || 0;
                             const totalPrice = quantity * unitPrice;
-                            const cleanName = cleanProductName(item.name || item.product_name || item.notes || 'Товар');
+                            // Для ручек используем handleName, для остальных товаров - name/model
+                            const displayName = (item.type === 'handle' || item.handleId) 
+                              ? (item.handleName || item.name || 'Ручка')
+                              : (item.name || item.product_name || item.model || item.notes || 'Товар');
+                            const cleanName = cleanProductName(displayName);
                             
                             return (
                               <tr key={index} className="hover:bg-gray-50">
@@ -449,17 +453,48 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                         <span className="text-gray-600">Сумма:</span>{' '}
                         <span className="font-medium">{order.invoice.total_amount.toLocaleString('ru-RU')} ₽</span>
                       </div>
-                      <button
-                        onClick={() => {
-                          // Открыть DocumentQuickViewModal для счета
-                          if (order.invoice) {
-                            window.location.href = `/documents/${order.invoice.id}`;
-                          }
-                        }}
-                        className="text-xs text-blue-600 hover:underline mt-2"
-                      >
-                        Открыть детали счета
-                      </button>
+                      <div className="flex items-center gap-2 mt-3">
+                        <button
+                          onClick={() => {
+                            // Открыть DocumentQuickViewModal для счета
+                            if (order.invoice) {
+                              window.location.href = `/documents/${order.invoice.id}`;
+                            }
+                          }}
+                          className="text-xs text-blue-600 hover:underline"
+                        >
+                          Открыть детали счета
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!order.invoice) return;
+                            try {
+                              const response = await fetch(`/api/documents/${order.invoice.id}/export?format=pdf`);
+                              if (response.ok) {
+                                const blob = await response.blob();
+                                const url = window.URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `Счет-${order.invoice.number}.pdf`;
+                                document.body.appendChild(a);
+                                a.click();
+                                window.URL.revokeObjectURL(url);
+                                document.body.removeChild(a);
+                                toast.success('Счет успешно экспортирован');
+                              } else {
+                                toast.error('Ошибка при экспорте счета');
+                              }
+                            } catch (error) {
+                              console.error('Error exporting invoice:', error);
+                              toast.error('Ошибка при экспорте счета');
+                            }
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
+                        >
+                          <Download className="h-3 w-3" />
+                          Экспорт счета
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : (
