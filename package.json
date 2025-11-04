@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "next dev -p 3000",
+    "dev:quick": "powershell -ExecutionPolicy Bypass -File scripts/dev-local-quick.ps1",
     "build": "next build",
     "build:staging": "NODE_ENV=staging next build",
     "build:prod": "NODE_ENV=production next build",
