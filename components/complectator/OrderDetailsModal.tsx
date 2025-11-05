@@ -131,13 +131,21 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     
     const productIds = new Set<string>();
     items.forEach((item: any) => {
-      // Собираем все возможные ID товаров
+      // Собираем все возможные ID товаров - проверяем все поля
       if (item.handleId) productIds.add(item.handleId);
       if (item.product_id) productIds.add(item.product_id);
+      if (item.productId) productIds.add(item.productId);
       if (item.id) productIds.add(item.id);
+      // Также проверяем, если товар может быть ручкой по типу
+      if (item.type === 'handle' && item.id) {
+        productIds.add(item.id);
+      }
     });
     
-    if (productIds.size === 0) return;
+    if (productIds.size === 0) {
+      console.log('No product IDs found in items:', items);
+      return;
+    }
     
     try {
       // Загружаем информацию о товарах через API
@@ -146,6 +154,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         const data = await response.json();
         const infoMap = new Map<string, ProductInfo>();
         if (data.products) {
+          console.log('Products loaded from DB:', data.products);
           data.products.forEach((product: any) => {
             infoMap.set(product.id, {
               id: product.id,
@@ -155,6 +164,8 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
           });
         }
         setProductsInfo(infoMap);
+      } else {
+        console.error('Error fetching products info:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error fetching products info:', error);
@@ -501,9 +512,23 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                         const totalPrice = quantity * unitPrice;
                         
                         // Определяем является ли товар ручкой - проверяем в БД по ID
-                        const productId = item.handleId || item.product_id || item.id;
+                        // Проверяем все возможные поля с ID
+                        const productId = item.handleId || item.product_id || item.productId || item.id;
                         const productInfo = productId ? productsInfo.get(productId) : null;
-                        const isHandle = productInfo?.isHandle || item.type === 'handle' || !!item.handleId;
+                        
+                        // Определяем является ли ручкой: по БД, по типу, по наличию handleId
+                        const isHandle = productInfo?.isHandle 
+                          || item.type === 'handle' 
+                          || !!item.handleId
+                          || (productInfo && productInfo.isHandle);
+                        
+                        console.log(`Item ${index + 1}:`, {
+                          productId,
+                          isHandle,
+                          productInfo: productInfo ? { name: productInfo.name, isHandle: productInfo.isHandle } : null,
+                          itemType: item.type,
+                          handleId: item.handleId
+                        });
                         
                         // Для ручек используем название из БД или handleName, для остальных товаров - name/model
                         let displayName: string;
