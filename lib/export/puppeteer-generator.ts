@@ -186,7 +186,8 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
       }
       
       // Если все еще нет, пробуем стандартные пути для Alpine Linux
-      if (!executablePath || !executablePath.includes('chromium')) {
+      if (!executablePath || (!executablePath.includes('chromium') && !executablePath.includes('chrome'))) {
+        const fs = require('fs');
         const possiblePaths = [
           '/usr/bin/chromium',
           '/usr/bin/chromium-browser',
@@ -196,11 +197,14 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
         
         for (const path of possiblePaths) {
           try {
-            const fs = require('fs');
             if (fs.existsSync(path)) {
-              executablePath = path;
-              console.log(`✅ Найден Chromium по пути: ${executablePath}`);
-              break;
+              // Проверяем, что файл исполняемый
+              const stats = fs.statSync(path);
+              if (stats.isFile()) {
+                executablePath = path;
+                console.log(`✅ Найден Chromium по пути: ${executablePath}`);
+                break;
+              }
             }
           } catch (e) {
             // Игнорируем ошибки проверки файла
@@ -208,11 +212,27 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
         }
       }
       
-      console.log(`🆕 Создаем браузер с executablePath: ${executablePath || 'default'}`);
+      // Если @sparticuz/chromium вернул /tmp/chromium, но он не работает, используем /usr/bin/chromium
+      if (executablePath && executablePath.includes('/tmp/chromium')) {
+        const fs = require('fs');
+        if (!fs.existsSync(executablePath)) {
+          console.log('⚠️ /tmp/chromium не найден, используем /usr/bin/chromium');
+          executablePath = '/usr/bin/chromium';
+        }
+      }
+      
+      // Если ничего не найдено, используем стандартный путь для Alpine
+      if (!executablePath || (!executablePath.includes('chromium') && !executablePath.includes('chrome'))) {
+        executablePath = '/usr/bin/chromium';
+        console.log(`⚠️ Используем стандартный путь: ${executablePath}`);
+      }
+      
+      console.log(`🆕 Создаем браузер с executablePath: ${executablePath}`);
     } catch (error) {
       console.warn('⚠️ Ошибка получения пути к Chromium:', error);
       // Пробуем стандартные пути
-      executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium' || '/tmp/chromium';
+      executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium';
+      console.log(`⚠️ Используем fallback путь: ${executablePath}`);
     }
     
     const browser = await puppeteer.launch({
