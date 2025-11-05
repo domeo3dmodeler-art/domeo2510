@@ -855,10 +855,25 @@ export async function exportDocumentWithPDF(
 ) {
   const startTime = Date.now();
   console.log(`🚀 Экспорт ${type} в формате ${format} для ${items.length} позиций`);
-
+  
+  // Валидация входных данных
+  if (!clientId || typeof clientId !== 'string') {
+    throw new Error('clientId обязателен и должен быть строкой');
+  }
+  
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    throw new Error('items обязателен и должен быть непустым массивом');
+  }
+  
   // Проверяем, есть ли уже документ с таким содержимым
   console.log(`🔍 Ищем существующий документ типа ${type} для клиента ${clientId}`);
-  const existingDocument = await findExistingDocument(type, clientId, items, totalAmount, parentDocumentId, cartSessionId);
+  let existingDocument = null;
+  try {
+    existingDocument = await findExistingDocument(type, clientId, items, totalAmount, parentDocumentId, cartSessionId);
+  } catch (error) {
+    console.warn('⚠️ Ошибка при поиске существующего документа:', error);
+    // Продолжаем работу, создадим новый документ
+  }
   
   let documentId: string | null = null;
   let documentNumberForDB: string;
@@ -918,7 +933,7 @@ export async function exportDocumentWithPDF(
         }
       });
       console.log(`✅ Тестовый клиент создан: ${client.firstName} ${client.lastName} (ID: ${client.id})`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Ошибка создания тестового клиента:', error);
       // Если не удалось создать клиента, используем объект в памяти
       client = {
@@ -933,7 +948,7 @@ export async function exportDocumentWithPDF(
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date()
-      };
+      } as any;
     }
   }
 
