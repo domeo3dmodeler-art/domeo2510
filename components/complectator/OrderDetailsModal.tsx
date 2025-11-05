@@ -216,6 +216,51 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
           }
         }
         
+        // Если товары не найдены, но есть items с маленькой ценой, пробуем найти ручки по цене
+        if (infoMap.size === 0 && items.length > 0) {
+          const itemsWithSmallPrice = items.filter((item: any) => {
+            const price = item.unitPrice || item.price || item.unit_price || 0;
+            return price > 0 && price < 10000; // Ручки обычно дешевле 10000
+          });
+          
+          if (itemsWithSmallPrice.length > 0) {
+            console.log('🔍 Найдены товары с малой ценой (возможно ручки):', itemsWithSmallPrice.map((item: any) => ({
+              id: item.id,
+              price: item.unitPrice || item.price || item.unit_price,
+              name: item.name || item.model
+            })));
+            
+            // Пробуем загрузить все ручки и найти по цене
+            try {
+              const handlesResponse = await fetch('/api/catalog/hardware?type=handles');
+              if (handlesResponse.ok) {
+                const handlesData = await handlesResponse.json();
+                const allHandles = Object.values(handlesData).flat() as any[];
+                console.log('🔧 Всего ручек в каталоге:', allHandles.length);
+                
+                itemsWithSmallPrice.forEach((item: any) => {
+                  const itemPrice = item.unitPrice || item.price || item.unit_price || 0;
+                  // Ищем ручку с похожей ценой (допуск ±500 Р)
+                  const matchingHandle = allHandles.find((h: any) => 
+                    Math.abs(h.price - itemPrice) < 500
+                  );
+                  
+                  if (matchingHandle) {
+                    infoMap.set(item.id, {
+                      id: item.id,
+                      name: matchingHandle.name || '',
+                      isHandle: true
+                    });
+                    console.log(`✅ Найдена ручка по цене: ${item.id} (${itemPrice} Р) -> ${matchingHandle.name} (${matchingHandle.price} Р)`);
+                  }
+                });
+              }
+            } catch (handlesError) {
+              console.error('❌ Error fetching handles for price matching:', handlesError);
+            }
+          }
+        }
+        
         console.log('📊 Final productsInfo map size:', infoMap.size);
         setProductsInfo(infoMap);
       } else {
