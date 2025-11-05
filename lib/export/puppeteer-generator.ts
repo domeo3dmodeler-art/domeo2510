@@ -185,13 +185,19 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
         executablePath = await chromium.executablePath();
       }
       
+      // Если @sparticuz/chromium вернул /tmp/chromium, заменяем на /usr/bin/chromium
+      // так как /tmp/chromium может не работать в Alpine Linux контейнере
+      if (executablePath && executablePath.includes('/tmp/chromium')) {
+        console.log('⚠️ Обнаружен /tmp/chromium, заменяем на /usr/bin/chromium');
+        executablePath = '/usr/bin/chromium';
+      }
+      
       // Если все еще нет, пробуем стандартные пути для Alpine Linux
       if (!executablePath || (!executablePath.includes('chromium') && !executablePath.includes('chrome'))) {
         const fs = require('fs');
         const possiblePaths = [
           '/usr/bin/chromium',
           '/usr/bin/chromium-browser',
-          '/tmp/chromium',
           '/usr/bin/chrome'
         ];
         
@@ -209,15 +215,6 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
           } catch (e) {
             // Игнорируем ошибки проверки файла
           }
-        }
-      }
-      
-      // Если @sparticuz/chromium вернул /tmp/chromium, но он не работает, используем /usr/bin/chromium
-      if (executablePath && executablePath.includes('/tmp/chromium')) {
-        const fs = require('fs');
-        if (!fs.existsSync(executablePath)) {
-          console.log('⚠️ /tmp/chromium не найден, используем /usr/bin/chromium');
-          executablePath = '/usr/bin/chromium';
         }
       }
       
