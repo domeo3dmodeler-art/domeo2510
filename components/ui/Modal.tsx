@@ -63,6 +63,7 @@ export function Modal({
     <div className={styles.modal.overlay}>
       <div 
         className={`${styles.modal.content.replace('w-full', '')} ${finalWidthClass} ${className} relative`}
+        style={size === 'xl' ? { maxWidth: '1208px', width: '90%' } : undefined}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Кнопка закрытия - всегда показываем */}

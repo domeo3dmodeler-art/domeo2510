@@ -220,6 +220,37 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
 
     setExportingInvoice(true);
     try {
+      // Преобразуем items в формат, ожидаемый API
+      const formattedItems = items.map((item: any) => ({
+        id: item.id || item.productId || item.product_id,
+        productId: item.productId || item.product_id || item.id,
+        name: item.name,
+        model: item.model,
+        qty: item.qty || item.quantity || 1,
+        quantity: item.qty || item.quantity || 1,
+        unitPrice: item.unitPrice || item.price || item.unit_price || 0,
+        price: item.unitPrice || item.price || item.unit_price || 0,
+        width: item.width,
+        height: item.height,
+        color: item.color,
+        finish: item.finish,
+        type: item.type || 'door',
+        sku_1c: item.sku_1c,
+        handleId: item.handleId,
+        handleName: item.handleName,
+        hardwareKitId: item.hardwareKitId,
+        hardwareKitName: item.hardwareKitName
+      }));
+
+      console.log('Export Invoice Request:', {
+        type: 'invoice',
+        format: 'pdf',
+        clientId: order.client.id,
+        itemsCount: formattedItems.length,
+        items: formattedItems,
+        totalAmount: order.total_amount || 0
+      });
+
       const response = await fetch('/api/export/fast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -227,7 +258,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
           type: 'invoice',
           format: 'pdf',
           clientId: order.client.id,
-          items: items,
+          items: formattedItems,
           totalAmount: order.total_amount || 0,
           parentDocumentId: order.id,
           cartSessionId: order.cart_session_id || null
@@ -247,6 +278,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         toast.success('Счет успешно экспортирован');
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
+        console.error('Export Invoice Error:', errorData);
         toast.error(`Ошибка при экспорте счета: ${errorData.error || 'Неизвестная ошибка'}`);
       }
     } catch (error) {
@@ -272,6 +304,37 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
 
     setExportingQuote('exporting');
     try {
+      // Преобразуем items в формат, ожидаемый API
+      const formattedItems = items.map((item: any) => ({
+        id: item.id || item.productId || item.product_id,
+        productId: item.productId || item.product_id || item.id,
+        name: item.name,
+        model: item.model,
+        qty: item.qty || item.quantity || 1,
+        quantity: item.qty || item.quantity || 1,
+        unitPrice: item.unitPrice || item.price || item.unit_price || 0,
+        price: item.unitPrice || item.price || item.unit_price || 0,
+        width: item.width,
+        height: item.height,
+        color: item.color,
+        finish: item.finish,
+        type: item.type || 'door',
+        sku_1c: item.sku_1c,
+        handleId: item.handleId,
+        handleName: item.handleName,
+        hardwareKitId: item.hardwareKitId,
+        hardwareKitName: item.hardwareKitName
+      }));
+
+      console.log('Export Quote Request:', {
+        type: 'quote',
+        format: 'pdf',
+        clientId: order.client.id,
+        itemsCount: formattedItems.length,
+        items: formattedItems,
+        totalAmount: order.total_amount || 0
+      });
+
       const response = await fetch('/api/export/fast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -279,7 +342,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
           type: 'quote',
           format: 'pdf',
           clientId: order.client.id,
-          items: items,
+          items: formattedItems,
           totalAmount: order.total_amount || 0,
           parentDocumentId: order.id,
           cartSessionId: order.cart_session_id || null
@@ -299,6 +362,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         toast.success('КП успешно экспортирован');
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
+        console.error('Export Quote Error:', errorData);
         toast.error(`Ошибка при экспорте КП: ${errorData.error || 'Неизвестная ошибка'}`);
       }
     } catch (error) {
