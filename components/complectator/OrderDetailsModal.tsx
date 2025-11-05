@@ -64,12 +64,6 @@ const STATUS_COLORS: Record<string, string> = {
   'AWAITING_INVOICE': 'bg-blue-100 text-blue-800 border-blue-200'
 };
 
-interface ProductInfo {
-  id: string;
-  name: string;
-  isHandle: boolean;
-}
-
 export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderDetailsModalProps) {
   const [order, setOrder] = useState<OrderData | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -78,7 +72,6 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
   const [isCommentsModalOpen, setIsCommentsModalOpen] = useState(false);
   const [exportingInvoice, setExportingInvoice] = useState(false);
   const [exportingQuote, setExportingQuote] = useState<string | null>(null);
-  const [productsInfo, setProductsInfo] = useState<Map<string, ProductInfo>>(new Map());
 
   // Загрузка заказа
   const fetchOrder = useCallback(async () => {
@@ -125,170 +118,12 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     }
   }, [orderId]);
 
-  // Загрузка информации о товарах из БД (для определения ручек)
-  const fetchProductsInfo = useCallback(async (items: any[]) => {
-    if (!items || items.length === 0) return;
-    
-    const productIds = new Set<string>();
-    const handleIds = new Set<string>(); // Отдельно собираем handleId
-    
-    items.forEach((item: any) => {
-      // Собираем все возможные ID товаров - проверяем все поля
-      if (item.handleId) {
-        handleIds.add(item.handleId); // handleId - это ID ручки из каталога
-        productIds.add(item.handleId);
-      }
-      if (item.product_id) productIds.add(item.product_id);
-      if (item.productId) productIds.add(item.productId);
-      if (item.id) productIds.add(item.id);
-      // Также проверяем, если товар может быть ручкой по типу
-      if (item.type === 'handle' && item.id) {
-        productIds.add(item.id);
-      }
-    });
-    
-    if (productIds.size === 0 && handleIds.size === 0) {
-      console.log('❌ No product IDs found in items:', items);
-      console.log('Items structure:', items.map(item => ({
-        id: item.id,
-        product_id: item.product_id,
-        productId: item.productId,
-        handleId: item.handleId,
-        type: item.type,
-        name: item.name
-      })));
-      return;
-    }
-    
-    console.log('🔍 Product IDs to fetch:', Array.from(productIds));
-    console.log('🔍 Handle IDs found:', Array.from(handleIds));
-    console.log('🔍 Product IDs (detailed):', JSON.stringify(Array.from(productIds)));
-    console.log('🔍 Product IDs count:', productIds.size);
-    
-    try {
-      // Загружаем информацию о товарах через API
-      const apiUrl = `/api/products/batch-info?ids=${Array.from(productIds).join(',')}`;
-      console.log('📡 API URL:', apiUrl);
-      const response = await fetch(apiUrl);
-      if (response.ok) {
-        const data = await response.json();
-        console.log('📦 API Response:', data);
-        console.log('📦 Products count:', data.products?.length || 0);
-        const infoMap = new Map<string, ProductInfo>();
-        if (data.products) {
-          console.log('✅ Products loaded from DB:', data.products);
-          data.products.forEach((product: any) => {
-            console.log(`  - Product ID: ${product.id}, Name: ${product.name}, IsHandle: ${product.isHandle}`);
-            infoMap.set(product.id, {
-              id: product.id,
-              name: product.name || '',
-              isHandle: product.isHandle || false
-            });
-          });
-        } else {
-          console.warn('⚠️ No products in API response');
-        }
-        
-        // Если handleId есть, но товар не найден в БД, добавляем информацию о ручке
-        if (handleIds.size > 0 && infoMap.size === 0) {
-          console.log('⚠️ Handle IDs найдены, но товары не найдены в БД. Попробуем найти ручки по handleId...');
-          // Попробуем найти ручки напрямую через API каталога ручек
-          try {
-            const handlesResponse = await fetch('/api/catalog/hardware?type=handles');
-            if (handlesResponse.ok) {
-              const handlesData = await handlesResponse.json();
-              console.log('🔧 Ручки из каталога:', handlesData);
-              // Ищем ручки по ID
-              handleIds.forEach(handleId => {
-                const handle = Object.values(handlesData).flat().find((h: any) => h.id === handleId);
-                if (handle) {
-                  infoMap.set(handleId, {
-                    id: handleId,
-                    name: handle.name || '',
-                    isHandle: true
-                  });
-                  console.log(`✅ Найдена ручка по handleId: ${handleId} -> ${handle.name}`);
-                }
-              });
-            }
-          } catch (handlesError) {
-            console.error('❌ Error fetching handles:', handlesError);
-          }
-        }
-        
-        // Если товары не найдены, но есть items с маленькой ценой, пробуем найти ручки по цене
-        if (infoMap.size === 0 && items.length > 0) {
-          const itemsWithSmallPrice = items.filter((item: any) => {
-            const price = item.unitPrice || item.price || item.unit_price || 0;
-            return price > 0 && price < 10000; // Ручки обычно дешевле 10000
-          });
-          
-          if (itemsWithSmallPrice.length > 0) {
-            console.log('🔍 Найдены товары с малой ценой (возможно ручки):', itemsWithSmallPrice.map((item: any) => ({
-              id: item.id,
-              price: item.unitPrice || item.price || item.unit_price,
-              name: item.name || item.model
-            })));
-            
-            // Пробуем загрузить все ручки и найти по цене
-            try {
-              const handlesResponse = await fetch('/api/catalog/hardware?type=handles');
-              if (handlesResponse.ok) {
-                const handlesData = await handlesResponse.json();
-                const allHandles = Object.values(handlesData).flat() as any[];
-                console.log('🔧 Всего ручек в каталоге:', allHandles.length);
-                
-                itemsWithSmallPrice.forEach((item: any) => {
-                  const itemPrice = item.unitPrice || item.price || item.unit_price || 0;
-                  // Ищем ручку с похожей ценой (допуск ±500 Р)
-                  const matchingHandle = allHandles.find((h: any) => 
-                    Math.abs(h.price - itemPrice) < 500
-                  );
-                  
-                  if (matchingHandle) {
-                    infoMap.set(item.id, {
-                      id: item.id,
-                      name: matchingHandle.name || '',
-                      isHandle: true
-                    });
-                    console.log(`✅ Найдена ручка по цене: ${item.id} (${itemPrice} Р) -> ${matchingHandle.name} (${matchingHandle.price} Р)`);
-                  }
-                });
-              }
-            } catch (handlesError) {
-              console.error('❌ Error fetching handles for price matching:', handlesError);
-            }
-          }
-        }
-        
-        console.log('📊 Final productsInfo map size:', infoMap.size);
-        setProductsInfo(infoMap);
-      } else {
-        const errorText = await response.text();
-        console.error('❌ Error fetching products info:', response.status, response.statusText, errorText);
-      }
-    } catch (error) {
-      console.error('❌ Error fetching products info:', error);
-    }
-  }, []);
-
   useEffect(() => {
     if (isOpen && orderId) {
       fetchOrder();
       fetchQuotes();
     }
   }, [isOpen, orderId, fetchOrder, fetchQuotes]);
-
-  // Загружаем информацию о товарах после загрузки заказа
-  useEffect(() => {
-    if (order) {
-      const items = getItems();
-      if (items.length > 0) {
-        fetchProductsInfo(items);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [order]);
 
   // Определение статуса для отображения
   const getDisplayStatus = () => {
@@ -611,68 +446,13 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                         const unitPrice = item.unit_price || item.price || 0;
                         const totalPrice = quantity * unitPrice;
                         
-                        // Определяем является ли товар ручкой - проверяем в БД по ID
-                        // Проверяем все возможные поля с ID
-                        const productId = item.handleId || item.product_id || item.productId || item.id;
-                        const productInfo = productId ? productsInfo.get(productId) : null;
+                        // Простое определение ручки: проверяем type или handleId из корзины
+                        const isHandle = item.type === 'handle' || !!item.handleId;
                         
-                        // Определяем является ли ручкой: по БД, по типу, по наличию handleId
-                        // Также проверяем handleId напрямую в productsInfo (может быть ключом)
-                        // FALLBACK: Если нет handleId, но цена маленькая (< 5000) и название похоже на ручку
-                        const isHandle = productInfo?.isHandle 
-                          || item.type === 'handle' 
-                          || !!item.handleId
-                          || (productInfo && productInfo.isHandle)
-                          || (item.handleId && productsInfo.has(item.handleId)) // Проверяем handleId как ключ
-                          || (item.handleName && item.handleName.toLowerCase().includes('ручка')) // Fallback: по handleName
-                          || (item.name && item.name.toLowerCase().includes('ручка')) // Fallback: по названию
-                          || (unitPrice > 0 && unitPrice < 5000 && index === 1 && items.length === 2); // Fallback: второй товар с малой ценой
-                        
-                        // Если определили как ручку, но нет handleId, пробуем найти ручку по цене
-                        if (isHandle && !item.handleId && unitPrice > 0 && unitPrice < 10000) {
-                          console.log(`🔍 Возможно ручка по цене: ${unitPrice} Р, пробуем найти в каталоге...`);
-                        }
-                        
-                        console.log(`Item ${index + 1}:`, {
-                          productId,
-                          isHandle,
-                          productInfo: productInfo ? { name: productInfo.name, isHandle: productInfo.isHandle } : null,
-                          itemType: item.type,
-                          handleId: item.handleId,
-                          itemData: {
-                            id: item.id,
-                            product_id: item.product_id,
-                            productId: item.productId,
-                            handleId: item.handleId,
-                            name: item.name,
-                            model: item.model,
-                            type: item.type
-                          },
-                          productsInfoSize: productsInfo.size,
-                          productsInfoKeys: Array.from(productsInfo.keys())
-                        });
-                        console.log(`Item ${index + 1} FULL DATA:`, JSON.stringify({
-                          id: item.id,
-                          product_id: item.product_id,
-                          productId: item.productId,
-                          handleId: item.handleId,
-                          name: item.name,
-                          model: item.model,
-                          type: item.type,
-                          qty: item.qty,
-                          quantity: item.quantity
-                        }, null, 2));
-                        
-                        // Для ручек используем название из БД или handleName, для остальных товаров - name/model
+                        // Для ручек используем handleName или name, для остальных товаров - name/model
                         let displayName: string;
                         if (isHandle) {
-                          // Если есть информация из БД - используем её
-                          if (productInfo?.name) {
-                            displayName = productInfo.name;
-                          } else {
-                            // Иначе используем handleName или название из item
-                            displayName = item.handleName || item.name || item.product_name || 'Ручка';
-                          }
+                          displayName = item.handleName || item.name || item.product_name || 'Ручка';
                         } else {
                           displayName = item.name || item.product_name || item.model || item.notes || 'Товар';
                         }
