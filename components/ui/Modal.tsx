@@ -59,11 +59,23 @@ export function Modal({
 
   const finalWidthClass = sizeClasses[size];
   
+  // Для размера xl используем принудительную ширину через inline стили
+  const getModalStyle = (): React.CSSProperties => {
+    if (size === 'xl') {
+      return {
+        maxWidth: '1208px',
+        width: '1208px',
+        minWidth: '1208px'
+      };
+    }
+    return {};
+  };
+  
   return (
     <div className={styles.modal.overlay}>
       <div 
         className={`${styles.modal.content.replace('w-full', '')} ${finalWidthClass} ${className} relative`}
-        style={size === 'xl' ? { maxWidth: '1208px', width: '90%', minWidth: '1208px' } : undefined}
+        style={getModalStyle()}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Кнопка закрытия - всегда показываем */}
