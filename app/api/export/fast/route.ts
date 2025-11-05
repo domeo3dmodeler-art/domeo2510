@@ -134,8 +134,17 @@ export async function POST(request: NextRequest) {
     logger.error('Fast export error', 'export/fast', { 
       error: error.message,
       stack: error.stack,
-      type: error.name
+      type: error.name,
+      details: error.toString()
     }, loggingContext);
+    
+    console.error('❌ Fast export error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      cause: error.cause
+    });
+    
     return NextResponse.json(
       { error: 'Ошибка при экспорте документа', details: error.message },
       { status: 500 }
