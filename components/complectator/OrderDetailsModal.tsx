@@ -449,14 +449,8 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                         // Простое определение ручки: проверяем type или handleId из корзины
                         const isHandle = item.type === 'handle' || !!item.handleId;
                         
-                        // Для ручек используем handleName или name, для остальных товаров - name/model
-                        let displayName: string;
-                        if (isHandle) {
-                          displayName = item.handleName || item.name || item.product_name || 'Ручка';
-                        } else {
-                          displayName = item.name || item.product_name || item.model || item.notes || 'Товар';
-                        }
-                        const cleanName = cleanProductName(displayName);
+                        // Используем название точно как в корзине (из поля name)
+                        const displayName = item.name || item.handleName || item.product_name || item.model || 'Товар';
                         
                         return (
                           <tr key={index} className="hover:bg-gray-50">
@@ -465,20 +459,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                             </td>
                             <td className="px-4 py-3">
                               <div className="text-sm font-medium text-gray-900 leading-tight">
-                                {(() => {
-                                  const parts = cleanName.split(' (');
-                                  if (parts.length > 1) {
-                                    const mainName = parts[0];
-                                    const characteristics = '(' + parts.slice(1).join(' (');
-                                    return (
-                                      <>
-                                        <div className="font-semibold text-sm">{mainName}</div>
-                                        <div className="text-gray-600 text-xs mt-1">{characteristics}</div>
-                                      </>
-                                    );
-                                  }
-                                  return <div className="font-semibold text-sm">{cleanName}</div>;
-                                })()}
+                                <div className="font-semibold text-sm">{displayName}</div>
                               </div>
                             </td>
                             <td className="px-2 py-3 text-center text-sm text-gray-900 font-medium">
