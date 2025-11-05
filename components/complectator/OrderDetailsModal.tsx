@@ -449,8 +449,21 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                         // Простое определение ручки: проверяем type или handleId из корзины
                         const isHandle = item.type === 'handle' || !!item.handleId;
                         
-                        // Используем название точно как в корзине (из поля name)
-                        const displayName = item.name || item.handleName || item.product_name || item.model || 'Товар';
+                        // Формируем название товара точно как в корзине
+                        let displayName: string;
+                        if (item.name) {
+                          // Если есть сохраненное название - используем его
+                          displayName = item.name;
+                        } else if (isHandle) {
+                          // Ручка - формируем название
+                          const handleName = item.handleName || 'Неизвестная ручка';
+                          displayName = `Ручка ${handleName}`;
+                        } else {
+                          // Дверь - формируем полное название как в корзине
+                          const modelName = item.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель';
+                          const hardwareKitName = item.hardwareKitName?.replace('Комплект фурнитуры — ', '') || 'Базовый';
+                          displayName = `Дверь DomeoDoors ${modelName} (${item.finish || ''}, ${item.color || ''}, ${item.width || ''} × ${item.height || ''} мм, Фурнитура - ${hardwareKitName})`;
+                        }
                         
                         return (
                           <tr key={index} className="hover:bg-gray-50">
