@@ -36,6 +36,7 @@ interface OrderData {
     cart_data?: any;
   } | null;
   cart_data?: any;
+  cart_session_id?: string | null;
   total_amount?: number;
   created_at: string;
   updated_at: string;
