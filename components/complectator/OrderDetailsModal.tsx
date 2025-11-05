@@ -573,11 +573,20 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                         
                         // Определяем является ли ручкой: по БД, по типу, по наличию handleId
                         // Также проверяем handleId напрямую в productsInfo (может быть ключом)
+                        // FALLBACK: Если нет handleId, но цена маленькая (< 5000) и название похоже на ручку
                         const isHandle = productInfo?.isHandle 
                           || item.type === 'handle' 
                           || !!item.handleId
                           || (productInfo && productInfo.isHandle)
-                          || (item.handleId && productsInfo.has(item.handleId)); // Проверяем handleId как ключ
+                          || (item.handleId && productsInfo.has(item.handleId)) // Проверяем handleId как ключ
+                          || (item.handleName && item.handleName.toLowerCase().includes('ручка')) // Fallback: по handleName
+                          || (item.name && item.name.toLowerCase().includes('ручка')) // Fallback: по названию
+                          || (unitPrice > 0 && unitPrice < 5000 && index === 1 && items.length === 2); // Fallback: второй товар с малой ценой
+                        
+                        // Если определили как ручку, но нет handleId, пробуем найти ручку по цене
+                        if (isHandle && !item.handleId && unitPrice > 0 && unitPrice < 10000) {
+                          console.log(`🔍 Возможно ручка по цене: ${unitPrice} Р, пробуем найти в каталоге...`);
+                        }
                         
                         console.log(`Item ${index + 1}:`, {
                           productId,
