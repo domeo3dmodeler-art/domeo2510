@@ -204,17 +204,33 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
       .trim();
   };
 
-  // Экспорт счета
+  // Экспорт счета на основе данных заказа
   const handleExportInvoice = async () => {
-    if (!order?.invoice?.id) {
-      toast.error('Счет не найден');
+    if (!order) {
+      toast.error('Заказ не найден');
+      return;
+    }
+
+    const items = getItems();
+    if (items.length === 0) {
+      toast.error('В заказе нет товаров');
       return;
     }
 
     setExportingInvoice(true);
     try {
-      const response = await fetch(`/api/documents/${order.invoice.id}/export?format=pdf`, {
-        method: 'POST'
+      const response = await fetch('/api/export/fast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'invoice',
+          format: 'pdf',
+          clientId: order.client.id,
+          items: items,
+          totalAmount: order.total_amount || 0,
+          parentDocumentId: order.id,
+          cartSessionId: order.cart_session_id || null
+        })
       });
       
       if (response.ok) {
@@ -222,7 +238,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Счет-${order.invoice.number}.pdf`;
+        a.download = `Счет-${order.number}.pdf`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -240,23 +256,40 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     }
   };
 
-  // Экспорт КП
-  const handleExportQuote = async (quoteId: string) => {
-    setExportingQuote(quoteId);
+  // Экспорт КП на основе данных заказа
+  const handleExportQuote = async () => {
+    if (!order) {
+      toast.error('Заказ не найден');
+      return;
+    }
+
+    const items = getItems();
+    if (items.length === 0) {
+      toast.error('В заказе нет товаров');
+      return;
+    }
+
+    setExportingQuote('exporting');
     try {
-      // Используем универсальный API экспорта документов
-      const response = await fetch(`/api/documents/${quoteId}/export?format=pdf`, {
-        method: 'POST'
+      const response = await fetch('/api/export/fast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'quote',
+          format: 'pdf',
+          clientId: order.client.id,
+          items: items,
+          totalAmount: order.total_amount || 0,
+          parentDocumentId: order.id,
+          cartSessionId: order.cart_session_id || null
+        })
       });
       
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
-        
-        const quote = quotes.find(q => q.id === quoteId);
-        a.download = `КП-${quote?.number || quoteId}.pdf`;
-        
+        a.download = `КП-${order.number}.pdf`;
         document.body.appendChild(a);
         a.href = url;
         a.click();
@@ -353,54 +386,29 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                   <span className="text-xs">История</span>
                 </button>
                 
-                {/* Кнопка экспорта счета */}
-                {order.invoice ? (
-                  <button
-                    onClick={handleExportInvoice}
-                    disabled={exportingInvoice}
-                    className="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Download className="h-3 w-3" />
-                    <span className="text-xs">
-                      {exportingInvoice ? 'Экспорт...' : 'Экспорт счета'}
-                    </span>
-                  </button>
-                ) : (
-                  <button
-                    disabled
-                    className="flex items-center space-x-1 text-gray-400 cursor-not-allowed"
-                    title="Счет не создан"
-                  >
-                    <Download className="h-3 w-3" />
-                    <span className="text-xs">Экспорт счета</span>
-                  </button>
-                )}
+                {/* Кнопка экспорта счета - всегда доступна для заказа */}
+                <button
+                  onClick={handleExportInvoice}
+                  disabled={exportingInvoice || !order || items.length === 0}
+                  className="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Download className="h-3 w-3" />
+                  <span className="text-xs">
+                    {exportingInvoice ? 'Экспорт...' : 'Экспорт счета'}
+                  </span>
+                </button>
                 
-                {/* Кнопки экспорта КП */}
-                {quotes.length > 0 ? (
-                  quotes.map((quote) => (
-                    <button
-                      key={quote.id}
-                      onClick={() => handleExportQuote(quote.id)}
-                      disabled={exportingQuote === quote.id}
-                      className="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Download className="h-3 w-3" />
-                      <span className="text-xs">
-                        {exportingQuote === quote.id ? 'Экспорт...' : `Экспорт КП ${quote.number}`}
-                      </span>
-                    </button>
-                  ))
-                ) : (
-                  <button
-                    disabled
-                    className="flex items-center space-x-1 text-gray-400 cursor-not-allowed"
-                    title="КП не созданы"
-                  >
-                    <Download className="h-3 w-3" />
-                    <span className="text-xs">Экспорт КП</span>
-                  </button>
-                )}
+                {/* Кнопка экспорта КП - всегда доступна для заказа */}
+                <button
+                  onClick={handleExportQuote}
+                  disabled={exportingQuote !== null || !order || items.length === 0}
+                  className="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Download className="h-3 w-3" />
+                  <span className="text-xs">
+                    {exportingQuote ? 'Экспорт...' : 'Экспорт КП'}
+                  </span>
+                </button>
               </div>
             </div>
 
