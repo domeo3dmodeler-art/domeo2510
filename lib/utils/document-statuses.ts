@@ -1,0 +1,114 @@
+// lib/utils/document-statuses.ts
+// Единые статусы для всех документов в проекте
+
+/**
+ * Статусы Invoice (Счет)
+ */
+export const INVOICE_STATUSES = {
+  DRAFT: { label: 'Черновик', apiValue: 'DRAFT' },
+  SENT: { label: 'Отправлен', apiValue: 'SENT' },
+  PAID: { label: 'Оплачен/Заказ', apiValue: 'PAID' },
+  ORDERED: { label: 'Заказ размещен', apiValue: 'ORDERED' },
+  RECEIVED_FROM_SUPPLIER: { label: 'Получен от поставщика', apiValue: 'RECEIVED_FROM_SUPPLIER' },
+  COMPLETED: { label: 'Исполнен', apiValue: 'COMPLETED' },
+  CANCELLED: { label: 'Отменен', apiValue: 'CANCELLED' }
+} as const;
+
+/**
+ * Статусы Quote (КП)
+ */
+export const QUOTE_STATUSES = {
+  DRAFT: { label: 'Черновик', apiValue: 'DRAFT' },
+  SENT: { label: 'Отправлен', apiValue: 'SENT' },
+  ACCEPTED: { label: 'Согласовано', apiValue: 'ACCEPTED' },
+  REJECTED: { label: 'Отказ', apiValue: 'REJECTED' },
+  CANCELLED: { label: 'Отменен', apiValue: 'CANCELLED' }
+} as const;
+
+/**
+ * Статусы Order для Комплектатора
+ * Комплектатор может управлять только: Черновик, Отправлен, Оплачен/Заказ, Отменен
+ * После перехода в "Оплачен/Заказ" заказ переходит к Исполнителю и получает статус NEW_PLANNED
+ */
+export const ORDER_STATUSES_COMPLECTATOR = {
+  DRAFT: { label: 'Черновик', apiValue: 'DRAFT' },
+  SENT: { label: 'Отправлен', apiValue: 'SENT' },
+  PAID: { label: 'Оплачен/Заказ', apiValue: 'PAID' },
+  CANCELLED: { label: 'Отменен', apiValue: 'CANCELLED' }
+} as const;
+
+/**
+ * Статусы Order для Исполнителя
+ * Эти статусы появляются после перехода комплектатора в статус "Оплачен/Заказ"
+ * Комплектатор видит эти статусы, но не может их изменять
+ */
+export const ORDER_STATUSES_EXECUTOR = {
+  NEW_PLANNED: { label: 'Новый заказ', apiValue: 'NEW_PLANNED' },
+  UNDER_REVIEW: { label: 'На проверке', apiValue: 'UNDER_REVIEW' },
+  AWAITING_MEASUREMENT: { label: 'Ждет замер', apiValue: 'AWAITING_MEASUREMENT' },
+  AWAITING_INVOICE: { label: 'Ожидает счет', apiValue: 'AWAITING_INVOICE' },
+  COMPLETED: { label: 'Выполнена', apiValue: 'COMPLETED' }
+} as const;
+
+/**
+ * Все статусы для фильтров Комплектатора
+ * Комплектатор может управлять только: Черновик, Отправлен, Оплачен/Заказ, Отменен
+ * Статусы исполнителя (Новый заказ, На проверке, Ждет замер, Ожидает счет, Выполнена) 
+ * комплектатор видит в списке заказов, но не может их изменять
+ * Для фильтрации они попадают в категорию "Оплачен/Заказ"
+ */
+export const COMPLECTATOR_FILTER_STATUSES = [
+  'all',
+  'Черновик',
+  'Отправлен',
+  'Оплачен/Заказ',
+  'Отменен'
+] as const;
+
+/**
+ * Получить русское название статуса по API значению
+ */
+export function getStatusLabel(
+  apiStatus: string,
+  documentType: 'invoice' | 'quote' | 'order' | 'order_complectator' | 'order_executor'
+): string {
+  switch (documentType) {
+    case 'invoice':
+      return Object.values(INVOICE_STATUSES).find(s => s.apiValue === apiStatus)?.label || apiStatus;
+    case 'quote':
+      return Object.values(QUOTE_STATUSES).find(s => s.apiValue === apiStatus)?.label || apiStatus;
+    case 'order_complectator':
+      return Object.values(ORDER_STATUSES_COMPLECTATOR).find(s => s.apiValue === apiStatus)?.label || apiStatus;
+    case 'order_executor':
+      return Object.values(ORDER_STATUSES_EXECUTOR).find(s => s.apiValue === apiStatus)?.label || apiStatus;
+    case 'order':
+      // Для общего случая Order проверяем оба набора статусов
+      return Object.values(ORDER_STATUSES_COMPLECTATOR).find(s => s.apiValue === apiStatus)?.label ||
+             Object.values(ORDER_STATUSES_EXECUTOR).find(s => s.apiValue === apiStatus)?.label ||
+             apiStatus;
+    default:
+      return apiStatus;
+  }
+}
+
+/**
+ * Получить API значение по русскому названию статуса
+ */
+export function getStatusApiValue(
+  russianLabel: string,
+  documentType: 'invoice' | 'quote' | 'order_complectator' | 'order_executor'
+): string | null {
+  switch (documentType) {
+    case 'invoice':
+      return Object.values(INVOICE_STATUSES).find(s => s.label === russianLabel)?.apiValue || null;
+    case 'quote':
+      return Object.values(QUOTE_STATUSES).find(s => s.label === russianLabel)?.apiValue || null;
+    case 'order_complectator':
+      return Object.values(ORDER_STATUSES_COMPLECTATOR).find(s => s.label === russianLabel)?.apiValue || null;
+    case 'order_executor':
+      return Object.values(ORDER_STATUSES_EXECUTOR).find(s => s.label === russianLabel)?.apiValue || null;
+    default:
+      return null;
+  }
+}
+
