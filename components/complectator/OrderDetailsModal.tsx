@@ -280,6 +280,15 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
   const displayStatus = getDisplayStatus();
   const items = getItems();
 
+  // Отладочная информация
+  console.log('OrderDetailsModal Debug:', {
+    order: order ? { id: order.id, number: order.number } : null,
+    hasInvoice: !!order?.invoice,
+    invoiceId: order?.invoice?.id,
+    quotesCount: quotes.length,
+    quotes: quotes.map(q => ({ id: q.id, number: q.number }))
+  });
+
   return (
     <>
       <Modal
