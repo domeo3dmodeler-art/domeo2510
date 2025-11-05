@@ -3700,15 +3700,26 @@ function CartManager({
                       let fullName = '';
                       if (item.type === 'handle' || item.handleId) {
                         // Ручка
-                        const handle = Object.values(handles).flat().find((h: Handle) => h.id === item.handleId);
-                        const handleName = handle?.name || item.handleName || 'Неизвестная ручка';
-                        fullName = `Ручка ${handleName}`;
+                        try {
+                          const handle = handles && Object.values(handles).flat().find((h: Handle) => h.id === item.handleId);
+                          const handleName = handle?.name || item.handleName || 'Неизвестная ручка';
+                          fullName = `Ручка ${handleName}`;
+                        } catch (e) {
+                          // Если handles недоступен, используем handleName из item
+                          fullName = `Ручка ${item.handleName || 'Неизвестная ручка'}`;
+                        }
                       } else {
                         // Дверь
-                        const modelName = item.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель';
-                        const hardwareKit = hardwareKits.find((k: any) => k.id === item.hardwareKitId);
-                        const hardwareKitName = hardwareKit?.name.replace('Комплект фурнитуры — ', '') || 'Базовый';
-                        fullName = `Дверь DomeoDoors ${modelName} (${item.finish}, ${item.color}, ${item.width} × ${item.height} мм, Фурнитура - ${hardwareKitName})`;
+                        try {
+                          const modelName = item.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель';
+                          const hardwareKit = hardwareKits && hardwareKits.find((k: any) => k.id === item.hardwareKitId);
+                          const hardwareKitName = hardwareKit?.name?.replace('Комплект фурнитуры — ', '') || item.hardwareKitName?.replace('Комплект фурнитуры — ', '') || 'Базовый';
+                          fullName = `Дверь DomeoDoors ${modelName} (${item.finish || ''}, ${item.color || ''}, ${item.width || ''} × ${item.height || ''} мм, Фурнитура - ${hardwareKitName})`;
+                        } catch (e) {
+                          // Если hardwareKits недоступен, используем минимальные данные
+                          const modelName = item.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель';
+                          fullName = `Дверь DomeoDoors ${modelName} (${item.finish || ''}, ${item.color || ''}, ${item.width || ''} × ${item.height || ''} мм)`;
+                        }
                       }
                       
                       return {
@@ -3730,7 +3741,7 @@ function CartManager({
                         handleName: item.handleName,
                         type: item.type || (item.handleId ? 'handle' : 'door'),
                         hardwareKitId: item.hardwareKitId,
-                        hardwareKitName: hardwareKit?.name
+                        hardwareKitName: item.hardwareKitName
                       };
                     });
 
