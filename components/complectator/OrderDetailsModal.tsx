@@ -143,18 +143,29 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     });
     
     if (productIds.size === 0) {
-      console.log('No product IDs found in items:', items);
+      console.log('❌ No product IDs found in items:', items);
+      console.log('Items structure:', items.map(item => ({
+        id: item.id,
+        product_id: item.product_id,
+        productId: item.productId,
+        handleId: item.handleId,
+        type: item.type,
+        name: item.name
+      })));
       return;
     }
+    
+    console.log('🔍 Product IDs to fetch:', Array.from(productIds));
     
     try {
       // Загружаем информацию о товарах через API
       const response = await fetch(`/api/products/batch-info?ids=${Array.from(productIds).join(',')}`);
       if (response.ok) {
         const data = await response.json();
+        console.log('📦 API Response:', data);
         const infoMap = new Map<string, ProductInfo>();
         if (data.products) {
-          console.log('Products loaded from DB:', data.products);
+          console.log('✅ Products loaded from DB:', data.products);
           data.products.forEach((product: any) => {
             infoMap.set(product.id, {
               id: product.id,
@@ -162,13 +173,16 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
               isHandle: product.isHandle || false
             });
           });
+        } else {
+          console.warn('⚠️ No products in API response');
         }
         setProductsInfo(infoMap);
       } else {
-        console.error('Error fetching products info:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('❌ Error fetching products info:', response.status, response.statusText, errorText);
       }
     } catch (error) {
-      console.error('Error fetching products info:', error);
+      console.error('❌ Error fetching products info:', error);
     }
   }, []);
 
@@ -527,7 +541,18 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                           isHandle,
                           productInfo: productInfo ? { name: productInfo.name, isHandle: productInfo.isHandle } : null,
                           itemType: item.type,
-                          handleId: item.handleId
+                          handleId: item.handleId,
+                          itemData: {
+                            id: item.id,
+                            product_id: item.product_id,
+                            productId: item.productId,
+                            handleId: item.handleId,
+                            name: item.name,
+                            model: item.model,
+                            type: item.type
+                          },
+                          productsInfoSize: productsInfo.size,
+                          productsInfoKeys: Array.from(productsInfo.keys())
                         });
                         
                         // Для ручек используем название из БД или handleName, для остальных товаров - name/model
