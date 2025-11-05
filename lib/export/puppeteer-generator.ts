@@ -174,11 +174,50 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
     console.log('🌐 Запускаем Puppeteer браузер с Chromium...');
     
     // Используем @sparticuz/chromium для Docker и безголовых окружений
-    const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || await chromium.executablePath();
-    console.log('🆕 Создаем новый браузер с chromium executablePath...');
+    let executablePath: string | undefined;
+    
+    try {
+      // Сначала пробуем переменную окружения
+      executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+      
+      // Если нет, пробуем @sparticuz/chromium
+      if (!executablePath) {
+        executablePath = await chromium.executablePath();
+      }
+      
+      // Если все еще нет, пробуем стандартные пути для Alpine Linux
+      if (!executablePath || !executablePath.includes('chromium')) {
+        const possiblePaths = [
+          '/usr/bin/chromium',
+          '/usr/bin/chromium-browser',
+          '/tmp/chromium',
+          '/usr/bin/chrome'
+        ];
+        
+        for (const path of possiblePaths) {
+          try {
+            const fs = require('fs');
+            if (fs.existsSync(path)) {
+              executablePath = path;
+              console.log(`✅ Найден Chromium по пути: ${executablePath}`);
+              break;
+            }
+          } catch (e) {
+            // Игнорируем ошибки проверки файла
+          }
+        }
+      }
+      
+      console.log(`🆕 Создаем браузер с executablePath: ${executablePath || 'default'}`);
+    } catch (error) {
+      console.warn('⚠️ Ошибка получения пути к Chromium:', error);
+      // Пробуем стандартные пути
+      executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium' || '/tmp/chromium';
+    }
+    
     const browser = await puppeteer.launch({
-      args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox'],
-      executablePath,
+      args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+      executablePath: executablePath || undefined,
       headless: chromium.headless,
       timeout: 30000 // Увеличиваем таймаут для стабильности
     });
