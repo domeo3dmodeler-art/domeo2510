@@ -52,7 +52,7 @@ export function Modal({
     sm: 'max-w-sm',
     md: 'max-w-md',
     lg: 'max-w-lg',
-    xl: 'max-w-[604px]', // Увеличено на 50% от 403px (403 * 1.5 = 604.5)
+    xl: 'max-w-[1208px]', // Увеличено в 2 раза с 604px
     '2xl': 'max-w-2xl',
     '3xl': 'max-w-[576px]' // Уменьшено на 25% от 768px (768 * 0.75 = 576)
   };
