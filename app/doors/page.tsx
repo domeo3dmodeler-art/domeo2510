@@ -1818,6 +1818,8 @@ export default function DoorsPage() {
             hardwareKitId: item.hardwareKitId,
             hardwareKitName: item.hardwareKitId ? hardwareKits.find(k => k.id === item.hardwareKitId)?.name : undefined,
             handleId: item.handleId,
+            handleName: item.handleName,
+            type: item.type || (item.handleId ? 'handle' : 'door'), // ВАЖНО: Сохраняем type
             description: item.handleId ? Object.values(handles).flat().find(h => h.id === item.handleId)?.name : undefined
           })),
           totalAmount: cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0)
@@ -3706,7 +3708,12 @@ function CartManager({
                       height: item.height,
                       color: item.color,
                       finish: item.finish,
-                      sku_1c: item.sku_1c
+                      sku_1c: item.sku_1c,
+                      // ВАЖНО: Сохраняем handleId и type для определения ручек
+                      handleId: item.handleId,
+                      handleName: item.handleName,
+                      type: item.type || (item.handleId ? 'handle' : 'door'),
+                      hardwareKitId: item.hardwareKitId
                     }));
 
                     const totalAmount = cart.reduce((sum, item) => sum + (item.unitPrice || 0) * (item.qty || 1), 0);

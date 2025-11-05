@@ -130,9 +130,14 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     if (!items || items.length === 0) return;
     
     const productIds = new Set<string>();
+    const handleIds = new Set<string>(); // Отдельно собираем handleId
+    
     items.forEach((item: any) => {
       // Собираем все возможные ID товаров - проверяем все поля
-      if (item.handleId) productIds.add(item.handleId);
+      if (item.handleId) {
+        handleIds.add(item.handleId); // handleId - это ID ручки из каталога
+        productIds.add(item.handleId);
+      }
       if (item.product_id) productIds.add(item.product_id);
       if (item.productId) productIds.add(item.productId);
       if (item.id) productIds.add(item.id);
@@ -142,7 +147,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
       }
     });
     
-    if (productIds.size === 0) {
+    if (productIds.size === 0 && handleIds.size === 0) {
       console.log('❌ No product IDs found in items:', items);
       console.log('Items structure:', items.map(item => ({
         id: item.id,
@@ -156,6 +161,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     }
     
     console.log('🔍 Product IDs to fetch:', Array.from(productIds));
+    console.log('🔍 Handle IDs found:', Array.from(handleIds));
     console.log('🔍 Product IDs (detailed):', JSON.stringify(Array.from(productIds)));
     console.log('🔍 Product IDs count:', productIds.size);
     
@@ -182,6 +188,34 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         } else {
           console.warn('⚠️ No products in API response');
         }
+        
+        // Если handleId есть, но товар не найден в БД, добавляем информацию о ручке
+        if (handleIds.size > 0 && infoMap.size === 0) {
+          console.log('⚠️ Handle IDs найдены, но товары не найдены в БД. Попробуем найти ручки по handleId...');
+          // Попробуем найти ручки напрямую через API каталога ручек
+          try {
+            const handlesResponse = await fetch('/api/catalog/hardware?type=handles');
+            if (handlesResponse.ok) {
+              const handlesData = await handlesResponse.json();
+              console.log('🔧 Ручки из каталога:', handlesData);
+              // Ищем ручки по ID
+              handleIds.forEach(handleId => {
+                const handle = Object.values(handlesData).flat().find((h: any) => h.id === handleId);
+                if (handle) {
+                  infoMap.set(handleId, {
+                    id: handleId,
+                    name: handle.name || '',
+                    isHandle: true
+                  });
+                  console.log(`✅ Найдена ручка по handleId: ${handleId} -> ${handle.name}`);
+                }
+              });
+            }
+          } catch (handlesError) {
+            console.error('❌ Error fetching handles:', handlesError);
+          }
+        }
+        
         console.log('📊 Final productsInfo map size:', infoMap.size);
         setProductsInfo(infoMap);
       } else {
@@ -538,10 +572,12 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                         const productInfo = productId ? productsInfo.get(productId) : null;
                         
                         // Определяем является ли ручкой: по БД, по типу, по наличию handleId
+                        // Также проверяем handleId напрямую в productsInfo (может быть ключом)
                         const isHandle = productInfo?.isHandle 
                           || item.type === 'handle' 
                           || !!item.handleId
-                          || (productInfo && productInfo.isHandle);
+                          || (productInfo && productInfo.isHandle)
+                          || (item.handleId && productsInfo.has(item.handleId)); // Проверяем handleId как ключ
                         
                         console.log(`Item ${index + 1}:`, {
                           productId,
