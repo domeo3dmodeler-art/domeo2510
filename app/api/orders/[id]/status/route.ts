@@ -9,8 +9,9 @@ import jwt from 'jsonwebtoken';
 // PUT /api/orders/[id]/status - Изменение статуса заказа
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const loggingContext = getLoggingContextFromRequest(req);
   try {
     const body = await req.json();
@@ -25,7 +26,7 @@ export async function PUT(
 
     // Получаем текущий заказ
     const order = await prisma.order.findUnique({
-      where: { id: params.id }
+      where: { id }
     });
 
     if (!order) {
@@ -85,7 +86,7 @@ export async function PUT(
     // Проверяем обязательность загрузки проекта при переходе в UNDER_REVIEW
     // Получаем полные данные заказа с project_file_url
     const orderWithProject = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: { project_file_url: true }
     });
     
@@ -112,9 +113,12 @@ export async function PUT(
       updateData.notes = notes;
     }
 
+    // Сохраняем старый статус
+    const oldStatus = order.status;
+
     // Обновляем заказ
     const updatedOrder = await prisma.order.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       include: {
         client: {
@@ -127,9 +131,52 @@ export async function PUT(
             address: true
           }
         },
-        // Invoice связан через order_id, получаем отдельным запросом если нужно
       }
     });
+
+    // Синхронизируем статус со связанным Invoice (если есть)
+    if (targetStatus !== oldStatus && order.invoice_id) {
+      try {
+        logger.debug('Синхронизация статуса Invoice при изменении Order', 'orders/[id]/status', {
+          orderId: id,
+          invoiceId: order.invoice_id,
+          newOrderStatus: targetStatus
+        }, loggingContext);
+
+        // Маппинг статусов Order на статусы Invoice
+        const statusMapping: Record<string, string> = {
+          'NEW_PLANNED': 'DRAFT', // Order создан, Invoice еще в черновике
+          'UNDER_REVIEW': 'DRAFT', // Order на проверке, Invoice остается в черновике
+          'AWAITING_MEASUREMENT': 'SENT', // Order ожидает замер, Invoice отправлен
+          'AWAITING_INVOICE': 'SENT', // Order ожидает счет, Invoice отправлен
+          'COMPLETED': 'PAID', // Order завершен, Invoice должен быть оплачен
+          'CANCELLED': 'CANCELLED' // Order отменен, Invoice отменен
+        };
+
+        const invoiceStatus = statusMapping[targetStatus];
+        if (invoiceStatus) {
+          await prisma.invoice.update({
+            where: { id: order.invoice_id },
+            data: {
+              status: invoiceStatus,
+              updated_at: new Date()
+            }
+          });
+          logger.info('Статус Invoice синхронизирован', 'orders/[id]/status', {
+            orderId: id,
+            invoiceId: order.invoice_id,
+            newInvoiceStatus: invoiceStatus
+          }, loggingContext);
+        }
+      } catch (syncError) {
+        logger.error('Ошибка синхронизации статуса Invoice', 'orders/[id]/status', {
+          error: syncError,
+          orderId: id,
+          invoiceId: order.invoice_id
+        }, loggingContext);
+        // Не прерываем выполнение, если синхронизация не удалась
+      }
+    }
 
     // TODO: Логирование изменения статуса в DocumentHistory
 
@@ -139,7 +186,7 @@ export async function PUT(
     });
 
   } catch (error) {
-    logger.error('Error updating order status', 'orders/[id]/status', { error, orderId: params.id }, loggingContext);
+    logger.error('Error updating order status', 'orders/[id]/status', { error, orderId: id }, loggingContext);
     return NextResponse.json(
       { error: 'Ошибка изменения статуса заказа' },
       { status: 500 }

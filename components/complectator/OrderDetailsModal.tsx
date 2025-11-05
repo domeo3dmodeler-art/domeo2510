@@ -64,6 +64,12 @@ const STATUS_COLORS: Record<string, string> = {
   'AWAITING_INVOICE': 'bg-blue-100 text-blue-800 border-blue-200'
 };
 
+interface ProductInfo {
+  id: string;
+  name: string;
+  isHandle: boolean;
+}
+
 export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderDetailsModalProps) {
   const [order, setOrder] = useState<OrderData | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -72,6 +78,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
   const [isCommentsModalOpen, setIsCommentsModalOpen] = useState(false);
   const [exportingInvoice, setExportingInvoice] = useState(false);
   const [exportingQuote, setExportingQuote] = useState<string | null>(null);
+  const [productsInfo, setProductsInfo] = useState<Map<string, ProductInfo>>(new Map());
 
   // Загрузка заказа
   const fetchOrder = useCallback(async () => {
@@ -118,12 +125,59 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     }
   }, [orderId]);
 
+  // Загрузка информации о товарах из БД (для определения ручек)
+  const fetchProductsInfo = useCallback(async (items: any[]) => {
+    if (!items || items.length === 0) return;
+    
+    const productIds = new Set<string>();
+    items.forEach((item: any) => {
+      // Собираем все возможные ID товаров
+      if (item.handleId) productIds.add(item.handleId);
+      if (item.product_id) productIds.add(item.product_id);
+      if (item.id) productIds.add(item.id);
+    });
+    
+    if (productIds.size === 0) return;
+    
+    try {
+      // Загружаем информацию о товарах через API
+      const response = await fetch(`/api/products/batch-info?ids=${Array.from(productIds).join(',')}`);
+      if (response.ok) {
+        const data = await response.json();
+        const infoMap = new Map<string, ProductInfo>();
+        if (data.products) {
+          data.products.forEach((product: any) => {
+            infoMap.set(product.id, {
+              id: product.id,
+              name: product.name || '',
+              isHandle: product.isHandle || false
+            });
+          });
+        }
+        setProductsInfo(infoMap);
+      }
+    } catch (error) {
+      console.error('Error fetching products info:', error);
+    }
+  }, []);
+
   useEffect(() => {
     if (isOpen && orderId) {
       fetchOrder();
       fetchQuotes();
     }
   }, [isOpen, orderId, fetchOrder, fetchQuotes]);
+
+  // Загружаем информацию о товарах после загрузки заказа
+  useEffect(() => {
+    if (order) {
+      const items = getItems();
+      if (items.length > 0) {
+        fetchProductsInfo(items);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order]);
 
   // Определение статуса для отображения
   const getDisplayStatus = () => {
@@ -155,7 +209,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
   };
 
   // Получение товаров из заказа
-  const getItems = () => {
+  const getItems = useCallback(() => {
     if (!order) return [];
     
     if (order.cart_data) {
@@ -191,7 +245,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     }
     
     return [];
-  };
+  }, [order]);
 
   // Очистка названия товара от артикула
   const cleanProductName = (name: string) => {
@@ -446,15 +500,24 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                         const unitPrice = item.unit_price || item.price || 0;
                         const totalPrice = quantity * unitPrice;
                         
-                        // Определяем является ли товар ручкой по полям товара
-                        const isHandle = item.type === 'handle' 
-                          || !!item.handleId 
-                          || !!item.handleName;
+                        // Определяем является ли товар ручкой - проверяем в БД по ID
+                        const productId = item.handleId || item.product_id || item.id;
+                        const productInfo = productId ? productsInfo.get(productId) : null;
+                        const isHandle = productInfo?.isHandle || item.type === 'handle' || !!item.handleId;
                         
-                        // Для ручек используем handleName, для остальных товаров - name/model
-                        const displayName = isHandle
-                          ? (item.handleName || item.name || item.product_name || 'Ручка')
-                          : (item.name || item.product_name || item.model || item.notes || 'Товар');
+                        // Для ручек используем название из БД или handleName, для остальных товаров - name/model
+                        let displayName: string;
+                        if (isHandle) {
+                          // Если есть информация из БД - используем её
+                          if (productInfo?.name) {
+                            displayName = productInfo.name;
+                          } else {
+                            // Иначе используем handleName или название из item
+                            displayName = item.handleName || item.name || item.product_name || 'Ручка';
+                          }
+                        } else {
+                          displayName = item.name || item.product_name || item.model || item.notes || 'Товар';
+                        }
                         const cleanName = cleanProductName(displayName);
                         
                         return (

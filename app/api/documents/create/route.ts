@@ -86,6 +86,77 @@ export async function POST(req: NextRequest) {
       logger.info('Создаем новый документ', 'DOCUMENTS', { documentNumber });
     }
 
+    // Валидация связей документов перед созданием
+    if (parent_document_id && !existingDocument) {
+      try {
+        if (type === 'invoice') {
+          // Проверяем связь Invoice с Order
+          const relatedOrder = await prisma.order.findUnique({
+            where: { id: parent_document_id },
+            select: { id: true, invoice_id: true }
+          });
+          
+          if (!relatedOrder) {
+            logger.warn('Order не найден для создания Invoice', 'DOCUMENTS', { parentDocumentId: parent_document_id });
+            return NextResponse.json(
+              { error: 'Заказ не найден для создания счета' },
+              { status: 404 }
+            );
+          }
+          
+          // Проверяем, не существует ли уже счет для этого заказа
+          if (relatedOrder.invoice_id) {
+            const existingInvoice = await prisma.invoice.findUnique({
+              where: { id: relatedOrder.invoice_id }
+            });
+            if (existingInvoice) {
+              logger.info('Счет уже существует для этого заказа', 'DOCUMENTS', { orderId: parent_document_id, invoiceId: existingInvoice.id });
+              return NextResponse.json({
+                success: true,
+                documentId: existingInvoice.id,
+                documentNumber: existingInvoice.number,
+                type: 'invoice',
+                parent_document_id,
+                isNew: false,
+                message: 'Счет уже существует для этого заказа'
+              });
+            }
+          }
+        } else if (type === 'supplier_order') {
+          // Проверяем связь SupplierOrder с Order
+          const relatedOrder = await prisma.order.findUnique({
+            where: { id: parent_document_id },
+            select: { id: true }
+          });
+          
+          if (!relatedOrder) {
+            logger.warn('Order не найден для создания SupplierOrder', 'DOCUMENTS', { parentDocumentId: parent_document_id });
+            return NextResponse.json(
+              { error: 'Заказ не найден для создания заказа у поставщика' },
+              { status: 404 }
+            );
+          }
+        } else if (type === 'quote') {
+          // Проверяем связь Quote с Order
+          const relatedOrder = await prisma.order.findUnique({
+            where: { id: parent_document_id },
+            select: { id: true }
+          });
+          
+          if (!relatedOrder) {
+            logger.warn('Order не найден для создания Quote', 'DOCUMENTS', { parentDocumentId: parent_document_id });
+            return NextResponse.json(
+              { error: 'Заказ не найден для создания КП' },
+              { status: 404 }
+            );
+          }
+        }
+      } catch (validationError) {
+        logger.error('Ошибка валидации связей документов', 'DOCUMENTS', { error: validationError });
+        // Не прерываем выполнение при ошибке валидации, но логируем
+      }
+    }
+
     // Создаем или обновляем документ в БД
     let dbResult;
     if (!existingDocument) {
@@ -103,6 +174,20 @@ export async function POST(req: NextRequest) {
       });
       documentId = dbResult.id;
       logger.info('Запись в БД создана', 'DOCUMENTS', { type, documentId: dbResult.id });
+
+      // После создания документа, устанавливаем связи
+      if (type === 'invoice' && parent_document_id) {
+        // Устанавливаем связь Order.invoice_id
+        try {
+          await prisma.order.update({
+            where: { id: parent_document_id },
+            data: { invoice_id: documentId }
+          });
+          logger.info('Связь Order.invoice_id установлена', 'DOCUMENTS', { orderId: parent_document_id, invoiceId: documentId });
+        } catch (linkError) {
+          logger.error('Ошибка установки связи Order.invoice_id', 'DOCUMENTS', { error: linkError });
+        }
+      }
     } else {
       logger.info('Используем существующий документ в БД', 'DOCUMENTS', { documentNumber });
       dbResult = { id: documentId, type: type };
@@ -391,11 +476,17 @@ async function findExistingDocument(
         }
       }
     } else if (type === 'supplier_order') {
-      // Для supplier_order используем более простую логику
-      const existingSupplierOrder = await prisma.supplierOrder.findFirst({
+      // SupplierOrder создается на основе Order (parent_document_id = orderId)
+      // Этап 1: Строгий поиск по всем критериям
+      let existingSupplierOrder = await prisma.supplierOrder.findFirst({
         where: {
-          parent_document_id: parentDocumentId,
-          cart_session_id: cartSessionId
+          parent_document_id: parentDocumentId, // ID Order
+          cart_session_id: cartSessionId,
+          client_id: clientId,
+          total_amount: {
+            gte: totalAmount - 0.01,
+            lte: totalAmount + 0.01
+          }
         } as any,
         orderBy: { created_at: 'desc' }
       });
@@ -403,10 +494,36 @@ async function findExistingDocument(
       if (existingSupplierOrder) {
         // Проверяем содержимое
         if (compareCartContent(items, existingSupplierOrder.cart_data)) {
-          logger.debug('Найден существующий заказ у поставщика', 'DOCUMENTS', {
+          logger.debug('Найден существующий заказ у поставщика (строгое совпадение)', 'DOCUMENTS', {
+            supplierOrderNumber: existingSupplierOrder.number,
             supplierOrderId: existingSupplierOrder.id
           });
           return existingSupplierOrder;
+        }
+      }
+      
+      // Этап 2: Поиск по содержимому корзины
+      // ВАЖНО: Ищем только в документах ТОГО ЖЕ клиента и Order
+      const candidates = await prisma.supplierOrder.findMany({
+        where: {
+          client_id: clientId, // Только для того же клиента!
+          parent_document_id: parentDocumentId, // ID Order
+          total_amount: {
+            gte: totalAmount - 0.01,
+            lte: totalAmount + 0.01
+          }
+        } as any,
+        orderBy: { created_at: 'desc' },
+        take: 10
+      });
+      
+      for (const candidate of candidates) {
+        if (compareCartContent(items, candidate.cart_data)) {
+          logger.debug('Найден существующий заказ у поставщика (по содержимому)', 'DOCUMENTS', {
+            supplierOrderNumber: candidate.number,
+            supplierOrderId: candidate.id
+          });
+          return candidate;
         }
       }
     }

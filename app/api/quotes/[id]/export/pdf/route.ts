@@ -6,10 +6,11 @@ import { prisma } from '@/lib/prisma';
 import { generateQuotePDF, getQuotePDFFilename } from '@/lib/pdf/quote-pdf';
 
 // GET /api/quotes/[id]/export/pdf - Экспортировать КП в PDF
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const quote = await prisma.quote.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: {
         id: true,
         title: true,

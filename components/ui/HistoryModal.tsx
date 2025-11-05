@@ -22,7 +22,7 @@ interface HistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   documentId: string;
-  documentType: 'quote' | 'invoice' | 'supplier_order';
+  documentType: 'quote' | 'invoice' | 'supplier_order' | 'order';
   documentNumber: string;
 }
 

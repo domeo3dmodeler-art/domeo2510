@@ -354,6 +354,7 @@ function OrderDetailModal({
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [verifyResult, setVerifyResult] = useState<any>(null);
   const [supplierOrders, setSupplierOrders] = useState<any[]>([]);
+  const [productsInfo, setProductsInfo] = useState<Map<string, { id: string; name: string; isHandle: boolean }>>(new Map());
   
   // Загрузка заказов у поставщика
   const fetchSupplierOrders = useCallback(async () => {
@@ -372,6 +373,70 @@ function OrderDetailModal({
   useEffect(() => {
     fetchSupplierOrders();
   }, [fetchSupplierOrders]);
+
+  // Загрузка информации о товарах из БД (для определения ручек)
+  const fetchProductsInfo = useCallback(async (items: any[]) => {
+    if (!items || items.length === 0) return;
+    
+    const productIds = new Set<string>();
+    items.forEach((item: any) => {
+      // Собираем все возможные ID товаров
+      if (item.handleId) productIds.add(item.handleId);
+      if (item.product_id) productIds.add(item.product_id);
+      if (item.id) productIds.add(item.id);
+    });
+    
+    if (productIds.size === 0) return;
+    
+    try {
+      // Загружаем информацию о товарах через API
+      const response = await fetch(`/api/products/batch-info?ids=${Array.from(productIds).join(',')}`);
+      if (response.ok) {
+        const data = await response.json();
+        const infoMap = new Map<string, { id: string; name: string; isHandle: boolean }>();
+        if (data.products) {
+          data.products.forEach((product: any) => {
+            infoMap.set(product.id, {
+              id: product.id,
+              name: product.name || '',
+              isHandle: product.isHandle || false
+            });
+          });
+        }
+        setProductsInfo(infoMap);
+      }
+    } catch (error) {
+      clientLogger.error('Error fetching products info', error);
+    }
+  }, []);
+
+  // Очистка названия товара от артикула
+  const cleanProductName = (name: string) => {
+    if (!name) return '';
+    return name
+      .replace(/\s*\|\s*Артикул\s*:\s*[^|]*/gi, '')
+      .replace(/\s*\*\*Артикул:.*?\*\*/g, '')
+      .replace(/\s*Артикул:.*$/i, '')
+      .trim();
+  };
+
+  // Загружаем информацию о товарах после загрузки заказа
+  useEffect(() => {
+    if (currentOrder) {
+      const sourceCartData = currentOrder.invoice?.cart_data || currentOrder.cart_data;
+      if (sourceCartData) {
+        try {
+          const cartData = typeof sourceCartData === 'string' ? JSON.parse(sourceCartData) : sourceCartData;
+          const items = cartData.items || (Array.isArray(cartData) ? cartData : []);
+          if (items.length > 0) {
+            fetchProductsInfo(items);
+          }
+        } catch (e) {
+          // Игнорируем ошибки парсинга
+        }
+      }
+    }
+  }, [currentOrder, fetchProductsInfo]);
   
   // Экспорт счета в PDF (использует механизм экспорта из корзины)
   const handleExportInvoicePDF = async () => {
@@ -1131,11 +1196,32 @@ function OrderDetailModal({
                         const qty = item.qty || item.quantity || 1;
                         const price = item.unitPrice || item.price || 0;
                         const itemTotal = qty * price;
+                        
+                        // Определяем является ли товар ручкой - проверяем в БД по ID
+                        const productId = item.handleId || item.product_id || item.id;
+                        const productInfo = productId ? productsInfo.get(productId) : null;
+                        const isHandle = productInfo?.isHandle || item.type === 'handle' || !!item.handleId;
+                        
+                        // Для ручек используем название из БД или handleName, для остальных товаров - name/model
+                        let displayName: string;
+                        if (isHandle) {
+                          // Если есть информация из БД - используем её
+                          if (productInfo?.name) {
+                            displayName = productInfo.name;
+                          } else {
+                            // Иначе используем handleName или название из item
+                            displayName = item.handleName || item.name || item.product_name || 'Ручка';
+                          }
+                        } else {
+                          displayName = item.name || item.product_name || item.model || item.notes || 'Товар';
+                        }
+                        const cleanName = cleanProductName(displayName);
+                        
                         return (
                           <div key={index} className="flex justify-between items-start py-2 border-b last:border-0">
                             <div className="flex-1">
-                              <div className="font-medium">{item.name || item.model || `Товар ${index + 1}`}</div>
-                              {item.model && item.model !== item.name && (
+                              <div className="font-medium">{cleanName || `Товар ${index + 1}`}</div>
+                              {item.model && item.model !== cleanName && (
                                 <div className="text-sm text-gray-600">{item.model}</div>
                               )}
                               {item.width && item.height && (
