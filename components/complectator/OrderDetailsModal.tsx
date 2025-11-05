@@ -156,17 +156,23 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     }
     
     console.log('🔍 Product IDs to fetch:', Array.from(productIds));
+    console.log('🔍 Product IDs (detailed):', JSON.stringify(Array.from(productIds)));
+    console.log('🔍 Product IDs count:', productIds.size);
     
     try {
       // Загружаем информацию о товарах через API
-      const response = await fetch(`/api/products/batch-info?ids=${Array.from(productIds).join(',')}`);
+      const apiUrl = `/api/products/batch-info?ids=${Array.from(productIds).join(',')}`;
+      console.log('📡 API URL:', apiUrl);
+      const response = await fetch(apiUrl);
       if (response.ok) {
         const data = await response.json();
         console.log('📦 API Response:', data);
+        console.log('📦 Products count:', data.products?.length || 0);
         const infoMap = new Map<string, ProductInfo>();
         if (data.products) {
           console.log('✅ Products loaded from DB:', data.products);
           data.products.forEach((product: any) => {
+            console.log(`  - Product ID: ${product.id}, Name: ${product.name}, IsHandle: ${product.isHandle}`);
             infoMap.set(product.id, {
               id: product.id,
               name: product.name || '',
@@ -176,6 +182,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         } else {
           console.warn('⚠️ No products in API response');
         }
+        console.log('📊 Final productsInfo map size:', infoMap.size);
         setProductsInfo(infoMap);
       } else {
         const errorText = await response.text();
@@ -554,6 +561,17 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                           productsInfoSize: productsInfo.size,
                           productsInfoKeys: Array.from(productsInfo.keys())
                         });
+                        console.log(`Item ${index + 1} FULL DATA:`, JSON.stringify({
+                          id: item.id,
+                          product_id: item.product_id,
+                          productId: item.productId,
+                          handleId: item.handleId,
+                          name: item.name,
+                          model: item.model,
+                          type: item.type,
+                          qty: item.qty,
+                          quantity: item.quantity
+                        }, null, 2));
                         
                         // Для ручек используем название из БД или handleName, для остальных товаров - name/model
                         let displayName: string;
