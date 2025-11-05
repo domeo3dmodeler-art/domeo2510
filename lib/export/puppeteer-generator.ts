@@ -216,9 +216,9 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
     }
     
     const browser = await puppeteer.launch({
-      args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-      executablePath: executablePath || undefined,
-      headless: chromium.headless,
+      args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+      executablePath: executablePath || '/usr/bin/chromium',
+      headless: true,
       timeout: 30000 // Увеличиваем таймаут для стабильности
     });
 
