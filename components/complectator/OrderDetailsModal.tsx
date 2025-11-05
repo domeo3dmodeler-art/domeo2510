@@ -72,6 +72,8 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
   const [isCommentsModalOpen, setIsCommentsModalOpen] = useState(false);
   const [exportingInvoice, setExportingInvoice] = useState(false);
   const [exportingQuote, setExportingQuote] = useState<string | null>(null);
+  const [showExportInvoiceMenu, setShowExportInvoiceMenu] = useState(false);
+  const [showExportQuoteMenu, setShowExportQuoteMenu] = useState<string | null>(null);
 
   // Загрузка заказа
   const fetchOrder = useCallback(async () => {
@@ -124,6 +126,22 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
       fetchQuotes();
     }
   }, [isOpen, orderId, fetchOrder, fetchQuotes]);
+
+  // Закрытие меню экспорта при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.relative')) {
+        setShowExportInvoiceMenu(false);
+        setShowExportQuoteMenu(null);
+      }
+    };
+
+    if (showExportInvoiceMenu || showExportQuoteMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [showExportInvoiceMenu, showExportQuoteMenu]);
 
   // Определение статуса для отображения
   const getDisplayStatus = () => {
@@ -204,15 +222,16 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
   };
 
   // Экспорт счета
-  const handleExportInvoice = async () => {
+  const handleExportInvoice = async (format: 'pdf' | 'excel' = 'pdf') => {
     if (!order?.invoice?.id) {
       toast.error('Счет не найден');
       return;
     }
 
     setExportingInvoice(true);
+    setShowExportInvoiceMenu(false);
     try {
-      const response = await fetch(`/api/documents/${order.invoice.id}/export?format=pdf`, {
+      const response = await fetch(`/api/documents/${order.invoice.id}/export?format=${format}`, {
         method: 'POST'
       });
       
@@ -221,12 +240,13 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Счет-${order.invoice.number}.pdf`;
+        const extension = format === 'pdf' ? 'pdf' : 'xlsx';
+        a.download = `Счет-${order.invoice.number}.${extension}`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        toast.success('Счет успешно экспортирован');
+        toast.success(`Счет успешно экспортирован в ${format === 'pdf' ? 'PDF' : 'Excel'}`);
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
         toast.error(`Ошибка при экспорте счета: ${errorData.error || 'Неизвестная ошибка'}`);
@@ -240,10 +260,14 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
   };
 
   // Экспорт КП
-  const handleExportQuote = async (quoteId: string) => {
+  const handleExportQuote = async (quoteId: string, format: 'pdf' | 'excel' = 'pdf') => {
     setExportingQuote(quoteId);
+    setShowExportQuoteMenu(null);
     try {
-      const response = await fetch(`/api/quotes/${quoteId}/export/pdf`);
+      // Используем универсальный API экспорта документов
+      const response = await fetch(`/api/documents/${quoteId}/export?format=${format}`, {
+        method: 'POST'
+      });
       
       if (response.ok) {
         const blob = await response.blob();
@@ -251,14 +275,15 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         const a = document.createElement('a');
         
         const quote = quotes.find(q => q.id === quoteId);
-        a.download = `КП-${quote?.number || quoteId}.pdf`;
+        const extension = format === 'pdf' ? 'pdf' : 'xlsx';
+        a.download = `КП-${quote?.number || quoteId}.${extension}`;
         
         document.body.appendChild(a);
         a.href = url;
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        toast.success('КП успешно экспортирован');
+        toast.success(`КП успешно экспортирован в ${format === 'pdf' ? 'PDF' : 'Excel'}`);
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
         toast.error(`Ошибка при экспорте КП: ${errorData.error || 'Неизвестная ошибка'}`);
@@ -283,6 +308,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         onClose={onClose}
         title=""
         size="xl"
+        className="!max-w-[1208px]"
       >
         {loading ? (
           <div className="flex items-center justify-center py-8">
@@ -340,18 +366,36 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                   <span className="text-xs">История</span>
                 </button>
                 
-                {/* Кнопка экспорта счета */}
+                {/* Кнопка экспорта счета с выбором формата */}
                 {order.invoice ? (
-                  <button
-                    onClick={handleExportInvoice}
-                    disabled={exportingInvoice}
-                    className="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Download className="h-3 w-3" />
-                    <span className="text-xs">
-                      {exportingInvoice ? 'Экспорт...' : 'Экспорт счета'}
-                    </span>
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowExportInvoiceMenu(!showExportInvoiceMenu)}
+                      disabled={exportingInvoice}
+                      className="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Download className="h-3 w-3" />
+                      <span className="text-xs">
+                        {exportingInvoice ? 'Экспорт...' : 'Экспорт счета'}
+                      </span>
+                    </button>
+                    {showExportInvoiceMenu && (
+                      <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-[120px]">
+                        <button
+                          onClick={() => handleExportInvoice('pdf')}
+                          className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                        >
+                          <span>📄 PDF</span>
+                        </button>
+                        <button
+                          onClick={() => handleExportInvoice('excel')}
+                          className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                        >
+                          <span>📊 Excel</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <button
                     disabled
@@ -363,20 +407,37 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                   </button>
                 )}
                 
-                {/* Кнопки экспорта КП */}
+                {/* Кнопки экспорта КП с выбором формата */}
                 {quotes.length > 0 ? (
                   quotes.map((quote) => (
-                    <button
-                      key={quote.id}
-                      onClick={() => handleExportQuote(quote.id)}
-                      disabled={exportingQuote === quote.id}
-                      className="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Download className="h-3 w-3" />
-                      <span className="text-xs">
-                        {exportingQuote === quote.id ? 'Экспорт...' : `Экспорт КП ${quote.number}`}
-                      </span>
-                    </button>
+                    <div key={quote.id} className="relative">
+                      <button
+                        onClick={() => setShowExportQuoteMenu(showExportQuoteMenu === quote.id ? null : quote.id)}
+                        disabled={exportingQuote === quote.id}
+                        className="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Download className="h-3 w-3" />
+                        <span className="text-xs">
+                          {exportingQuote === quote.id ? 'Экспорт...' : `Экспорт КП ${quote.number}`}
+                        </span>
+                      </button>
+                      {showExportQuoteMenu === quote.id && (
+                        <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-[120px]">
+                          <button
+                            onClick={() => handleExportQuote(quote.id, 'pdf')}
+                            className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                          >
+                            <span>📄 PDF</span>
+                          </button>
+                          <button
+                            onClick={() => handleExportQuote(quote.id, 'excel')}
+                            className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                          >
+                            <span>📊 Excel</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   ))
                 ) : (
                   <button

@@ -13,6 +13,7 @@ export interface ModalProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
+  className?: string;
 }
 
 export function Modal({ 
@@ -21,7 +22,8 @@ export function Modal({
   title, 
   children, 
   footer,
-  size = 'md' 
+  size = 'md',
+  className = ''
 }: ModalProps) {
   const styles = createComponentStyles();
   
@@ -60,7 +62,7 @@ export function Modal({
   return (
     <div className={styles.modal.overlay}>
       <div 
-        className={`${styles.modal.content.replace('w-full', '')} ${finalWidthClass} relative`}
+        className={`${styles.modal.content.replace('w-full', '')} ${finalWidthClass} ${className} relative`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Кнопка закрытия - всегда показываем */}
