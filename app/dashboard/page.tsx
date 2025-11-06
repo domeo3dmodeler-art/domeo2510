@@ -6,7 +6,7 @@ export const runtime = 'nodejs';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '../../components/layout/AdminLayout';
-import ComplectatorDashboard from '../complectator/dashboard/page';
+import { ComplectatorDashboard } from '../complectator/dashboard/page';
 import ExecutorDashboard from '../executor/dashboard/page';
 import ManagerDashboard from '../manager/dashboard/page';
 import { Card, Button } from '../../components/ui';
