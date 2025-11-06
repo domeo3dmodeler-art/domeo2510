@@ -361,35 +361,47 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     setExportingInvoice(true);
     try {
       // Преобразуем items в формат, ожидаемый API
-      const formattedItems = items.map((item: any) => ({
-        id: item.id || item.productId || item.product_id,
-        productId: item.productId || item.product_id || item.id,
-        name: item.name || item.model || 'Товар',
-        model: item.model || item.name || 'Товар',
-        qty: item.qty || item.quantity || 1,
-        quantity: item.qty || item.quantity || 1,
-        unitPrice: item.unitPrice || item.price || item.unit_price || 0,
-        price: item.unitPrice || item.price || item.unit_price || 0,
-        width: item.width,
-        height: item.height,
-        color: item.color,
-        finish: item.finish,
-        style: item.style,
-        type: item.type || 'door',
-        sku_1c: item.sku_1c,
-        handleId: item.handleId,
-        handleName: item.handleName,
-        hardwareKitId: item.hardwareKitId,
-        hardwareKitName: item.hardwareKitName
-      }));
+      const formattedItems = items.map((item: any) => {
+        // Нормализуем данные товара
+        const quantity = item.qty || item.quantity || 1;
+        const unitPrice = item.unitPrice || item.price || item.unit_price || 0;
+        
+        return {
+          id: item.id || item.productId || item.product_id || `item-${Math.random()}`,
+          productId: item.productId || item.product_id || item.id || `product-${Math.random()}`,
+          name: item.name || item.model || 'Товар',
+          model: item.model || item.name || 'Товар',
+          qty: quantity,
+          quantity: quantity,
+          unitPrice: unitPrice,
+          price: unitPrice,
+          width: item.width,
+          height: item.height,
+          color: item.color,
+          finish: item.finish,
+          style: item.style,
+          type: item.type || 'door',
+          sku_1c: item.sku_1c,
+          handleId: item.handleId,
+          handleName: item.handleName,
+          hardwareKitId: item.hardwareKitId,
+          hardwareKitName: item.hardwareKitName
+        };
+      });
+
+      // Вычисляем общую сумму, если она не указана
+      const totalAmount = order.total_amount || formattedItems.reduce((sum: number, item: any) => 
+        sum + (item.unitPrice || 0) * (item.qty || 1), 0
+      );
 
       console.log('Export Invoice Request:', {
         type: 'invoice',
         format: 'pdf',
         clientId: order.client.id,
         itemsCount: formattedItems.length,
-        items: formattedItems,
-        totalAmount: order.total_amount || 0
+        totalAmount,
+        parentDocumentId: order.id,
+        cartSessionId: order.cart_session_id
       });
 
       const response = await fetch('/api/export/fast', {
@@ -400,7 +412,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
           format: 'pdf',
           clientId: order.client.id,
           items: formattedItems,
-          totalAmount: order.total_amount || 0,
+          totalAmount,
           parentDocumentId: order.id,
           cartSessionId: order.cart_session_id || null
         })
@@ -408,6 +420,12 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
       
       if (response.ok) {
         const blob = await response.blob();
+        
+        // Проверяем, что blob не пустой
+        if (blob.size === 0) {
+          throw new Error('Получен пустой файл');
+        }
+        
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -418,13 +436,20 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         document.body.removeChild(a);
         toast.success('Счет успешно экспортирован');
       } else {
-        const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
-        console.error('Export Invoice Error:', errorData);
-        toast.error(`Ошибка при экспорте счета: ${errorData.error || 'Неизвестная ошибка'}`);
+        let errorMessage = 'Неизвестная ошибка';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+          console.error('Export Invoice Error Response:', errorData);
+        } catch (parseError) {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          console.error('Export Invoice Error Parse:', parseError);
+        }
+        toast.error(`Ошибка при экспорте счета: ${errorMessage}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error exporting invoice:', error);
-      toast.error('Ошибка при экспорте счета');
+      toast.error(`Ошибка при экспорте счета: ${error.message || 'Неизвестная ошибка'}`);
     } finally {
       setExportingInvoice(false);
     }
@@ -451,35 +476,47 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     setExportingQuote('exporting');
     try {
       // Преобразуем items в формат, ожидаемый API
-      const formattedItems = items.map((item: any) => ({
-        id: item.id || item.productId || item.product_id,
-        productId: item.productId || item.product_id || item.id,
-        name: item.name || item.model || 'Товар',
-        model: item.model || item.name || 'Товар',
-        qty: item.qty || item.quantity || 1,
-        quantity: item.qty || item.quantity || 1,
-        unitPrice: item.unitPrice || item.price || item.unit_price || 0,
-        price: item.unitPrice || item.price || item.unit_price || 0,
-        width: item.width,
-        height: item.height,
-        color: item.color,
-        finish: item.finish,
-        style: item.style,
-        type: item.type || 'door',
-        sku_1c: item.sku_1c,
-        handleId: item.handleId,
-        handleName: item.handleName,
-        hardwareKitId: item.hardwareKitId,
-        hardwareKitName: item.hardwareKitName
-      }));
+      const formattedItems = items.map((item: any) => {
+        // Нормализуем данные товара
+        const quantity = item.qty || item.quantity || 1;
+        const unitPrice = item.unitPrice || item.price || item.unit_price || 0;
+        
+        return {
+          id: item.id || item.productId || item.product_id || `item-${Math.random()}`,
+          productId: item.productId || item.product_id || item.id || `product-${Math.random()}`,
+          name: item.name || item.model || 'Товар',
+          model: item.model || item.name || 'Товар',
+          qty: quantity,
+          quantity: quantity,
+          unitPrice: unitPrice,
+          price: unitPrice,
+          width: item.width,
+          height: item.height,
+          color: item.color,
+          finish: item.finish,
+          style: item.style,
+          type: item.type || 'door',
+          sku_1c: item.sku_1c,
+          handleId: item.handleId,
+          handleName: item.handleName,
+          hardwareKitId: item.hardwareKitId,
+          hardwareKitName: item.hardwareKitName
+        };
+      });
+
+      // Вычисляем общую сумму, если она не указана
+      const totalAmount = order.total_amount || formattedItems.reduce((sum: number, item: any) => 
+        sum + (item.unitPrice || 0) * (item.qty || 1), 0
+      );
 
       console.log('Export Quote Request:', {
         type: 'quote',
         format: 'pdf',
         clientId: order.client.id,
         itemsCount: formattedItems.length,
-        items: formattedItems,
-        totalAmount: order.total_amount || 0
+        totalAmount,
+        parentDocumentId: order.id,
+        cartSessionId: order.cart_session_id
       });
 
       const response = await fetch('/api/export/fast', {
@@ -490,7 +527,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
           format: 'pdf',
           clientId: order.client.id,
           items: formattedItems,
-          totalAmount: order.total_amount || 0,
+          totalAmount,
           parentDocumentId: order.id,
           cartSessionId: order.cart_session_id || null
         })
@@ -498,23 +535,36 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
       
       if (response.ok) {
         const blob = await response.blob();
+        
+        // Проверяем, что blob не пустой
+        if (blob.size === 0) {
+          throw new Error('Получен пустой файл');
+        }
+        
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
+        a.href = url;
         a.download = `КП-${order.number}.pdf`;
         document.body.appendChild(a);
-        a.href = url;
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
         toast.success('КП успешно экспортирован');
       } else {
-        const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
-        console.error('Export Quote Error:', errorData);
-        toast.error(`Ошибка при экспорте КП: ${errorData.error || 'Неизвестная ошибка'}`);
+        let errorMessage = 'Неизвестная ошибка';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+          console.error('Export Quote Error Response:', errorData);
+        } catch (parseError) {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          console.error('Export Quote Error Parse:', parseError);
+        }
+        toast.error(`Ошибка при экспорте КП: ${errorMessage}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error exporting quote:', error);
-      toast.error('Ошибка при экспорте КП');
+      toast.error(`Ошибка при экспорте КП: ${error.message || 'Неизвестная ошибка'}`);
     } finally {
       setExportingQuote(null);
     }
@@ -563,7 +613,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           </div>
         ) : order ? (
-          <div className="p-6">
+          <div className="p-6 space-y-4">
             {/* Заголовок заказа */}
             <div className="mb-4 pb-4 border-b border-gray-200">
               <div className="flex items-center justify-between mb-2">

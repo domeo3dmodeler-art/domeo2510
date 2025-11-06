@@ -52,17 +52,37 @@ export function Modal({
 
   // Установка стилей ширины для размера xl напрямую в DOM
   useEffect(() => {
-    if (isOpen && size === 'xl' && modalRef.current) {
-      const element = modalRef.current;
-      // Устанавливаем стили с !important
-      element.style.setProperty('max-width', '1208px', 'important');
-      element.style.setProperty('width', '1208px', 'important');
-      element.style.setProperty('min-width', '1208px', 'important');
+    if (!isOpen || size !== 'xl' || !modalRef.current) return;
+    
+    const element = modalRef.current;
+    
+    // Функция для установки ширины
+    const setWidth = () => {
+      // Устанавливаем стили с !important для гарантированного применения
+      // Используем calc для адаптивности на маленьких экранах
+      const maxWidth = Math.min(1208, window.innerWidth - 32); // 1208px или ширина экрана минус отступы
+      element.style.setProperty('max-width', `${maxWidth}px`, 'important');
+      element.style.setProperty('width', `${maxWidth}px`, 'important');
+      element.style.setProperty('min-width', 'min(1208px, calc(100vw - 32px))', 'important');
       element.style.setProperty('flex-shrink', '0', 'important');
-      // Убираем все классы max-w-* из Tailwind
-      element.className = element.className.replace(/max-w-\S+/g, '').trim();
-      console.log('🔍 Modal xl - стили установлены через setProperty с !important');
-    }
+      // Убираем все классы ширины из Tailwind, которые могут конфликтовать
+      element.className = element.className
+        .replace(/max-w-\S+/g, '')
+        .replace(/w-\S+/g, '')
+        .replace(/min-w-\S+/g, '')
+        .trim();
+      console.log('🔍 Modal xl - стили установлены через setProperty с !important, ширина:', maxWidth);
+    };
+    
+    // Устанавливаем ширину сразу
+    setWidth();
+    
+    // Добавляем обработчик изменения размера окна для адаптивности
+    window.addEventListener('resize', setWidth);
+    
+    return () => {
+      window.removeEventListener('resize', setWidth);
+    };
   }, [isOpen, size]);
 
   if (!isOpen) {
@@ -82,11 +102,13 @@ export function Modal({
       case 'lg':
         return { maxWidth: '512px', width: '100%' };
       case 'xl':
-        // Для xl используем фиксированную ширину без max-width ограничений
+        // Для xl используем фиксированную ширину с адаптивностью
+        // Ширина будет переопределена в useEffect через setProperty
+        // На сервере используем дефолтное значение
         return { 
           maxWidth: '1208px', 
           width: '1208px', 
-          minWidth: '1208px',
+          minWidth: 'min(1208px, calc(100vw - 32px))',
           boxSizing: 'border-box',
           flexShrink: 0
         };
@@ -100,11 +122,15 @@ export function Modal({
   };
 
   // Базовые классы без ограничений ширины для xl
-  const baseClasses = 'bg-white rounded-lg shadow-xl max-h-[90vh] overflow-hidden relative';
+  // Для xl используем overflow-y-auto вместо overflow-hidden для прокрутки контента
+  const baseClasses = size === 'xl' 
+    ? 'bg-white rounded-lg shadow-xl max-h-[90vh] overflow-y-auto relative'
+    : 'bg-white rounded-lg shadow-xl max-h-[90vh] overflow-hidden relative';
   
-  // Для xl полностью убираем классы ширины из Tailwind
+  // Для xl полностью убираем классы ширины из Tailwind и styles.modal.content
+  // чтобы избежать конфликтов с фиксированной шириной
   const modalClasses = size === 'xl' 
-    ? `${baseClasses} ${className}`
+    ? `${baseClasses} ${className}`.replace(/w-\S+/g, '').replace(/max-w-\S+/g, '').trim()
     : `${baseClasses} ${styles.modal.content.replace('w-full', '')} ${className}`;
 
   return (
