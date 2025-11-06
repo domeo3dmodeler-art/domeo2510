@@ -58,6 +58,9 @@ export function Modal({
       element.style.setProperty('max-width', '1208px', 'important');
       element.style.setProperty('width', '1208px', 'important');
       element.style.setProperty('min-width', '1208px', 'important');
+      element.style.setProperty('flex-shrink', '0', 'important');
+      // Убираем все классы max-w-* из Tailwind
+      element.className = element.className.replace(/max-w-\S+/g, '').trim();
       console.log('🔍 Modal xl - стили установлены через setProperty с !important');
     }
   }, [isOpen, size]);
@@ -84,7 +87,8 @@ export function Modal({
           maxWidth: '1208px', 
           width: '1208px', 
           minWidth: '1208px',
-          boxSizing: 'border-box'
+          boxSizing: 'border-box',
+          flexShrink: 0
         };
       case '2xl':
         return { maxWidth: '672px', width: '100%' };
@@ -108,7 +112,7 @@ export function Modal({
       className={styles.modal.overlay} 
       onClick={onClose}
       style={size === 'xl' ? { 
-        padding: '1rem',
+        padding: '0',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center'

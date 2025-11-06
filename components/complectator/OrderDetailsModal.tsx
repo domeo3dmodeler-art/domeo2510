@@ -353,14 +353,19 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
       return;
     }
 
+    if (!order.client?.id) {
+      toast.error('Клиент не указан в заказе');
+      return;
+    }
+
     setExportingInvoice(true);
     try {
       // Преобразуем items в формат, ожидаемый API
       const formattedItems = items.map((item: any) => ({
         id: item.id || item.productId || item.product_id,
         productId: item.productId || item.product_id || item.id,
-        name: item.name,
-        model: item.model,
+        name: item.name || item.model || 'Товар',
+        model: item.model || item.name || 'Товар',
         qty: item.qty || item.quantity || 1,
         quantity: item.qty || item.quantity || 1,
         unitPrice: item.unitPrice || item.price || item.unit_price || 0,
@@ -369,6 +374,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         height: item.height,
         color: item.color,
         finish: item.finish,
+        style: item.style,
         type: item.type || 'door',
         sku_1c: item.sku_1c,
         handleId: item.handleId,
@@ -437,14 +443,19 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
       return;
     }
 
+    if (!order.client?.id) {
+      toast.error('Клиент не указан в заказе');
+      return;
+    }
+
     setExportingQuote('exporting');
     try {
       // Преобразуем items в формат, ожидаемый API
       const formattedItems = items.map((item: any) => ({
         id: item.id || item.productId || item.product_id,
         productId: item.productId || item.product_id || item.id,
-        name: item.name,
-        model: item.model,
+        name: item.name || item.model || 'Товар',
+        model: item.model || item.name || 'Товар',
         qty: item.qty || item.quantity || 1,
         quantity: item.qty || item.quantity || 1,
         unitPrice: item.unitPrice || item.price || item.unit_price || 0,
@@ -453,6 +464,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         height: item.height,
         color: item.color,
         finish: item.finish,
+        style: item.style,
         type: item.type || 'door',
         sku_1c: item.sku_1c,
         handleId: item.handleId,
