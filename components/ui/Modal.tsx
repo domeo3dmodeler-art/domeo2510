@@ -27,6 +27,9 @@ export function Modal({
 }: ModalProps) {
   const styles = createComponentStyles();
   
+  // Логирование для отладки
+  console.log('🔍 Modal component render:', { isOpen, size, className });
+  
   // Закрытие по Escape
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -46,7 +49,12 @@ export function Modal({
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    console.log('🔍 Modal: isOpen=false, не рендерим');
+    return null;
+  }
+
+  console.log('🔍 Modal: isOpen=true, рендерим с size=', size);
 
   const sizeClasses = {
     sm: 'max-w-sm',
