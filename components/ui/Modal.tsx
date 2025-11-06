@@ -59,23 +59,33 @@ export function Modal({
 
   const finalWidthClass = sizeClasses[size];
   
-  // Для размера xl используем принудительную ширину через inline стили
+  // Для размера xl используем принудительную ширину через inline стили с !important
   const getModalStyle = (): React.CSSProperties => {
     if (size === 'xl') {
       return {
-        maxWidth: '1208px',
-        width: '1208px',
-        minWidth: '1208px'
+        maxWidth: '1208px !important' as any,
+        width: '1208px !important' as any,
+        minWidth: '1208px !important' as any
       };
     }
     return {};
   };
   
+  // Для xl также убираем все классы ширины и используем только inline стили
+  const modalContentClasses = size === 'xl' 
+    ? `${styles.modal.content.replace('w-full', '').replace('max-w-', '')} ${className} relative`
+    : `${styles.modal.content.replace('w-full', '')} ${finalWidthClass} ${className} relative`;
+  
   return (
     <div className={styles.modal.overlay}>
       <div 
-        className={`${styles.modal.content.replace('w-full', '')} ${finalWidthClass} ${className} relative`}
-        style={getModalStyle()}
+        className={modalContentClasses}
+        style={size === 'xl' ? { 
+          maxWidth: '1208px', 
+          width: '1208px', 
+          minWidth: '1208px',
+          flex: '0 0 1208px'
+        } : undefined}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Кнопка закрытия - всегда показываем */}
