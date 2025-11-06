@@ -12,7 +12,7 @@ export interface ModalProps {
   title?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | 'full';
   className?: string;
 }
 
@@ -50,20 +50,22 @@ export function Modal({
     };
   }, [isOpen, onClose]);
 
-  // Установка стилей ширины для размера xl напрямую в DOM
+  // Установка стилей ширины для размера xl и full напрямую в DOM
   useEffect(() => {
-    if (!isOpen || size !== 'xl' || !modalRef.current) return;
+    if (!isOpen || (size !== 'xl' && size !== 'full') || !modalRef.current) return;
     
     const element = modalRef.current;
     
     // Функция для установки ширины
     const setWidth = () => {
+      // Для full используем ширину в 2 раза больше xl (2400px), для xl - 1208px
+      const baseWidth = size === 'full' ? 2400 : 1208;
       // Устанавливаем стили с !important для гарантированного применения
       // Используем calc для адаптивности на маленьких экранах
-      const maxWidth = Math.min(1208, window.innerWidth - 32); // 1208px или ширина экрана минус отступы
+      const maxWidth = Math.min(baseWidth, window.innerWidth - 32); // baseWidth или ширина экрана минус отступы
       element.style.setProperty('max-width', `${maxWidth}px`, 'important');
       element.style.setProperty('width', `${maxWidth}px`, 'important');
-      element.style.setProperty('min-width', 'min(1208px, calc(100vw - 32px))', 'important');
+      element.style.setProperty('min-width', `min(${baseWidth}px, calc(100vw - 32px))`, 'important');
       element.style.setProperty('flex-shrink', '0', 'important');
       // Убираем все классы ширины из Tailwind, которые могут конфликтовать
       element.className = element.className
@@ -71,7 +73,7 @@ export function Modal({
         .replace(/w-\S+/g, '')
         .replace(/min-w-\S+/g, '')
         .trim();
-      console.log('🔍 Modal xl - стили установлены через setProperty с !important, ширина:', maxWidth);
+      console.log(`🔍 Modal ${size} - стили установлены через setProperty с !important, ширина:`, maxWidth);
     };
     
     // Устанавливаем ширину сразу
@@ -112,6 +114,16 @@ export function Modal({
           boxSizing: 'border-box',
           flexShrink: 0
         };
+      case 'full':
+        // Для full используем ширину в 2 раза больше xl (2400px)
+        // Ширина будет переопределена в useEffect через setProperty
+        return { 
+          maxWidth: '2400px', 
+          width: '2400px', 
+          minWidth: 'min(2400px, calc(100vw - 32px))',
+          boxSizing: 'border-box',
+          flexShrink: 0
+        };
       case '2xl':
         return { maxWidth: '672px', width: '100%' };
       case '3xl':
@@ -121,15 +133,15 @@ export function Modal({
     }
   };
 
-  // Базовые классы без ограничений ширины для xl
-  // Для xl используем overflow-y-auto вместо overflow-hidden для прокрутки контента
-  const baseClasses = size === 'xl' 
+  // Базовые классы без ограничений ширины для xl и full
+  // Для xl и full используем overflow-y-auto вместо overflow-hidden для прокрутки контента
+  const baseClasses = (size === 'xl' || size === 'full')
     ? 'bg-white rounded-lg shadow-xl max-h-[90vh] overflow-y-auto relative'
     : 'bg-white rounded-lg shadow-xl max-h-[90vh] overflow-hidden relative';
   
-  // Для xl полностью убираем классы ширины из Tailwind и styles.modal.content
+  // Для xl и full полностью убираем классы ширины из Tailwind и styles.modal.content
   // чтобы избежать конфликтов с фиксированной шириной
-  const modalClasses = size === 'xl' 
+  const modalClasses = (size === 'xl' || size === 'full')
     ? `${baseClasses} ${className}`.replace(/w-\S+/g, '').replace(/max-w-\S+/g, '').trim()
     : `${baseClasses} ${styles.modal.content.replace('w-full', '')} ${className}`;
 
@@ -137,7 +149,7 @@ export function Modal({
     <div 
       className={styles.modal.overlay} 
       onClick={onClose}
-      style={size === 'xl' ? { 
+      style={(size === 'xl' || size === 'full') ? { 
         padding: '0',
         display: 'flex',
         alignItems: 'center',
@@ -149,7 +161,7 @@ export function Modal({
         className={modalClasses}
         style={{
           ...getSizeStyles(),
-          margin: size === 'xl' ? '0' : '0 auto',
+          margin: (size === 'xl' || size === 'full') ? '0' : '0 auto',
           boxSizing: 'border-box',
           flexShrink: 0
         }}
