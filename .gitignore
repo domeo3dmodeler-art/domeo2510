@@ -157,3 +157,8 @@ cleanup-report.json
 create-*-report.js
 # TypeScript error reports
 ts_errors*.txt
+tsconfig.tsbuildinfo
+
+# Test results
+test-results/
+playwright-report/
