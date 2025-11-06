@@ -65,6 +65,8 @@ export function Modal({
   if (size === 'xl') {
     // Для xl убираем все классы ширины и используем только базовые стили без w-full и max-w-*
     modalContentClasses = `bg-white rounded-lg shadow-xl max-h-[90vh] overflow-hidden ${className} relative`;
+    console.log('🔍 Modal xl size - классы:', modalContentClasses);
+    console.log('🔍 Modal xl size - inline стили будут:', { maxWidth: '1208px', width: '1208px', minWidth: '1208px' });
   } else {
     modalContentClasses = `${styles.modal.content.replace('w-full', '')} ${finalWidthClass} ${className} relative`;
   }
