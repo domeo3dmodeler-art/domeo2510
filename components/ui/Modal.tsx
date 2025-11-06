@@ -107,15 +107,21 @@ export function Modal({
     <div 
       className={styles.modal.overlay} 
       onClick={onClose}
-      style={size === 'xl' ? { padding: '1rem' } : undefined}
+      style={size === 'xl' ? { 
+        padding: '1rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      } : undefined}
     >
       <div 
         ref={modalRef}
         className={modalClasses}
         style={{
           ...getSizeStyles(),
-          margin: '0 auto',
-          boxSizing: 'border-box'
+          margin: size === 'xl' ? '0' : '0 auto',
+          boxSizing: 'border-box',
+          flexShrink: 0
         }}
         onClick={(e) => e.stopPropagation()}
       >
