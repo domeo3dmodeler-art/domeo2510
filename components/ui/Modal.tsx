@@ -26,9 +26,21 @@ export function Modal({
   className = ''
 }: ModalProps) {
   const styles = createComponentStyles();
+  const modalRef = React.useRef<HTMLDivElement>(null);
   
   // Логирование для отладки
   console.log('🔍 Modal component render:', { isOpen, size, className });
+  
+  // Установка стилей с !important для размера xl
+  useEffect(() => {
+    if (size === 'xl' && modalRef.current) {
+      const element = modalRef.current;
+      element.style.setProperty('max-width', '1208px', 'important');
+      element.style.setProperty('width', '1208px', 'important');
+      element.style.setProperty('min-width', '1208px', 'important');
+      console.log('🔍 Modal xl - стили установлены через setProperty с !important');
+    }
+  }, [size, isOpen]);
   
   // Закрытие по Escape
   useEffect(() => {
@@ -82,10 +94,11 @@ export function Modal({
   return (
     <div className={styles.modal.overlay} style={size === 'xl' ? { padding: '1rem' } : undefined}>
       <div 
+        ref={modalRef}
         className={modalContentClasses}
         style={size === 'xl' ? { 
-          maxWidth: '1208px', 
-          width: '1208px', 
+          maxWidth: '1208px',
+          width: '1208px',
           minWidth: '1208px',
           boxSizing: 'border-box',
           margin: '0 auto'
