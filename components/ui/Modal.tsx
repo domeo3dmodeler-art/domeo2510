@@ -59,18 +59,15 @@ export function Modal({
 
   const finalWidthClass = sizeClasses[size];
   
-  // Для xl полностью убираем классы ширины и используем только inline стили
-  let modalContentClasses = styles.modal.content.replace('w-full', '');
+  // Для xl полностью переопределяем классы и используем только inline стили
+  let modalContentClasses: string;
   
-  // Удаляем все классы max-w-* для размера xl
   if (size === 'xl') {
-    modalContentClasses = modalContentClasses.replace(/\bmax-w-\[?\d+px\]?/g, '');
-    modalContentClasses = modalContentClasses.replace(/\bmax-w-\w+/g, '');
+    // Для xl убираем все классы ширины и используем только базовые стили без w-full и max-w-*
+    modalContentClasses = `bg-white rounded-lg shadow-xl max-h-[90vh] overflow-hidden ${className} relative`;
   } else {
-    modalContentClasses = `${modalContentClasses} ${finalWidthClass}`;
+    modalContentClasses = `${styles.modal.content.replace('w-full', '')} ${finalWidthClass} ${className} relative`;
   }
-  
-  modalContentClasses = `${modalContentClasses} ${className} relative`;
   
   return (
     <div className={styles.modal.overlay} style={size === 'xl' ? { padding: '1rem' } : undefined}>
