@@ -337,6 +337,7 @@ function DashboardContent() {
               role: userDataFromServer.user.role || userRole,
               permissions: userDataFromServer.user.permissions || JSON.parse(localStorage.getItem('userPermissions') || '[]')
             };
+            
             setUser(userData);
           } else {
             throw new Error('User data not found');
@@ -363,6 +364,7 @@ function DashboardContent() {
             role: userRole,
             permissions: JSON.parse(localStorage.getItem('userPermissions') || '[]')
           };
+          
           setUser(userData);
         }
       } catch (error) {
@@ -377,6 +379,7 @@ function DashboardContent() {
           role: userRole,
           permissions: JSON.parse(localStorage.getItem('userPermissions') || '[]')
         };
+        
         setUser(userData);
       }
     };
@@ -396,6 +399,7 @@ function DashboardContent() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Пустой массив зависимостей - эффект должен выполняться только один раз при монтировании
+
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
