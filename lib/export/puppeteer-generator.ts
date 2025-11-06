@@ -233,10 +233,48 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
     }
     
     const browser = await puppeteer.launch({
-      args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-software-rasterizer',
+        '--disable-extensions',
+        '--disable-background-networking',
+        '--disable-background-timer-throttling',
+        '--disable-renderer-backgrounding',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-client-side-phishing-detection',
+        '--disable-crash-reporter',
+        '--disable-default-apps',
+        '--disable-features=TranslateUI',
+        '--disable-ipc-flooding-protection',
+        '--disable-popup-blocking',
+        '--disable-prompt-on-repost',
+        '--disable-sync',
+        '--disable-translate',
+        '--disable-web-resources',
+        '--enable-features=NetworkService,NetworkServiceInProcess',
+        '--force-color-profile=srgb',
+        '--hide-scrollbars',
+        '--ignore-certificate-errors',
+        '--ignore-certificate-errors-spki-list',
+        '--ignore-gpu-blacklist',
+        '--ignore-ssl-errors',
+        '--metrics-recording-only',
+        '--mute-audio',
+        '--no-first-run',
+        '--no-default-browser-check',
+        '--no-pings',
+        '--password-store=basic',
+        '--single-process',
+        '--use-gl=swiftshader',
+        '--window-size=1920,1080'
+      ],
       executablePath: executablePath || '/usr/bin/chromium',
       headless: true,
-      timeout: 30000 // Увеличиваем таймаут для стабильности
+      timeout: 60000,
+      ignoreHTTPSErrors: true
     });
 
     let page: any = null;
@@ -244,11 +282,14 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
       console.log('📄 Создаем новую страницу...');
       page = await browser.newPage();
       
+      // Устанавливаем размер viewport
+      await page.setViewport({ width: 1920, height: 1080 });
+      
       console.log('📝 Устанавливаем HTML контент...');
       // Устанавливаем контент страницы с надежным ожиданием
       await page.setContent(htmlContent, { 
-        waitUntil: 'domcontentloaded', // Используем domcontentloaded для быстрой стабильности
-        timeout: 30000 
+        waitUntil: 'networkidle0',
+        timeout: 60000 
       });
 
       console.log('🖨️ Генерируем PDF...');
@@ -268,19 +309,45 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
       const endTime = Date.now();
       console.log(`⚡ PDF сгенерирован за ${endTime - startTime}ms`);
 
+      // Закрываем страницу ПОСЛЕ получения PDF
+      if (page) {
+        try {
+          await page.close();
+        } catch (e) {
+          console.warn('⚠️ Ошибка при закрытии страницы:', e);
+        }
+      }
+
       // Закрываем браузер ПОСЛЕ получения PDF, но ДО возврата
       console.log('🔒 Закрываем браузер...');
-      await browser.close();
+      if (browser) {
+        try {
+          await browser.close();
+        } catch (e) {
+          console.warn('⚠️ Ошибка при закрытии браузера:', e);
+        }
+      }
 
       return Buffer.from(pdfBuffer);
       
     } catch (innerError) {
+      // Закрываем страницу при ошибке
+      if (page) {
+        try {
+          await page.close();
+        } catch (e) {
+          console.warn('⚠️ Ошибка при закрытии страницы после ошибки:', e);
+        }
+      }
+      
       // Закрываем браузер при ошибке
       console.log('🔒 Закрываем браузер после ошибки...');
-      try {
-        await browser.close();
-      } catch (e) {
-        console.warn('⚠️ Ошибка при закрытии браузера:', e);
+      if (browser) {
+        try {
+          await browser.close();
+        } catch (e) {
+          console.warn('⚠️ Ошибка при закрытии браузера:', e);
+        }
       }
       throw innerError;
     }
