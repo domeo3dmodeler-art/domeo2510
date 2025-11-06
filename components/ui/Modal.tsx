@@ -73,14 +73,15 @@ export function Modal({
   modalContentClasses = `${modalContentClasses} ${className} relative`;
   
   return (
-    <div className={styles.modal.overlay}>
+    <div className={styles.modal.overlay} style={size === 'xl' ? { padding: '1rem' } : undefined}>
       <div 
         className={modalContentClasses}
         style={size === 'xl' ? { 
           maxWidth: '1208px', 
           width: '1208px', 
           minWidth: '1208px',
-          boxSizing: 'border-box'
+          boxSizing: 'border-box',
+          margin: '0 auto'
         } : undefined}
         onClick={(e) => e.stopPropagation()}
       >
