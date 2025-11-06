@@ -53,8 +53,8 @@ export async function PUT(
       logger.warn('Не удалось получить роль из токена', 'orders/[id]/status', { error: tokenError }, loggingContext);
     }
 
-    // Проверяем права на изменение статуса
-    if (userRole && !canUserChangeStatus(userRole as any, 'order', order.status)) {
+    // Проверяем права на изменение статуса (передаем текущий и новый статус)
+    if (userRole && !canUserChangeStatus(userRole as any, 'order', order.status, status)) {
       // Специальное сообщение для Комплектатора при попытке изменить статус исполнителя
       if (userRole === 'complectator' && ['NEW_PLANNED', 'UNDER_REVIEW', 'AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'COMPLETED'].includes(order.status)) {
         return NextResponse.json(
@@ -63,6 +63,7 @@ export async function PUT(
             details: {
               userRole,
               currentStatus: order.status,
+              newStatus: status,
               reason: 'Этот статус может изменять только Исполнитель'
             }
           },
@@ -76,6 +77,7 @@ export async function PUT(
           details: {
             userRole,
             currentStatus: order.status,
+            newStatus: status,
             reason: 'Статус заказа заблокирован для вашей роли'
           }
         },
@@ -131,6 +133,7 @@ export async function PUT(
     // Сохраняем старый статус
     const oldStatus = order.status;
 
+    // ВАЖНО: Invoice и Quote не имеют статусов, синхронизация удалена
     // Обновляем заказ
     const updatedOrder = await prisma.order.update({
       where: { id },
@@ -148,50 +151,6 @@ export async function PUT(
         },
       }
     });
-
-    // Синхронизируем статус со связанным Invoice (если есть)
-    if (targetStatus !== oldStatus && order.invoice_id) {
-      try {
-        logger.debug('Синхронизация статуса Invoice при изменении Order', 'orders/[id]/status', {
-          orderId: id,
-          invoiceId: order.invoice_id,
-          newOrderStatus: targetStatus
-        }, loggingContext);
-
-        // Маппинг статусов Order на статусы Invoice
-        const statusMapping: Record<string, string> = {
-          'NEW_PLANNED': 'DRAFT', // Order создан, Invoice еще в черновике
-          'UNDER_REVIEW': 'DRAFT', // Order на проверке, Invoice остается в черновике
-          'AWAITING_MEASUREMENT': 'SENT', // Order ожидает замер, Invoice отправлен
-          'AWAITING_INVOICE': 'SENT', // Order ожидает счет, Invoice отправлен
-          'COMPLETED': 'PAID', // Order завершен, Invoice должен быть оплачен
-          'CANCELLED': 'CANCELLED' // Order отменен, Invoice отменен
-        };
-
-        const invoiceStatus = statusMapping[targetStatus];
-        if (invoiceStatus) {
-          await prisma.invoice.update({
-            where: { id: order.invoice_id },
-            data: {
-              status: invoiceStatus,
-              updated_at: new Date()
-            }
-          });
-          logger.info('Статус Invoice синхронизирован', 'orders/[id]/status', {
-            orderId: id,
-            invoiceId: order.invoice_id,
-            newInvoiceStatus: invoiceStatus
-          }, loggingContext);
-        }
-      } catch (syncError) {
-        logger.error('Ошибка синхронизации статуса Invoice', 'orders/[id]/status', {
-          error: syncError,
-          orderId: id,
-          invoiceId: order.invoice_id
-        }, loggingContext);
-        // Не прерываем выполнение, если синхронизация не удалась
-      }
-    }
 
     // Отправляем уведомления о смене статуса
     try {

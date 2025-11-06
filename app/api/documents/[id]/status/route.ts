@@ -26,47 +26,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const userId = decoded.userId;
     const userRole = decoded.role;
 
-    // Ищем документ в разных таблицах
+    // ВАЖНО: Invoice и Quote не имеют статусов, ищем только Order и SupplierOrder
     let document = null;
     let documentType = null;
 
-    // Проверяем в таблице счетов
-    const invoice = await prisma.invoice.findUnique({
+    // Проверяем в таблице заказов
+    const order = await prisma.order.findUnique({
       where: { id }
     });
 
-    if (invoice) {
-      document = invoice;
-      documentType = 'invoice';
+    if (order) {
+      document = order;
+      documentType = 'order';
     } else {
-      // Проверяем в таблице КП
-      const quote = await prisma.quote.findUnique({
+      // Проверяем в таблице заказов поставщиков
+      const supplierOrder = await prisma.supplierOrder.findUnique({
         where: { id }
       });
 
-      if (quote) {
-        document = quote;
-        documentType = 'quote';
-      } else {
-        // Проверяем в таблице заказов
-        const order = await prisma.order.findUnique({
-          where: { id }
-        });
-
-        if (order) {
-          document = order;
-          documentType = 'order';
-        } else {
-          // Проверяем в таблице заказов поставщиков
-          const supplierOrder = await prisma.supplierOrder.findUnique({
-            where: { id }
-          });
-
-          if (supplierOrder) {
-            document = supplierOrder;
-            documentType = 'supplier_order';
-          }
-        }
+      if (supplierOrder) {
+        document = supplierOrder;
+        documentType = 'supplier_order';
       }
     }
 
@@ -104,25 +84,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // Сохраняем старый статус для уведомлений
     const oldStatus = document.status;
 
-    // Обновляем документ
+    // Обновляем документ (только Order и SupplierOrder имеют статусы)
     let updatedDocument;
-    if (documentType === 'invoice') {
-      updatedDocument = await prisma.invoice.update({
-        where: { id },
-        data: { 
-          status,
-          updated_at: new Date()
-        }
-      });
-    } else if (documentType === 'quote') {
-      updatedDocument = await prisma.quote.update({
-        where: { id },
-        data: { 
-          status,
-          updated_at: new Date()
-        }
-      });
-    } else if (documentType === 'order') {
+    if (documentType === 'order') {
       updatedDocument = await prisma.order.update({
         where: { id },
         data: { 

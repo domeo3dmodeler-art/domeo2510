@@ -113,10 +113,12 @@ export function canUserDeleteClient(userRole: UserRole): boolean {
 }
 
 // Проверка прав на изменение статусов
+// ВАЖНО: Статусы есть только у Order и SupplierOrder. Invoice и Quote не имеют статусов.
 export function canUserChangeStatus(
   userRole: UserRole | string,
   documentType: string,
-  documentStatus?: string
+  currentStatus?: string,
+  newStatus?: string
 ): boolean {
   // Неавторизованные пользователи не могут изменять статусы
   if (!userRole) {
@@ -128,33 +130,31 @@ export function canUserChangeStatus(
 
   switch (documentType) {
     case 'quote':
-      // КП НЕ блокируются для Комплектатора
-      return roleStr === 'admin' || roleStr === 'complectator';
-    
     case 'invoice':
-      // Комплектатор может менять Invoice только ДО PAID
-      if (roleStr === 'complectator') {
-        // После PAID, ORDERED, RECEIVED, COMPLETED - только EXECUTOR и ADMIN
-        const blockedStatuses = ['PAID', 'ORDERED', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED'];
-        if (documentStatus && blockedStatuses.includes(documentStatus)) {
-          return false;
-        }
-      }
-      // EXECUTOR НЕ может менять Invoice напрямую
-      // Он меняет SupplierOrder, а Invoice синхронизируется автоматически
-      return roleStr === 'admin' || roleStr === 'complectator';
+      // Invoice и Quote не имеют статусов
+      return false;
     
     case 'order':
-      // Комплектатор может менять Order только ДО PAID и сам PAID (может перевести в UNDER_REVIEW или CANCELLED)
+      // Комплектатор может менять Order только ДО PAID включительно
+      // Может перевести PAID → UNDER_REVIEW или CANCELLED, но не может изменять UNDER_REVIEW обратно
       if (roleStr === 'complectator') {
-        // После PAID комплектатор может перевести только в UNDER_REVIEW или CANCELLED
-        // Статусы исполнителя (NEW_PLANNED, UNDER_REVIEW, AWAITING_MEASUREMENT, AWAITING_INVOICE, COMPLETED) - только EXECUTOR и ADMIN
+        // Если текущий статус - статус исполнителя, комплектатор не может его изменить
         const executorStatuses = ['NEW_PLANNED', 'UNDER_REVIEW', 'AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'COMPLETED'];
-        if (documentStatus && executorStatuses.includes(documentStatus)) {
+        if (currentStatus && executorStatuses.includes(currentStatus)) {
+          // Исключение: если комплектатор переводит PAID → UNDER_REVIEW, это разрешено
+          // Но после установки UNDER_REVIEW, комплектатор не может его изменить
           return false;
         }
-        // PAID разрешен для комплектатора (может перевести в UNDER_REVIEW или CANCELLED)
-        return true;
+        // Комплектатор может изменять статусы DRAFT, SENT, PAID
+        // Может перевести PAID → UNDER_REVIEW или CANCELLED
+        if (currentStatus === 'PAID' && newStatus === 'UNDER_REVIEW') {
+          return true; // Разрешаем перевод PAID → UNDER_REVIEW
+        }
+        if (currentStatus === 'PAID' && newStatus === 'CANCELLED') {
+          return true; // Разрешаем отмену
+        }
+        // Для остальных переходов проверяем, что текущий статус не статус исполнителя
+        return !currentStatus || !executorStatuses.includes(currentStatus);
       }
       // Руководитель не может изменять статусы (только просмотр)
       if (roleStr === 'manager' || roleStr === 'руководитель') {

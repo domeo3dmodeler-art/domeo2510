@@ -1,25 +1,10 @@
 // lib/validation/status-transitions.ts
 // Валидация переходов статусов документов согласно правилам системы
+// ВАЖНО: Статусы есть только у Order и SupplierOrder. Invoice и Quote не имеют статусов.
 
 export const STATUS_TRANSITIONS = {
-  quote: {
-    'DRAFT': ['SENT', 'CANCELLED'],
-    'SENT': ['ACCEPTED', 'REJECTED', 'CANCELLED'],
-    'ACCEPTED': ['CANCELLED'],
-    'REJECTED': ['CANCELLED'],
-    'CANCELLED': []
-  },
-  invoice: {
-    'DRAFT': ['SENT', 'CANCELLED'],
-    'SENT': ['PAID', 'CANCELLED'],
-    'PAID': ['ORDERED', 'CANCELLED'],
-    'ORDERED': ['RECEIVED_FROM_SUPPLIER', 'CANCELLED'],
-    'RECEIVED_FROM_SUPPLIER': ['COMPLETED', 'CANCELLED'],
-    'COMPLETED': [],
-    'CANCELLED': []
-  },
   order: {
-    'DRAFT': ['SENT', 'CANCELLED'],
+    'DRAFT': ['SENT', 'NEW_PLANNED', 'CANCELLED'], // Добавлен переход DRAFT → NEW_PLANNED
     'SENT': ['PAID', 'CANCELLED'],
     'PAID': ['UNDER_REVIEW', 'CANCELLED'],
     'NEW_PLANNED': ['UNDER_REVIEW', 'CANCELLED'],
