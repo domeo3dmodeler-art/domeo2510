@@ -76,10 +76,19 @@ function compareCartContent(items1: any[], items2String: string | null): boolean
     if (!items2String) return false;
     
     const normalized1 = normalizeItems(items1);
-    const items2 = JSON.parse(items2String);
-    const normalized2 = normalizeItems(Array.isArray(items2) ? items2 : []);
+    const parsed2 = JSON.parse(items2String);
     
-    if (normalized1.length !== normalized2.length) return false;
+    // cart_data может быть объектом { items: [...], total_amount: ... } или массивом
+    const items2 = Array.isArray(parsed2) ? parsed2 : (parsed2.items || []);
+    const normalized2 = normalizeItems(items2);
+    
+    if (normalized1.length !== normalized2.length) {
+      logger.debug('Разное количество товаров', 'ORDERS', {
+        count1: normalized1.length,
+        count2: normalized2.length
+      });
+      return false;
+    }
     
     for (let i = 0; i < normalized1.length; i++) {
       const item1 = normalized1[i];
@@ -90,6 +99,7 @@ function compareCartContent(items1: any[], items2String: string | null): boolean
             item1.handleId !== item2.handleId ||
             item1.quantity !== item2.quantity ||
             Math.abs(item1.unitPrice - item2.unitPrice) > 0.01) {
+          logger.debug('Ручки не совпадают', 'ORDERS', { item1, item2 });
           return false;
         }
         continue;
@@ -106,10 +116,12 @@ function compareCartContent(items1: any[], items2String: string | null): boolean
           item1.handleId !== item2.handleId ||
           item1.quantity !== item2.quantity ||
           Math.abs(item1.unitPrice - item2.unitPrice) > 0.01) {
+        logger.debug('Товары не совпадают', 'ORDERS', { item1, item2 });
         return false;
       }
     }
     
+    logger.debug('Содержимое корзины совпадает', 'ORDERS');
     return true;
   } catch (error) {
     logger.warn('Ошибка сравнения содержимого корзины', 'ORDERS', { error });
@@ -135,32 +147,40 @@ async function findExistingOrder(
 
     // ВАЖНО: Order - основной документ, parent_document_id всегда должен быть null
     // Ищем Order только с parent_document_id = null (основной документ из корзины)
-    let existingOrder = await prisma.order.findFirst({
-      where: {
-        parent_document_id: null, // Order - основной документ, parent_document_id должен быть null
-        cart_session_id: cartSessionId,
-        client_id: clientId,
-        total_amount: {
-          gte: totalAmount - 0.01,
-          lte: totalAmount + 0.01
-        }
-      } as any,
-      orderBy: { created_at: 'desc' }
-    });
+    // Если cartSessionId передан, сначала ищем по нему, иначе ищем только по содержимому
+    let existingOrder = null;
+    
+    if (cartSessionId) {
+      // Этап 1: Поиск по cart_session_id (если передан)
+      existingOrder = await prisma.order.findFirst({
+        where: {
+          parent_document_id: null, // Order - основной документ, parent_document_id должен быть null
+          cart_session_id: cartSessionId,
+          client_id: clientId,
+          total_amount: {
+            gte: totalAmount - 0.01,
+            lte: totalAmount + 0.01
+          }
+        } as any,
+        orderBy: { created_at: 'desc' }
+      });
 
-    if (existingOrder) {
-      // Проверяем содержимое корзины через cart_data в Order
-      if (existingOrder.cart_data && compareCartContent(items, existingOrder.cart_data)) {
-        logger.debug('Найден существующий заказ (строгое совпадение)', 'ORDERS', {
-          orderNumber: existingOrder.number,
-          orderId: existingOrder.id
-        });
-        return existingOrder;
+      if (existingOrder) {
+        // Проверяем содержимое корзины через cart_data в Order
+        if (existingOrder.cart_data && compareCartContent(items, existingOrder.cart_data)) {
+          logger.debug('Найден существующий заказ (по cart_session_id)', 'ORDERS', {
+            orderNumber: existingOrder.number,
+            orderId: existingOrder.id,
+            cartSessionId
+          });
+          return existingOrder;
+        }
       }
     }
 
-    // Этап 2: Поиск по содержимому корзины
+    // Этап 2: Поиск по содержимому корзины (независимо от cart_session_id)
     // ВАЖНО: Ищем только в Order с parent_document_id = null (основные документы)
+    // Ищем среди заказов того же клиента с той же суммой
     const candidates = await prisma.order.findMany({
       where: {
         parent_document_id: null, // Только основные Order из корзины
@@ -171,15 +191,22 @@ async function findExistingOrder(
         }
       } as any,
       orderBy: { created_at: 'desc' },
-      take: 10
+      take: 20 // Увеличиваем лимит для более тщательного поиска
+    });
+
+    logger.debug('Кандидаты для сравнения', 'ORDERS', {
+      candidatesCount: candidates.length,
+      clientId,
+      totalAmount
     });
 
     for (const candidate of candidates) {
       // Проверяем содержимое через cart_data в Order
       if (candidate.cart_data && compareCartContent(items, candidate.cart_data)) {
-        logger.debug('Найден существующий заказ (по содержимому)', 'ORDERS', {
+        logger.debug('Найден существующий заказ (по содержимому корзины)', 'ORDERS', {
           orderNumber: candidate.number,
-          orderId: candidate.id
+          orderId: candidate.id,
+          cartSessionId: candidate.cart_session_id
         });
         return candidate;
       }
@@ -269,16 +296,38 @@ export async function POST(req: NextRequest) {
 
     // Дедубликация: ищем существующий заказ
     // Order - основной документ, parent_document_id всегда null
+    // ВАЖНО: Если cart_session_id не передан, все равно ищем по содержимому корзины
     const finalCartSessionId = cart_session_id || generateCartSessionId();
     let existingOrder = null;
     
-    existingOrder = await findExistingOrder(
-      null, // Order - основной документ, parent_document_id = null
-      finalCartSessionId,
-      client_id,
-      items,
-      calculatedTotalAmount
-    );
+    // Сначала ищем по cart_session_id (если передан)
+    if (cart_session_id) {
+      existingOrder = await findExistingOrder(
+        null, // Order - основной документ, parent_document_id = null
+        cart_session_id,
+        client_id,
+        items,
+        calculatedTotalAmount
+      );
+    }
+    
+    // Если не нашли по cart_session_id, ищем по содержимому корзины
+    // Это важно для случаев, когда cart_session_id не передается или генерируется новый
+    if (!existingOrder) {
+      logger.debug('Поиск по содержимому корзины (без cart_session_id)', 'ORDERS', {
+        clientId: client_id,
+        totalAmount: calculatedTotalAmount,
+        itemsCount: items.length
+      });
+      
+      existingOrder = await findExistingOrder(
+        null,
+        null, // Не используем cart_session_id для поиска
+        client_id,
+        items,
+        calculatedTotalAmount
+      );
+    }
 
     let orderNumber: string;
     let orderId: string | null = null;
@@ -322,7 +371,7 @@ export async function POST(req: NextRequest) {
           lead_number: client.compilationLeadNumber || null,
           complectator_id: complectatorId,
           executor_id: null,
-          status: 'NEW_PLANNED',
+          status: 'DRAFT', // Комплектатор создает заказ со статусом DRAFT
           parent_document_id: null, // Order - основной документ, parent_document_id всегда null
           cart_session_id: finalCartSessionId,
           cart_data: items && items.length > 0 
@@ -357,23 +406,7 @@ export async function POST(req: NextRequest) {
 
       orderId = order.id;
       logger.info('Заказ создан', 'ORDERS', { orderNumber, orderId }, loggingContext);
-
-      // Отправляем уведомление о создании нового заказа
-      try {
-        const { sendStatusNotification } = await import('@/lib/notifications/status-notifications');
-        await sendStatusNotification(
-          order.id,
-          'order',
-          order.number,
-          'NEW_PLANNED', // Старый статус (не было)
-          'NEW_PLANNED', // Новый статус
-          client_id
-        );
-        logger.info('Уведомление о создании заказа отправлено', 'ORDERS', { orderId: order.id }, loggingContext);
-      } catch (notificationError) {
-        logger.warn('Не удалось отправить уведомление о создании заказа', 'ORDERS', { error: notificationError }, loggingContext);
-        // Не прерываем выполнение, если не удалось отправить уведомление
-      }
+      // Уведомления НЕ отправляются при создании заказа (только при переходе в PAID)
     }
 
     // Получаем созданный заказ
@@ -455,6 +488,10 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status');
     const executor_id = searchParams.get('executor_id');
     const client_id = searchParams.get('client_id');
+    const complectator_id = searchParams.get('complectator_id'); // Для фильтра Руководителя
+    const manager_id = searchParams.get('manager_id'); // Для определения, что запрос от Руководителя
+    const date_from = searchParams.get('date_from'); // Фильтр по дате от
+    const date_to = searchParams.get('date_to'); // Фильтр по дате до
 
     // Строим фильтр
     const where: any = {};
@@ -467,13 +504,42 @@ export async function GET(req: NextRequest) {
       where.client_id = client_id;
     }
 
-    // Фильтр по executor_id: показываем заказы, где executor_id равен переданному ID ИЛИ null (неназначенные заказы)
-    if (executor_id) {
+    // Фильтр по complectator_id (для Руководителя)
+    if (complectator_id) {
+      where.complectator_id = complectator_id;
+    }
+
+    // Фильтр по датам
+    if (date_from || date_to) {
+      where.created_at = {};
+      if (date_from) {
+        where.created_at.gte = new Date(date_from);
+      }
+      if (date_to) {
+        // Добавляем 23:59:59 к дате "до", чтобы включить весь день
+        const dateToEnd = new Date(date_to);
+        dateToEnd.setHours(23, 59, 59, 999);
+        where.created_at.lte = dateToEnd;
+      }
+    }
+
+    // Фильтр по executor_id: для Исполнителя показываем только заказы со статусом PAID и выше
+    // Для Руководителя показываем все заказы
+    if (executor_id && !manager_id) {
+      // Для Исполнителя: только заказы со статусом PAID и статусами исполнителя
+      const executorStatuses = ['PAID', 'NEW_PLANNED', 'UNDER_REVIEW', 'AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'COMPLETED'];
       where.OR = [
-        { executor_id: executor_id },
-        { executor_id: null }
+        { 
+          executor_id: executor_id,
+          status: { in: executorStatuses }
+        },
+        { 
+          executor_id: null,
+          status: { in: executorStatuses }
+        }
       ];
     }
+    // Для Руководителя: все заказы (фильтр не применяется, если manager_id присутствует)
 
     // Получаем заказы
     const orders = await prisma.order.findMany({
@@ -527,6 +593,30 @@ export async function GET(req: NextRequest) {
       complectators.map(c => [c.id, `${c.last_name} ${c.first_name.charAt(0)}.${c.middle_name ? c.middle_name.charAt(0) + '.' : ''}`])
     );
 
+    // Получаем информацию об исполнителях если есть executor_id
+    const executorIds = orders
+      .map(order => order.executor_id)
+      .filter((id): id is string => id !== null);
+
+    const executors = executorIds.length > 0
+      ? await prisma.user.findMany({
+          where: {
+            id: { in: executorIds },
+            role: 'executor'
+          },
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            middle_name: true
+          }
+        })
+      : [];
+
+    const executorMap = new Map(
+      executors.map(e => [e.id, `${e.last_name} ${e.first_name.charAt(0)}.${e.middle_name ? e.middle_name.charAt(0) + '.' : ''}`])
+    );
+
     // Форматируем данные заказов
     const formattedOrders = orders.map(order => ({
       id: order.id,
@@ -537,6 +627,7 @@ export async function GET(req: NextRequest) {
       complectator_id: order.complectator_id,
       complectator_name: order.complectator_id ? complectatorMap.get(order.complectator_id) || 'Не указан' : null,
       executor_id: order.executor_id,
+      executor_name: order.executor_id ? executorMap.get(order.executor_id) || 'Не указан' : null,
       status: order.status,
       project_file_url: order.project_file_url,
       door_dimensions: order.door_dimensions ? JSON.parse(order.door_dimensions) : null,

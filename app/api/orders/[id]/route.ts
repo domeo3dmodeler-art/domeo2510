@@ -63,6 +63,24 @@ export async function GET(
       }
     }
 
+    // Получаем информацию об исполнителе если есть
+    let executor_name = null;
+    if (order.executor_id) {
+      const executor = await prisma.user.findUnique({
+        where: { id: order.executor_id },
+        select: {
+          id: true,
+          first_name: true,
+          last_name: true,
+          middle_name: true
+        }
+      });
+
+      if (executor) {
+        executor_name = `${executor.last_name} ${executor.first_name.charAt(0)}.${executor.middle_name ? executor.middle_name.charAt(0) + '.' : ''}`;
+      }
+    }
+
     // Форматируем данные
     const formattedOrder = {
       id: order.id,
@@ -73,6 +91,7 @@ export async function GET(
       complectator_id: order.complectator_id,
       complectator_name,
       executor_id: order.executor_id,
+      executor_name,
       status: order.status,
       project_file_url: order.project_file_url,
       door_dimensions: order.door_dimensions ? JSON.parse(order.door_dimensions) : null,

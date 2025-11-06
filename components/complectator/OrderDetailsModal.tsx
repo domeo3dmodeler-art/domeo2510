@@ -5,8 +5,9 @@ import { Modal } from '@/components/ui/Modal';
 import HistoryModal from '@/components/ui/HistoryModal';
 import CommentsModal from '@/components/ui/CommentsModal';
 import { toast } from 'sonner';
-import { Download, FileText, User, MapPin, Clock, Package } from 'lucide-react';
-import { getStatusLabel } from '@/lib/utils/document-statuses';
+import { Download, FileText, User, MapPin, Clock, Package, Upload, CheckCircle, AlertCircle, Building2, ChevronDown } from 'lucide-react';
+import { getStatusLabel, ORDER_STATUSES_COMPLECTATOR } from '@/lib/utils/document-statuses';
+import { getValidTransitions } from '@/lib/validation/status-transitions';
 
 interface OrderDetailsModalProps {
   isOpen: boolean;
@@ -19,6 +20,20 @@ interface OrderData {
   id: string;
   number: string;
   status: string;
+  complectator_id?: string | null;
+  complectator_name?: string | null;
+  executor_id?: string | null;
+  executor_name?: string | null;
+  lead_number?: string | null;
+  project_file_url?: string | null;
+  door_dimensions?: any[] | null;
+  measurement_done?: boolean;
+  project_complexity?: string | null;
+  wholesale_invoices?: string[];
+  technical_specs?: string[];
+  verification_status?: string | null;
+  verification_notes?: string | null;
+  notes?: string | null;
   client: {
     id: string;
     firstName: string;
@@ -73,6 +88,17 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
   const [isCommentsModalOpen, setIsCommentsModalOpen] = useState(false);
   const [exportingInvoice, setExportingInvoice] = useState(false);
   const [exportingQuote, setExportingQuote] = useState<string | null>(null);
+  const [showStatusChangeModal, setShowStatusChangeModal] = useState(false);
+  const [newStatus, setNewStatus] = useState<string>('');
+  const [changingStatus, setChangingStatus] = useState(false);
+
+  console.log('🔵 OrderDetailsModal render:', {
+    isOpen,
+    orderId,
+    userRole,
+    hasOrder: !!order,
+    orderStatus: order?.status
+  });
 
   // Загрузка заказа
   const fetchOrder = useCallback(async () => {
@@ -132,16 +158,26 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     if (!order) return null;
     
     if (userRole === 'complectator') {
-      if (order.invoice && ['DRAFT', 'SENT', 'PAID', 'CANCELLED'].includes(order.invoice.status)) {
-        const status = order.invoice.status;
-        const label = getStatusLabel(status, 'invoice');
-        const color = STATUS_COLORS[status] || 'bg-gray-100 text-gray-800 border-gray-200';
-        return { label, color, canManage: true };
-      }
+      // ВАЖНО: Комплектатор управляет статусами заказа напрямую, а не через счет
+      // Статус счета отображается только для информации, но управление идет через статус заказа
+      const orderStatus = order.status;
+      const label = getStatusLabel(orderStatus, 'order');
+      const color = STATUS_COLORS[orderStatus] || 'bg-gray-100 text-gray-800 border-gray-200';
       
-      const label = getStatusLabel(order.status, 'order');
-      const color = STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-800 border-gray-200';
-      const canManage = ['DRAFT', 'SENT', 'PAID', 'CANCELLED'].includes(order.status);
+      // Комплектатор может менять статусы заказа: DRAFT, SENT, PAID, CANCELLED
+      // PAID может перевести в UNDER_REVIEW или CANCELLED
+      // Статусы исполнителя (NEW_PLANNED, UNDER_REVIEW, AWAITING_MEASUREMENT, AWAITING_INVOICE, COMPLETED) - только просмотр
+      const executorStatuses = ['NEW_PLANNED', 'UNDER_REVIEW', 'AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'COMPLETED'];
+      const canManage = !executorStatuses.includes(orderStatus);
+      
+      console.log('📊 getDisplayStatus for complectator:', {
+        orderStatus,
+        canManage,
+        orderId: order.id,
+        orderNumber: order.number,
+        invoiceStatus: order.invoice?.status || 'нет счета'
+      });
+      
       return { label, color, canManage };
     }
     
@@ -195,14 +231,113 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     return [];
   }, [order]);
 
-  // Очистка названия товара от артикула
-  const cleanProductName = (name: string) => {
-    if (!name) return '';
-    return name
-      .replace(/\s*\|\s*Артикул\s*:\s*[^|]*/gi, '')
-      .replace(/\s*\*\*Артикул:.*?\*\*/g, '')
-      .replace(/\s*Артикул:.*$/i, '')
-      .trim();
+  // Получение доступных статусов для перехода (для комплектатора)
+  const getAvailableStatuses = useCallback(() => {
+    if (!order || userRole !== 'complectator') return [];
+    
+    // ВАЖНО: Для комплектатора используем статус заказа, а не счета
+    // Комплектатор управляет статусами заказа напрямую
+    const currentStatus = order.status;
+    
+    // Комплектатор может отменить заказ на любой стадии до PAID включительно
+    // Статусы до PAID: DRAFT, SENT, PAID
+    const statusesBeforePaid = ['DRAFT', 'SENT', 'PAID'];
+    const canCancel = statusesBeforePaid.includes(currentStatus);
+    
+    const allTransitions = getValidTransitions('order', currentStatus);
+    
+    // Фильтруем переходы для комплектатора:
+    // - Из DRAFT: может перевести в SENT или CANCELLED
+    // - Из SENT: может перевести в PAID или CANCELLED
+    // - Из PAID: может перевести в UNDER_REVIEW или CANCELLED (передача управления Исполнителю)
+    // - Из статусов исполнителя: НЕ может изменять (NEW_PLANNED, UNDER_REVIEW, AWAITING_MEASUREMENT, AWAITING_INVOICE, COMPLETED)
+    
+    // Определяем разрешенные статусы в зависимости от текущего статуса
+    let allowedStatuses: string[] = [];
+    
+    if (currentStatus === 'DRAFT') {
+      allowedStatuses = ['SENT', 'CANCELLED'];
+    } else if (currentStatus === 'SENT') {
+      allowedStatuses = ['PAID', 'CANCELLED'];
+    } else if (currentStatus === 'PAID') {
+      // Комплектатор может перевести PAID в UNDER_REVIEW (передача Исполнителю) или CANCELLED
+      allowedStatuses = ['UNDER_REVIEW', 'CANCELLED'];
+    } else {
+      // Для всех остальных статусов (статусы исполнителя) - комплектатор не может изменять
+      allowedStatuses = [];
+    }
+    
+    // Фильтруем переходы только из разрешенных
+    let filteredTransitions = allTransitions.filter(status => allowedStatuses.includes(status));
+    
+    // Если текущий статус до PAID включительно, добавляем CANCELLED если его нет
+    if (canCancel && !filteredTransitions.includes('CANCELLED')) {
+      filteredTransitions.push('CANCELLED');
+    }
+    
+    console.log('📋 getAvailableStatuses:', {
+      currentStatus,
+      canCancel,
+      allTransitions,
+      filteredTransitions,
+      transitionsCount: filteredTransitions.length,
+      orderId: order.id,
+      orderNumber: order.number
+    });
+    
+    return filteredTransitions;
+  }, [order, userRole]);
+
+  // Обработчик изменения статуса заказа
+  const handleStatusChange = async () => {
+    if (!order || !newStatus) {
+      console.error('handleStatusChange: missing order or newStatus', { order: !!order, newStatus });
+      return;
+    }
+    
+    console.log('handleStatusChange: starting', {
+      orderId: order.id,
+      currentStatus: order.status,
+      newStatus
+    });
+    
+    setChangingStatus(true);
+    try {
+      const response = await fetch(`/api/orders/${order.id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: newStatus
+        })
+      });
+
+      console.log('handleStatusChange: response', {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('handleStatusChange: success', data);
+        toast.success('Статус заказа успешно изменен');
+        setShowStatusChangeModal(false);
+        setNewStatus('');
+        // Обновляем данные заказа
+        await fetchOrder();
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
+        console.error('handleStatusChange: error', errorData);
+        toast.error(`Ошибка при изменении статуса: ${errorData.error || 'Неизвестная ошибка'}`);
+      }
+    } catch (error) {
+      console.error('Error changing order status:', error);
+      toast.error('Ошибка при изменении статуса заказа');
+    } finally {
+      setChangingStatus(false);
+    }
   };
 
   // Экспорт счета на основе данных заказа
@@ -377,15 +512,31 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
 
   const displayStatus = getDisplayStatus();
   const items = getItems();
+  const availableStatuses = getAvailableStatuses(); // Вычисляем один раз для использования в нескольких местах
 
   // Отладочная информация
   console.log('OrderDetailsModal Debug:', {
-    order: order ? { id: order.id, number: order.number } : null,
+    order: order ? { id: order.id, number: order.number, status: order.status } : null,
+    userRole,
+    displayStatus,
+    canManage: displayStatus?.canManage,
+    availableStatuses,
+    availableStatusesCount: availableStatuses.length,
     hasInvoice: !!order?.invoice,
     invoiceId: order?.invoice?.id,
     quotesCount: quotes.length,
     quotes: quotes.map(q => ({ id: q.id, number: q.number }))
   });
+  
+  // Дополнительное логирование для отладки
+  if (userRole === 'complectator' && order) {
+    console.log('🔍 Complectator Status Debug:', {
+      orderStatus: order.status,
+      canManage: displayStatus?.canManage,
+      availableStatuses,
+      willShowButton: userRole === 'complectator' && displayStatus?.canManage && availableStatuses.length > 0
+    });
+  }
 
   return (
     <>
@@ -474,6 +625,22 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                     {exportingQuote ? 'Экспорт...' : 'Экспорт КП'}
                   </span>
                 </button>
+                
+                {/* Кнопка изменения статуса для комплектатора */}
+                {userRole === 'complectator' && displayStatus?.canManage && availableStatuses.length > 0 && (
+                  <button
+                    onClick={() => {
+                      if (availableStatuses.length > 0) {
+                        setNewStatus(availableStatuses[0]);
+                        setShowStatusChangeModal(true);
+                      }
+                    }}
+                    className="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors"
+                  >
+                    <ChevronDown className="h-3 w-3" />
+                    <span className="text-xs">Изменить статус</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -496,6 +663,31 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                       <span className="text-xs text-gray-600">{order.client.address}</span>
                     </div>
                   )}
+                  {/* Дополнительная информация для Руководителя */}
+                  {userRole === 'manager' && (
+                    <div className="mt-3 pt-3 border-t border-gray-100 space-y-1 text-xs">
+                      {order.lead_number && (
+                        <div className="flex items-center space-x-1">
+                          <span className="text-gray-500">Номер лида:</span>
+                          <span className="font-medium text-gray-700">{order.lead_number}</span>
+                        </div>
+                      )}
+                      {order.complectator_name && (
+                        <div className="flex items-center space-x-1">
+                          <Building2 className="h-3 w-3 text-gray-400" />
+                          <span className="text-gray-500">Комплектатор:</span>
+                          <span className="font-medium text-gray-700">{order.complectator_name}</span>
+                        </div>
+                      )}
+                      {order.executor_name && (
+                        <div className="flex items-center space-x-1">
+                          <Building2 className="h-3 w-3 text-gray-400" />
+                          <span className="text-gray-500">Исполнитель:</span>
+                          <span className="font-medium text-gray-700">{order.executor_name}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="flex items-center space-x-2">
@@ -504,6 +696,92 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                 </div>
               )}
             </div>
+
+            {/* Дополнительная информация для Руководителя (файлы, тех. задания и т.д.) */}
+            {userRole === 'manager' && (
+              <div className="mb-4 pb-4 border-b border-gray-200 space-y-3">
+                {/* Проект/планировка */}
+                {order.project_file_url && (
+                  <div className="flex items-center space-x-2">
+                    <FileText className="h-4 w-4 text-gray-400" />
+                    <span className="text-sm text-gray-600">Проект/планировка:</span>
+                    <a
+                      href={order.project_file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline text-sm"
+                    >
+                      Скачать
+                    </a>
+                  </div>
+                )}
+                
+                {/* Тех. задания */}
+                {order.door_dimensions && order.door_dimensions.length > 0 && (
+                  <div>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <FileText className="h-4 w-4 text-gray-400" />
+                      <span className="text-sm font-medium text-gray-700">Тех. задания ({order.door_dimensions.length})</span>
+                    </div>
+                    <div className="ml-6 space-y-1">
+                      {order.door_dimensions.map((door: any, index: number) => (
+                        <div key={index} className="text-xs text-gray-600">
+                          Дверь {index + 1}: {door.width} × {door.height} мм, {door.quantity} шт.
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Статус проверки */}
+                {order.verification_status && (
+                  <div className="flex items-center space-x-2">
+                    {order.verification_status === 'VERIFIED' ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    ) : order.verification_status === 'FAILED' ? (
+                      <AlertCircle className="h-4 w-4 text-red-600" />
+                    ) : (
+                      <Clock className="h-4 w-4 text-gray-400" />
+                    )}
+                    <span className="text-sm text-gray-600">Статус проверки:</span>
+                    <span className={`text-sm font-medium ${
+                      order.verification_status === 'VERIFIED' 
+                        ? 'text-green-600' 
+                        : order.verification_status === 'FAILED' 
+                        ? 'text-red-600' 
+                        : 'text-gray-600'
+                    }`}>
+                      {order.verification_status === 'VERIFIED' 
+                        ? 'Проверено' 
+                        : order.verification_status === 'FAILED' 
+                        ? 'Ошибка проверки' 
+                        : 'Ожидает проверки'}
+                    </span>
+                  </div>
+                )}
+                
+                {/* Замер */}
+                {order.measurement_done !== undefined && (
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className={`h-4 w-4 ${order.measurement_done ? 'text-green-600' : 'text-gray-400'}`} />
+                    <span className="text-sm text-gray-600">Замер:</span>
+                    <span className={`text-sm font-medium ${order.measurement_done ? 'text-green-600' : 'text-gray-600'}`}>
+                      {order.measurement_done ? 'Выполнен' : 'Не выполнен'}
+                    </span>
+                  </div>
+                )}
+                
+                {/* Заметки */}
+                {order.notes && (
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Заметки:</span>
+                    <div className="mt-1 text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                      {order.notes}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Заголовок раздела товаров */}
             <div className="mb-4 border-b border-gray-200">
@@ -619,6 +897,60 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
           documentType="order"
           documentNumber={order.number}
         />
+      )}
+
+      {/* Модальное окно изменения статуса */}
+      {showStatusChangeModal && order && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60" onClick={() => setShowStatusChangeModal(false)}>
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-4">Изменение статуса заказа</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Текущий статус</label>
+                <div className="px-3 py-2 bg-gray-50 rounded border">
+                  <span className="text-sm">{displayStatus?.label || order.status}</span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Новый статус</label>
+                <select
+                  value={newStatus}
+                  onChange={(e) => setNewStatus(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                >
+                  <option value="">Выберите статус</option>
+                  {availableStatuses.map((status) => {
+                    const statusConfig = ORDER_STATUSES_COMPLECTATOR[status as keyof typeof ORDER_STATUSES_COMPLECTATOR];
+                    return (
+                      <option key={status} value={status}>
+                        {statusConfig?.label || status}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <button
+                  onClick={() => {
+                    setShowStatusChangeModal(false);
+                    setNewStatus('');
+                  }}
+                  className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  disabled={changingStatus}
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={handleStatusChange}
+                  disabled={!newStatus || changingStatus}
+                  className="px-4 py-2 text-sm bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {changingStatus ? 'Изменение...' : 'Изменить'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

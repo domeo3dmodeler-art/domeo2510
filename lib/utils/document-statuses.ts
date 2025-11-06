@@ -32,8 +32,8 @@ export const QUOTE_STATUSES = {
  */
 export const ORDER_STATUSES_COMPLECTATOR = {
   DRAFT: { label: 'Черновик', apiValue: 'DRAFT' },
-  SENT: { label: 'Отправлен', apiValue: 'SENT' },
-  PAID: { label: 'Оплачен/Заказ', apiValue: 'PAID' },
+  SENT: { label: 'Счет выставлен', apiValue: 'SENT' },
+  PAID: { label: 'Счет оплачен', apiValue: 'PAID' },
   CANCELLED: { label: 'Отменен', apiValue: 'CANCELLED' }
 } as const;
 
@@ -60,8 +60,13 @@ export const ORDER_STATUSES_EXECUTOR = {
 export const COMPLECTATOR_FILTER_STATUSES = [
   'all',
   'Черновик',
-  'Отправлен',
-  'Оплачен/Заказ',
+  'Счет выставлен',
+  'Счет оплачен',
+  'Новый заказ',
+  'На проверке',
+  'Ждет замер',
+  'Ожидает счет',
+  'Выполнена',
   'Отменен'
 ] as const;
 

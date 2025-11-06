@@ -55,6 +55,21 @@ export async function PUT(
 
     // Проверяем права на изменение статуса
     if (userRole && !canUserChangeStatus(userRole as any, 'order', order.status)) {
+      // Специальное сообщение для Комплектатора при попытке изменить статус исполнителя
+      if (userRole === 'complectator' && ['NEW_PLANNED', 'UNDER_REVIEW', 'AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'COMPLETED'].includes(order.status)) {
+        return NextResponse.json(
+          { 
+            error: 'Нельзя изменить статус заказа',
+            details: {
+              userRole,
+              currentStatus: order.status,
+              reason: 'Этот статус может изменять только Исполнитель'
+            }
+          },
+          { status: 403 }
+        );
+      }
+      
       return NextResponse.json(
         { 
           error: 'Недостаточно прав для изменения статуса',

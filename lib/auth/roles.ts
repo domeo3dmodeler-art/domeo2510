@@ -4,7 +4,8 @@
 export enum UserRole {
   ADMIN = 'admin',
   COMPLECTATOR = 'complectator',
-  EXECUTOR = 'executor'
+  EXECUTOR = 'executor',
+  MANAGER = 'manager'
 }
 
 export enum Permission {
@@ -71,6 +72,11 @@ export const ROLE_PERMISSIONS = {
     Permission.PRODUCTS_READ, Permission.CATEGORIES_READ, Permission.CLIENTS_READ,
     Permission.QUOTES_READ, Permission.ORDERS_READ, Permission.INVOICES_READ,
     Permission.SUPPLIER_ORDERS_CREATE, Permission.SUPPLIER_ORDERS_READ, Permission.SUPPLIER_ORDERS_UPDATE
+  ],
+  [UserRole.MANAGER]: [
+    Permission.PRODUCTS_READ, Permission.CATEGORIES_READ, Permission.CLIENTS_READ,
+    Permission.QUOTES_READ, Permission.ORDERS_READ, Permission.INVOICES_READ,
+    Permission.SUPPLIER_ORDERS_READ, Permission.ANALYTICS_READ
   ]
 };
 
@@ -82,7 +88,8 @@ export function getRoleDisplayName(role: string): string {
   const displayNames = {
     [UserRole.ADMIN]: 'Администратор',
     [UserRole.COMPLECTATOR]: 'Комплектатор',
-    [UserRole.EXECUTOR]: 'Исполнитель'
+    [UserRole.EXECUTOR]: 'Исполнитель',
+    [UserRole.MANAGER]: 'Руководитель'
   };
   return displayNames[role as UserRole] || 'Неизвестная роль';
 }
@@ -91,7 +98,8 @@ export function getRoleColor(role: string): string {
   const colors = {
     [UserRole.ADMIN]: 'text-red-600',
     [UserRole.COMPLECTATOR]: 'text-blue-600',
-    [UserRole.EXECUTOR]: 'text-green-600'
+    [UserRole.EXECUTOR]: 'text-green-600',
+    [UserRole.MANAGER]: 'text-purple-600'
   };
   return colors[role as UserRole] || 'text-gray-600';
 }
@@ -100,7 +108,8 @@ export function getRoleIcon(role: string): string {
   const icons = {
     [UserRole.ADMIN]: '👑',
     [UserRole.COMPLECTATOR]: '📋',
-    [UserRole.EXECUTOR]: '⚙️'
+    [UserRole.EXECUTOR]: '⚙️',
+    [UserRole.MANAGER]: '👔'
   };
   return icons[role as UserRole] || '👤';
 }
@@ -145,6 +154,13 @@ export const roleService = {
         description: 'Просмотр и выполнение заказов',
         permissions: getRolePermissions(UserRole.EXECUTOR),
         color: 'green'
+      },
+      {
+        id: UserRole.MANAGER,
+        name: 'Руководитель',
+        description: 'Контроль всех процессов, просмотр всех заказов и статистики',
+        permissions: getRolePermissions(UserRole.MANAGER),
+        color: 'purple'
       }
     ];
   },

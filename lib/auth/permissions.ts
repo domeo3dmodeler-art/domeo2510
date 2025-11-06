@@ -145,7 +145,22 @@ export function canUserChangeStatus(
       return roleStr === 'admin' || roleStr === 'complectator';
     
     case 'order':
-      return roleStr === 'admin' || roleStr === 'executor';
+      // Комплектатор может менять Order только ДО PAID и сам PAID (может перевести в UNDER_REVIEW или CANCELLED)
+      if (roleStr === 'complectator') {
+        // После PAID комплектатор может перевести только в UNDER_REVIEW или CANCELLED
+        // Статусы исполнителя (NEW_PLANNED, UNDER_REVIEW, AWAITING_MEASUREMENT, AWAITING_INVOICE, COMPLETED) - только EXECUTOR и ADMIN
+        const executorStatuses = ['NEW_PLANNED', 'UNDER_REVIEW', 'AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'COMPLETED'];
+        if (documentStatus && executorStatuses.includes(documentStatus)) {
+          return false;
+        }
+        // PAID разрешен для комплектатора (может перевести в UNDER_REVIEW или CANCELLED)
+        return true;
+      }
+      // Руководитель не может изменять статусы (только просмотр)
+      if (roleStr === 'manager' || roleStr === 'руководитель') {
+        return false;
+      }
+      return roleStr === 'admin' || roleStr === 'executor' || roleStr === 'complectator';
     
     case 'supplier_order':
       return roleStr === 'admin' || roleStr === 'executor';

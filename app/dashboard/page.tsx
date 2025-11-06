@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import AdminLayout from '../../components/layout/AdminLayout';
 import ComplectatorDashboard from '../complectator/dashboard/page';
 import ExecutorDashboard from '../executor/dashboard/page';
+import ManagerDashboard from '../manager/dashboard/page';
 import { Card, Button } from '../../components/ui';
 import { ClientAuthGuard } from '../../components/auth/ClientAuthGuard';
 import NotificationBell from '../../components/ui/NotificationBell';
@@ -92,11 +93,11 @@ function DashboardContent() {
   
   // Дополнительная защита: убеждаемся что widgets и quickActions всегда массивы
   const safeRoleContent = useMemo(() => {
-    // Ранний возврат для executor и complectator - их дашборды рендерятся отдельно
-    if (user && (user.role === 'executor' || user.role === 'complectator')) {
+    // Ранний возврат для executor, complectator и manager - их дашборды рендерятся отдельно
+    if (user && (user.role === 'executor' || user.role === 'complectator' || user.role === 'manager')) {
       return {
-        title: user.role === 'complectator' ? 'Личный кабинет комплектатора' : 'Личный кабинет исполнителя',
-        description: user.role === 'complectator' ? 'Работа с клиентами и коммерческими предложениями' : 'Исполнение заказов и работа с фабрикой',
+        title: user.role === 'complectator' ? 'Личный кабинет комплектатора' : user.role === 'executor' ? 'Личный кабинет исполнителя' : 'Личный кабинет руководителя',
+        description: user.role === 'complectator' ? 'Работа с клиентами и коммерческими предложениями' : user.role === 'executor' ? 'Исполнение заказов и работа с фабрикой' : 'Контроль всех процессов',
         widgets: [],
         quickActions: []
       };
@@ -255,21 +256,62 @@ function DashboardContent() {
     const loadUserData = async () => {
       try {
         // Пытаемся получить токен из localStorage или cookie для заголовка
-        const localToken = localStorage.getItem('authToken');
-        let authToken = localToken;
+        // Проверяем разные варианты ключей для токена
+        let authToken = localStorage.getItem('authToken') || 
+                       localStorage.getItem('auth-token') || 
+                       localStorage.getItem('domeo-auth-token');
         
+        // Если токена нет в localStorage, проверяем cookie
         if (!authToken && typeof document !== 'undefined') {
           const cookies = document.cookie.split(';');
-          const authCookie = cookies.find(c => c.trim().startsWith('auth-token='));
+          const authCookie = cookies.find(c => {
+            const trimmed = c.trim();
+            return trimmed.startsWith('auth-token=') || trimmed.startsWith('domeo-auth-token=');
+          });
           if (authCookie) {
             authToken = authCookie.split('=')[1].trim();
+            // Сохраняем токен из cookie в localStorage для следующих запросов
+            if (authToken) {
+              localStorage.setItem('authToken', authToken);
+            }
           }
         }
         
+        // Если токена все еще нет, используем данные из localStorage
+        if (!authToken) {
+          console.warn('Токен не найден, используем данные из localStorage');
+          const userData = {
+            id: userId,
+            email: localStorage.getItem('userEmail') || '',
+            firstName: localStorage.getItem('userFirstName') || 'Иван',
+            lastName: localStorage.getItem('userLastName') || 'Иванов',
+            middleName: localStorage.getItem('userMiddleName') || '',
+            role: userRole,
+            permissions: JSON.parse(localStorage.getItem('userPermissions') || '[]')
+          };
+          setUser(userData);
+          return;
+        }
+        
+        console.log('📡 Запрос к /api/users/me:', {
+          hasToken: !!authToken,
+          tokenLength: authToken?.length,
+          tokenPreview: authToken ? `${authToken.substring(0, 20)}...` : 'нет'
+        });
+        
         const response = await fetch('/api/users/me', {
-          headers: authToken ? {
-            'Authorization': `Bearer ${authToken}`
-          } : {}
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include' // Включаем cookie для передачи токена
+        });
+        
+        console.log('📡 Ответ от /api/users/me:', {
+          ok: response.ok,
+          status: response.status,
+          statusText: response.statusText
         });
         
         if (response.ok) {
@@ -300,8 +342,28 @@ function DashboardContent() {
             throw new Error('User data not found');
           }
         } else {
-          // Если API вернул ошибку, используем данные из localStorage
-          throw new Error(`Failed to load user data: ${response.status}`);
+          // Если API вернул ошибку, пытаемся получить детали ошибки
+          let errorMessage = `Ошибка ${response.status}`;
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+            console.warn(`❌ API вернул ошибку ${response.status}:`, errorMessage);
+          } catch (e) {
+            console.warn(`❌ API вернул ошибку ${response.status}, детали недоступны`);
+          }
+          
+          // Используем данные из localStorage как fallback
+          console.warn('📦 Используем данные из localStorage');
+          const userData = {
+            id: userId,
+            email: localStorage.getItem('userEmail') || '',
+            firstName: localStorage.getItem('userFirstName') || 'Иван',
+            lastName: localStorage.getItem('userLastName') || 'Иванов',
+            middleName: localStorage.getItem('userMiddleName') || '',
+            role: userRole,
+            permissions: JSON.parse(localStorage.getItem('userPermissions') || '[]')
+          };
+          setUser(userData);
         }
       } catch (error) {
         console.error('Error loading user data from server:', error);
@@ -513,6 +575,47 @@ function DashboardContent() {
     );
   }
 
+  // Специальный случай: роль руководителя — показываем ЛК руководителя с единой шапкой
+  if (user.role === 'manager') {
+    return (
+      <div className="min-h-screen bg-white">
+        {/* Header (унифицированный стиль) */}
+        <header className="bg-white border-b border-black/10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <div className="flex items-center space-x-3">
+                <div 
+                  onClick={() => router.push('/')}
+                  className="cursor-pointer hover:opacity-70 transition-opacity duration-200"
+                >
+                  <h1 className="text-2xl font-bold text-black">Domeo</h1>
+                  <p className="text-xs text-gray-500 font-medium">Личный кабинет</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-4">
+                <NotificationBell userRole={user.role} />
+                <div className="text-sm text-gray-700">
+                  {user.lastName} {user.firstName.charAt(0)}.{(user.middleName && user.middleName.trim()) ? user.middleName.charAt(0) + '.' : ''} ({getRoleText(user.role)})
+                </div>
+                <button
+                  onClick={() => router.back()}
+                  className="px-3 py-1 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 text-sm"
+                >
+                  Назад
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <ManagerDashboard user={user} />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -617,7 +720,8 @@ function DashboardContent() {
     const roleMap: { [key: string]: string } = {
       'admin': 'Администратор',
       'complectator': 'Комплектатор',
-      'executor': 'Исполнитель'
+      'executor': 'Исполнитель',
+      'manager': 'Руководитель'
     };
     return roleMap[role] || 'Пользователь';
   }
@@ -626,7 +730,8 @@ function DashboardContent() {
     const roleMap: { [key: string]: string } = {
       'admin': 'Администратор',
       'complectator': 'Комплектатор',
-      'executor': 'Исполнитель'
+      'executor': 'Исполнитель',
+      'manager': 'Руководитель'
     };
     return roleMap[role] || 'Пользователь';
   }

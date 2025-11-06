@@ -39,28 +39,28 @@ export const STATUS_NOTIFICATIONS = {
     }
   },
   order: {
-    'NEW_PLANNED': {
-      recipients: ['executor'],
-      message: 'Создан новый заказ. Требуется обработка.'
+    'PAID': {
+      recipients: ['executor', 'manager'],
+      message: 'Заказ оплачен.'
     },
     'UNDER_REVIEW': {
-      recipients: ['complectator'],
+      recipients: ['complectator', 'manager'],
       message: 'Заказ переведен на проверку.'
     },
     'AWAITING_MEASUREMENT': {
-      recipients: ['complectator'],
+      recipients: ['complectator', 'manager'],
       message: 'Заказ ожидает замера.'
     },
     'AWAITING_INVOICE': {
-      recipients: ['complectator'],
+      recipients: ['complectator', 'manager'],
       message: 'Заказ ожидает счета.'
     },
     'COMPLETED': {
-      recipients: ['complectator', 'client'],
+      recipients: ['complectator', 'client', 'manager'],
       message: 'Заказ выполнен.'
     },
     'CANCELLED': {
-      recipients: ['complectator'],
+      recipients: ['complectator', 'manager'],
       message: 'Заказ отменен.'
     }
   },
@@ -132,6 +132,15 @@ export async function sendStatusNotification(
     } else if (recipient === 'executor') {
       console.log('👥 Отправка уведомления всем EXECUTOR');
       await notifyUsersByRole('EXECUTOR', {
+        clientId: clientId || undefined,
+        documentId,
+        type: `${documentType}:${newStatus}`, // Включаем статус в type для правильной дедубликации
+        title: `${config.message} [${documentNumber}]`,
+        message: `${config.message} Документ: ${documentNumber}`
+      });
+    } else if (recipient === 'manager') {
+      console.log('👥 Отправка уведомления всем MANAGER');
+      await notifyUsersByRole('MANAGER', {
         clientId: clientId || undefined,
         documentId,
         type: `${documentType}:${newStatus}`, // Включаем статус в type для правильной дедубликации

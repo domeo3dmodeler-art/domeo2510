@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ORDER_STATUSES_EXECUTOR } from '@/lib/utils/document-statuses';
-import { getOrderDisplayStatus } from '@/lib/utils/order-status-display';
+import { getOrderDisplayStatus, getExecutorOrderStatus } from '@/lib/utils/order-status-display';
 import { clientLogger } from '@/lib/logging/client-logger';
 
 // Статусы заказов для исполнителя - используем единый источник истины
@@ -38,7 +38,7 @@ interface Order {
   complectator_id: string | null;
   complectator_name: string | null;
   executor_id: string | null;
-  status: keyof typeof ORDER_STATUSES;
+  status: string; // Может быть PAID или статусы исполнителя
   project_file_url: string | null;
   door_dimensions: any[] | null;
   measurement_done: boolean;
@@ -113,7 +113,11 @@ export function OrdersBoard({ executorId }: OrdersBoardProps) {
 
     // Фильтр по статусу
     if (activeStatus !== 'all') {
-      filtered = filtered.filter(order => order.status === activeStatus);
+      filtered = filtered.filter(order => {
+        // Маппим PAID в NEW_PLANNED для Исполнителя
+        const executorStatus = getExecutorOrderStatus(order.status);
+        return executorStatus === activeStatus;
+      });
     }
 
     // Фильтр по поиску
@@ -131,12 +135,15 @@ export function OrdersBoard({ executorId }: OrdersBoardProps) {
     return filtered;
   }, [orders, activeStatus, searchQuery]);
 
-  // Подсчет заказов по статусам
+  // Подсчет заказов по статусам (с учетом маппинга PAID → NEW_PLANNED)
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     
     Object.keys(ORDER_STATUSES).forEach(status => {
-      counts[status] = orders.filter(order => order.status === status).length;
+      counts[status] = orders.filter(order => {
+        const executorStatus = getExecutorOrderStatus(order.status);
+        return executorStatus === status;
+      }).length;
     });
 
     return counts;
@@ -261,7 +268,9 @@ export function OrdersBoard({ executorId }: OrdersBoardProps) {
               ) : (
                 filteredOrders
                   .map((order) => {
-                    const statusConfig = ORDER_STATUSES[order.status];
+                    // Маппим PAID в NEW_PLANNED для Исполнителя
+                    const executorStatus = getExecutorOrderStatus(order.status) as keyof typeof ORDER_STATUSES;
+                    const statusConfig = ORDER_STATUSES[executorStatus];
                     if (!statusConfig || !statusConfig.icon) return null;
                     const StatusIcon = statusConfig.icon;
                     
@@ -850,18 +859,24 @@ function OrderDetailModal({
 
   // Получение доступных статусов для перехода
   const getAvailableStatuses = () => {
+    // Маппим PAID в NEW_PLANNED для Исполнителя
+    const executorStatus = getExecutorOrderStatus(currentOrder.status);
+    
     const validTransitions: Record<string, string[]> = {
+      'PAID': ['UNDER_REVIEW'], // PAID может перейти в UNDER_REVIEW
       'NEW_PLANNED': ['UNDER_REVIEW'],
       'UNDER_REVIEW': ['AWAITING_MEASUREMENT', 'AWAITING_INVOICE'],
       'AWAITING_MEASUREMENT': ['AWAITING_INVOICE'],
       'AWAITING_INVOICE': ['COMPLETED'],
       'COMPLETED': []
     };
-    return validTransitions[currentOrder.status] || [];
+    return validTransitions[executorStatus] || validTransitions[currentOrder.status] || [];
   };
 
   const availableStatuses = getAvailableStatuses();
-  const statusConfig = ORDER_STATUSES[currentOrder.status];
+  // Маппим статус для отображения
+  const executorStatus = getExecutorOrderStatus(currentOrder.status) as keyof typeof ORDER_STATUSES;
+  const statusConfig = ORDER_STATUSES[executorStatus] || ORDER_STATUSES.NEW_PLANNED;
   const StatusIcon = statusConfig.icon;
 
   const formatDate = (dateString: string) => {

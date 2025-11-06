@@ -10,9 +10,14 @@ import {
 
 /**
  * Получает русское название статуса Order для отображения
- * Один и тот же Order должен иметь одинаковый статус везде
+ * Для Исполнителя: PAID отображается как "Новый заказ" (NEW_PLANNED)
  */
-export function getOrderDisplayStatus(orderStatus: string): string {
+export function getOrderDisplayStatus(orderStatus: string, userRole?: string): string {
+  // Для Исполнителя: PAID отображается как "Новый заказ"
+  if (userRole === 'executor' && orderStatus === 'PAID') {
+    return ORDER_STATUSES_EXECUTOR.NEW_PLANNED.label;
+  }
+  
   // Сначала проверяем статусы исполнителя
   const executorLabel = getStatusLabelFromDocumentStatuses(orderStatus, 'order_executor');
   if (executorLabel !== orderStatus) {
@@ -30,20 +35,32 @@ export function getOrderDisplayStatus(orderStatus: string): string {
 }
 
 /**
+ * Получает статус для фильтрации/отображения в UI Исполнителя
+ * PAID маппится в NEW_PLANNED для Исполнителя
+ */
+export function getExecutorOrderStatus(orderStatus: string): string {
+  // Для Исполнителя: PAID отображается как NEW_PLANNED
+  if (orderStatus === 'PAID') {
+    return 'NEW_PLANNED';
+  }
+  return orderStatus;
+}
+
+/**
  * Получает статус для фильтрации комплектатора на основе статуса Order
  */
-export function getOrderFilterStatusForComplectator(orderStatus: string): 'Черновик' | 'Отправлен' | 'Оплачен/Заказ' | 'Отменен' {
-  // Статусы исполнителя попадают в фильтр "Оплачен/Заказ"
+export function getOrderFilterStatusForComplectator(orderStatus: string): 'Черновик' | 'Счет выставлен' | 'Счет оплачен' | 'Отменен' {
+  // Статусы исполнителя попадают в фильтр "Счет оплачен"
   const executorStatuses = ['NEW_PLANNED', 'UNDER_REVIEW', 'AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'COMPLETED'];
   if (executorStatuses.includes(orderStatus)) {
-    return 'Оплачен/Заказ';
+    return 'Счет оплачен';
   }
   
   // Статусы комплектатора маппятся напрямую
-  const complectatorStatusMap: Record<string, 'Черновик' | 'Отправлен' | 'Оплачен/Заказ' | 'Отменен'> = {
+  const complectatorStatusMap: Record<string, 'Черновик' | 'Счет выставлен' | 'Счет оплачен' | 'Отменен'> = {
     'DRAFT': 'Черновик',
-    'SENT': 'Отправлен',
-    'PAID': 'Оплачен/Заказ',
+    'SENT': 'Счет выставлен',
+    'PAID': 'Счет оплачен',
     'CANCELLED': 'Отменен'
   };
   

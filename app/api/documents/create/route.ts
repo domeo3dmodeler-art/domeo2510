@@ -684,7 +684,7 @@ async function createDocumentRecord(
         parent_document_id: null, // Order - основной документ
         cart_session_id: data.cart_session_id,
         client_id: data.client_id,
-        status: 'NEW_PLANNED',
+        status: 'DRAFT', // Комплектатор создает заказ со статусом DRAFT
         cart_data: cartData, // Сохраняем cart_data для дедубликации
         total_amount: data.total_amount, // Сохраняем total_amount для дедубликации
         notes: data.notes
