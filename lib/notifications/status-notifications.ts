@@ -39,17 +39,29 @@ export const STATUS_NOTIFICATIONS = {
     }
   },
   order: {
-    'CONFIRMED': {
+    'NEW_PLANNED': {
       recipients: ['executor'],
-      message: 'Заказ подтвержден.'
+      message: 'Создан новый заказ. Требуется обработка.'
     },
-    'RECEIVED_FROM_SUPPLIER': {
+    'UNDER_REVIEW': {
       recipients: ['complectator'],
-      message: 'Товар получен от поставщика.'
+      message: 'Заказ переведен на проверку.'
+    },
+    'AWAITING_MEASUREMENT': {
+      recipients: ['complectator'],
+      message: 'Заказ ожидает замера.'
+    },
+    'AWAITING_INVOICE': {
+      recipients: ['complectator'],
+      message: 'Заказ ожидает счета.'
     },
     'COMPLETED': {
       recipients: ['complectator', 'client'],
       message: 'Заказ выполнен.'
+    },
+    'CANCELLED': {
+      recipients: ['complectator'],
+      message: 'Заказ отменен.'
     }
   },
   supplier_order: {

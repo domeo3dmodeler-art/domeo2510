@@ -357,6 +357,23 @@ export async function POST(req: NextRequest) {
 
       orderId = order.id;
       logger.info('Заказ создан', 'ORDERS', { orderNumber, orderId }, loggingContext);
+
+      // Отправляем уведомление о создании нового заказа
+      try {
+        const { sendStatusNotification } = await import('@/lib/notifications/status-notifications');
+        await sendStatusNotification(
+          order.id,
+          'order',
+          order.number,
+          'NEW_PLANNED', // Старый статус (не было)
+          'NEW_PLANNED', // Новый статус
+          client_id
+        );
+        logger.info('Уведомление о создании заказа отправлено', 'ORDERS', { orderId: order.id }, loggingContext);
+      } catch (notificationError) {
+        logger.warn('Не удалось отправить уведомление о создании заказа', 'ORDERS', { error: notificationError }, loggingContext);
+        // Не прерываем выполнение, если не удалось отправить уведомление
+      }
     }
 
     // Получаем созданный заказ

@@ -178,6 +178,30 @@ export async function PUT(
       }
     }
 
+    // Отправляем уведомления о смене статуса
+    try {
+      const { sendStatusNotification } = await import('@/lib/notifications/status-notifications');
+      await sendStatusNotification(
+        id,
+        'order',
+        order.number,
+        oldStatus,
+        targetStatus,
+        order.client_id
+      );
+      logger.info('Уведомление о смене статуса заказа отправлено', 'orders/[id]/status', {
+        orderId: id,
+        oldStatus,
+        newStatus: targetStatus
+      }, loggingContext);
+    } catch (notificationError) {
+      logger.warn('Не удалось отправить уведомление о смене статуса заказа', 'orders/[id]/status', {
+        error: notificationError,
+        orderId: id
+      }, loggingContext);
+      // Не прерываем выполнение, если не удалось отправить уведомление
+    }
+
     // TODO: Логирование изменения статуса в DocumentHistory
 
     return NextResponse.json({
