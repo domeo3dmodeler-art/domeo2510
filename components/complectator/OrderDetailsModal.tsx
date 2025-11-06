@@ -401,7 +401,8 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         itemsCount: formattedItems.length,
         totalAmount,
         parentDocumentId: order.id,
-        cartSessionId: order.cart_session_id
+        cartSessionId: order.cart_session_id,
+        sampleItem: formattedItems[0] // Логируем первый товар для отладки
       });
 
       const response = await fetch('/api/export/fast', {
@@ -418,8 +419,20 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         })
       });
       
+      console.log('Export Invoice Response:', {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type')
+      });
+      
       if (response.ok) {
         const blob = await response.blob();
+        
+        console.log('Export Invoice Blob:', {
+          size: blob.size,
+          type: blob.type
+        });
         
         // Проверяем, что blob не пустой
         if (blob.size === 0) {
@@ -516,7 +529,8 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         itemsCount: formattedItems.length,
         totalAmount,
         parentDocumentId: order.id,
-        cartSessionId: order.cart_session_id
+        cartSessionId: order.cart_session_id,
+        sampleItem: formattedItems[0] // Логируем первый товар для отладки
       });
 
       const response = await fetch('/api/export/fast', {
@@ -533,8 +547,20 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         })
       });
       
+      console.log('Export Quote Response:', {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type')
+      });
+      
       if (response.ok) {
         const blob = await response.blob();
+        
+        console.log('Export Quote Blob:', {
+          size: blob.size,
+          type: blob.type
+        });
         
         // Проверяем, что blob не пустой
         if (blob.size === 0) {
