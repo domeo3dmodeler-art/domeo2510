@@ -11,18 +11,22 @@ import {
   MoreVertical,
   Download,
   Eye,
-  Search
+  Search,
+  BadgeCheck,
+  XCircle
 } from 'lucide-react';
 import { clientLogger } from '@/lib/logging/client-logger';
 import { toast } from 'sonner';
 
-// Статусы заявок
+// Статусы заявок (используем статусы из канонического документа)
 const APPLICATION_STATUSES = {
-  NEW_PLANNED: { label: 'Новая заявка', color: 'bg-gray-100 text-gray-800', icon: FileText },
+  NEW_PLANNED: { label: 'Счет оплачен (Заказываем)', color: 'bg-gray-100 text-gray-800', icon: FileText },
   UNDER_REVIEW: { label: 'На проверке', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
   AWAITING_MEASUREMENT: { label: 'Ждет замер', color: 'bg-orange-100 text-orange-800', icon: AlertCircle },
   AWAITING_INVOICE: { label: 'Ожидает опт. счет', color: 'bg-blue-100 text-blue-800', icon: Upload },
-  COMPLETED: { label: 'Выполнен', color: 'bg-green-100 text-green-800', icon: CheckCircle }
+  READY_FOR_PRODUCTION: { label: 'Готов к запуску в производство', color: 'bg-purple-100 text-purple-800', icon: BadgeCheck },
+  COMPLETED: { label: 'Выполнен', color: 'bg-green-100 text-green-800', icon: CheckCircle },
+  RETURNED_TO_COMPLECTATION: { label: 'Вернуть в комплектацию', color: 'bg-red-100 text-red-800', icon: XCircle }
 };
 
 interface Application {
