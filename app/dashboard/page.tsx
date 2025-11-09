@@ -227,8 +227,17 @@ function DashboardContent() {
       
       if (responses[1].ok) {
         try {
-          const usersData = await responses[1].json();
-          setUserCount(usersData.users?.length || 0);
+          let usersData: unknown;
+          try {
+            usersData = await responses[1].json();
+          } catch (jsonError) {
+            clientLogger.error('Ошибка парсинга JSON ответа users:', jsonError);
+            return;
+          }
+          const usersArray = usersData && typeof usersData === 'object' && usersData !== null && 'users' in usersData
+            ? (usersData as { users: unknown[] }).users
+            : [];
+          setUserCount(Array.isArray(usersArray) ? usersArray.length : 0);
         } catch (err) {
           clientLogger.error('Error parsing users data:', err);
         }
@@ -239,8 +248,17 @@ function DashboardContent() {
       // Обрабатываем статистику комплектатора
       if (userRole === 'complectator' && responses[2]?.ok) {
         try {
-          const complectatorData = await responses[2].json();
-          setComplectatorStats(complectatorData.stats);
+          let complectatorData: unknown;
+          try {
+            complectatorData = await responses[2].json();
+          } catch (jsonError) {
+            clientLogger.error('Ошибка парсинга JSON ответа complectator stats:', jsonError);
+            return;
+          }
+          const statsData = complectatorData && typeof complectatorData === 'object' && complectatorData !== null && 'stats' in complectatorData
+            ? (complectatorData as { stats: unknown }).stats
+            : null;
+          setComplectatorStats(statsData);
         } catch (err) {
           clientLogger.error('Error parsing complectator stats:', err);
         }
@@ -348,8 +366,28 @@ function DashboardContent() {
         });
         
         if (response.ok) {
-          const userDataFromServer = await response.json();
-          if (userDataFromServer.user) {
+          let userDataFromServer: unknown;
+          try {
+            userDataFromServer = await response.json();
+          } catch (jsonError) {
+            clientLogger.error('Ошибка парсинга JSON ответа user data:', jsonError);
+            // Используем данные из localStorage как fallback
+            const userData = {
+              id: userId,
+              email: localStorage.getItem('userEmail') || '',
+              firstName: localStorage.getItem('userFirstName') || 'Иван',
+              lastName: localStorage.getItem('userLastName') || 'Иванов',
+              middleName: localStorage.getItem('userMiddleName') || '',
+              role: userRole,
+              permissions: JSON.parse(localStorage.getItem('userPermissions') || '[]')
+            };
+            setUser(userData);
+            return;
+          }
+          const userDataObj = userDataFromServer && typeof userDataFromServer === 'object' && userDataFromServer !== null && 'user' in userDataFromServer
+            ? (userDataFromServer as { user: { id?: string; email?: string; firstName?: string; lastName?: string; middleName?: string; role?: string; permissions?: string[] } | null }).user
+            : null;
+          if (userDataObj) {
             // Сохраняем в localStorage для следующих запросов
             localStorage.setItem('userEmail', userDataFromServer.user.email || '');
             localStorage.setItem('userFirstName', userDataFromServer.user.firstName || '');
@@ -390,8 +428,16 @@ function DashboardContent() {
           // Если API вернул ошибку, пытаемся получить детали ошибки
           let errorMessage = `Ошибка ${response.status}`;
           try {
-            const errorData = await response.json();
-            errorMessage = errorData.error || errorMessage;
+            let errorData: unknown;
+            try {
+              errorData = await response.json();
+            } catch (jsonError) {
+              clientLogger.warn(`❌ API вернул ошибку ${response.status}, детали недоступны`);
+              errorData = null;
+            }
+            if (errorData && typeof errorData === 'object' && errorData !== null && 'error' in errorData) {
+              errorMessage = String((errorData as { error: unknown }).error) || errorMessage;
+            }
             clientLogger.warn(`❌ API вернул ошибку ${response.status}:`, errorMessage);
           } catch (e) {
             clientLogger.warn(`❌ API вернул ошибку ${response.status}, детали недоступны`);
