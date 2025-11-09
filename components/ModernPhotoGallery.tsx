@@ -206,7 +206,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
                 toggleZoom();
               }}
               onError={() => {
-                clientLogger.debug('❌ Ошибка загрузки изображения:', allPhotos[currentIndex]);
+                clientLogger.debug('❌ Ошибка загрузки изображения:', { photo: allPhotos[currentIndex] });
               }}
             />
           ) : (
