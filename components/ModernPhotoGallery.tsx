@@ -124,7 +124,10 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
           <div className="absolute inset-0 bg-gray-200 animate-pulse rounded-lg" />
         )}
         
-        <div className="h-full w-full flex items-center justify-center">
+        <div 
+          className="h-full w-full flex items-center justify-center"
+          style={{ position: 'relative', zIndex: 1 }}
+        >
           {allPhotos[currentIndex] ? (
             <img
               src={(() => {
@@ -148,10 +151,11 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
               })()}
               alt={`${productName} - фото ${currentIndex + 1}`}
               className="max-h-full max-w-full object-contain transition-all duration-300 hover:scale-105 cursor-pointer"
+              style={{ position: 'relative', zIndex: 1, pointerEvents: 'auto' }}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                clientLogger.debug('🖼️ Клик по изображению для зума');
+                clientLogger.debug('🖼️ Клик по изображению для зума', { isZoomed, currentIndex });
                 toggleZoom();
               }}
               onError={() => {
@@ -169,12 +173,15 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
         {/* Кнопка зума */}
         {allPhotos[currentIndex] && (
           <button
+            type="button"
             onClick={(e) => {
+              e.preventDefault();
               e.stopPropagation();
+              clientLogger.debug('🔍 Клик по кнопке зума', { isZoomed, currentIndex });
               toggleZoom();
             }}
-            className="absolute top-4 right-4 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200"
-            style={{ zIndex: 20, pointerEvents: 'auto' }}
+            className="absolute top-4 right-4 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 cursor-pointer"
+            style={{ zIndex: 30, pointerEvents: 'auto', position: 'absolute' }}
             aria-label={isZoomed ? "Уменьшить" : "Увеличить"}
           >
           <MagnifyingGlassIcon className="w-5 h-5 text-gray-700" />
@@ -185,28 +192,30 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
         {allPhotos.length > 1 && allPhotos[currentIndex] && (
           <>
             <button
+              type="button"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                clientLogger.debug('⬅️ Клик по кнопке "Предыдущее фото"');
+                clientLogger.debug('⬅️ Клик по кнопке "Предыдущее фото"', { currentIndex, allPhotosLength: allPhotos.length });
                 prevPhoto();
               }}
-              className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200"
-            style={{ zIndex: 20, pointerEvents: 'auto' }}
+              className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 cursor-pointer"
+              style={{ zIndex: 30, pointerEvents: 'auto', position: 'absolute' }}
               aria-label="Предыдущее фото"
             >
               <ChevronLeftIcon className="w-6 h-6 text-gray-700" />
             </button>
             
             <button
+              type="button"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                clientLogger.debug('➡️ Клик по кнопке "Следующее фото"');
+                clientLogger.debug('➡️ Клик по кнопке "Следующее фото"', { currentIndex, allPhotosLength: allPhotos.length });
                 nextPhoto();
               }}
-              className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200"
-            style={{ zIndex: 20, pointerEvents: 'auto' }}
+              className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 cursor-pointer"
+              style={{ zIndex: 30, pointerEvents: 'auto', position: 'absolute' }}
               aria-label="Следующее фото"
             >
               <ChevronRightIcon className="w-6 h-6 text-gray-700" />
