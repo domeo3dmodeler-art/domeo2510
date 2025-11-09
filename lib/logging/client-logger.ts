@@ -43,18 +43,41 @@ export class ClientLogger {
       // В production это будет отправлено в систему мониторинга
       if (typeof console !== 'undefined' && console.error) {
         // Безопасный вызов console.error с проверкой аргументов
+        // В dev-режиме Next.js перехватывает console.error, поэтому используем более безопасный подход
         const errorMessage = `[ERROR] ${message}`;
-        if (errorData && typeof errorData === 'object') {
-          console.error(errorMessage, errorData, metadata || '');
+        
+        // Создаем безопасную строку для логирования
+        let logData: unknown[] = [errorMessage];
+        
+        if (errorData && typeof errorData === 'object' && errorData !== null) {
+          try {
+            // Преобразуем объект в строку для безопасного логирования
+            const errorString = JSON.stringify(errorData, null, 2);
+            logData.push(errorString);
+          } catch {
+            // Если не удалось сериализовать, используем toString
+            logData.push(String(errorData));
+          }
         } else if (errorData) {
-          console.error(errorMessage, String(errorData), metadata || '');
-        } else {
-          console.error(errorMessage, metadata || '');
+          logData.push(String(errorData));
         }
+        
+        if (metadata && typeof metadata === 'object' && metadata !== null) {
+          try {
+            const metadataString = JSON.stringify(metadata, null, 2);
+            logData.push(metadataString);
+          } catch {
+            logData.push(String(metadata));
+          }
+        }
+        
+        // Используем apply для безопасного вызова с переменным количеством аргументов
+        console.error.apply(console, logData);
       }
     } catch (e) {
       // Если даже логирование не работает, просто игнорируем
       // Это предотвращает бесконечные циклы ошибок
+      // В dev-режиме Next.js может перехватывать console.error, поэтому просто игнорируем
     }
   }
 
