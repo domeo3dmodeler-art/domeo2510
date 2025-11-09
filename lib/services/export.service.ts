@@ -1,5 +1,3 @@
-'use server';
-
 // lib/services/export.service.ts
 // Сервис для экспорта документов в различные форматы
 
