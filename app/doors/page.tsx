@@ -1298,7 +1298,9 @@ export default function DoorsPage() {
       unitPrice: price.total,
       sku_1c: price.sku_1c,
       hardwareKitId: (sel.hardware_kit && sel.hardware_kit.id) || undefined,
-      hardwareKitName: sel.hardware_kit ? hardwareKits.find(k => k.id === sel.hardware_kit?.id)?.name : undefined, // Добавляем название комплекта
+      hardwareKitName: sel.hardware_kit && Array.isArray(hardwareKits) && hardwareKits.length > 0 
+        ? hardwareKits.find((k: HardwareKit) => k.id === sel.hardware_kit?.id)?.name 
+        : undefined, // Добавляем название комплекта
       baseAtAdd: price.total,
     };
     
@@ -1625,7 +1627,9 @@ export default function DoorsPage() {
             unitPrice: item.unitPrice,
             sku_1c: item.sku_1c,
             hardwareKitId: item.hardwareKitId,
-            hardwareKitName: item.hardwareKitId ? hardwareKits.find(k => k.id === item.hardwareKitId)?.name : undefined,
+            hardwareKitName: item.hardwareKitId && Array.isArray(hardwareKits) && hardwareKits.length > 0 
+              ? hardwareKits.find((k: HardwareKit) => k.id === item.hardwareKitId)?.name 
+              : item.hardwareKitName || undefined,
             handleId: item.handleId,
             handleName: item.handleName,
             type: item.type || (item.handleId ? 'handle' : 'door'), // ВАЖНО: Сохраняем type
@@ -2076,7 +2080,13 @@ export default function DoorsPage() {
                         <div className="flex justify-between">
                           <span>
                             {sel.style && sel.model && sel.finish && sel.color && sel.width && sel.height && sel.hardware_kit?.id
-                              ? `Дверь ${selectedModelCard ? formatModelNameForCard(selectedModelCard.model) : formatModelNameForCard(sel.model)} + комплект фурнитуры ${hardwareKits.find((k: HardwareKit) => k.id === sel.hardware_kit!.id)?.name.replace('Комплект фурнитуры — ', '') || 'Базовый'}`
+                              ? `Дверь ${selectedModelCard ? formatModelNameForCard(selectedModelCard.model) : formatModelNameForCard(sel.model)} + комплект фурнитуры ${(() => {
+                                  if (!Array.isArray(hardwareKits) || hardwareKits.length === 0 || !sel.hardware_kit?.id) {
+                                    return 'Базовый';
+                                  }
+                                  const kit = hardwareKits.find((k: HardwareKit) => k.id === sel.hardware_kit!.id);
+                                  return kit?.name ? kit.name.replace('Комплект фурнитуры — ', '') : 'Базовый';
+                                })()}`
                               : "Дверь"}
                           </span>
                           <span>
@@ -2255,7 +2265,13 @@ export default function DoorsPage() {
                     <span className="text-gray-600">Комплект фурнитуры:</span>
                     <span className="text-black font-medium">
                       {sel.hardware_kit?.id
-                        ? hardwareKits.find((k: HardwareKit) => k.id === sel.hardware_kit!.id)?.name.replace('Комплект фурнитуры — ', '') || "—"
+                        ? (() => {
+                            if (!Array.isArray(hardwareKits) || hardwareKits.length === 0) {
+                              return "—";
+                            }
+                            const kit = hardwareKits.find((k: HardwareKit) => k.id === sel.hardware_kit!.id);
+                            return kit?.name ? kit.name.replace('Комплект фурнитуры — ', '') : "—";
+                          })()
                         : "—"}
                     </span>
                 </div>
@@ -2346,8 +2362,11 @@ export default function DoorsPage() {
                                 {i.type === 'handle' 
                                   ? `(Ручка для двери)`
                                   : `(${i.finish}, ${i.color}, ${i.width} × ${i.height} мм, Фурнитура - ${(() => {
+                                      if (!Array.isArray(hardwareKits) || hardwareKits.length === 0 || !i.hardwareKitId) {
+                                        return i.hardwareKitName?.replace('Комплект фурнитуры — ', '') || 'Базовый';
+                                      }
                                       const kit = hardwareKits.find((k: HardwareKit) => k.id === i.hardwareKitId);
-                                      return kit?.name ? kit.name.replace('Комплект фурнитуры — ', '') : 'Базовый';
+                                      return kit?.name ? kit.name.replace('Комплект фурнитуры — ', '') : (i.hardwareKitName?.replace('Комплект фурнитуры — ', '') || 'Базовый');
                                     })()})`
                                 }
                           </div>
@@ -3535,7 +3554,9 @@ function CartManager({
                         // Дверь
                         try {
                           const modelName = item.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель';
-                          const hardwareKit = hardwareKits && hardwareKits.find((k: HardwareKit) => k.id === item.hardwareKitId);
+                          const hardwareKit = Array.isArray(hardwareKits) && hardwareKits.length > 0 && item.hardwareKitId
+                            ? hardwareKits.find((k: HardwareKit) => k.id === item.hardwareKitId)
+                            : null;
                           const hardwareKitName = hardwareKit?.name?.replace('Комплект фурнитуры — ', '') || item.hardwareKitName?.replace('Комплект фурнитуры — ', '') || 'Базовый';
                           fullName = `Дверь DomeoDoors ${modelName} (${item.finish || ''}, ${item.color || ''}, ${item.width || ''} × ${item.height || ''} мм, Фурнитура - ${hardwareKitName})`;
                         } catch (e) {
@@ -3770,7 +3791,13 @@ function CartManager({
                         <div className="text-xs text-gray-600 truncate">
                           {item.type === 'handle' 
                             ? `Ручка для двери`
-                            : `${item.finish}, ${item.color}, ${item.width} × ${item.height} мм, Фурнитура: ${hardwareKits.find((k: any) => k.id === item.hardwareKitId)?.name.replace('Комплект фурнитуры — ', '') || 'Базовый'}`
+                            : `${item.finish}, ${item.color}, ${item.width} × ${item.height} мм, Фурнитура: ${(() => {
+                                if (!Array.isArray(hardwareKits) || hardwareKits.length === 0 || !item.hardwareKitId) {
+                                  return item.hardwareKitName?.replace('Комплект фурнитуры — ', '') || 'Базовый';
+                                }
+                                const kit = hardwareKits.find((k: HardwareKit) => k.id === item.hardwareKitId);
+                                return kit?.name ? kit.name.replace('Комплект фурнитуры — ', '') : (item.hardwareKitName?.replace('Комплект фурнитуры — ', '') || 'Базовый');
+                              })()}`
                           }
                         </div>
                       </div>
