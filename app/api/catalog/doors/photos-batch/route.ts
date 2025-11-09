@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getPropertyPhotos, structurePropertyPhotos } from '@/lib/property-photos';
 import { logger } from '@/lib/logging/logger';
 import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
-import { apiSuccess, apiError, withErrorHandling } from '@/lib/api/response';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
 import { ValidationError } from '@/lib/api/errors';
 import { requireAuth } from '@/lib/auth/middleware';
 import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
@@ -54,7 +54,7 @@ async function postHandler(
     models = body?.models;
   } catch (error) {
     logger.error('Ошибка чтения тела запроса photos-batch', 'catalog/doors/photos-batch/POST', { error: error instanceof Error ? error.message : String(error) }, loggingContext);
-    return apiError('Ошибка чтения тела запроса', ApiErrorCode.INTERNAL_ERROR, 500);
+      return apiError('Ошибка чтения тела запроса', ApiErrorCode.INTERNAL_ERROR, 500);
   }
   
   if (!models || !Array.isArray(models)) {
