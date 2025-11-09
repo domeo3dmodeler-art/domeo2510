@@ -2458,7 +2458,6 @@ export default function DoorsPage() {
                         />
                       ) : null;
                     })() || selectedModelCard?.photo ? (
-                    ) : selectedModelCard?.photo ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={selectedModelCard.photo.startsWith('/uploadsproducts') 
