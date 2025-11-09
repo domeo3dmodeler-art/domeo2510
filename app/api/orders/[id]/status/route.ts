@@ -3,10 +3,11 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logging/logger';
 import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
 import { canTransitionTo } from '@/lib/validation/status-transitions';
+import { validateStatusTransitionRequirements } from '@/lib/validation/status-requirements';
 import { canUserChangeStatus } from '@/lib/auth/permissions';
 import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
 import { NotFoundError, InvalidStateError, BusinessRuleError, ForbiddenError } from '@/lib/api/errors';
-import { changeOrderStatusSchema } from '@/lib/validation/status.schemas';
+import { changeStatusSchema } from '@/lib/validation/status.schemas';
 import { validateRequest } from '@/lib/validation/middleware';
 import { requireAuth } from '@/lib/auth/middleware';
 import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
@@ -14,7 +15,7 @@ import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 // PUT /api/orders/[id]/status - Изменение статуса заказа
 async function handler(
   req: NextRequest,
-  user: ReturnType<typeof getAuthenticatedUser>,
+  user: Awaited<ReturnType<typeof getAuthenticatedUser>>,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const { id } = await params;
@@ -22,7 +23,7 @@ async function handler(
   const body = await req.json();
 
   // Валидация через Zod
-  const validation = validateRequest(changeOrderStatusSchema, body);
+  const validation = validateRequest(changeStatusSchema, body);
   if (!validation.success) {
     return apiError(
       ApiErrorCode.VALIDATION_ERROR,
@@ -62,14 +63,41 @@ async function handler(
     });
   }
 
-  // Проверяем обязательность загрузки проекта при переходе в UNDER_REVIEW
-  const orderWithProject = await prisma.order.findUnique({
+  // Проверяем обязательные поля для перехода в новый статус
+  const orderForValidation = await prisma.order.findUnique({
     where: { id },
-    select: { project_file_url: true }
+    select: {
+      project_file_url: true,
+      door_dimensions: true,
+      measurement_done: true,
+      project_complexity: true
+    }
   });
-  
-  if (status === 'UNDER_REVIEW' && !orderWithProject?.project_file_url) {
-    throw new BusinessRuleError('Для перехода в статус "На проверке" требуется загрузить проект/планировку');
+
+  if (orderForValidation) {
+    // Парсим door_dimensions если это строка
+    let doorDimensions = orderForValidation.door_dimensions;
+    if (typeof doorDimensions === 'string') {
+      try {
+        doorDimensions = JSON.parse(doorDimensions);
+      } catch (e) {
+        doorDimensions = null;
+      }
+    }
+
+    const validationResult = validateStatusTransitionRequirements(
+      'order',
+      order.status,
+      status,
+      {
+        ...orderForValidation,
+        door_dimensions: doorDimensions
+      }
+    );
+
+    if (!validationResult.valid) {
+      throw new BusinessRuleError(validationResult.error || 'Не выполнены требования для перехода в новый статус');
+    }
   }
 
   // Если текущий статус UNDER_REVIEW и переходим в UNDER_REVIEW с require_measurement,
@@ -145,7 +173,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   return withErrorHandling(
-    requireAuth(async (request: NextRequest, user: ReturnType<typeof getAuthenticatedUser>) => {
+    requireAuth(async (request: NextRequest, user: Awaited<ReturnType<typeof getAuthenticatedUser>>) => {
       return await handler(request, user, { params });
     }),
     'orders/[id]/status'

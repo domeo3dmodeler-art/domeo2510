@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { canTransitionTo } from '@/lib/validation/status-transitions';
+import { validateStatusTransitionRequirements } from '@/lib/validation/status-requirements';
 import { canUserChangeStatus } from '@/lib/auth/permissions';
 import { logger } from '@/lib/logging/logger';
 import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
 import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
-import { NotFoundError, InvalidStateError } from '@/lib/api/errors';
-import { changeSupplierOrderStatusSchema } from '@/lib/validation/status.schemas';
+import { NotFoundError, InvalidStateError, BusinessRuleError } from '@/lib/api/errors';
+import { changeStatusSchema } from '@/lib/validation/status.schemas';
 import { validateRequest } from '@/lib/validation/middleware';
 import { requireAuth } from '@/lib/auth/middleware';
 import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
 // PUT /api/supplier-orders/[id]/status - Изменение статуса заказа поставщика
-async function handler(req: NextRequest, user: ReturnType<typeof getAuthenticatedUser>, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse> {
+async function handler(req: NextRequest, user: Awaited<ReturnType<typeof getAuthenticatedUser>>, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse> {
   const loggingContext = getLoggingContextFromRequest(req);
   const { id } = await params;
   const body = await req.json();
@@ -20,7 +21,7 @@ async function handler(req: NextRequest, user: ReturnType<typeof getAuthenticate
   logger.debug('Updating supplier order status', 'supplier-orders/[id]/status', { id, status: body.status, body, userId: user.userId }, loggingContext);
 
   // Валидация через Zod
-  const validation = validateRequest(changeSupplierOrderStatusSchema, body);
+  const validation = validateRequest(changeStatusSchema, body);
   if (!validation.success) {
     return apiError(
       ApiErrorCode.VALIDATION_ERROR,
@@ -55,6 +56,30 @@ async function handler(req: NextRequest, user: ReturnType<typeof getAuthenticate
       newStatus: status,
       documentType: 'supplier_order'
     });
+  }
+
+  // Проверяем обязательные поля для перехода в новый статус
+  const supplierOrderForValidation = await prisma.supplierOrder.findUnique({
+    where: { id },
+    select: {
+      supplier_name: true,
+      supplier_email: true,
+      supplier_phone: true,
+      cart_data: true
+    }
+  });
+
+  if (supplierOrderForValidation) {
+    const validationResult = validateStatusTransitionRequirements(
+      'supplier_order',
+      existingSupplierOrder.status,
+      status,
+      supplierOrderForValidation
+    );
+
+    if (!validationResult.valid) {
+      throw new BusinessRuleError(validationResult.error || 'Не выполнены требования для перехода в новый статус');
+    }
   }
 
   const updateData: { status: string; notes?: string } = { status };
@@ -188,7 +213,7 @@ async function getHandler(req: NextRequest, user: ReturnType<typeof getAuthentic
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse> {
   return withErrorHandling(
-    requireAuth(async (request: NextRequest, user: ReturnType<typeof getAuthenticatedUser>) => {
+    requireAuth(async (request: NextRequest, user: Awaited<ReturnType<typeof getAuthenticatedUser>>) => {
       return await getHandler(request, user, { params });
     }),
     'supplier-orders/[id]/status'
