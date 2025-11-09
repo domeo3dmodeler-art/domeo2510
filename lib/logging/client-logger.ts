@@ -43,36 +43,37 @@ export class ClientLogger {
       // В production это будет отправлено в систему мониторинга
       if (typeof console !== 'undefined' && console.error) {
         // Безопасный вызов console.error с проверкой аргументов
-        // В dev-режиме Next.js перехватывает console.error, поэтому используем более безопасный подход
+        // В dev-режиме Next.js перехватывает console.error, поэтому объединяем все в одну строку
         const errorMessage = `[ERROR] ${message}`;
         
-        // Создаем безопасную строку для логирования
-        let logData: unknown[] = [errorMessage];
+        // Создаем безопасную строку для логирования, объединяя все данные
+        let logString = errorMessage;
         
         if (errorData && typeof errorData === 'object' && errorData !== null) {
           try {
             // Преобразуем объект в строку для безопасного логирования
             const errorString = JSON.stringify(errorData, null, 2);
-            logData.push(errorString);
+            logString += `\n${errorString}`;
           } catch {
             // Если не удалось сериализовать, используем toString
-            logData.push(String(errorData));
+            logString += `\n${String(errorData)}`;
           }
         } else if (errorData) {
-          logData.push(String(errorData));
+          logString += `\n${String(errorData)}`;
         }
         
         if (metadata && typeof metadata === 'object' && metadata !== null) {
           try {
             const metadataString = JSON.stringify(metadata, null, 2);
-            logData.push(metadataString);
+            logString += `\n${metadataString}`;
           } catch {
-            logData.push(String(metadata));
+            logString += `\n${String(metadata)}`;
           }
         }
         
-        // Используем apply для безопасного вызова с переменным количеством аргументов
-        console.error.apply(console, logData);
+        // Используем один строковый аргумент для безопасного логирования
+        // Это предотвращает проблемы с перехватом console.error в dev-режиме Next.js
+        console.error(logString);
       }
     } catch (e) {
       // Если даже логирование не работает, просто игнорируем
