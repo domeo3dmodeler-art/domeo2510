@@ -237,17 +237,25 @@ const mockApi = {
       throw new Error('Price calculation failed');
     }
     
-    const priceData = await response.json();
+    let priceData: unknown;
+    try {
+      priceData = await response.json();
+    } catch (jsonError) {
+      throw new Error('Failed to parse price response');
+    }
     
     // Пока что возвращаем только базовую цену двери
     // Цена комплекта и ручки будет добавлена в компоненте
+    const priceObj = priceData && typeof priceData === 'object' && priceData !== null
+      ? priceData as { total?: number; breakdown?: unknown[]; sku_1c?: string | number | null }
+      : { total: 0, breakdown: [], sku_1c: null };
     return {
       ok: true,
       currency: "RUB",
-      base: priceData.total,
-      breakdown: priceData.breakdown || [],
-      total: priceData.total,
-      sku_1c: priceData.sku_1c,
+      base: priceObj.total || 0,
+      breakdown: priceObj.breakdown || [],
+      total: priceObj.total || 0,
+      sku_1c: priceObj.sku_1c || null,
     };
   },
 
@@ -559,7 +567,13 @@ async function resolveSelectionBySku(sku: string) {
     body: JSON.stringify({ sku }),
   });
   if (!r.ok) throw new Error(`resolve ${r.status}`);
-  return r.json() as Promise<{ ok: boolean; selection?: any }>;
+  let data: unknown;
+  try {
+    data = await r.json();
+  } catch (jsonError) {
+    throw new Error('Failed to parse selection response');
+  }
+  return data as { ok: boolean; selection?: unknown };
 }
 
 // ===================== Вспомогательные функции =====================
@@ -694,8 +708,18 @@ export default function DoorsPage() {
       setClientsLoading(true);
       const response = await fetch('/api/clients');
       if (response.ok) {
-        const data = await response.json();
-        setClients(data.clients || []);
+        let data: unknown;
+        try {
+          data = await response.json();
+        } catch (jsonError) {
+          clientLogger.error('Ошибка парсинга JSON ответа clients:', jsonError);
+          setClients([]);
+          return;
+        }
+        const clientsData = data && typeof data === 'object' && 'clients' in data
+          ? (data as { clients: unknown[] }).clients
+          : [];
+        setClients(Array.isArray(clientsData) ? clientsData : []);
       } else {
         clientLogger.error('Failed to fetch clients');
       }
@@ -725,9 +749,17 @@ export default function DoorsPage() {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        let data: unknown;
+        try {
+          data = await response.json();
+        } catch (jsonError) {
+          throw new Error('Failed to parse create client response');
+        }
+        const clientData = data && typeof data === 'object' && 'client' in data
+          ? (data as { client: unknown }).client
+          : null;
         await fetchClients(); // Обновляем список
-        return data.client;
+        return clientData;
       } else {
         throw new Error('Failed to create client');
       }
@@ -912,12 +944,20 @@ export default function DoorsPage() {
         // if (sel.edge) query.set('edge', sel.edge);
 
         const response = await fetch(`/api/catalog/doors/cascade-options?${query.toString()}`);
-        const data = await response.json();
+        let data: unknown;
+        try {
+          data = await response.json();
+        } catch (jsonError) {
+          clientLogger.error('Ошибка парсинга JSON ответа cascade-options:', jsonError);
+          return;
+        }
         
-        
-        if (!c && data.availableOptions) {
+        const optionsData = data && typeof data === 'object' && data !== null && 'availableOptions' in data
+          ? (data as { availableOptions: unknown }).availableOptions
+          : null;
+        if (!c && optionsData) {
           // Обновляем только если получили новые данные
-          setDomain(data.availableOptions);
+          setDomain(optionsData as Domain);
         }
       } catch (e: any) {
         clientLogger.error('❌ Ошибка каскадной загрузки:', e);
@@ -3328,9 +3368,18 @@ function CartManager({
         });
 
         if (response.ok) {
-          const data = await response.json();
-          clientLogger.debug('📥 Available params response:', data);
-          setAvailableParams(data.params);
+          let data: unknown;
+          try {
+            data = await response.json();
+          } catch (jsonError) {
+            clientLogger.error('Ошибка парсинга JSON ответа available params:', jsonError);
+            return;
+          }
+          const paramsData = data && typeof data === 'object' && data !== null && 'params' in data
+            ? (data as { params: unknown }).params
+            : null;
+          clientLogger.debug('📥 Available params response:', { params: paramsData });
+          setAvailableParams(paramsData);
         } else {
           clientLogger.error('Error loading available parameters:', response.status, response.statusText);
         }
