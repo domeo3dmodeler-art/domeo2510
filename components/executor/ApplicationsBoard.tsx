@@ -67,6 +67,7 @@ interface Application {
     number: string;
     status: string;
     total_amount: number;
+    cart_data?: string | null;
   } | null;
 }
 
@@ -373,10 +374,34 @@ function ApplicationDetailModal({
   // Обновление данных заявки
   const fetchApplication = async () => {
     try {
-      const response = await fetch(`/api/applications/${application.id}`);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+
+      const response = await fetch(`/api/orders/${application.id}`, {
+        headers,
+        credentials: 'include'
+      });
+      
       if (response.ok) {
-        const data = await response.json();
-        setCurrentApplication(data.application);
+        const responseData = await response.json();
+        // apiSuccess возвращает { success: true, data: { order: ... } }
+        const data = responseData && typeof responseData === 'object' && responseData !== null && 'data' in responseData
+          ? (responseData as { data: { order?: any } }).data
+          : null;
+        const orderData = data && 'order' in data ? data.order : null;
+        if (orderData) {
+          setCurrentApplication(orderData);
+        } else {
+          clientLogger.warn('Invalid response format from /api/orders/[id]:', responseData);
+        }
+      } else {
+        clientLogger.error('Error fetching order:', { status: response.status });
       }
     } catch (error) {
       clientLogger.error('Error fetching application:', error);
@@ -392,12 +417,21 @@ function ApplicationDetailModal({
 
     try {
       setLoading(true);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
       const formData = new FormData();
       formData.append('file', projectFile);
 
-      const response = await fetch(`/api/applications/${application.id}/project`, {
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+
+      const response = await fetch(`/api/orders/${application.id}/project`, {
         method: 'POST',
-        body: formData
+        headers,
+        body: formData,
+        credentials: 'include'
       });
 
       if (response.ok) {
@@ -406,8 +440,24 @@ function ApplicationDetailModal({
         setShowProjectUpload(false);
         setProjectFile(null);
       } else {
-        const error = await response.json();
-        toast.error(error.error || 'Ошибка загрузки проекта');
+        let errorMessage = 'Ошибка загрузки проекта';
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            if (typeof errorData.error === 'string') {
+              errorMessage = errorData.error;
+            } else if (errorData.error.message) {
+              errorMessage = errorData.error.message;
+            }
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+          clientLogger.error('Error uploading project:', errorData);
+        } catch (parseError) {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          clientLogger.error('Error parsing error response:', parseError);
+        }
+        toast.error(errorMessage);
       }
     } catch (error) {
       clientLogger.error('Error uploading project:', error);
@@ -426,6 +476,7 @@ function ApplicationDetailModal({
 
     try {
       setLoading(true);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
       const formData = new FormData();
       
       wholesaleInvoices.forEach(file => {
@@ -436,9 +487,17 @@ function ApplicationDetailModal({
         formData.append('technical_specs', file);
       });
 
-      const response = await fetch(`/api/applications/${application.id}/files`, {
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+
+      const response = await fetch(`/api/orders/${application.id}/files`, {
         method: 'POST',
-        body: formData
+        headers,
+        body: formData,
+        credentials: 'include'
       });
 
       if (response.ok) {
@@ -448,8 +507,24 @@ function ApplicationDetailModal({
         setWholesaleInvoices([]);
         setTechnicalSpecs([]);
       } else {
-        const error = await response.json();
-        toast.error(error.error || 'Ошибка загрузки файлов');
+        let errorMessage = 'Ошибка загрузки файлов';
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            if (typeof errorData.error === 'string') {
+              errorMessage = errorData.error;
+            } else if (errorData.error.message) {
+              errorMessage = errorData.error.message;
+            }
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+          clientLogger.error('Error uploading files:', errorData);
+        } catch (parseError) {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          clientLogger.error('Error parsing error response:', parseError);
+        }
+        toast.error(errorMessage);
       }
     } catch (error) {
       clientLogger.error('Error uploading files:', error);
@@ -463,11 +538,19 @@ function ApplicationDetailModal({
   const handleStatusChange = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/applications/${application.id}/status`, {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+
+      const response = await fetch(`/api/orders/${application.id}/status`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
+        credentials: 'include',
         body: JSON.stringify({
           status: newStatus,
           require_measurement: currentApplication.status === 'UNDER_REVIEW' ? newStatus === 'AWAITING_MEASUREMENT' : undefined
@@ -480,8 +563,24 @@ function ApplicationDetailModal({
         onUpdate();
         setShowStatusChangeModal(false);
       } else {
-        const error = await response.json();
-        toast.error(error.error || 'Ошибка изменения статуса');
+        let errorMessage = 'Ошибка изменения статуса';
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            if (typeof errorData.error === 'string') {
+              errorMessage = errorData.error;
+            } else if (errorData.error.message) {
+              errorMessage = errorData.error.message;
+            }
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+          clientLogger.error('Error changing status:', errorData);
+        } catch (parseError) {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          clientLogger.error('Error parsing error response:', parseError);
+        }
+        toast.error(errorMessage);
       }
     } catch (error) {
       clientLogger.error('Error changing status:', error);
@@ -513,11 +612,19 @@ function ApplicationDetailModal({
       }));
 
       setLoading(true);
-      const response = await fetch(`/api/applications/${application.id}/door-dimensions`, {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+
+      const response = await fetch(`/api/orders/${application.id}/door-dimensions`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
+        credentials: 'include',
         body: JSON.stringify({
           door_dimensions: doorDimensions
         })
@@ -527,8 +634,24 @@ function ApplicationDetailModal({
         toast.success('Данные дверей загружены из счета');
         await fetchApplication();
       } else {
-        const error = await response.json();
-        toast.error(error.error || 'Ошибка загрузки данных дверей');
+        let errorMessage = 'Ошибка загрузки данных дверей';
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            if (typeof errorData.error === 'string') {
+              errorMessage = errorData.error;
+            } else if (errorData.error.message) {
+              errorMessage = errorData.error.message;
+            }
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+          clientLogger.error('Error loading doors from invoice:', errorData);
+        } catch (parseError) {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          clientLogger.error('Error parsing error response:', parseError);
+        }
+        toast.error(errorMessage);
       }
     } catch (error) {
       clientLogger.error('Error loading doors from invoice:', error);
@@ -542,11 +665,19 @@ function ApplicationDetailModal({
   const handleVerify = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/applications/${application.id}/verify`, {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+
+      const response = await fetch(`/api/orders/${application.id}/verify`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
+        credentials: 'include',
         body: JSON.stringify({
           verification_status: 'VERIFIED',
           verification_notes: ''
@@ -554,13 +685,39 @@ function ApplicationDetailModal({
       });
 
       if (response.ok) {
-        const data = await response.json();
-        setVerifyResult(data.verification_result);
-        setShowVerifyModal(true);
-        toast.success('Проверка выполнена успешно');
+        const responseData = await response.json();
+        // apiSuccess возвращает { success: true, data: { verification_result: ... } }
+        const data = responseData && typeof responseData === 'object' && responseData !== null && 'data' in responseData
+          ? (responseData as { data: { verification_result?: any } }).data
+          : null;
+        const verificationResult = data && 'verification_result' in data ? data.verification_result : null;
+        if (verificationResult) {
+          setVerifyResult(verificationResult);
+          setShowVerifyModal(true);
+          toast.success('Проверка выполнена успешно');
+        } else {
+          clientLogger.warn('Invalid response format from /api/orders/[id]/verify:', responseData);
+          toast.error('Ошибка: неверный формат ответа');
+        }
       } else {
-        const error = await response.json();
-        toast.error(error.error || 'Ошибка проверки заявки');
+        let errorMessage = 'Ошибка проверки заявки';
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            if (typeof errorData.error === 'string') {
+              errorMessage = errorData.error;
+            } else if (errorData.error.message) {
+              errorMessage = errorData.error.message;
+            }
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+          clientLogger.error('Error verifying application:', errorData);
+        } catch (parseError) {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          clientLogger.error('Error parsing error response:', parseError);
+        }
+        toast.error(errorMessage);
       }
     } catch (error) {
       clientLogger.error('Error verifying application:', error);
@@ -585,6 +742,16 @@ function ApplicationDetailModal({
   const availableStatuses = getAvailableStatuses();
   const statusConfig = APPLICATION_STATUSES[currentApplication.status];
   const StatusIcon = statusConfig.icon;
+
+  // Форматирование даты
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ru-RU', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric' 
+    });
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onClose}>
@@ -1055,7 +1222,13 @@ function ApplicationDetailModal({
                   <div>
                     <div className="text-sm font-medium mb-2">Детали проверки:</div>
                     <div className="space-y-2">
-                      {verifyResult.details.map((detail: { index?: number; [key: string]: unknown }, index: number) => (
+                      {verifyResult.details.map((detail: { 
+                        index?: number; 
+                        invoice?: { width?: number; height?: number; quantity?: number };
+                        project?: { width?: number; height?: number; quantity?: number; opening_side?: string | null; latches_count?: number };
+                        matches?: boolean;
+                        [key: string]: unknown 
+                      }, index: number) => (
                         <div key={index} className="border rounded p-3">
                           <div className="font-medium mb-2">Позиция {detail.index}</div>
                           <div className="grid grid-cols-2 gap-4 text-sm">
