@@ -56,6 +56,7 @@ services:
       PORT: 3001
       HOSTNAME: 0.0.0.0
       NEXT_TELEMETRY_DISABLED: 1
+      PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
     ports:
       - "3001:3001"
     networks:
@@ -66,6 +67,10 @@ services:
     # Команда запуска в dev режиме для hot reload
     command: >
       sh -c "
+        if ! command -v chromium-browser >/dev/null 2>&1; then
+          echo '📦 Установка Chromium...' &&
+          apk add --no-cache chromium chromium-chromedriver
+        fi &&
         if [ ! -d node_modules ]; then
           echo '📦 Установка зависимостей...' &&
           npm install --legacy-peer-deps
