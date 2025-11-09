@@ -32,10 +32,24 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
         cover: photos.cover,
         gallery: photos.gallery,
         allPhotos: allPhotos.slice(0, 3),
-        hasGallery
+        hasGallery,
+        allPhotosLength: allPhotos.length,
+        currentIndex,
+        isZoomed
       });
     }
-  }, [photos.cover, photos.gallery, hasGallery]);
+  }, [photos.cover, photos.gallery, hasGallery, currentIndex, isZoomed]);
+  
+  // Логируем при монтировании компонента
+  useEffect(() => {
+    clientLogger.debug('📸 ModernPhotoGallery mounted:', {
+      allPhotosLength: allPhotos.length,
+      currentIndex,
+      isZoomed,
+      hasGallery,
+      showThumbnails: hasGallery && allPhotos.length > 1
+    });
+  }, []);
   
   // Показываем миниатюры только если есть галерея
   const showThumbnails = hasGallery && allPhotos.length > 1;
@@ -155,7 +169,13 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                clientLogger.debug('🖼️ Клик по изображению для зума', { isZoomed, currentIndex });
+                clientLogger.debug('🖼️ Клик по изображению для зума', { isZoomed, currentIndex, allPhotosLength: allPhotos.length });
+                toggleZoom();
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                clientLogger.debug('🖼️ MouseDown по изображению для зума', { isZoomed, currentIndex });
                 toggleZoom();
               }}
               onError={() => {
@@ -172,54 +192,75 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
 
         {/* Кнопка зума */}
         {allPhotos[currentIndex] && (
-          <button
-            type="button"
+          <div
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              clientLogger.debug('🔍 Клик по кнопке зума', { isZoomed, currentIndex });
+              clientLogger.debug('🔍 Клик по кнопке зума', { isZoomed, currentIndex, allPhotosLength: allPhotos.length });
               toggleZoom();
             }}
-            className="absolute top-4 right-4 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 cursor-pointer"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              clientLogger.debug('🔍 MouseDown по кнопке зума', { isZoomed, currentIndex });
+              toggleZoom();
+            }}
+            className="absolute top-4 right-4 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 cursor-pointer z-30"
             style={{ zIndex: 30, pointerEvents: 'auto', position: 'absolute' }}
+            role="button"
+            tabIndex={0}
             aria-label={isZoomed ? "Уменьшить" : "Увеличить"}
           >
           <MagnifyingGlassIcon className="w-5 h-5 text-gray-700" />
-        </button>
+        </div>
         )}
 
         {/* Навигационные стрелки (только для галереи) */}
         {allPhotos.length > 1 && allPhotos[currentIndex] && (
           <>
-            <button
-              type="button"
+            <div
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 clientLogger.debug('⬅️ Клик по кнопке "Предыдущее фото"', { currentIndex, allPhotosLength: allPhotos.length });
                 prevPhoto();
               }}
-              className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 cursor-pointer"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                clientLogger.debug('⬅️ MouseDown по кнопке "Предыдущее фото"', { currentIndex, allPhotosLength: allPhotos.length });
+                prevPhoto();
+              }}
+              className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 cursor-pointer z-30"
               style={{ zIndex: 30, pointerEvents: 'auto', position: 'absolute' }}
+              role="button"
+              tabIndex={0}
               aria-label="Предыдущее фото"
             >
               <ChevronLeftIcon className="w-6 h-6 text-gray-700" />
-            </button>
+            </div>
             
-            <button
-              type="button"
+            <div
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 clientLogger.debug('➡️ Клик по кнопке "Следующее фото"', { currentIndex, allPhotosLength: allPhotos.length });
                 nextPhoto();
               }}
-              className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 cursor-pointer"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                clientLogger.debug('➡️ MouseDown по кнопке "Следующее фото"', { currentIndex, allPhotosLength: allPhotos.length });
+                nextPhoto();
+              }}
+              className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 cursor-pointer z-30"
               style={{ zIndex: 30, pointerEvents: 'auto', position: 'absolute' }}
+              role="button"
+              tabIndex={0}
               aria-label="Следующее фото"
             >
               <ChevronRightIcon className="w-6 h-6 text-gray-700" />
-            </button>
+            </div>
           </>
         )}
 
