@@ -2469,23 +2469,29 @@ export default function DoorsPage() {
                       return (
                         <ModernPhotoGallery
                           photos={selectedModelCard.photos}
-                          productName={selectedModelCard.model}
+                          productName={selectedModelCard.model || ''}
                           hasGallery={selectedModelCard.hasGallery || false}
                           onToggleSidePanels={setHideSidePanels}
                         />
                       );
-                    })() || selectedModelCard?.photo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={selectedModelCard.photo.startsWith('/uploadsproducts') 
-                          ? `/api/uploads/products/${selectedModelCard.photo.substring(17)}`
-                          : selectedModelCard.photo.startsWith('/uploads/')
-                          ? `/api${selectedModelCard.photo}`
-                          : `/api/uploads${selectedModelCard.photo}`}
-                        alt={selectedModelCard.model}
-                        className="h-full w-full object-contain"
-                      />
-                    ) : (
+                    }
+                    
+                    if (selectedModelCard?.photo) {
+                      return (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={selectedModelCard.photo.startsWith('/uploadsproducts') 
+                            ? `/api/uploads/products/${selectedModelCard.photo.substring(17)}`
+                            : selectedModelCard.photo.startsWith('/uploads/')
+                            ? `/api${selectedModelCard.photo}`
+                            : `/api/uploads${selectedModelCard.photo}`}
+                          alt={selectedModelCard.model || 'Дверь'}
+                          className="h-full w-full object-contain"
+                        />
+                      );
+                    }
+                    
+                    return (
                       <div className="h-full w-full flex items-center justify-center text-gray-400">
                         <div className="text-center">
                           <div className="text-sm">Нет фото</div>
@@ -2494,7 +2500,8 @@ export default function DoorsPage() {
                           </div>
                         </div>
                       </div>
-                    )}
+                    );
+                    })()}
                     </div>
                   </div>
                   
