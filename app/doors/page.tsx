@@ -2422,7 +2422,11 @@ export default function DoorsPage() {
                     ) : selectedModelCard?.photo ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={selectedModelCard.photo.startsWith('/uploads') ? `/api${selectedModelCard.photo}` : `/api/uploads${selectedModelCard.photo}`}
+                        src={selectedModelCard.photo.startsWith('/uploadsproducts') 
+                          ? `/api/uploads/products/${selectedModelCard.photo.substring(17)}`
+                          : selectedModelCard.photo.startsWith('/uploads/')
+                          ? `/api${selectedModelCard.photo}`
+                          : `/api/uploads${selectedModelCard.photo}`}
                         alt={selectedModelCard.model}
                         className="h-full w-full object-contain"
                       />
@@ -3938,7 +3942,13 @@ function CartManager({
                             {handle.photos.slice(0, 3).map((photo, idx) => (
                               <img
                                 key={idx}
-                                src={photo && photo.startsWith('/uploads') ? `/api${photo}` : photo ? `/api/uploads${photo}` : ''}
+                                src={photo && photo.startsWith('/uploadsproducts')
+                                  ? `/api/uploads/products/${photo.substring(17)}`
+                                  : photo && photo.startsWith('/uploads/')
+                                  ? `/api${photo}`
+                                  : photo
+                                  ? `/api/uploads${photo}`
+                                  : ''}
                                 alt={`${currentHandleName} фото ${idx + 1}`}
                                 className="w-12 h-12 object-cover rounded border border-gray-200"
                                 onError={(e) => {

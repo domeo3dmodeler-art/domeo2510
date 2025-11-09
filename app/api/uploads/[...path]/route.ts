@@ -10,7 +10,14 @@ export async function GET(
 ) {
   try {
     const resolvedParams = await params;
-    const filePath = resolvedParams.path.join('/');
+    let filePath = resolvedParams.path.join('/');
+    
+    // Исправляем пути вида "uploadsproducts/..." -> "uploads/products/..."
+    if (filePath.startsWith('uploadsproducts/')) {
+      filePath = `uploads/products/${filePath.substring(17)}`;
+    } else if (filePath.startsWith('uploadsproducts')) {
+      filePath = `uploads/products/${filePath.substring(16)}`;
+    }
     
     // Проверяем безопасность пути
     if (filePath.includes('..') || filePath.includes('~')) {

@@ -25,8 +25,11 @@ export function StickyPreview({ item }: StickyPreviewProps) {
       let imageUrl: string;
       if (item.photo.startsWith('/uploads/')) {
         imageUrl = `/api${item.photo}`;
+      } else if (item.photo.startsWith('/uploadsproducts')) {
+        // Корректируем: /uploadsproducts/... -> /uploads/products/...
+        imageUrl = `/api/uploads/products/${item.photo.substring(17)}`; // убираем первые 17 символов '/uploadsproducts'
       } else if (item.photo.startsWith('/uploads')) {
-        // Корректируем: /uploadsproducts... -> /uploads/products...
+        // Корректируем: /uploads... -> /uploads/...
         imageUrl = `/api/uploads/${item.photo.substring(8)}`;
       } else if (item.photo.startsWith('products/')) {
         imageUrl = `/api/uploads/${item.photo}`;
