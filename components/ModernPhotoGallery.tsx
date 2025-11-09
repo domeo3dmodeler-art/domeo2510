@@ -25,6 +25,15 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
   // Получаем все фото в правильном порядке
   const allPhotos = photos.cover ? [photos.cover, ...photos.gallery] : photos.gallery;
   
+  // Логируем при каждом рендере для отладки
+  clientLogger.debug('🔄 ModernPhotoGallery render:', {
+    allPhotosLength: allPhotos.length,
+    hasGallery,
+    productName,
+    cover: photos.cover,
+    galleryLength: photos.gallery?.length || 0
+  });
+  
   // Логируем для отладки
   useEffect(() => {
     if (allPhotos.length > 0) {
