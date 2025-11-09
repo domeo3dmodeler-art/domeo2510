@@ -2433,7 +2433,7 @@ export default function DoorsPage() {
                   </div>
                   {/* Профессиональная галерея с увеличенным размером */}
                   <div className="w-full bg-white rounded-xl shadow-lg overflow-visible">
-                    <div className="aspect-[4/6.5] overflow-hidden rounded-t-xl">
+                    <div className="aspect-[4/6.5] overflow-visible rounded-t-xl" style={{ position: 'relative', zIndex: 1 }}>
                     {(() => {
                       const hasPhotos = selectedModelCard?.photos && selectedModelCard.photos;
                       const hasCover = hasPhotos && selectedModelCard.photos.cover;
