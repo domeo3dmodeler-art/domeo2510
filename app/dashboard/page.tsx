@@ -176,7 +176,10 @@ function DashboardContent() {
           clientLogger.error('Error fetching admin stats:', err);
           return new Response(JSON.stringify({ error: 'Failed to fetch stats' }), { status: 500 });
         }),
-        fetch('/api/users').catch(err => {
+        fetch('/api/users', {
+          headers,
+          credentials: 'include',
+        }).catch(err => {
           clientLogger.error('Error fetching users:', err);
           return new Response(JSON.stringify({ error: 'Failed to fetch users' }), { status: 500 });
         })
