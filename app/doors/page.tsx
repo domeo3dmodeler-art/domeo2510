@@ -2446,17 +2446,34 @@ export default function DoorsPage() {
                         hasCover: !!hasCover,
                         hasGallery: !!hasGallery,
                         shouldShowGallery,
-                        photos: selectedModelCard?.photos
+                        photos: selectedModelCard?.photos,
+                        selectedModelCard: selectedModelCard
                       });
                       
-                      return shouldShowGallery ? (
+                      if (!shouldShowGallery) {
+                        clientLogger.debug('🖼️ Галерея НЕ показывается:', {
+                          hasPhotos: !!hasPhotos,
+                          hasCover: !!hasCover,
+                          hasGallery: !!hasGallery,
+                          shouldShowGallery
+                        });
+                        return null;
+                      }
+                      
+                      clientLogger.debug('🖼️ Рендерим ModernPhotoGallery:', {
+                        photos: selectedModelCard.photos,
+                        productName: selectedModelCard.model,
+                        hasGallery: selectedModelCard.hasGallery || false
+                      });
+                      
+                      return (
                         <ModernPhotoGallery
                           photos={selectedModelCard.photos}
                           productName={selectedModelCard.model}
                           hasGallery={selectedModelCard.hasGallery || false}
                           onToggleSidePanels={setHideSidePanels}
                         />
-                      ) : null;
+                      );
                     })() || selectedModelCard?.photo ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img

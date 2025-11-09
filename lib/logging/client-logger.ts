@@ -21,10 +21,16 @@ export class ClientLogger {
   static debug(message: string, metadata?: Record<string, unknown>): void {
     if (!this.shouldLog()) return;
     try {
-      console.debug(`[DEBUG] ${message}`, metadata || '');
+      // Всегда используем console.log для гарантированного вывода
+      const logMessage = `[DEBUG] ${message}`;
+      if (metadata) {
+        console.log(logMessage, metadata);
+      } else {
+        console.log(logMessage);
+      }
     } catch (e) {
-      // Fallback если console.debug не работает
-      console.log(`[DEBUG] ${message}`, metadata || '');
+      // Fallback если console.log не работает
+      console.warn(`[DEBUG] ${message}`, metadata || '');
     }
   }
 
