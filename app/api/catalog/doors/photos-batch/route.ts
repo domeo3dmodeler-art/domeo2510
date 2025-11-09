@@ -32,9 +32,33 @@ async function postHandler(
   req: NextRequest
 ): Promise<NextResponse> {
   const loggingContext = getLoggingContextFromRequest(req);
-  const { models } = await req.json();
+  
+  let models: string[];
+  try {
+    // Читаем тело запроса как текст для отладки
+    const text = await req.text();
+    logger.debug('Получено тело запроса photos-batch', 'catalog/doors/photos-batch/POST', { textLength: text.length, textPreview: text.substring(0, 100) }, loggingContext);
+    
+    // Парсим JSON
+    let body: any;
+    try {
+      body = JSON.parse(text);
+    } catch (parseError) {
+      logger.error('Ошибка парсинга JSON в photos-batch', 'catalog/doors/photos-batch/POST', { 
+        error: parseError instanceof Error ? parseError.message : String(parseError),
+        textPreview: text.substring(0, 200)
+      }, loggingContext);
+      return apiError('Неверный формат JSON в теле запроса', ApiErrorCode.VALIDATION_ERROR, 400);
+    }
+    
+    models = body?.models;
+  } catch (error) {
+    logger.error('Ошибка чтения тела запроса photos-batch', 'catalog/doors/photos-batch/POST', { error: error instanceof Error ? error.message : String(error) }, loggingContext);
+    return apiError('Ошибка чтения тела запроса', ApiErrorCode.INTERNAL_ERROR, 500);
+  }
   
   if (!models || !Array.isArray(models)) {
+    logger.warn('Неверный формат запроса photos-batch', 'catalog/doors/photos-batch/POST', { models }, loggingContext);
     throw new ValidationError('Неверный формат запроса: ожидается массив models');
   }
 
