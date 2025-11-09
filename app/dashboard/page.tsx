@@ -158,8 +158,21 @@ function DashboardContent() {
   // Определяем fetchStats ПЕРЕД использованием в useEffect
   const fetchStats = useCallback(async () => {
     try {
+      // Получаем токен для авторизации
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
       const promises = [
-        fetch('/api/admin/stats').catch(err => {
+        fetch('/api/admin/stats', {
+          headers,
+          credentials: 'include',
+        }).catch(err => {
           clientLogger.error('Error fetching admin stats:', err);
           return new Response(JSON.stringify({ error: 'Failed to fetch stats' }), { status: 500 });
         }),
@@ -341,7 +354,18 @@ function DashboardContent() {
             
             setUser(userData);
           } else {
-            throw new Error('User data not found');
+            // Если данные пользователя не найдены, используем данные из localStorage
+            clientLogger.warn('📦 Данные пользователя не найдены в ответе API, используем localStorage');
+            const userData = {
+              id: userId,
+              email: localStorage.getItem('userEmail') || '',
+              firstName: localStorage.getItem('userFirstName') || 'Иван',
+              lastName: localStorage.getItem('userLastName') || 'Иванов',
+              middleName: localStorage.getItem('userMiddleName') || '',
+              role: userRole,
+              permissions: JSON.parse(localStorage.getItem('userPermissions') || '[]')
+            };
+            setUser(userData);
           }
         } else {
           // Если API вернул ошибку, пытаемся получить детали ошибки
