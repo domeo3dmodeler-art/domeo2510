@@ -15,22 +15,22 @@ export class ClientLogger {
     return this.isDevelopment && typeof window !== 'undefined';
   }
 
-  static debug(message: string, metadata?: Record<string, any>): void {
+  static debug(message: string, metadata?: Record<string, unknown>): void {
     if (!this.shouldLog()) return;
     console.debug(`[DEBUG] ${message}`, metadata || '');
   }
 
-  static info(message: string, metadata?: Record<string, any>): void {
+  static info(message: string, metadata?: Record<string, unknown>): void {
     if (!this.shouldLog()) return;
     console.info(`[INFO] ${message}`, metadata || '');
   }
 
-  static warn(message: string, metadata?: Record<string, any>): void {
+  static warn(message: string, metadata?: Record<string, unknown>): void {
     if (!this.shouldLog()) return;
     console.warn(`[WARN] ${message}`, metadata || '');
   }
 
-  static error(message: string, error?: Error | any, metadata?: Record<string, any>): void {
+  static error(message: string, error?: Error | unknown, metadata?: Record<string, unknown>): void {
     // Ошибки логируем всегда, даже в production
     if (typeof window === 'undefined') return;
     
@@ -38,29 +38,35 @@ export class ClientLogger {
       ? { message: error.message, stack: error.stack }
       : error;
     
-    console.error(`[ERROR] ${message}`, errorData || '', metadata || '');
+    // Используем console.error только для критических ошибок
+    // В production это будет отправлено в систему мониторинга
+    if (typeof console !== 'undefined' && console.error) {
+      console.error(`[ERROR] ${message}`, errorData || '', metadata || '');
+    }
   }
 
   // Специальные методы для компонентов
-  static componentRender(componentName: string, props?: any): void {
+  static componentRender(componentName: string, props?: Record<string, unknown>): void {
     if (!this.shouldLog()) return;
     console.debug(`[RENDER] ${componentName}`, props || '');
   }
 
-  static componentProps(componentName: string, props: any): void {
+  static componentProps(componentName: string, props: Record<string, unknown>): void {
     if (!this.shouldLog()) return;
     console.debug(`[PROPS] ${componentName}`, props);
   }
 
-  static apiCall(method: string, url: string, data?: any): void {
+  static apiCall(method: string, url: string, data?: Record<string, unknown>): void {
     if (!this.shouldLog()) return;
     console.debug(`[API] ${method} ${url}`, data || '');
   }
 
-  static apiResponse(method: string, url: string, status: number, data?: any): void {
+  static apiResponse(method: string, url: string, status: number, data?: Record<string, unknown>): void {
     if (!this.shouldLog()) return;
     const level = status >= 400 ? 'error' : status >= 300 ? 'warn' : 'info';
-    console[level](`[API] ${method} ${url} - ${status}`, data || '');
+    if (typeof console !== 'undefined' && console[level]) {
+      console[level](`[API] ${method} ${url} - ${status}`, data || '');
+    }
   }
 }
 

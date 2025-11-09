@@ -2345,7 +2345,7 @@ export default function DoorsPage() {
                               <div className="text-gray-600 text-xs font-normal">
                                 {i.type === 'handle' 
                                   ? `(Ручка для двери)`
-                                  : `(${i.finish}, ${i.color}, ${i.width} × ${i.height} мм, Фурнитура - ${hardwareKits.find((k: any) => k.id === i.hardwareKitId)?.name.replace('Комплект фурнитуры — ', '') || 'Базовый'})`
+                                  : `(${i.finish}, ${i.color}, ${i.width} × ${i.height} мм, Фурнитура - ${hardwareKits.find((k: HardwareKit) => k.id === i.hardwareKitId)?.name.replace('Комплект фурнитуры — ', '') || 'Базовый'})`
                                 }
                           </div>
                         </div>
@@ -3532,7 +3532,7 @@ function CartManager({
                         // Дверь
                         try {
                           const modelName = item.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель';
-                          const hardwareKit = hardwareKits && hardwareKits.find((k: any) => k.id === item.hardwareKitId);
+                          const hardwareKit = hardwareKits && hardwareKits.find((k: HardwareKit) => k.id === item.hardwareKitId);
                           const hardwareKitName = hardwareKit?.name?.replace('Комплект фурнитуры — ', '') || item.hardwareKitName?.replace('Комплект фурнитуры — ', '') || 'Базовый';
                           fullName = `Дверь DomeoDoors ${modelName} (${item.finish || ''}, ${item.color || ''}, ${item.width || ''} × ${item.height || ''} мм, Фурнитура - ${hardwareKitName})`;
                         } catch (e) {
