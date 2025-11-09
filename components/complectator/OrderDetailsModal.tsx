@@ -70,15 +70,17 @@ interface Quote {
 const STATUS_COLORS: Record<string, string> = {
   'DRAFT': 'bg-gray-100 text-gray-800 border-gray-200',
   'SENT': 'bg-blue-100 text-blue-800 border-blue-200',
-  'PAID': 'bg-green-100 text-green-800 border-green-200',
-  'ORDERED': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  'RECEIVED_FROM_SUPPLIER': 'bg-purple-100 text-purple-800 border-purple-200',
-  'COMPLETED': 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  'CANCELLED': 'bg-red-100 text-red-800 border-red-200',
   'NEW_PLANNED': 'bg-gray-100 text-gray-800 border-gray-200',
   'UNDER_REVIEW': 'bg-yellow-100 text-yellow-800 border-yellow-200',
   'AWAITING_MEASUREMENT': 'bg-orange-100 text-orange-800 border-orange-200',
-  'AWAITING_INVOICE': 'bg-blue-100 text-blue-800 border-blue-200'
+  'AWAITING_INVOICE': 'bg-blue-100 text-blue-800 border-blue-200',
+  'READY_FOR_PRODUCTION': 'bg-purple-100 text-purple-800 border-purple-200',
+  'COMPLETED': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  'RETURNED_TO_COMPLECTATION': 'bg-red-100 text-red-800 border-red-200',
+  'CANCELLED': 'bg-red-100 text-red-800 border-red-200',
+  'PAID': 'bg-green-100 text-green-800 border-green-200',
+  'ORDERED': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  'RECEIVED_FROM_SUPPLIER': 'bg-purple-100 text-purple-800 border-purple-200'
 };
 
 export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderDetailsModalProps) {
@@ -209,11 +211,12 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
       const label = getStatusLabel(orderStatus, 'order');
       const color = STATUS_COLORS[orderStatus] || 'bg-gray-100 text-gray-800 border-gray-200';
       
-      // Комплектатор может менять статусы заказа: DRAFT, SENT, PAID, CANCELLED
-      // PAID может перевести в UNDER_REVIEW или CANCELLED
-      // Статусы исполнителя (NEW_PLANNED, UNDER_REVIEW, AWAITING_MEASUREMENT, AWAITING_INVOICE, COMPLETED) - только просмотр
-      const executorStatuses = ['NEW_PLANNED', 'UNDER_REVIEW', 'AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'COMPLETED'];
-      const canManage = !executorStatuses.includes(orderStatus);
+      // Комплектатор может менять статусы заказа: DRAFT, SENT, NEW_PLANNED, RETURNED_TO_COMPLECTATION
+      // Статусы исполнителя (UNDER_REVIEW, AWAITING_MEASUREMENT, AWAITING_INVOICE, READY_FOR_PRODUCTION, COMPLETED) - только просмотр
+      // NEW_PLANNED - это статус, который может быть и у комплектатора, и у исполнителя
+      const executorStatuses = ['UNDER_REVIEW', 'AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'READY_FOR_PRODUCTION', 'COMPLETED'];
+      const complectatorStatuses = ['DRAFT', 'SENT', 'NEW_PLANNED', 'RETURNED_TO_COMPLECTATION'];
+      const canManage = complectatorStatuses.includes(orderStatus) || orderStatus === 'CANCELLED';
       
       clientLogger.debug('📊 getDisplayStatus for complectator:', {
         orderStatus,
@@ -284,18 +287,21 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     // Комплектатор управляет статусами заказа напрямую
     const currentStatus = order.status;
     
-    // Комплектатор может отменить заказ на любой стадии до PAID включительно
-    // Статусы до PAID: DRAFT, SENT, PAID
-    const statusesBeforePaid = ['DRAFT', 'SENT', 'PAID'];
-    const canCancel = statusesBeforePaid.includes(currentStatus);
+    // Комплектатор может работать со статусами: DRAFT, SENT, NEW_PLANNED, RETURNED_TO_COMPLECTATION
+    const complectatorStatuses = ['DRAFT', 'SENT', 'NEW_PLANNED', 'RETURNED_TO_COMPLECTATION'];
+    
+    // Если текущий статус не статус комплектатора (кроме NEW_PLANNED), комплектатор не может его изменить
+    if (!complectatorStatuses.includes(currentStatus)) {
+      return [];
+    }
     
     const allTransitions = getValidTransitions('order', currentStatus);
     
-    // Фильтруем переходы для комплектатора:
+    // Фильтруем переходы для комплектатора согласно каноническому документу:
     // - Из DRAFT: может перевести в SENT или CANCELLED
-    // - Из SENT: может перевести в PAID или CANCELLED
-    // - Из PAID: может перевести в UNDER_REVIEW или CANCELLED (передача управления Исполнителю)
-    // - Из статусов исполнителя: НЕ может изменять (NEW_PLANNED, UNDER_REVIEW, AWAITING_MEASUREMENT, AWAITING_INVOICE, COMPLETED)
+    // - Из SENT: может перевести в NEW_PLANNED или CANCELLED
+    // - Из NEW_PLANNED: может перевести в CANCELLED (только отмена)
+    // - Из RETURNED_TO_COMPLECTATION: может перевести в DRAFT, SENT или NEW_PLANNED
     
     // Определяем разрешенные статусы в зависимости от текущего статуса
     let allowedStatuses: string[] = [];
@@ -303,27 +309,20 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     if (currentStatus === 'DRAFT') {
       allowedStatuses = ['SENT', 'CANCELLED'];
     } else if (currentStatus === 'SENT') {
-      allowedStatuses = ['PAID', 'CANCELLED'];
-    } else if (currentStatus === 'PAID') {
-      // Комплектатор может перевести PAID в UNDER_REVIEW (передача Исполнителю) или CANCELLED
-      allowedStatuses = ['UNDER_REVIEW', 'CANCELLED'];
-    } else {
-      // Для всех остальных статусов (статусы исполнителя) - комплектатор не может изменять
-      allowedStatuses = [];
+      allowedStatuses = ['NEW_PLANNED', 'CANCELLED'];
+    } else if (currentStatus === 'NEW_PLANNED') {
+      allowedStatuses = ['CANCELLED'];
+    } else if (currentStatus === 'RETURNED_TO_COMPLECTATION') {
+      allowedStatuses = ['DRAFT', 'SENT', 'NEW_PLANNED'];
     }
     
     // Фильтруем переходы только из разрешенных
     let filteredTransitions = allTransitions.filter(status => allowedStatuses.includes(status));
     
-    // Если текущий статус до PAID включительно, добавляем CANCELLED если его нет
-    if (canCancel && !filteredTransitions.includes('CANCELLED')) {
-      filteredTransitions.push('CANCELLED');
-    }
-    
     clientLogger.debug('📋 getAvailableStatuses:', {
       currentStatus,
-      canCancel,
       allTransitions,
+      allowedStatuses,
       filteredTransitions,
       transitionsCount: filteredTransitions.length,
       orderId: order.id,

@@ -307,7 +307,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
             blockedSet.add(order.id);
           }
         } catch (error) {
-          clientLogger.error('Error checking invoice status for order', error, { orderId });
+          clientLogger.error('Error checking invoice status for order', error, { orderId: order.id });
         }
       }
       // Если нет счета, заказ не блокирован (статус Черновик)
@@ -447,16 +447,17 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
   const badgeByInvoiceStatus = (s: string) => {
     // Статусы комплектатора
     switch (s) {
-      case 'Черновик': return 'border-gray-300 text-gray-700';
-      case 'Отправлен': return 'border-blue-300 text-blue-700';
-      case 'Оплачен/Заказ': return 'border-green-300 text-green-700';
+      case 'Новый заказ': return 'border-gray-300 text-gray-700';
+      case 'Счет выставлен': return 'border-blue-300 text-blue-700';
+      case 'Счет оплачен (Заказываем)': return 'border-green-300 text-green-700';
       case 'Отменен': return 'border-red-300 text-red-700';
       // Статусы исполнителя (комплектатор их видит, но не может изменять)
-      case 'Новый заказ': return 'border-blue-300 text-blue-700';
       case 'На проверке': return 'border-yellow-300 text-yellow-800';
       case 'Ждет замер': return 'border-orange-300 text-orange-800';
-      case 'Ожидает счет': return 'border-purple-300 text-purple-700';
-      case 'Выполнена': return 'border-emerald-300 text-emerald-700';
+      case 'Ожидает опт. счет': return 'border-purple-300 text-purple-700';
+      case 'Готов к запуску в производство': return 'border-indigo-300 text-indigo-700';
+      case 'Выполнен': return 'border-emerald-300 text-emerald-700';
+      case 'Вернуть в комплектацию': return 'border-red-300 text-red-700';
       default: return 'border-gray-300 text-gray-700';
     }
   };
@@ -1279,7 +1280,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                 // Получаем данные счета из API для получения текущего статуса
                 // Для упрощения показываем все статусы
                 const getAllStatuses = () => {
-                  return ['Черновик', 'Отправлен', 'Оплачен/Заказ', 'Отменен'];
+                  return ['Новый заказ', 'Счет выставлен', 'Счет оплачен (Заказываем)', 'Отменен'];
                 };
                 
                 const allStatuses = getAllStatuses();

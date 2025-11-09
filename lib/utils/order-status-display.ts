@@ -5,7 +5,8 @@
 import { 
   getStatusLabel as getStatusLabelFromDocumentStatuses,
   ORDER_STATUSES_COMPLECTATOR,
-  ORDER_STATUSES_EXECUTOR
+  ORDER_STATUSES_EXECUTOR,
+  COMPLECTATOR_FILTER_STATUSES
 } from './document-statuses';
 
 /**
@@ -49,35 +50,44 @@ export function getExecutorOrderStatus(orderStatus: string): string {
 /**
  * Получает статус для фильтрации комплектатора на основе статуса Order
  */
-export function getOrderFilterStatusForComplectator(orderStatus: string): 'Черновик' | 'Счет выставлен' | 'Счет оплачен' | 'Отменен' {
-  // Статусы исполнителя попадают в фильтр "Счет оплачен"
-  const executorStatuses = ['NEW_PLANNED', 'UNDER_REVIEW', 'AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'COMPLETED'];
-  if (executorStatuses.includes(orderStatus)) {
-    return 'Счет оплачен';
+export function getOrderFilterStatusForComplectator(orderStatus: string): typeof COMPLECTATOR_FILTER_STATUSES[number] {
+  // Статусы исполнителя попадают в соответствующие фильтры
+  const executorStatusMap: Record<string, typeof COMPLECTATOR_FILTER_STATUSES[number]> = {
+    'NEW_PLANNED': 'Счет оплачен (Заказываем)',
+    'UNDER_REVIEW': 'На проверке',
+    'AWAITING_MEASUREMENT': 'Ждет замер',
+    'AWAITING_INVOICE': 'Ожидает опт. счет',
+    'READY_FOR_PRODUCTION': 'Готов к запуску в производство',
+    'COMPLETED': 'Выполнен',
+    'RETURNED_TO_COMPLECTATION': 'Вернуть в комплектацию'
+  };
+  
+  if (executorStatusMap[orderStatus]) {
+    return executorStatusMap[orderStatus];
   }
   
   // Статусы комплектатора маппятся напрямую
-  const complectatorStatusMap: Record<string, 'Черновик' | 'Счет выставлен' | 'Счет оплачен' | 'Отменен'> = {
-    'DRAFT': 'Черновик',
+  const complectatorStatusMap: Record<string, typeof COMPLECTATOR_FILTER_STATUSES[number]> = {
+    'DRAFT': 'Новый заказ',
     'SENT': 'Счет выставлен',
-    'PAID': 'Счет оплачен',
+    'NEW_PLANNED': 'Счет оплачен (Заказываем)',
     'CANCELLED': 'Отменен'
   };
   
-  return complectatorStatusMap[orderStatus] || 'Черновик';
+  return complectatorStatusMap[orderStatus] || 'Новый заказ';
 }
 
 /**
  * Проверяет, является ли статус Order статусом исполнителя
  */
 export function isExecutorOrderStatus(status: string): boolean {
-  return ['NEW_PLANNED', 'UNDER_REVIEW', 'AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'COMPLETED'].includes(status);
+  return ['NEW_PLANNED', 'UNDER_REVIEW', 'AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'READY_FOR_PRODUCTION', 'COMPLETED', 'RETURNED_TO_COMPLECTATION'].includes(status);
 }
 
 /**
  * Проверяет, является ли статус Order статусом комплектатора
  */
 export function isComplectatorOrderStatus(status: string): boolean {
-  return ['DRAFT', 'SENT', 'PAID', 'CANCELLED'].includes(status);
+  return ['DRAFT', 'SENT', 'NEW_PLANNED', 'RETURNED_TO_COMPLECTATION', 'CANCELLED'].includes(status);
 }
 
