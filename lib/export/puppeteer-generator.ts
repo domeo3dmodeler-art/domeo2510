@@ -1467,4 +1467,4 @@ export async function cleanupExportResources() {
 }
 
 // Экспортируем функции для использования в других модулях
-export { findExistingDocument, createDocumentRecordsSimple as createDocumentRecord };
+export { findExistingDocumentDedup as findExistingDocument, createDocumentRecordsSimple as createDocumentRecord };

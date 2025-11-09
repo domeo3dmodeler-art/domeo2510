@@ -907,7 +907,6 @@ async function postHandler(
       'Неизвестный тип документа',
       400
     );
-  }
 }
 
 export const POST = withErrorHandling(
