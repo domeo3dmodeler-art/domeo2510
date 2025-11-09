@@ -29,8 +29,7 @@ export const DELETE = withErrorHandling(
 );
 
 async function postHandler(
-  req: NextRequest,
-  user: ReturnType<typeof getAuthenticatedUser>
+  req: NextRequest
 ): Promise<NextResponse> {
   const loggingContext = getLoggingContextFromRequest(req);
   const { models } = await req.json();
@@ -257,7 +256,8 @@ async function postHandler(
     });
 }
 
+// Публичный API - фото доступны всем
 export const POST = withErrorHandling(
-  requireAuth(postHandler),
+  postHandler,
   'catalog/doors/photos-batch/POST'
 );

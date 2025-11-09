@@ -562,6 +562,29 @@ async function resolveSelectionBySku(sku: string) {
   return r.json() as Promise<{ ok: boolean; selection?: any }>;
 }
 
+// ===================== Вспомогательные функции =====================
+// Безопасный поиск ручки по ID
+function findHandleById(handles: Record<string, Handle[]>, handleId: string | undefined): Handle | undefined {
+  if (!handleId || !handles || typeof handles !== 'object') return undefined;
+  try {
+    const handlesArray = Object.values(handles).flat();
+    if (!Array.isArray(handlesArray) || handlesArray.length === 0) return undefined;
+    return handlesArray.find((h: Handle) => h && typeof h === 'object' && 'id' in h && h.id === handleId);
+  } catch {
+    return undefined;
+  }
+}
+
+// Безопасный поиск комплекта фурнитуры по ID
+function findHardwareKitById(hardwareKits: HardwareKit[], kitId: string | undefined): HardwareKit | undefined {
+  if (!kitId || !Array.isArray(hardwareKits) || hardwareKits.length === 0) return undefined;
+  try {
+    return hardwareKits.find((k: HardwareKit) => k && typeof k === 'object' && 'id' in k && k.id === kitId);
+  } catch {
+    return undefined;
+  }
+}
+
 // ===================== Страница Doors =====================
 export default function DoorsPage() {
   const { user, isAuthenticated } = useAuth();
@@ -978,14 +1001,40 @@ export default function DoorsPage() {
         // Оптимистичное обновление: показываем пустой список сразу
         if (!c) setModels([]);
         
+        // Получаем токен для авторизации
+        const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+          headers['x-auth-token'] = token;
+        }
+        
         // Один оптимизированный запрос для всех данных
-        const response = await fetch(`/api/catalog/doors/complete-data?style=${encodeURIComponent(sel.style || "")}`);
+        const response = await fetch(`/api/catalog/doors/complete-data?style=${encodeURIComponent(sel.style || "")}`, {
+          headers,
+          credentials: 'include',
+        });
         
         if (!c && response.ok) {
-          const data = await response.json();
+          let data: unknown;
+          try {
+            data = await response.json();
+          } catch (jsonError) {
+            clientLogger.error('Ошибка парсинга JSON ответа complete-data:', jsonError);
+            setIsLoadingModels(false);
+            return;
+          }
+          
           clientLogger.debug('✅ Все данные загружены одним запросом:', data);
           
-          const rows = data?.models || [];
+          // Проверяем формат ответа apiSuccess
+          const rows = Array.isArray(data && typeof data === 'object' && 'models' in data && data.models) 
+            ? (data.models as unknown[]) 
+            : (data && typeof data === 'object' && 'data' in data && data.data && typeof data.data === 'object' && 'models' in data.data && Array.isArray(data.data.models)
+              ? (data.data.models as unknown[]) 
+              : []);
           
           // Оптимизированная загрузка фото для всех моделей
           if (rows.length > 0) {
@@ -993,7 +1042,8 @@ export default function DoorsPage() {
               const modelNames = rows.map((m: any) => m.model);
               const photoResponse = await fetch('/api/catalog/doors/photos-batch', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
+                credentials: 'include',
                 body: JSON.stringify({ models: modelNames })
               });
               
@@ -1116,12 +1166,38 @@ export default function DoorsPage() {
     const preloadAllData = async () => {
       try {
         clientLogger.debug('🚀 Предзагрузка всех данных...');
-        const response = await fetch('/api/catalog/doors/complete-data');
+        
+        // Получаем токен для авторизации
+        const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+          headers['x-auth-token'] = token;
+        }
+        
+        const response = await fetch('/api/catalog/doors/complete-data', {
+          headers,
+          credentials: 'include',
+        });
         if (response.ok) {
-          const data = await response.json();
+          let data: unknown;
+          try {
+            data = await response.json();
+          } catch (jsonError) {
+            clientLogger.error('Ошибка парсинга JSON ответа preload:', jsonError);
+            return;
+          }
+          
           clientLogger.debug('✅ Все данные предзагружены:', data);
           
-          const rows = data?.models || [];
+          // Проверяем формат ответа apiSuccess
+          const rows = Array.isArray(data && typeof data === 'object' && 'models' in data && data.models) 
+            ? (data.models as unknown[]) 
+            : (data && typeof data === 'object' && 'data' in data && data.data && typeof data.data === 'object' && 'models' in data.data && Array.isArray(data.data.models)
+              ? (data.data.models as unknown[]) 
+              : []);
           
           // Загружаем фото для всех моделей
           if (rows.length > 0) {
@@ -1129,22 +1205,38 @@ export default function DoorsPage() {
               const modelNames = rows.map((m: any) => m.model);
               const photoResponse = await fetch('/api/catalog/doors/photos-batch', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
+                credentials: 'include',
                 body: JSON.stringify({ models: modelNames })
               });
               
               if (photoResponse.ok) {
-                const photoData = await photoResponse.json();
+                let photoData: unknown;
+                try {
+                  photoData = await photoResponse.json();
+                } catch (jsonError) {
+                  clientLogger.error('Ошибка парсинга JSON ответа photos-batch preload:', jsonError);
+                  // Продолжаем без фото
+                  photoData = { photos: {} };
+                }
                 clientLogger.debug('⚡ Предзагрузка фото завершена для', modelNames.length, 'моделей');
                 
                 // Объединяем данные моделей с фото
-                const modelsWithPhotos = rows.map((model: any) => {
-                  const photoInfo = photoData.photos[model.model];
+                const photoDataObj = photoData && typeof photoData === 'object' && 'photos' in photoData && photoData.photos && typeof photoData.photos === 'object'
+                  ? photoData.photos as Record<string, unknown>
+                  : {};
+                const modelsWithPhotos = rows.map((model: unknown) => {
+                  const modelObj = model && typeof model === 'object' && 'model' in model && typeof model.model === 'string'
+                    ? model as { model: string; photo?: string | null; photos?: { cover: string | null; gallery: string[] }; [key: string]: unknown }
+                    : { model: '' };
+                  const photoInfo = modelObj.model && photoDataObj[modelObj.model] && typeof photoDataObj[modelObj.model] === 'object'
+                    ? photoDataObj[modelObj.model] as { photo?: string; photos?: { cover?: string | null; gallery?: string[] } }
+                    : null;
                   return {
-                    ...model,
-                    photo: photoInfo?.photo || model.photo,
-                    photos: photoInfo?.photos || model.photos,
-                    hasGallery: photoInfo?.photos?.gallery?.length > 0 || false
+                    ...modelObj,
+                    photo: photoInfo?.photo || modelObj.photo || null,
+                    photos: photoInfo?.photos || modelObj.photos,
+                    hasGallery: photoInfo?.photos?.gallery && Array.isArray(photoInfo.photos.gallery) && photoInfo.photos.gallery.length > 0 || false
                   };
                 });
                 
@@ -1196,21 +1288,47 @@ export default function DoorsPage() {
       try {
         clientLogger.debug('🔧 Загружаем данные фурнитуры...');
         
+        // Получаем токен для авторизации
+        const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+          headers['x-auth-token'] = token;
+        }
+        
         // Загружаем комплекты фурнитуры
-        const kitsResponse = await fetch('/api/catalog/hardware?type=kits');
+        const kitsResponse = await fetch('/api/catalog/hardware?type=kits', {
+          headers,
+          credentials: 'include',
+        });
         if (!kitsResponse.ok) {
+          if (kitsResponse.status === 401) {
+            clientLogger.warn('🔧 Необходима авторизация для загрузки комплектов фурнитуры');
+            setHardwareKits([]);
+            return;
+          }
           throw new Error(`Failed to load hardware kits: ${kitsResponse.status}`);
         }
-        const kitsData = await kitsResponse.json();
+        let kitsData: unknown;
+        try {
+          kitsData = await kitsResponse.json();
+        } catch (jsonError) {
+          clientLogger.error('Ошибка парсинга JSON ответа kits:', jsonError);
+          setHardwareKits([]);
+          return;
+        }
+        
         // apiSuccess возвращает { success: true, data: [...] }
         // Проверяем формат ответа
         const kits = Array.isArray(kitsData) 
           ? kitsData 
-          : (kitsData.data && Array.isArray(kitsData.data) 
+          : (kitsData && typeof kitsData === 'object' && 'data' in kitsData && Array.isArray(kitsData.data)
             ? kitsData.data 
-            : (kitsData.kits && Array.isArray(kitsData.kits) 
+            : (kitsData && typeof kitsData === 'object' && 'kits' in kitsData && Array.isArray(kitsData.kits)
               ? kitsData.kits 
-              : []));
+              : []);
         if (!Array.isArray(kits)) {
           clientLogger.warn('🔧 Неожиданный формат данных комплектов:', kitsData);
           setHardwareKits([]);
@@ -1220,24 +1338,40 @@ export default function DoorsPage() {
         }
         
         // Загружаем ручки
-        const handlesResponse = await fetch('/api/catalog/hardware?type=handles');
+        const handlesResponse = await fetch('/api/catalog/hardware?type=handles', {
+          headers,
+          credentials: 'include',
+        });
         if (!handlesResponse.ok) {
+          if (handlesResponse.status === 401) {
+            clientLogger.warn('🔧 Необходима авторизация для загрузки ручек');
+            setHandles({});
+            return;
+          }
           throw new Error(`Failed to load handles: ${handlesResponse.status}`);
         }
-        const handlesDataRaw = await handlesResponse.json();
+        let handlesDataRaw: unknown;
+        try {
+          handlesDataRaw = await handlesResponse.json();
+        } catch (jsonError) {
+          clientLogger.error('Ошибка парсинга JSON ответа handles:', jsonError);
+          setHandles({});
+          return;
+        }
+        
         // apiSuccess возвращает { success: true, data: {...} }
         // Проверяем формат ответа - может быть объект или массив
         let handlesData: Record<string, Handle[]>;
         if (Array.isArray(handlesDataRaw)) {
-          handlesData = { default: handlesDataRaw };
-        } else if (handlesDataRaw.data && typeof handlesDataRaw.data === 'object' && !Array.isArray(handlesDataRaw.data)) {
+          handlesData = { default: handlesDataRaw as Handle[] };
+        } else if (handlesDataRaw && typeof handlesDataRaw === 'object' && 'data' in handlesDataRaw && handlesDataRaw.data && typeof handlesDataRaw.data === 'object' && !Array.isArray(handlesDataRaw.data)) {
           // Если data - это объект с группами
-          handlesData = handlesDataRaw.data;
-        } else if (handlesDataRaw.handles && typeof handlesDataRaw.handles === 'object') {
-          handlesData = handlesDataRaw.handles;
-        } else if (typeof handlesDataRaw === 'object' && !Array.isArray(handlesDataRaw)) {
+          handlesData = handlesDataRaw.data as Record<string, Handle[]>;
+        } else if (handlesDataRaw && typeof handlesDataRaw === 'object' && 'handles' in handlesDataRaw && handlesDataRaw.handles && typeof handlesDataRaw.handles === 'object') {
+          handlesData = handlesDataRaw.handles as Record<string, Handle[]>;
+        } else if (handlesDataRaw && typeof handlesDataRaw === 'object' && !Array.isArray(handlesDataRaw)) {
           // Если сам ответ - это объект с группами
-          handlesData = handlesDataRaw;
+          handlesData = handlesDataRaw as Record<string, Handle[]>;
         } else {
           handlesData = {};
         }
@@ -1250,7 +1384,7 @@ export default function DoorsPage() {
           : null;
         const handlesArray = Object.values(handlesData).flat();
         const basicHandle = Array.isArray(handlesArray) && handlesArray.length > 0
-          ? handlesArray.find((h: Handle) => h.isBasic)
+          ? handlesArray.find((h: Handle) => h && typeof h === 'object' && 'isBasic' in h && h.isBasic)
           : null;
         
         if (basicKit || basicHandle) {
@@ -1340,7 +1474,7 @@ export default function DoorsPage() {
       sku_1c: price.sku_1c,
       hardwareKitId: (sel.hardware_kit && sel.hardware_kit.id) || undefined,
       hardwareKitName: sel.hardware_kit && Array.isArray(hardwareKits) && hardwareKits.length > 0 
-        ? hardwareKits.find((k: HardwareKit) => k.id === sel.hardware_kit?.id)?.name 
+        ? findHardwareKitById(hardwareKits, sel.hardware_kit?.id)?.name 
         : undefined, // Добавляем название комплекта
       baseAtAdd: price.total,
     };
@@ -1349,7 +1483,7 @@ export default function DoorsPage() {
     
     // Если выбрана ручка, добавляем её отдельной строкой
     if (sel.handle && sel.handle.id) {
-      const handle = Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id);
+      const handle = findHandleById(handles, sel.handle!.id);
       const handleItem: CartItem = {
         id: uid(),
         type: 'handle', // Указываем тип товара
@@ -1669,12 +1803,12 @@ export default function DoorsPage() {
             sku_1c: item.sku_1c,
             hardwareKitId: item.hardwareKitId,
             hardwareKitName: item.hardwareKitId && Array.isArray(hardwareKits) && hardwareKits.length > 0 
-              ? hardwareKits.find((k: HardwareKit) => k.id === item.hardwareKitId)?.name 
+              ? findHardwareKitById(hardwareKits, item.hardwareKitId)?.name 
               : item.hardwareKitName || undefined,
             handleId: item.handleId,
             handleName: item.handleName,
             type: item.type || (item.handleId ? 'handle' : 'door'), // ВАЖНО: Сохраняем type
-            description: item.handleId ? Object.values(handles).flat().find(h => h.id === item.handleId)?.name : undefined
+            description: item.handleId ? findHandleById(handles, item.handleId)?.name : undefined
           })),
           totalAmount: cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0)
         })
@@ -2060,7 +2194,7 @@ export default function DoorsPage() {
                           }`}
                         >
                           {sel.handle?.id ? 
-                            Object.values(handles).flat().find(h => h.id === sel.handle?.id)?.name || 'Выберите ручку' :
+                            findHandleById(handles, sel.handle?.id)?.name || 'Выберите ручку' :
                             'Выберите ручку'
                           }
                         </button>
@@ -2078,7 +2212,7 @@ export default function DoorsPage() {
                             </button>
                             <div className="text-sm font-medium text-gray-900 min-w-[80px] text-right">
                               {(() => {
-                                const selectedHandle = sel.handle?.id ? Object.values(handles).flat().find(h => h.id === sel.handle?.id) : undefined;
+                                const selectedHandle = sel.handle?.id ? findHandleById(handles, sel.handle?.id) : undefined;
                                 return selectedHandle?.price !== undefined ? `${fmtInt(selectedHandle.price)} ₽` : '';
                               })()}
                             </div>
@@ -2086,7 +2220,7 @@ export default function DoorsPage() {
                         )}
                         {/* Информация о ручке */}
                         {showHandleInfo && sel.handle?.id && (() => {
-                          const selectedHandle = Object.values(handles).flat().find(h => h.id === sel.handle?.id);
+                          const selectedHandle = findHandleById(handles, sel.handle?.id);
                           if (!selectedHandle) return null;
                           return (
                             <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded text-sm text-gray-700">
@@ -2125,7 +2259,7 @@ export default function DoorsPage() {
                                   if (!Array.isArray(hardwareKits) || hardwareKits.length === 0 || !sel.hardware_kit?.id) {
                                     return 'Базовый';
                                   }
-                                  const kit = hardwareKits.find((k: HardwareKit) => k.id === sel.hardware_kit!.id);
+                                  const kit = findHardwareKitById(hardwareKits, sel.hardware_kit!.id);
                                   return kit?.name ? kit.name.replace('Комплект фурнитуры — ', '') : 'Базовый';
                                 })()}`
                               : "Дверь"}
@@ -2144,13 +2278,13 @@ export default function DoorsPage() {
                           <div className="flex justify-between">
                             <span>
                               {(() => {
-                                const selectedHandle = sel.handle?.id ? Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id) : undefined;
+                                const selectedHandle = sel.handle?.id ? findHandleById(handles, sel.handle!.id) : undefined;
                                 return selectedHandle?.name ? `Ручка ${selectedHandle.name}` : "Ручка";
                               })()}
                             </span>
                             <span>
                               {(() => {
-                                const selectedHandle = sel.handle?.id ? Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id) : undefined;
+                                const selectedHandle = sel.handle?.id ? findHandleById(handles, sel.handle!.id) : undefined;
                                 return selectedHandle?.price !== undefined ? `${fmtInt(selectedHandle.price)} ₽` : "—";
                               })()}
                             </span>
@@ -2310,7 +2444,7 @@ export default function DoorsPage() {
                             if (!Array.isArray(hardwareKits) || hardwareKits.length === 0) {
                               return "—";
                             }
-                            const kit = hardwareKits.find((k: HardwareKit) => k.id === sel.hardware_kit!.id);
+                            const kit = findHardwareKitById(hardwareKits, sel.hardware_kit!.id);
                             return kit?.name ? kit.name.replace('Комплект фурнитуры — ', '') : "—";
                           })()
                         : "—"}
@@ -2320,7 +2454,7 @@ export default function DoorsPage() {
                     <span className="text-gray-600">Ручка:</span>
                     <span className="text-black font-medium">
                       {sel.handle?.id
-                        ? Object.values(handles).flat().find((h: Handle) => h.id === sel.handle!.id)?.name || "—"
+                        ? findHandleById(handles, sel.handle!.id)?.name || "—"
                         : "—"}
                     </span>
                 </div>
@@ -2368,7 +2502,7 @@ export default function DoorsPage() {
                       // Если это ручка, отображаем отдельно
                       if (i.handleId) {
                         // ИСПРАВЛЕНИЕ: Всегда используем актуальное имя из каталога, а не item.handleName
-                        const handle = Object.values(handles).flat().find((h: Handle) => h.id === i.handleId);
+                        const handle = findHandleById(handles, i.handleId);
                         const currentHandleName = handle?.name || i.handleName || "Ручка";
                         return (
                           <div key={i.id} className="border border-black/10 p-3">
@@ -2393,7 +2527,7 @@ export default function DoorsPage() {
                               <div className="font-medium text-black">
                                 {i.type === 'handle' 
                                   ? (() => {
-                                      const displayHandle = i.handleId ? Object.values(handles).flat().find((h: Handle) => h.id === i.handleId) : null;
+                                      const displayHandle = i.handleId ? findHandleById(handles, i.handleId) : null;
                                       return `Ручка ${displayHandle?.name || i.handleName || 'Неизвестная ручка'}`;
                                     })()
                                   : `Дверь DomeoDoors ${i.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель'}`
@@ -2406,7 +2540,7 @@ export default function DoorsPage() {
                                       if (!Array.isArray(hardwareKits) || hardwareKits.length === 0 || !i.hardwareKitId) {
                                         return i.hardwareKitName?.replace('Комплект фурнитуры — ', '') || 'Базовый';
                                       }
-                                      const kit = hardwareKits.find((k: HardwareKit) => k.id === i.hardwareKitId);
+                                      const kit = findHardwareKitById(hardwareKits, i.hardwareKitId);
                                       return kit?.name ? kit.name.replace('Комплект фурнитуры — ', '') : (i.hardwareKitName?.replace('Комплект фурнитуры — ', '') || 'Базовый');
                                     })()})`
                                 }
@@ -3046,7 +3180,7 @@ function CartManager({
   // Вспомогательная функция для получения ручки по ID (оптимизация для избежания повторных поисков)
   const getHandleById = React.useCallback((handleId: string | undefined): Handle | undefined => {
     if (!handleId) return undefined;
-    return Object.values(handles).flat().find((h: Handle) => h.id === handleId);
+    return findHandleById(handles, handleId);
   }, [handles]);
   const [availableParams, setAvailableParams] = useState<any>(null);
   // ИСПРАВЛЕНИЕ #2: Сохраняем пересчитанную цену во время редактирования, чтобы избежать двойного пересчета
@@ -3240,7 +3374,7 @@ function CartManager({
 
     // Для ручек получаем цену и актуальное название из каталога
     if (updatedItem.handleId) {
-      const handle = Object.values(handles).flat().find((h: Handle) => h.id === updatedItem.handleId);
+      const handle = findHandleById(handles, updatedItem.handleId);
       const newPrice = handle ? handle.price : updatedItem.unitPrice;
       const newHandleName = handle ? handle.name : undefined;
       clientLogger.debug('🔧 Handle price update:', { handleId: updatedItem.handleId, newPrice, newHandleName });
@@ -3320,7 +3454,7 @@ function CartManager({
         // Пересчитываем только если цена еще не была рассчитана
         if (currentItem.handleId) {
           // Для ручек получаем цену из каталога
-          const handle = Object.values(handles).flat().find((h: Handle) => h.id === currentItem.handleId);
+          const handle = findHandleById(handles, currentItem.handleId);
           newPrice = handle ? handle.price : currentItem.unitPrice;
         } else {
           // Для дверей используем унифицированный сервис расчета цены
@@ -3349,7 +3483,7 @@ function CartManager({
       setCart(prev => prev.map(item => {
         if (item.id === editingItem) {
           if (currentItem.handleId) {
-            const handle = Object.values(handles).flat().find((h: Handle) => h.id === currentItem.handleId);
+            const handle = findHandleById(handles, currentItem.handleId);
             return { ...item, unitPrice: newPrice, handleName: handle?.name };
           }
           return { ...item, unitPrice: newPrice };
@@ -3584,7 +3718,7 @@ function CartManager({
                       if (item.type === 'handle' || item.handleId) {
                         // Ручка
                         try {
-                          const handle = handles && Object.values(handles).flat().find((h: Handle) => h.id === item.handleId);
+                          const handle = handles ? findHandleById(handles, item.handleId) : undefined;
                           const handleName = handle?.name || item.handleName || 'Неизвестная ручка';
                           fullName = `Ручка ${handleName}`;
                         } catch (e) {
@@ -3596,7 +3730,7 @@ function CartManager({
                         try {
                           const modelName = item.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || 'Неизвестная модель';
                           const hardwareKit = Array.isArray(hardwareKits) && hardwareKits.length > 0 && item.hardwareKitId
-                            ? hardwareKits.find((k: HardwareKit) => k.id === item.hardwareKitId)
+                            ? findHardwareKitById(hardwareKits, item.hardwareKitId)
                             : null;
                           const hardwareKitName = hardwareKit?.name?.replace('Комплект фурнитуры — ', '') || item.hardwareKitName?.replace('Комплект фурнитуры — ', '') || 'Базовый';
                           fullName = `Дверь DomeoDoors ${modelName} (${item.finish || ''}, ${item.color || ''}, ${item.width || ''} × ${item.height || ''} мм, Фурнитура - ${hardwareKitName})`;
@@ -3836,7 +3970,7 @@ function CartManager({
                                 if (!Array.isArray(hardwareKits) || hardwareKits.length === 0 || !item.hardwareKitId) {
                                   return item.hardwareKitName?.replace('Комплект фурнитуры — ', '') || 'Базовый';
                                 }
-                                const kit = hardwareKits.find((k: HardwareKit) => k.id === item.hardwareKitId);
+                                const kit = findHardwareKitById(hardwareKits, item.hardwareKitId);
                                 return kit?.name ? kit.name.replace('Комплект фурнитуры — ', '') : (item.hardwareKitName?.replace('Комплект фурнитуры — ', '') || 'Базовый');
                               })()}`
                           }
@@ -4104,7 +4238,7 @@ function CartManager({
                                     <span className="font-medium">
                                       {item?.type === 'handle' 
                                         ? (() => {
-                                            const displayHandle = Object.values(handles).flat().find((h: Handle) => h.id === item?.handleId);
+                                            const displayHandle = findHandleById(handles, item?.handleId);
                                             return `Ручка ${displayHandle?.name || item?.handleName || itemId}`;
                                           })()
                                         : `Дверь ${item?.model?.replace(/DomeoDoors_/g, '').replace(/_/g, ' ') || itemId}`}

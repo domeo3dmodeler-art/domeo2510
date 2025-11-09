@@ -7,8 +7,7 @@ import { requireAuth } from '@/lib/auth/middleware';
 import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
 async function getHandler(
-  request: NextRequest,
-  user: ReturnType<typeof getAuthenticatedUser>
+  request: NextRequest
 ): Promise<NextResponse> {
   const loggingContext = getLoggingContextFromRequest(request);
   const url = new URL(request.url);
@@ -164,7 +163,8 @@ async function getHandler(
   );
 }
 
+// Публичный API - каталог фурнитуры доступен всем
 export const GET = withErrorHandling(
-  requireAuth(getHandler),
+  getHandler,
   'catalog/hardware/GET'
 );

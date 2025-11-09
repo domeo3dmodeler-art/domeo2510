@@ -28,8 +28,7 @@ export const DELETE = withErrorHandling(
 );
 
 async function getHandler(
-  req: NextRequest,
-  user: ReturnType<typeof getAuthenticatedUser>
+  req: NextRequest
 ): Promise<NextResponse> {
   const loggingContext = getLoggingContextFromRequest(req);
   const { searchParams } = new URL(req.url);
@@ -223,7 +222,8 @@ async function getHandler(
   });
 }
 
+// Публичный API - каталог доступен всем
 export const GET = withErrorHandling(
-  requireAuth(getHandler),
+  getHandler,
   'catalog/doors/complete-data/GET'
 );
