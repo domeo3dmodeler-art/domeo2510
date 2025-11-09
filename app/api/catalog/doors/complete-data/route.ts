@@ -167,12 +167,35 @@ async function getHandler(
     const photoStructure = structurePropertyPhotos(modelPhotos);
     const hasGallery = photoStructure.gallery.length > 0;
 
+    // Нормализуем пути к фото: добавляем префикс /uploads/ если его нет
+    const normalizePhotoPath = (path: string | null): string | null => {
+      if (!path) return null;
+      if (path.startsWith('/uploads/')) return path;
+      if (path.startsWith('products/')) return `/uploads/${path}`;
+      if (path.startsWith('uploads/')) return `/uploads/${path.substring(7)}`;
+      return `/uploads/${path}`;
+    };
+
+    const normalizedCover = normalizePhotoPath(photoStructure.cover);
+    const normalizedGallery = photoStructure.gallery.map(normalizePhotoPath).filter((p): p is string => p !== null);
+
+    logger.debug(`Нормализация путей к фото`, 'catalog/doors/complete-data/GET', { 
+      model: modelData.model,
+      coverOriginal: photoStructure.cover,
+      coverNormalized: normalizedCover,
+      galleryOriginal: photoStructure.gallery,
+      galleryNormalized: normalizedGallery
+    }, loggingContext);
+
     const result = {
       model: modelData.model,
       modelKey: modelData.modelKey, // Добавляем ключ для поиска фото
       style: modelData.style,
-      photo: photoStructure.cover, // Только обложка для каталога
-      photos: photoStructure,      // Полная структура для центрального отображения
+      photo: normalizedCover, // Только обложка для каталога
+      photos: {
+        cover: normalizedCover,
+        gallery: normalizedGallery
+      },      // Полная структура для центрального отображения
       hasGallery: hasGallery,      // Флаг наличия галереи
       products: modelData.products, // Добавляем массив товаров
       options: {
@@ -188,6 +211,9 @@ async function getHandler(
       model: result.model, 
       modelKey: result.modelKey,
       hasPhoto: !!result.photo,
+      photo: result.photo,
+      photosCover: result.photos.cover,
+      photosGalleryCount: result.photos.gallery.length,
       hasGallery 
     }, loggingContext);
     
