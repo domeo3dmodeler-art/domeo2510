@@ -103,7 +103,22 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
         <div className="h-full w-full flex items-center justify-center">
           {allPhotos[currentIndex] ? (
             <img
-              src={allPhotos[currentIndex].startsWith('/uploads') ? `/api${allPhotos[currentIndex]}` : `/api/uploads${allPhotos[currentIndex]}`}
+              src={(() => {
+                const photo = allPhotos[currentIndex];
+                if (photo.startsWith('/uploads/')) {
+                  return `/api${photo}`;
+                } else if (photo.startsWith('/uploadsproducts')) {
+                  return `/api/uploads/products/${photo.substring(17)}`;
+                } else if (photo.startsWith('/uploads')) {
+                  return `/api/uploads/${photo.substring(8)}`;
+                } else if (photo.startsWith('products/')) {
+                  return `/api/uploads/${photo}`;
+                } else if (photo.startsWith('uploads/')) {
+                  return `/api/${photo}`;
+                } else {
+                  return `/api/uploads${photo}`;
+                }
+              })()}
               alt={`${productName} - фото ${currentIndex + 1}`}
               className="max-h-full max-w-full object-contain transition-all duration-300 hover:scale-105 cursor-pointer"
               onClick={toggleZoom}
@@ -176,7 +191,21 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
                   aria-label={`Перейти к фото ${index + 1}`}
                 >
                   <img
-                    src={photo.startsWith('/uploads') ? `/api${photo}` : `/api/uploads${photo}`}
+                    src={(() => {
+                      if (photo.startsWith('/uploads/')) {
+                        return `/api${photo}`;
+                      } else if (photo.startsWith('/uploadsproducts')) {
+                        return `/api/uploads/products/${photo.substring(17)}`;
+                      } else if (photo.startsWith('/uploads')) {
+                        return `/api/uploads/${photo.substring(8)}`;
+                      } else if (photo.startsWith('products/')) {
+                        return `/api/uploads/${photo}`;
+                      } else if (photo.startsWith('uploads/')) {
+                        return `/api/${photo}`;
+                      } else {
+                        return `/api/uploads${photo}`;
+                      }
+                    })()}
                     alt={`Миниатюра ${index + 1}`}
                     className="w-full h-full object-cover"
                     onError={() => {
