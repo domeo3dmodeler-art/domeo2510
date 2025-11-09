@@ -21,10 +21,10 @@ export function checkRole(userRole: string, requiredRole: string): boolean {
  * Middleware для проверки аутентификации
  */
 export function requireAuth(
-  handler: (req: NextRequest, user: ReturnType<typeof getAuthenticatedUser>) => Promise<NextResponse>
+  handler: (req: NextRequest, user: Awaited<ReturnType<typeof getAuthenticatedUser>>) => Promise<NextResponse>
 ) {
   return async (req: NextRequest): Promise<NextResponse> => {
-    const user = getAuthenticatedUser(req);
+    const user = await getAuthenticatedUser(req);
     return await handler(req, user);
   };
 }
@@ -34,11 +34,11 @@ export function requireAuth(
  */
 export function requirePermission(
   permissionChecker: PermissionChecker,
-  handler: (req: NextRequest, user: ReturnType<typeof getAuthenticatedUser>) => Promise<NextResponse>,
+  handler: (req: NextRequest, user: Awaited<ReturnType<typeof getAuthenticatedUser>>) => Promise<NextResponse>,
   ...permissionArgs: any[]
 ) {
   return async (req: NextRequest): Promise<NextResponse> => {
-    const user = getAuthenticatedUser(req);
+    const user = await getAuthenticatedUser(req);
     
     if (!permissionChecker(user.role, ...permissionArgs)) {
       throw new ForbiddenError('Недостаточно прав для выполнения операции');
@@ -52,7 +52,7 @@ export function requirePermission(
  * Комбинированный middleware для аутентификации и проверки прав
  */
 export function requireAuthAndPermission(
-  handler: (req: NextRequest, user: ReturnType<typeof getAuthenticatedUser>) => Promise<NextResponse>,
+  handler: (req: NextRequest, user: Awaited<ReturnType<typeof getAuthenticatedUser>>) => Promise<NextResponse>,
   requiredRole: string
 ) {
   return requirePermission(checkRole, handler, requiredRole);

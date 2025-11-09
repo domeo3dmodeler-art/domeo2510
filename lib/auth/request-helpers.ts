@@ -2,7 +2,7 @@
 // Helper функции для работы с аутентификацией в API routes
 
 import { NextRequest } from 'next/server';
-import jwt from 'jsonwebtoken';
+import { jwtVerify } from 'jose';
 import { UnauthorizedError } from '@/lib/api/errors';
 import { logger } from '@/lib/logging/logger';
 
@@ -37,7 +37,7 @@ export function getAuthToken(req: NextRequest): string | null {
  * Получает аутентифицированного пользователя из запроса
  * @throws UnauthorizedError если токен отсутствует или недействителен
  */
-export function getAuthenticatedUser(req: NextRequest): AuthenticatedUser {
+export async function getAuthenticatedUser(req: NextRequest): Promise<AuthenticatedUser> {
   const token = getAuthToken(req);
   
   if (!token) {
@@ -45,10 +45,12 @@ export function getAuthenticatedUser(req: NextRequest): AuthenticatedUser {
   }
 
   try {
-    const decoded = jwt.verify(
-      token, 
-      process.env.JWT_SECRET || "your-super-secret-jwt-key-change-this-in-production-min-32-chars"
-    ) as { userId: string; role: string; email?: string };
+    const JWT_SECRET = process.env.JWT_SECRET || "your-super-secret-jwt-key-change-this-in-production-min-32-chars";
+    const secret = new TextEncoder().encode(JWT_SECRET);
+    
+    const { payload } = await jwtVerify(token, secret);
+    
+    const decoded = payload as { userId: string; role: string; email?: string };
 
     return {
       userId: decoded.userId,
@@ -65,9 +67,9 @@ export function getAuthenticatedUser(req: NextRequest): AuthenticatedUser {
  * Получает аутентифицированного пользователя из запроса (без исключения)
  * Возвращает null если токен отсутствует или недействителен
  */
-export function getAuthenticatedUserOptional(req: NextRequest): AuthenticatedUser | null {
+export async function getAuthenticatedUserOptional(req: NextRequest): Promise<AuthenticatedUser | null> {
   try {
-    return getAuthenticatedUser(req);
+    return await getAuthenticatedUser(req);
   } catch (error) {
     return null;
   }
@@ -76,7 +78,7 @@ export function getAuthenticatedUserOptional(req: NextRequest): AuthenticatedUse
 /**
  * Проверяет, аутентифицирован ли пользователь
  */
-export function isAuthenticated(req: NextRequest): boolean {
-  return getAuthenticatedUserOptional(req) !== null;
+export async function isAuthenticated(req: NextRequest): Promise<boolean> {
+  return (await getAuthenticatedUserOptional(req)) !== null;
 }
 
