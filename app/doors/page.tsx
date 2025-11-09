@@ -2436,9 +2436,9 @@ export default function DoorsPage() {
                     <div className="aspect-[4/6.5] overflow-visible rounded-t-xl" style={{ position: 'relative', zIndex: 1 }}>
                     {(() => {
                       const hasPhotos = selectedModelCard?.photos && selectedModelCard.photos;
-                      const hasCover = hasPhotos && selectedModelCard.photos.cover;
+                      const hasCover = hasPhotos && !!selectedModelCard.photos.cover;
                       const hasGallery = hasPhotos && Array.isArray(selectedModelCard.photos.gallery) && selectedModelCard.photos.gallery.length > 0;
-                      const shouldShowGallery = hasCover || hasGallery;
+                      const shouldShowGallery = !!(hasCover || hasGallery);
                       
                       clientLogger.debug('🖼️ Рендер галереи:', {
                         model: selectedModelCard?.model,
