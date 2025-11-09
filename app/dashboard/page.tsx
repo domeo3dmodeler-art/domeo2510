@@ -208,7 +208,7 @@ function DashboardContent() {
             clientLogger.error('Error parsing admin stats:', err);
           }
         } else {
-          clientLogger.warn('Admin stats endpoint returned:', responses[0].status);
+          clientLogger.warn('Admin stats endpoint returned', { status: responses[0].status });
         }
         
         if (responses[1].ok) {
@@ -232,7 +232,7 @@ function DashboardContent() {
             clientLogger.error('Error parsing users data:', err);
           }
         } else {
-          clientLogger.warn('Users endpoint returned:', responses[1].status);
+          clientLogger.warn('Users endpoint returned', { status: responses[1].status });
         }
       } else if (userRole === 'complectator') {
         // Для комплектатора запрашиваем только complectator stats
@@ -263,7 +263,7 @@ function DashboardContent() {
               clientLogger.error('Error parsing complectator stats:', err);
             }
           } else {
-            clientLogger.warn('Complectator stats endpoint returned:', response.status);
+            clientLogger.warn('Complectator stats endpoint returned', { status: response.status });
           }
         } catch (err) {
           clientLogger.error('Error fetching complectator stats:', err);
@@ -453,7 +453,7 @@ function DashboardContent() {
             if (errorData && typeof errorData === 'object' && errorData !== null && 'error' in errorData) {
               errorMessage = String((errorData as { error: unknown }).error) || errorMessage;
             }
-            clientLogger.warn(`❌ API вернул ошибку ${response.status}:`, errorMessage);
+            clientLogger.warn(`❌ API вернул ошибку ${response.status}`, { errorMessage });
           } catch (e) {
             clientLogger.warn(`❌ API вернул ошибку ${response.status}, детали недоступны`);
           }
@@ -518,7 +518,7 @@ function DashboardContent() {
     router.push('/login');
   };
 
-  clientLogger.debug('🔄 DashboardContent - проверка isLoading:', isLoading, 'user:', user ? user.role : 'null');
+  clientLogger.debug('🔄 DashboardContent - проверка isLoading', { isLoading, userRole: user ? user.role : 'null' });
   
   if (isLoading) {
     clientLogger.debug('⏳ DashboardContent - показываем загрузку');
