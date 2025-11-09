@@ -8,9 +8,14 @@ import { ValidationError, BusinessRuleError } from '@/lib/api/errors';
 import { createClientSchema, findClientsSchema } from '@/lib/validation/client.schemas';
 import { validateRequest } from '@/lib/validation/middleware';
 import { clientRepository } from '@/lib/repositories/client.repository';
+import { requireAuth } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
 // GET /api/clients - получить список клиентов
-async function getHandler(request: NextRequest): Promise<NextResponse> {
+async function getHandler(
+  request: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>
+): Promise<NextResponse> {
   const loggingContext = getLoggingContextFromRequest(request);
   
   const { searchParams } = new URL(request.url);
@@ -64,10 +69,16 @@ async function getHandler(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-export const GET = withErrorHandling(getHandler, 'clients/GET');
+export const GET = withErrorHandling(
+  requireAuth(getHandler),
+  'clients/GET'
+);
 
 // POST /api/clients - создать нового клиента
-async function postHandler(request: NextRequest): Promise<NextResponse> {
+async function postHandler(
+  request: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>
+): Promise<NextResponse> {
   const loggingContext = getLoggingContextFromRequest(request);
   const body = await request.json();
 
@@ -119,4 +130,7 @@ async function postHandler(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-export const POST = withErrorHandling(postHandler, 'clients/POST');
+export const POST = withErrorHandling(
+  requireAuth(postHandler),
+  'clients/POST'
+);

@@ -1470,9 +1470,21 @@ async function postHandler(req: NextRequest) {
     
     // Обновляем статистику
     try {
+      // Получаем токен из запроса для передачи в внутренний запрос
+      const authHeader = req.headers.get('authorization');
+      const xAuthToken = req.headers.get('x-auth-token');
+      const cookieToken = req.cookies.get('auth-token')?.value;
+      const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : (xAuthToken || cookieToken);
+      
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
       await fetch(`${req.nextUrl.origin}/api/admin/stats`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ 
           imported: products.length, 
           filename: file.name,
@@ -1485,9 +1497,21 @@ async function postHandler(req: NextRequest) {
     
     // Добавляем в историю импортов
     try {
+      // Получаем токен из запроса для передачи в внутренний запрос
+      const authHeader = req.headers.get('authorization');
+      const xAuthToken = req.headers.get('x-auth-token');
+      const cookieToken = req.cookies.get('auth-token')?.value;
+      const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : (xAuthToken || cookieToken);
+      
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
       await fetch(`${req.nextUrl.origin}/api/admin/import-history`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ 
           category: category,
           filename: file.name,

@@ -234,10 +234,14 @@ function DashboardContent() {
             clientLogger.error('Ошибка парсинга JSON ответа users:', jsonError);
             return;
           }
-          const usersArray = usersData && typeof usersData === 'object' && usersData !== null && 'users' in usersData
-            ? (usersData as { users: unknown[] }).users
+          // apiSuccess возвращает { success: true, data: { users: ..., pagination: ... } }
+          const responseData = usersData && typeof usersData === 'object' && usersData !== null && 'data' in usersData
+            ? (usersData as { data: { users?: unknown[]; pagination?: any } }).data
+            : null;
+          const usersArray = responseData && 'users' in responseData && Array.isArray(responseData.users)
+            ? responseData.users
             : [];
-          setUserCount(Array.isArray(usersArray) ? usersArray.length : 0);
+          setUserCount(usersArray.length);
         } catch (err) {
           clientLogger.error('Error parsing users data:', err);
         }
@@ -354,7 +358,8 @@ function DashboardContent() {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${authToken}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            ...(authToken ? { 'x-auth-token': authToken } : {})
           },
           credentials: 'include' // Включаем cookie для передачи токена
         });
@@ -384,9 +389,16 @@ function DashboardContent() {
             setUser(userData);
             return;
           }
-          const userDataObj = userDataFromServer && typeof userDataFromServer === 'object' && userDataFromServer !== null && 'user' in userDataFromServer
-            ? (userDataFromServer as { user: { id?: string; email?: string; firstName?: string; lastName?: string; middleName?: string; role?: string; permissions?: string[] } | null }).user
+          // apiSuccess возвращает { success: true, data: { user: ... } }
+          clientLogger.debug('📦 Raw response from /api/users/me:', { userDataFromServer });
+          const responseData = userDataFromServer && typeof userDataFromServer === 'object' && userDataFromServer !== null && 'data' in userDataFromServer
+            ? (userDataFromServer as { data: { user?: { id?: string; email?: string; firstName?: string; lastName?: string; middleName?: string; role?: string; permissions?: string[] } } }).data
             : null;
+          clientLogger.debug('📦 Extracted responseData:', { responseData });
+          const userDataObj = responseData && 'user' in responseData
+            ? responseData.user
+            : null;
+          clientLogger.debug('📦 Extracted userDataObj:', { userDataObj });
           if (userDataObj) {
             // Сохраняем в localStorage для следующих запросов
             localStorage.setItem('userEmail', userDataObj.email || '');

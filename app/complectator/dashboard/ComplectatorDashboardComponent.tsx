@@ -211,11 +211,18 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         return;
       }
       
-      const data = await response.json();
+      const responseData = await response.json();
+      clientLogger.debug('📦 Raw response from /api/clients:', { responseData });
+      
+      // apiSuccess возвращает { success: true, data: { clients: ..., pagination: ... } }
+      const data = responseData && typeof responseData === 'object' && responseData !== null && 'data' in responseData
+        ? (responseData as { data: { clients?: any[]; pagination?: any } }).data
+        : null;
+      clientLogger.debug('📦 Extracted data from response:', { data, hasClients: data && 'clients' in data, clientsLength: data?.clients?.length });
       
       // Проверяем, что данные есть
       if (!data || !data.clients) {
-        clientLogger.warn('Invalid response format', { data });
+        clientLogger.warn('Invalid response format', { responseData, data, dataKeys: data ? Object.keys(data) : null });
         return;
       }
       
@@ -299,9 +306,13 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     try {
       const response = await fetch(`/api/orders?client_id=${clientId}`);
       if (response.ok) {
-        const data = await response.json();
+        const responseData = await response.json();
+        // apiSuccess возвращает { success: true, data: { orders: ..., pagination: ... } }
+        const data = responseData && typeof responseData === 'object' && responseData !== null && 'data' in responseData
+          ? (responseData as { data: { orders?: any[]; pagination?: any } }).data
+          : null;
         // Преобразуем заказы - ВСЕГДА используем статус Order, а не Invoice
-        const formattedOrders = (data.orders || []).map((order: any) => {
+        const formattedOrders = ((data?.orders || []) as any[]).map((order: any) => {
           // ВСЕГДА используем статус Order напрямую для отображения
           const orderStatus = order.status; // API статус Order (NEW_PLANNED, UNDER_REVIEW, и т.д.)
           

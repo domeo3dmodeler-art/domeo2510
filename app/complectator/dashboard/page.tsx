@@ -64,8 +64,11 @@ function ComplectatorDashboardContent() {
 
         const response = await fetch('/api/users/me', {
           headers: {
-            'Authorization': `Bearer ${token}`
-          }
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'x-auth-token': token
+          },
+          credentials: 'include'
         });
 
         if (!response.ok) {

@@ -14,8 +14,9 @@ export class ClientLogger {
      window.location.hostname.includes('130.193.40.35'));
 
   private static shouldLog(): boolean {
-    // Логируем всегда в браузере для отладки
-    return typeof window !== 'undefined';
+    // Логируем только в development режиме
+    if (typeof window === 'undefined') return false;
+    return this.isDevelopment;
   }
 
   static debug(message: string, metadata?: Record<string, unknown>): void {

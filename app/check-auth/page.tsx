@@ -19,10 +19,14 @@ export default function CheckAuthPage() {
 
   const testAuth = async () => {
     try {
+      const token = localStorage.getItem('authToken');
       const response = await fetch('/api/users/me', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        }
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          ...(token ? { 'x-auth-token': token } : {})
+        },
+        credentials: 'include'
       });
       const data = await response.json();
       alert(`API Response: ${JSON.stringify(data)}`);

@@ -22,6 +22,12 @@ export function getAuthToken(req: NextRequest): string | null {
     return authHeader.substring(7);
   }
 
+  // Затем проверяем x-auth-token header
+  const xAuthToken = req.headers.get('x-auth-token');
+  if (xAuthToken) {
+    return xAuthToken;
+  }
+
   // Затем проверяем cookies
   const token = req.cookies.get('auth-token')?.value;
   return token || null;

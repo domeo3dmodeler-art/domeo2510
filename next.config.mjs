@@ -35,26 +35,10 @@ const nextConfig = {
   },
   
   // Кэширование
+  // Порядок важен: более специфичные правила должны быть первыми
   async headers() {
     return [
-      {
-        source: '/api/(.*)',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'no-cache, no-store, must-revalidate',
-          },
-        ],
-      },
-      {
-        source: '/uploads/(.*)',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'no-cache, no-store, must-revalidate',
-          },
-        ],
-      },
+      // Статические файлы Next.js - кэшируем навсегда
       {
         source: '/_next/static/(.*)',
         headers: [
@@ -64,6 +48,27 @@ const nextConfig = {
           },
         ],
       },
+      // API routes - не кэшируем
+      {
+        source: '/api/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+        ],
+      },
+      // Загруженные файлы - не кэшируем
+      {
+        source: '/uploads/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+        ],
+      },
+      // Все остальные страницы - не кэшируем
       {
         source: '/(.*)',
         headers: [

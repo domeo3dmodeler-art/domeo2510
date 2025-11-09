@@ -925,6 +925,16 @@ export default function DoorsPage() {
     }
   }, [sel.model, sel.style]);
 
+  // Логирование для отладки кнопки "Выбрать"
+  useEffect(() => {
+    clientLogger.debug('🔘 Кнопка Выбрать - состояние:', { 
+      hasModel: !!sel.model, 
+      model: sel.model,
+      isModelCollapsed,
+      isModelSelected
+    });
+  }, [sel.model, isModelCollapsed, isModelSelected]);
+
   // Каскадная загрузка опций при изменении любого параметра (с дебаунсингом)
   useEffect(() => {
     if (!sel.model || !sel.style) {
@@ -2515,14 +2525,7 @@ export default function DoorsPage() {
                         Выбрать
                       </button>
                     </div>
-                  ) : (
-                    clientLogger.debug('🔘 Кнопка Выбрать не показывается:', { 
-                      hasModel: !!sel.model, 
-                      model: sel.model,
-                      isModelCollapsed,
-                      isModelSelected
-                    }) || null
-                  )}
+                  ) : null}
                 </div>
               ) : (
                 <div className="aspect-[2/3] w-full bg-gray-50 rounded-lg flex items-center justify-center">
@@ -3430,12 +3433,21 @@ function CartManager({
       
       // Загружаем доступные параметры
       try {
+        // Получаем токен для авторизации
+        const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+        const headers: HeadersInit = { 
+          'Content-Type': 'application/json; charset=utf-8',
+          'Accept': 'application/json; charset=utf-8'
+        };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+          headers['x-auth-token'] = token;
+        }
+        
         const response = await fetch('/api/available-params', {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json; charset=utf-8',
-            'Accept': 'application/json; charset=utf-8'
-          },
+          headers,
+          credentials: 'include',
           body: JSON.stringify({
             style: item.style,
             model: item.model,

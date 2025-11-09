@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { clientLogger } from '@/lib/logging/client-logger';
@@ -37,7 +37,12 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
   const [isLoading, setIsLoading] = useState(true);
 
   // Получаем все фото в правильном порядке
-  const allPhotos = photos.cover ? [photos.cover, ...photos.gallery] : photos.gallery;
+  const allPhotos = useMemo(() => {
+    if (photos.cover) {
+      return [photos.cover, ...(photos.gallery || [])];
+    }
+    return photos.gallery || [];
+  }, [photos.cover, photos.gallery]);
   
   // Логируем для отладки
   useEffect(() => {
@@ -68,7 +73,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
       galleryLength: photos.gallery?.length || 0
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Только при монтировании
+  }, []); // Только при монтировании - allPhotos не нужен в зависимостях, так как это useMemo
   
   // Логируем при изменении данных
   useEffect(() => {

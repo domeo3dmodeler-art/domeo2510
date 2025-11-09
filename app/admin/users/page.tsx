@@ -60,7 +60,20 @@ function AdminUsersPageContent() {
   const loadUsers = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/users');
+      // Получаем токен для авторизации
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
+      const response = await fetch('/api/users', {
+        headers,
+        credentials: 'include'
+      });
       const data = await response.json();
       
       if (data.success) {

@@ -3,7 +3,16 @@ import React from 'react'
 import { Toaster } from 'sonner'
 import { AuthProvider } from '@/lib/auth/AuthContext'
 
-export const metadata = { title: 'Domeo', description: 'No‑Code Calculators MVP' }
+export const metadata = { 
+  title: 'Domeo', 
+  description: 'No‑Code Calculators MVP',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
+  },
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
