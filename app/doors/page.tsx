@@ -1344,16 +1344,18 @@ export default function DoorsPage() {
         let kits: unknown[] = [];
         if (Array.isArray(kitsData)) {
           kits = kitsData;
-        } else if (kitsData && typeof kitsData === 'object' && 'data' in kitsData && Array.isArray(kitsData.data)) {
-          kits = kitsData.data;
-        } else if (kitsData && typeof kitsData === 'object' && 'kits' in kitsData && Array.isArray(kitsData.kits)) {
-          kits = kitsData.kits;
+        } else if (kitsData && typeof kitsData === 'object' && kitsData !== null) {
+          if ('data' in kitsData && Array.isArray((kitsData as { data: unknown }).data)) {
+            kits = (kitsData as { data: unknown[] }).data;
+          } else if ('kits' in kitsData && Array.isArray((kitsData as { kits: unknown }).kits)) {
+            kits = (kitsData as { kits: unknown[] }).kits;
+          }
         }
         if (!Array.isArray(kits)) {
-          clientLogger.warn('🔧 Неожиданный формат данных комплектов:', kitsData);
+          clientLogger.warn('🔧 Неожиданный формат данных комплектов:', { kitsData });
           setHardwareKits([]);
         } else {
-          setHardwareKits(kits);
+          setHardwareKits(kits as HardwareKit[]);
           clientLogger.debug('🔧 Комплекты загружены:', { count: kits.length });
         }
         
@@ -1400,7 +1402,7 @@ export default function DoorsPage() {
         
         // Устанавливаем базовые значения по умолчанию
         const basicKit = Array.isArray(kits) && kits.length > 0 
-          ? kits.find((k: HardwareKit) => k.isBasic) 
+          ? kits.find((k: unknown): k is HardwareKit => k && typeof k === 'object' && 'isBasic' in k && (k as HardwareKit).isBasic === true) 
           : null;
         const handlesArray = Object.values(handlesData).flat();
         const basicHandle = Array.isArray(handlesArray) && handlesArray.length > 0
