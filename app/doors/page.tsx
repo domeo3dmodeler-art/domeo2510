@@ -2499,8 +2499,8 @@ export default function DoorsPage() {
                     </div>
                   </div>
                   
-                  {/* Кнопка Выбрать под превью - показывается только когда модели развернуты */}
-                  {sel.model && !isModelCollapsed && (
+                  {/* Кнопка Выбрать под превью - показывается всегда, когда выбрана модель */}
+                  {sel.model && (
                     <div className="mt-6 flex justify-center">
                       <button
                         onClick={handleModelSelect}

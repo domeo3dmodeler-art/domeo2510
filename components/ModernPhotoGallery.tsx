@@ -18,21 +18,26 @@ interface ModernPhotoGalleryProps {
 }
 
 export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSidePanels }: ModernPhotoGalleryProps) {
+  // Логируем при каждом вызове функции компонента
+  console.log('🔄 ModernPhotoGallery function called:', {
+    productName,
+    hasGallery,
+    cover: photos.cover,
+    galleryLength: photos.gallery?.length || 0
+  });
+  clientLogger.debug('🔄 ModernPhotoGallery render:', {
+    productName,
+    hasGallery,
+    cover: photos.cover,
+    galleryLength: photos.gallery?.length || 0
+  });
+  
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Получаем все фото в правильном порядке
   const allPhotos = photos.cover ? [photos.cover, ...photos.gallery] : photos.gallery;
-  
-  // Логируем при каждом рендере для отладки
-  clientLogger.debug('🔄 ModernPhotoGallery render:', {
-    allPhotosLength: allPhotos.length,
-    hasGallery,
-    productName,
-    cover: photos.cover,
-    galleryLength: photos.gallery?.length || 0
-  });
   
   // Логируем для отладки
   useEffect(() => {
@@ -198,21 +203,39 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
                 e.preventDefault();
                 e.stopPropagation();
                 e.nativeEvent.stopImmediatePropagation();
-                clientLogger.debug('🖼️ Клик по изображению для зума', { isZoomed, currentIndex, allPhotosLength: allPhotos.length });
-                toggleZoom();
+                clientLogger.debug('🖼️ Клик по изображению', { isZoomed, currentIndex, allPhotosLength: allPhotos.length });
+                // Если не в режиме зума и есть несколько фото, перелистываем галерею
+                if (!isZoomed && allPhotos.length > 1) {
+                  nextPhoto();
+                } else {
+                  // Иначе включаем зум
+                  toggleZoom();
+                }
               }}
               onMouseDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 e.nativeEvent.stopImmediatePropagation();
-                clientLogger.debug('🖼️ MouseDown по изображению для зума', { isZoomed, currentIndex });
-                toggleZoom();
+                clientLogger.debug('🖼️ MouseDown по изображению', { isZoomed, currentIndex });
+                // Если не в режиме зума и есть несколько фото, перелистываем галерею
+                if (!isZoomed && allPhotos.length > 1) {
+                  nextPhoto();
+                } else {
+                  // Иначе включаем зум
+                  toggleZoom();
+                }
               }}
               onPointerDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                clientLogger.debug('🖼️ PointerDown по изображению для зума', { isZoomed, currentIndex });
-                toggleZoom();
+                clientLogger.debug('🖼️ PointerDown по изображению', { isZoomed, currentIndex });
+                // Если не в режиме зума и есть несколько фото, перелистываем галерею
+                if (!isZoomed && allPhotos.length > 1) {
+                  nextPhoto();
+                } else {
+                  // Иначе включаем зум
+                  toggleZoom();
+                }
               }}
               onError={() => {
                 clientLogger.debug('❌ Ошибка загрузки изображения:', { photo: allPhotos[currentIndex] });
