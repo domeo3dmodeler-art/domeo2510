@@ -12,7 +12,7 @@ import type {
   DocumentType,
   DocumentItem
 } from '@/lib/types/documents';
-import type { CartItem } from '@/lib/cart/types';
+import type { CartItem as CartItemType } from '@/lib/cart/types';
 
 export type ExportFormat = 'pdf' | 'excel' | 'csv';
 
@@ -98,7 +98,6 @@ export class ExportService {
 }
 
 // Экспортируем типы для клиентских компонентов
-import type { CartItem as CartItemType } from '@/lib/cart/types';
 export type CartItem = CartItemType;
 
 export interface ExportOptions {
