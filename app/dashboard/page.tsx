@@ -389,12 +389,12 @@ function DashboardContent() {
             : null;
           if (userDataObj) {
             // Сохраняем в localStorage для следующих запросов
-            localStorage.setItem('userEmail', userDataFromServer.user.email || '');
-            localStorage.setItem('userFirstName', userDataFromServer.user.firstName || '');
-            localStorage.setItem('userLastName', userDataFromServer.user.lastName || '');
-            localStorage.setItem('userMiddleName', userDataFromServer.user.middleName || '');
-            localStorage.setItem('userRole', userDataFromServer.user.role || userRole);
-            localStorage.setItem('userId', userDataFromServer.user.id || userId);
+            localStorage.setItem('userEmail', userDataObj.email || '');
+            localStorage.setItem('userFirstName', userDataObj.firstName || '');
+            localStorage.setItem('userLastName', userDataObj.lastName || '');
+            localStorage.setItem('userMiddleName', userDataObj.middleName || '');
+            localStorage.setItem('userRole', userDataObj.role || userRole);
+            localStorage.setItem('userId', userDataObj.id || userId);
             if (authToken && !localToken) {
               localStorage.setItem('authToken', authToken);
             }
