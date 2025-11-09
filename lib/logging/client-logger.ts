@@ -34,14 +34,27 @@ export class ClientLogger {
     // Ошибки логируем всегда, даже в production
     if (typeof window === 'undefined') return;
     
-    const errorData = error instanceof Error 
-      ? { message: error.message, stack: error.stack }
-      : error;
-    
-    // Используем console.error только для критических ошибок
-    // В production это будет отправлено в систему мониторинга
-    if (typeof console !== 'undefined' && console.error) {
-      console.error(`[ERROR] ${message}`, errorData || '', metadata || '');
+    try {
+      const errorData = error instanceof Error 
+        ? { message: error.message, stack: error.stack }
+        : error;
+      
+      // Используем console.error только для критических ошибок
+      // В production это будет отправлено в систему мониторинга
+      if (typeof console !== 'undefined' && console.error) {
+        // Безопасный вызов console.error с проверкой аргументов
+        const errorMessage = `[ERROR] ${message}`;
+        if (errorData && typeof errorData === 'object') {
+          console.error(errorMessage, errorData, metadata || '');
+        } else if (errorData) {
+          console.error(errorMessage, String(errorData), metadata || '');
+        } else {
+          console.error(errorMessage, metadata || '');
+        }
+      }
+    } catch (e) {
+      // Если даже логирование не работает, просто игнорируем
+      // Это предотвращает бесконечные циклы ошибок
     }
   }
 

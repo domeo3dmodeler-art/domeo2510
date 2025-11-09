@@ -2345,7 +2345,10 @@ export default function DoorsPage() {
                               <div className="text-gray-600 text-xs font-normal">
                                 {i.type === 'handle' 
                                   ? `(Ручка для двери)`
-                                  : `(${i.finish}, ${i.color}, ${i.width} × ${i.height} мм, Фурнитура - ${hardwareKits.find((k: HardwareKit) => k.id === i.hardwareKitId)?.name.replace('Комплект фурнитуры — ', '') || 'Базовый'})`
+                                  : `(${i.finish}, ${i.color}, ${i.width} × ${i.height} мм, Фурнитура - ${(() => {
+                                      const kit = hardwareKits.find((k: HardwareKit) => k.id === i.hardwareKitId);
+                                      return kit?.name ? kit.name.replace('Комплект фурнитуры — ', '') : 'Базовый';
+                                    })()})`
                                 }
                           </div>
                         </div>
