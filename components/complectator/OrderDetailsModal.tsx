@@ -648,7 +648,22 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         let errorMessage = 'Неизвестная ошибка';
         try {
           const errorData = await response.json();
-          errorMessage = errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+          // Обрабатываем разные типы ошибок
+          if (errorData.error) {
+            if (typeof errorData.error === 'string') {
+              errorMessage = errorData.error;
+            } else if (errorData.error.message) {
+              errorMessage = errorData.error.message;
+              // Если ошибка связана с Chromium, показываем понятное сообщение
+              if (errorMessage.includes('Browser was not found') || errorMessage.includes('executablePath')) {
+                errorMessage = 'Ошибка генерации PDF: браузер не найден. Обратитесь к администратору.';
+              }
+            }
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          } else {
+            errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          }
           clientLogger.error('Export Quote Error Response:', errorData);
         } catch (parseError) {
           errorMessage = `HTTP ${response.status}: ${response.statusText}`;
