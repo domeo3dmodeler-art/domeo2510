@@ -177,7 +177,7 @@ async function handler(req: NextRequest, user: Awaited<ReturnType<typeof getAuth
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse> {
   return withErrorHandling(
-    requireAuth(async (request: NextRequest, user: ReturnType<typeof getAuthenticatedUser>) => {
+    requireAuth(async (request: NextRequest, user: Awaited<ReturnType<typeof getAuthenticatedUser>>) => {
       return await handler(request, user, { params });
     }),
     'supplier-orders/[id]/status'
@@ -185,7 +185,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 // GET /api/supplier-orders/[id]/status - Получение статуса заказа поставщика
-async function getHandler(req: NextRequest, user: ReturnType<typeof getAuthenticatedUser>, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse> {
+async function getHandler(req: NextRequest, user: Awaited<ReturnType<typeof getAuthenticatedUser>>, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse> {
   const loggingContext = getLoggingContextFromRequest(req);
   const { id } = await params;
   
