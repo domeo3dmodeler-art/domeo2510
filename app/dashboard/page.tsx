@@ -189,7 +189,10 @@ function DashboardContent() {
       const userRole = localStorage.getItem('userRole');
       if (userRole === 'complectator') {
         promises.push(
-          fetch('/api/complectator/stats').catch(err => {
+          fetch('/api/complectator/stats', {
+            headers,
+            credentials: 'include',
+          }).catch(err => {
             clientLogger.error('Error fetching complectator stats:', err);
             return new Response(JSON.stringify({ error: 'Failed to fetch complectator stats' }), { status: 500 });
           })
@@ -200,13 +203,26 @@ function DashboardContent() {
       
       if (responses[0].ok) {
         try {
-          const statsData = await responses[0].json();
-          setStats(statsData);
+          let statsData: unknown;
+          try {
+            statsData = await responses[0].json();
+          } catch (jsonError) {
+            clientLogger.error('Ошибка парсинга JSON ответа admin/stats:', jsonError);
+            statsData = null;
+          }
+          if (statsData) {
+            setStats(statsData);
+          }
         } catch (err) {
           clientLogger.error('Error parsing admin stats:', err);
         }
       } else {
-        clientLogger.warn('Admin stats endpoint returned:', responses[0].status);
+        // Если статус 403, это нормально для не-админов
+        if (responses[0].status === 403) {
+          clientLogger.debug('Admin stats недоступен (требуется роль ADMIN)');
+        } else {
+          clientLogger.warn('Admin stats endpoint returned:', responses[0].status);
+        }
       }
       
       if (responses[1].ok) {
