@@ -47,9 +47,11 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
       currentIndex,
       isZoomed,
       hasGallery,
-      showThumbnails: hasGallery && allPhotos.length > 1
+      showThumbnails: hasGallery && allPhotos.length > 1,
+      photos: photos,
+      productName: productName
     });
-  }, []);
+  }, [photos, productName, hasGallery]);
   
   // Показываем миниатюры только если есть галерея
   const showThumbnails = hasGallery && allPhotos.length > 1;
