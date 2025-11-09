@@ -1349,14 +1349,6 @@ export default function DoorsPage() {
         } else if (kitsData && typeof kitsData === 'object' && 'kits' in kitsData && Array.isArray(kitsData.kits)) {
           kits = kitsData.kits;
         }
-        // Удаляем старую тернарную операцию
-        const kitsOld = Array.isArray(kitsData) 
-          ? kitsData 
-          : (kitsData && typeof kitsData === 'object' && 'data' in kitsData && Array.isArray(kitsData.data)
-            ? kitsData.data 
-            : (kitsData && typeof kitsData === 'object' && 'kits' in kitsData && Array.isArray(kitsData.kits)
-              ? kitsData.kits 
-              : []);
         if (!Array.isArray(kits)) {
           clientLogger.warn('🔧 Неожиданный формат данных комплектов:', kitsData);
           setHardwareKits([]);
