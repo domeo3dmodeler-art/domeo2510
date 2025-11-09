@@ -2436,8 +2436,8 @@ export default function DoorsPage() {
                     <div className="aspect-[4/6.5] overflow-visible rounded-t-xl" style={{ position: 'relative', zIndex: 1 }}>
                     {(() => {
                       const hasPhotos = selectedModelCard?.photos && selectedModelCard.photos;
-                      const hasCover = hasPhotos && !!selectedModelCard.photos.cover;
-                      const hasGallery = hasPhotos && Array.isArray(selectedModelCard.photos.gallery) && selectedModelCard.photos.gallery.length > 0;
+                      const hasCover = hasPhotos && !!selectedModelCard.photos?.cover;
+                      const hasGallery = hasPhotos && Array.isArray(selectedModelCard.photos?.gallery) && selectedModelCard.photos?.gallery.length > 0;
                       const shouldShowGallery = !!(hasCover || hasGallery);
                       
                       clientLogger.debug('🖼️ Рендер галереи:', {
@@ -2450,57 +2450,48 @@ export default function DoorsPage() {
                         selectedModelCard: selectedModelCard
                       });
                       
-                      if (!shouldShowGallery) {
-                        clientLogger.debug('🖼️ Галерея НЕ показывается:', {
-                          hasPhotos: !!hasPhotos,
-                          hasCover: !!hasCover,
-                          hasGallery: !!hasGallery,
-                          shouldShowGallery
+                      if (shouldShowGallery && selectedModelCard?.photos) {
+                        clientLogger.debug('🖼️ Рендерим ModernPhotoGallery:', {
+                          photos: selectedModelCard.photos,
+                          productName: selectedModelCard.model,
+                          hasGallery: selectedModelCard.hasGallery || false
                         });
-                        return null;
+                        
+                        return (
+                          <ModernPhotoGallery
+                            photos={selectedModelCard.photos}
+                            productName={selectedModelCard.model || ''}
+                            hasGallery={selectedModelCard.hasGallery || false}
+                            onToggleSidePanels={setHideSidePanels}
+                          />
+                        );
                       }
                       
-                      clientLogger.debug('🖼️ Рендерим ModernPhotoGallery:', {
-                        photos: selectedModelCard.photos,
-                        productName: selectedModelCard.model,
-                        hasGallery: selectedModelCard.hasGallery || false
-                      });
+                      if (selectedModelCard?.photo) {
+                        return (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={selectedModelCard.photo.startsWith('/uploadsproducts') 
+                              ? `/api/uploads/products/${selectedModelCard.photo.substring(17)}`
+                              : selectedModelCard.photo.startsWith('/uploads/')
+                              ? `/api${selectedModelCard.photo}`
+                              : `/api/uploads${selectedModelCard.photo}`}
+                            alt={selectedModelCard.model || 'Дверь'}
+                            className="h-full w-full object-contain"
+                          />
+                        );
+                      }
                       
                       return (
-                        <ModernPhotoGallery
-                          photos={selectedModelCard.photos}
-                          productName={selectedModelCard.model || ''}
-                          hasGallery={selectedModelCard.hasGallery || false}
-                          onToggleSidePanels={setHideSidePanels}
-                        />
-                      );
-                    }
-                    
-                    if (selectedModelCard?.photo) {
-                      return (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={selectedModelCard.photo.startsWith('/uploadsproducts') 
-                            ? `/api/uploads/products/${selectedModelCard.photo.substring(17)}`
-                            : selectedModelCard.photo.startsWith('/uploads/')
-                            ? `/api${selectedModelCard.photo}`
-                            : `/api/uploads${selectedModelCard.photo}`}
-                          alt={selectedModelCard.model || 'Дверь'}
-                          className="h-full w-full object-contain"
-                        />
-                      );
-                    }
-                    
-                    return (
-                      <div className="h-full w-full flex items-center justify-center text-gray-400">
-                        <div className="text-center">
-                          <div className="text-sm">Нет фото</div>
-                          <div className="text-[14px] whitespace-nowrap">
-                            {selectedModelCard ? formatModelNameForCard(selectedModelCard.model) : ""}
+                        <div className="h-full w-full flex items-center justify-center text-gray-400">
+                          <div className="text-center">
+                            <div className="text-sm">Нет фото</div>
+                            <div className="text-[14px] whitespace-nowrap">
+                              {selectedModelCard ? formatModelNameForCard(selectedModelCard.model) : ""}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
+                      );
                     })()}
                     </div>
                   </div>
