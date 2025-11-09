@@ -20,6 +20,11 @@ export async function GET(
       filePath = `products/${filePath.substring(17)}`;
     } else if (filePath.startsWith('uploadsproducts')) {
       filePath = `products/${filePath.substring(16)}`;
+    } else if (!filePath.includes('products/')) {
+      // Если путь не содержит 'products/' и не начинается с 'uploadsproducts',
+      // предполагаем, что это путь к продукту (например, cmg50xcgs001cv7mn0tdyk1wo/photo.png)
+      // Добавляем 'products/' перед путем
+      filePath = `products/${filePath}`;
     }
     
     // Проверяем безопасность пути
