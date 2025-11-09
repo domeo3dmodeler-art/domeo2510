@@ -3852,13 +3852,35 @@ function CartManager({
                     });
 
                     if (response.ok) {
-                      const result = await response.json();
-                      const order = result.order;
-                      alert(`Заказ ${order?.number || ''} создан успешно!`);
+                      let result: unknown;
+                      try {
+                        result = await response.json();
+                      } catch (jsonError) {
+                        clientLogger.error('Ошибка парсинга JSON ответа create order:', jsonError);
+                        alert('Ошибка при создании заказа: не удалось обработать ответ сервера');
+                        return;
+                      }
+                      const orderData = result && typeof result === 'object' && result !== null && 'order' in result
+                        ? (result as { order: { number?: string } | null }).order
+                        : null;
+                      const orderNumber = orderData && typeof orderData === 'object' && 'number' in orderData
+                        ? String(orderData.number)
+                        : '';
+                      alert(`Заказ ${orderNumber} создан успешно!`);
                       // Корзина остается активной (не очищаем)
                     } else {
-                      const error = await response.json();
-                      alert(`Ошибка: ${error.error}`);
+                      let errorData: unknown;
+                      try {
+                        errorData = await response.json();
+                      } catch (jsonError) {
+                        clientLogger.error('Ошибка парсинга JSON ответа error:', jsonError);
+                        alert(`Ошибка: ${response.status} ${response.statusText}`);
+                        return;
+                      }
+                      const errorMessage = errorData && typeof errorData === 'object' && errorData !== null && 'error' in errorData
+                        ? String((errorData as { error: unknown }).error)
+                        : 'Неизвестная ошибка';
+                      alert(`Ошибка: ${errorMessage}`);
                     }
                   } catch (error) {
                     clientLogger.error('Error creating order:', error);
