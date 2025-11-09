@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { roleService, Role, RoleDefinition, UserRole } from '@/lib/auth/roles';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 type User = {
   id: string;
@@ -87,7 +88,7 @@ export default function UserManagement({ currentUserRole }: Props) {
   const handleRoleChange = async (userId: string, newRole: Role) => {
     try {
       // Здесь должен быть API вызов для изменения роли
-      console.log(`Changing user ${userId} role to ${newRole}`);
+      clientLogger.debug(`Changing user ${userId} role to ${newRole}`);
       
       setUsers(prev => prev.map(user => 
         user.id === userId ? { ...user, role: newRole } : user
@@ -104,7 +105,7 @@ export default function UserManagement({ currentUserRole }: Props) {
   const handleCreateUser = async () => {
     try {
       // Здесь должен быть API вызов для создания пользователя
-      console.log('Creating user:', newUser);
+      clientLogger.debug('Creating user:', newUser);
       
       const createdUser: User = {
         id: `user-${Date.now()}`,
@@ -126,7 +127,7 @@ export default function UserManagement({ currentUserRole }: Props) {
   const handleToggleUserStatus = async (userId: string) => {
     try {
       // Здесь должен быть API вызов для изменения статуса пользователя
-      console.log(`Toggling user ${userId} status`);
+      clientLogger.debug(`Toggling user ${userId} status`);
       
       setUsers(prev => prev.map(user => 
         user.id === userId ? { ...user, isActive: !user.isActive } : user

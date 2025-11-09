@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 type Option = {
   id: string;
@@ -112,7 +113,7 @@ export default function OptionsManagementPage() {
     if (!confirm('Вы уверены, что хотите удалить эту опцию?')) return;
 
     try {
-      console.log('Deleting option:', optionId);
+      clientLogger.debug('Deleting option:', optionId);
       setOptions(prev => prev.filter(o => o.id !== optionId));
     } catch (err: any) {
       setError(err.message);
@@ -121,7 +122,7 @@ export default function OptionsManagementPage() {
 
   const handleToggleStatus = async (optionId: string) => {
     try {
-      console.log('Toggling option status:', optionId);
+      clientLogger.debug('Toggling option status:', optionId);
       setOptions(prev => prev.map(o => 
         o.id === optionId ? { ...o, isActive: !o.isActive } : o
       ));

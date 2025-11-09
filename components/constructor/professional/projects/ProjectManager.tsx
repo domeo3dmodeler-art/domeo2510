@@ -7,6 +7,7 @@ import {
   Filter, Grid, List, MoreVertical, Star, StarOff
 } from 'lucide-react';
 import { DocumentData } from '../ProfessionalPageBuilder';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 export interface Project {
   id: string;
@@ -56,7 +57,7 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({
         setProjects(parsedProjects);
       }
     } catch (error) {
-      console.error('Error loading projects:', error);
+      clientLogger.error('Error loading projects:', error);
     } finally {
       setLoading(false);
     }
@@ -67,7 +68,7 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({
       localStorage.setItem('professional-constructor-projects', JSON.stringify(updatedProjects));
       setProjects(updatedProjects);
     } catch (error) {
-      console.error('Error saving projects:', error);
+      clientLogger.error('Error saving projects:', error);
     }
   };
 
@@ -128,7 +129,7 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({
         const updatedProjects = [newProject, ...projects];
         saveProjects(updatedProjects);
       } catch (error) {
-        console.error('Error importing project:', error);
+        clientLogger.error('Error importing project:', error);
         alert('Ошибка при импорте проекта. Проверьте формат файла.');
       }
     };

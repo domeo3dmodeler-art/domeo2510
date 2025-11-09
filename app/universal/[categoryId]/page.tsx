@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { NoCodeComponentRenderer } from '../../../components/nocode/NoCodeComponents';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 // ===================== Универсальный генератор страниц =====================
 
@@ -104,7 +105,7 @@ export default function UniversalPage({ params, searchParams }: UniversalPagePro
 
   useEffect(() => {
     if (!template) {
-      console.warn(`Шаблон для категории "${categoryId}" не найден`);
+      clientLogger.warn(`Шаблон для категории "${categoryId}" не найден`);
       return;
     }
     

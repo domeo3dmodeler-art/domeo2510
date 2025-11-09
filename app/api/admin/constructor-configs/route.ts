@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -37,13 +38,11 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Constructor config creation error:', error);
+    logger.error('Constructor config creation error', 'admin/constructor-configs', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Ошибка при сохранении конфигурации конструктора' },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
@@ -99,13 +98,11 @@ export async function GET(req: NextRequest) {
     }
 
   } catch (error) {
-    console.error('Constructor config retrieval error:', error);
+    logger.error('Constructor config retrieval error', 'admin/constructor-configs', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Ошибка при получении конфигураций конструктора' },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
@@ -146,13 +143,11 @@ export async function PUT(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Constructor config update error:', error);
+    logger.error('Constructor config update error', 'admin/constructor-configs', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Ошибка при обновлении конфигурации конструктора' },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
@@ -180,13 +175,11 @@ export async function DELETE(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Constructor config deletion error:', error);
+    logger.error('Constructor config deletion error', 'admin/constructor-configs', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Ошибка при удалении конфигурации конструктора' },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }
 

@@ -33,10 +33,10 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       } else {
-        console.error('Ошибка при скачивании шаблона');
+        clientLogger.error('Ошибка при скачивании шаблона');
       }
     } catch (error) {
-      console.error('Ошибка при скачивании шаблона:', error);
+      clientLogger.error('Ошибка при скачивании шаблона:', error);
     } finally {
       setDownloading(false);
     }

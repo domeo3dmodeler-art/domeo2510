@@ -18,7 +18,7 @@ export function ClientAuthGuard({ children }: ClientAuthGuardProps) {
       const userRole = localStorage.getItem('userRole');
       
       // Диагностика localStorage
-      console.log('🔍 ClientAuthGuard - localStorage check:', {
+      clientLogger.debug('🔍 ClientAuthGuard - localStorage check:', {
         token: token ? token.substring(0, 20) + '...' : 'Нет токена',
         userId: userId || 'Нет userId',
         userRole: userRole || 'Нет userRole',
@@ -27,10 +27,10 @@ export function ClientAuthGuard({ children }: ClientAuthGuardProps) {
       
       // Проверяем только токен - это достаточно для авторизации
       if (token) {
-        console.log('✅ ClientAuthGuard - авторизация успешна по токену');
+        clientLogger.debug('✅ ClientAuthGuard - авторизация успешна по токену');
         setIsAuthenticated(true);
       } else {
-        console.log('❌ ClientAuthGuard - токен не найден, редирект на логин');
+        clientLogger.debug('❌ ClientAuthGuard - токен не найден, редирект на логин');
         setIsAuthenticated(false);
         router.push('/login');
       }
@@ -42,7 +42,7 @@ export function ClientAuthGuard({ children }: ClientAuthGuardProps) {
     // Добавляем таймаут для диагностики
     const diagnosticTimeout = setTimeout(() => {
       const currentAuth = localStorage.getItem('authToken') ? true : false;
-      console.log('⚠️ ClientAuthGuard - таймаут диагностики, текущее состояние:', currentAuth);
+      clientLogger.debug('⚠️ ClientAuthGuard - таймаут диагностики, текущее состояние:', currentAuth);
     }, 5000);
     
     return () => {

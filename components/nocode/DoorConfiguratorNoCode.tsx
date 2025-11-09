@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Select, Alert } from '@/components/ui';
 import { Package, ShoppingCart, Settings, Calculator } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 export interface DoorConfiguratorNoCodeProps {
   id: string;
@@ -143,7 +144,7 @@ export default function DoorConfiguratorNoCode({
       }
 
     } catch (err) {
-      console.error('Error loading data:', err);
+      clientLogger.error('Error loading data:', err);
       setError('Ошибка загрузки данных. Проверьте подключение к серверу.');
     } finally {
       setLoading(false);
@@ -224,7 +225,7 @@ export default function DoorConfiguratorNoCode({
         return priceData.total || 0;
       }
     } catch (error) {
-      console.error('Error calculating price:', error);
+      clientLogger.error('Error calculating price:', error);
     }
     
     // Fallback к локальному расчету

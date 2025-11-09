@@ -5,6 +5,7 @@ import BlocksPanel from './BlocksPanel';
 import Canvas from './Canvas';
 import PropertiesPanel from './PropertiesPanel';
 import Toolbar from './Toolbar';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 // ========== TYPES ==========
 interface Block {
@@ -86,7 +87,7 @@ export default function ModernConstructor() {
           ...prev, 
           isPreviewMode: !prev.isPreviewMode 
         }))}
-        onSave={() => console.log('Save:', state.blocks)}
+        onSave={() => clientLogger.debug('Save:', state.blocks)}
         blocksCount={state.blocks.length}
       />
 

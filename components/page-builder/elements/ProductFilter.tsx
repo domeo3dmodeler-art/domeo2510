@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BaseElement } from '../types';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface ProductFilterProps {
   element: BaseElement;
@@ -108,7 +109,7 @@ export function ProductFilter({ element, onUpdate }: ProductFilterProps) {
           ]);
         }
       } catch (error) {
-        console.error('Ошибка загрузки фильтров:', error);
+        clientLogger.error('Ошибка загрузки фильтров:', error);
       } finally {
         setLoading(false);
       }
@@ -283,7 +284,7 @@ export function ProductFilter({ element, onUpdate }: ProductFilterProps) {
             <button
               onClick={() => {
                 // Здесь можно добавить логику применения фильтров
-                console.log('Применяем фильтры:', selectedFilters);
+                clientLogger.debug('Применяем фильтры:', selectedFilters);
               }}
               className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
             >

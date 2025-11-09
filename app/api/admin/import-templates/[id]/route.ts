@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../../lib/prisma';
+import { logger } from '../../../../../lib/logging/logger';
 
 // ===================== Получение шаблона загрузки по ID =====================
 
@@ -89,13 +90,11 @@ export async function GET(
     });
 
   } catch (error) {
-    console.error('Import template fetch error:', error);
+    logger.error('Import template fetch error', 'admin/import-templates/[id]', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Ошибка при получении шаблона загрузки' },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
@@ -175,13 +174,11 @@ export async function PUT(
     });
 
   } catch (error) {
-    console.error('Import template update error:', error);
+    logger.error('Import template update error', 'admin/import-templates/[id]', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Ошибка при обновлении шаблона загрузки' },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
@@ -244,13 +241,11 @@ export async function DELETE(
     });
 
   } catch (error) {
-    console.error('Import template deletion error:', error);
+    logger.error('Import template deletion error', 'admin/import-templates/[id]', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Ошибка при удалении шаблона загрузки' },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }
 

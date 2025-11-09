@@ -13,6 +13,7 @@ import {
   Maximize2
 } from 'lucide-react';
 import CategoryTreeSelector from './CategoryTreeSelector';
+import { clientLogger } from '@/lib/logging/client-logger';
 import DetailedBlockEditor from './DetailedBlockEditor';
 
 interface CategoryInfo {
@@ -71,7 +72,7 @@ const ProfessionalPropertyPanel: React.FC<ProfessionalPropertyPanelProps> = ({
 
   // Отладка получения категорий
   useEffect(() => {
-    console.log('Categories received:', categories);
+    clientLogger.debug('Categories received:', categories);
   }, [categories]);
 
   // Автоматическое обновление названия блока при выборе категории

@@ -1,21 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError, NotFoundError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
 import * as XLSX from 'xlsx';
-import { apiErrorHandler } from '@/lib/api-error-handler';
-import { apiValidator } from '@/lib/api-validator';
 import { validateAndFixData } from '@/lib/encoding-utils';
 
-const prisma = new PrismaClient();
-
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const { searchParams } = new URL(req.url);
     const catalogCategoryId = searchParams.get('catalogCategoryId');
     
-    // Валидация параметров
-    apiValidator.validateId(catalogCategoryId!, 'catalogCategoryId');
+    if (!catalogCategoryId) {
+      throw new ValidationError('catalogCategoryId обязателен');
+    }
 
-    console.log('🔍 Экспорт прайса в Excel для категории:', catalogCategoryId);
+    logger.info('Экспорт прайса в Excel для категории', 'admin/export/price-list', { userId: user.userId, catalogCategoryId });
 
     // Получаем категорию
     const category = await prisma.catalogCategory.findUnique({
@@ -24,10 +27,10 @@ export async function GET(req: NextRequest) {
     });
 
     if (!category) {
-      return NextResponse.json({ success: false, error: 'Category not found' }, { status: 404 });
+      throw new NotFoundError('Category not found');
     }
 
-    console.log('📂 Категория найдена:', category.name);
+    logger.info('Категория найдена', 'admin/export/price-list', { categoryName: category.name });
 
     // Получаем товары с ограничением для производительности
     const products = await prisma.product.findMany({
@@ -44,7 +47,7 @@ export async function GET(req: NextRequest) {
       orderBy: { sku: 'asc' }
     });
 
-    console.log(`📦 Найдено товаров для экспорта: ${products.length}`);
+    logger.info(`Найдено товаров для экспорта: ${products.length}`, 'admin/export/price-list', { catalogCategoryId, productsCount: products.length });
 
     // Получаем шаблон для fallback
     const template = await prisma.importTemplate.findUnique({
@@ -78,7 +81,7 @@ export async function GET(req: NextRequest) {
             }
           });
         } catch (e) {
-          console.warn(`Ошибка парсинга свойств для товара ${product.id}:`, e);
+          logger.warn(`Ошибка парсинга свойств для товара`, 'admin/export/price-list', { productId: product.id, error: e instanceof Error ? e.message : String(e) });
         }
       }
     });
@@ -143,7 +146,7 @@ export async function GET(req: NextRequest) {
             : product.properties_data;
           properties = validateAndFixData(rawProperties);
         } catch (e) {
-          console.error(`Ошибка парсинга свойств для товара ${product.id}:`, e);
+          logger.error(`Ошибка парсинга свойств для товара`, 'admin/export/price-list', { productId: product.id, error: e instanceof Error ? e.message : String(e) });
         }
       }
 
@@ -205,7 +208,7 @@ export async function GET(req: NextRequest) {
     const safeCategoryName = category.name.replace(/[^a-zA-Z0-9а-яА-Я\s]/g, '_');
     const fileName = `price_${safeCategoryName}_${new Date().toISOString().split('T')[0]}.xlsx`;
 
-    console.log('✅ Excel файл создан:', fileName, `(${products.length} товаров)`);
+    logger.info('Excel файл создан', 'admin/export/price-list', { fileName, productsCount: products.length });
 
     // Возвращаем Excel файл
     return new NextResponse(excelBuffer, {
@@ -220,6 +223,15 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error) {
-    return apiErrorHandler.handle(error, 'price-list-export');
+    logger.error('Error exporting price list', 'admin/export/price-list', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError || error instanceof NotFoundError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка экспорта прайс-листа', 500);
   }
 }
+
+export const GET = withErrorHandling(
+  requireAuthAndPermission(getHandler, 'ADMIN'),
+  'admin/export/price-list/GET'
+);

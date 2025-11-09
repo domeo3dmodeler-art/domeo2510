@@ -1,66 +1,72 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import * as XLSX from 'xlsx';
-
-const prisma = new PrismaClient();
+import { logger } from '@/lib/logging/logger';
+import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
+import { apiSuccess, apiError, withErrorHandling } from '@/lib/api/response';
+import { ValidationError, NotFoundError } from '@/lib/api/errors';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
 // ===================== Экспорт шаблона в Excel =====================
 
-export async function GET(req: NextRequest) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const templateId = searchParams.get('templateId');
-    const categoryId = searchParams.get('categoryId');
+async function getHandler(
+  req: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(req);
+  const { searchParams } = new URL(req.url);
+  const templateId = searchParams.get('templateId');
+  const categoryId = searchParams.get('categoryId');
 
-    if (!templateId && !categoryId) {
-      return NextResponse.json(
-        { error: 'Необходимо указать templateId или categoryId' },
-        { status: 400 }
-      );
-    }
+  if (!templateId && !categoryId) {
+    throw new ValidationError('Необходимо указать templateId или categoryId');
+  }
 
-    let template;
+  logger.debug('Экспорт шаблона', 'admin/import-templates/export/GET', {
+    templateId,
+    categoryId
+  }, loggingContext);
 
-    if (templateId) {
-      // Получаем шаблон по ID
-      template = await prisma.importTemplate.findUnique({
-        where: { id: templateId },
-        include: {
-          catalog_category: {
-            select: {
-              id: true,
-              name: true,
-              path: true
-            }
+  let template;
+
+  if (templateId) {
+    // Получаем шаблон по ID
+    template = await prisma.importTemplate.findUnique({
+      where: { id: templateId },
+      include: {
+        catalog_category: {
+          select: {
+            id: true,
+            name: true,
+            path: true
           }
         }
-      });
-    } else if (categoryId) {
-      // Получаем шаблон по категории
-      template = await prisma.importTemplate.findFirst({
-        where: { 
-          catalog_category_id: categoryId,
-          is_active: true 
-        },
-        include: {
-          catalog_category: {
-            select: {
-              id: true,
-              name: true,
-              path: true
-            }
+      }
+    });
+  } else if (categoryId) {
+    // Получаем шаблон по категории
+    template = await prisma.importTemplate.findFirst({
+      where: { 
+        catalog_category_id: categoryId,
+        is_active: true 
+      },
+      include: {
+        catalog_category: {
+          select: {
+            id: true,
+            name: true,
+            path: true
           }
-        },
-        orderBy: { created_at: 'desc' }
-      });
-    }
+        }
+      },
+      orderBy: { created_at: 'desc' }
+    });
+  }
 
-    if (!template) {
-      return NextResponse.json(
-        { error: 'Шаблон не найден' },
-        { status: 404 }
-      );
-    }
+  if (!template) {
+    throw new NotFoundError('Шаблон не найден');
+  }
 
     // Парсим поля шаблона - используем fieldMappings как основной источник
     let fieldMappings = [];
@@ -144,11 +150,8 @@ export async function GET(req: NextRequest) {
       if (!Array.isArray(exportFields)) exportFields = [];
       
     } catch (error) {
-      console.error('Error parsing template fields:', error);
-      return NextResponse.json(
-        { error: 'Ошибка при чтении полей шаблона' },
-        { status: 500 }
-      );
+      logger.error('Ошибка парсинга полей шаблона', 'admin/import-templates/export/GET', { error }, loggingContext);
+      throw new ValidationError('Ошибка при чтении полей шаблона');
     }
 
     // Используем fieldMappings если есть, иначе объединяем все поля
@@ -156,10 +159,7 @@ export async function GET(req: NextRequest) {
     
     
     if (allFields.length === 0) {
-      return NextResponse.json(
-        { error: 'Шаблон не содержит полей для экспорта' },
-        { status: 400 }
-      );
+      throw new ValidationError('Шаблон не содержит полей для экспорта');
     }
 
     // Создаем заголовки для Excel
@@ -236,6 +236,12 @@ export async function GET(req: NextRequest) {
     const templateName = template.name || 'template';
     const fileName = `template_${categoryName}_${templateName}_${new Date().toISOString().split('T')[0]}.xlsx`;
 
+    logger.info('Шаблон экспортирован', 'admin/import-templates/export/GET', {
+      templateId: template.id,
+      fileName,
+      fieldsCount: allFields.length
+    }, loggingContext);
+
     // Возвращаем файл
     return new NextResponse(excelBuffer, {
       status: 200,
@@ -245,12 +251,9 @@ export async function GET(req: NextRequest) {
         'Content-Length': (excelBuffer?.length || 0).toString(),
       },
     });
-
-  } catch (error) {
-    console.error('Template export error:', error);
-    return NextResponse.json(
-      { error: 'Ошибка при экспорте шаблона' },
-      { status: 500 }
-    );
-  }
 }
+
+export const GET = withErrorHandling(
+  requireAuthAndPermission(getHandler, 'ADMIN'),
+  'admin/import-templates/export/GET'
+);

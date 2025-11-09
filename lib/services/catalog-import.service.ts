@@ -1,9 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 import * as XLSX from 'xlsx';
 import { catalogService } from './catalog.service';
 import { CatalogImportResult } from '../types/catalog';
-
-const prisma = new PrismaClient();
 
 
 export interface ExcelRow {
@@ -16,30 +15,27 @@ export class CatalogImportService {
    */
   async importFromExcel(file: Buffer, filename: string): Promise<CatalogImportResult> {
     try {
-      console.log('=== НАЧАЛО ИМПОРТА КАТАЛОГА ===');
-      console.log('Файл:', filename, 'Размер:', file.length);
+      logger.info('Начало импорта каталога', 'catalog-import-service', { filename, fileSize: file.length });
       
       // Читаем Excel файл
-      console.log('Чтение Excel файла...');
+      logger.debug('Чтение Excel файла', 'catalog-import-service', { filename });
       const workbook = XLSX.read(file, { type: 'buffer' });
       const sheetName = workbook.SheetNames[0];
-      console.log('Имя листа:', sheetName);
+      logger.debug('Имя листа', 'catalog-import-service', { filename, sheetName });
       const worksheet = workbook.Sheets[sheetName];
       
       // Конвертируем в JSON
-      console.log('Конвертация в массив...');
+      logger.debug('Конвертация в массив', 'catalog-import-service', { filename });
       const data: ExcelRow[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
       
-      console.log('Данные из Excel (первые 5 строк):', data.slice(0, 5));
-      console.log('Всего строк:', data.length);
+      logger.debug('Данные из Excel', 'catalog-import-service', { filename, totalRows: data.length, firstRows: data.slice(0, 5) });
       
       // Пропускаем заголовок (первую строку) - данные начинаются со второй строки
       const rows = data.slice(1).filter(row => row.length > 0);
-      console.log('Строки после фильтрации:', rows.length);
-      console.log('Первые 3 строки данных:', rows.slice(0, 3));
+      logger.debug('Строки после фильтрации', 'catalog-import-service', { filename, filteredRows: rows.length, firstRows: rows.slice(0, 3) });
       
       if (rows.length === 0) {
-        console.log('Файл не содержит данных');
+        logger.warn('Файл не содержит данных', 'catalog-import-service', { filename });
         return {
           success: false,
           message: 'Файл не содержит данных',
@@ -51,12 +47,12 @@ export class CatalogImportService {
       }
 
       // Анализируем структуру файла
-      console.log('Анализ структуры файла...');
+      logger.debug('Анализ структуры файла', 'catalog-import-service', { filename });
       const analysis = this.analyzeFileStructure(rows);
-      console.log('Анализ структуры:', analysis);
+      logger.debug('Анализ структуры', 'catalog-import-service', { filename, analysis });
       
       if (!analysis.isValid) {
-        console.log('Структура файла неверная, возвращаем ошибку');
+        logger.warn('Структура файла неверная', 'catalog-import-service', { filename, errors: analysis.errors });
         return {
           success: false,
           message: 'Неверная структура файла',
@@ -68,17 +64,17 @@ export class CatalogImportService {
       }
 
       // Парсим категории
-      console.log('Парсинг категорий...');
+      logger.debug('Парсинг категорий', 'catalog-import-service', { filename });
       const categories = this.parseCategories(rows, analysis);
-      console.log('Распарсенные категории:', categories);
+      logger.debug('Распарсенные категории', 'catalog-import-service', { filename, categoriesCount: categories.length });
       
       // Валидируем данные
-      console.log('Валидация категорий...');
+      logger.debug('Валидация категорий', 'catalog-import-service', { filename });
       const validation = this.validateCategories(categories);
-      console.log('Валидация:', validation);
+      logger.debug('Валидация', 'catalog-import-service', { filename, isValid: validation.isValid, errorsCount: validation.errors.length, warningsCount: validation.warnings.length });
       
       if (!validation.isValid) {
-        console.log('Валидация не пройдена, возвращаем ошибку');
+        logger.warn('Валидация не пройдена', 'catalog-import-service', { filename, errors: validation.errors });
         return {
           success: false,
           message: 'Ошибки валидации данных',
@@ -90,9 +86,9 @@ export class CatalogImportService {
       }
 
       // Импортируем в базу данных
-      console.log('Импорт в базу данных...');
+      logger.info('Импорт в базу данных', 'catalog-import-service', { filename, categoriesCount: categories.length });
       const importResult = await this.importToDatabase(categories);
-      console.log('Результат импорта в БД:', importResult);
+      logger.info('Результат импорта в БД', 'catalog-import-service', { filename, imported: importResult.imported, errorsCount: importResult.errors.length, warningsCount: importResult.warnings.length });
       
       return {
         success: true,
@@ -110,7 +106,7 @@ export class CatalogImportService {
       };
 
     } catch (error) {
-      console.error('Error importing catalog:', error);
+      logger.error('Error importing catalog', 'catalog-import-service', error instanceof Error ? { error: error.message, stack: error.stack, filename } : { error: String(error), filename });
       return {
         success: false,
         message: 'Ошибка при импорте файла',
@@ -212,8 +208,7 @@ export class CatalogImportService {
       
       if (!Array.isArray(row)) continue;
 
-      console.log(`\n--- Обработка строки ${rowIndex + 2} (${rowIndex + 1} в массиве) ---`);
-      console.log('Исходная строка:', row);
+      logger.debug('Обработка строки', 'catalog-import-service', { rowIndex: rowIndex + 2, row });
       
       // Собираем все непустые ячейки в строке по порядку
       const filledValues: string[] = [];
@@ -224,35 +219,31 @@ export class CatalogImportService {
       
       for (let colIndex = 0; colIndex < row.length; colIndex++) {
         const cellValue = row[colIndex];
-        console.log(`  Ячейка ${colIndex}: "${cellValue}" (тип: ${typeof cellValue})`);
         
         if (cellValue && typeof cellValue === 'string' && cellValue.trim()) {
           filledValues.push(cellValue.trim());
           if (!categoryName) {
             categoryName = cellValue.trim();
             level = colIndex + 1;
-            console.log(`    -> Название категории: "${categoryName}", уровень: ${level}`);
+            logger.debug('Название категории найдено', 'catalog-import-service', { rowIndex: rowIndex + 2, categoryName, level });
           }
         } else {
           if (firstEmptyIndex === -1) {
             firstEmptyIndex = colIndex;
           }
-          console.log(`    -> Пустая ячейка`);
         }
       }
 
-      console.log('Заполненные значения:', filledValues);
-      console.log('Название категории:', categoryName);
-      console.log('Уровень:', level);
+      logger.debug('Заполненные значения', 'catalog-import-service', { rowIndex: rowIndex + 2, filledValues, categoryName, level });
 
       if (!categoryName) {
-        console.log('Строка без названия категории, пропускаем');
+        logger.debug('Строка без названия категории, пропускаем', 'catalog-import-service', { rowIndex: rowIndex + 2 });
         continue;
       }
 
       // Проверяем на пропуски в иерархии (ошибка)
       // Ошибка: если есть пустая ячейка в середине последовательности заполненных ячеек
-      console.log('Проверка на пропуски в иерархии...');
+      logger.debug('Проверка на пропуски в иерархии', 'catalog-import-service', { rowIndex: rowIndex + 2 });
       
       // Находим все заполненные ячейки по их позициям в исходной строке
       const filledIndices: number[] = [];
@@ -263,7 +254,7 @@ export class CatalogImportService {
         }
       }
       
-      console.log(`  Заполненные ячейки: [${filledIndices.join(', ')}]`);
+      logger.debug('Заполненные ячейки', 'catalog-import-service', { rowIndex: rowIndex + 2, filledIndices });
       
       // Проверяем, что заполненные ячейки идут подряд без пропусков
       if (filledIndices.length > 1) {
@@ -273,7 +264,7 @@ export class CatalogImportService {
           
           // Если между текущей и следующей заполненной ячейкой есть пропуск
           if (nextIndex - currentIndex > 1) {
-            console.error(`    ОШИБКА: Пропуск между ячейками ${currentIndex} и ${nextIndex}`);
+            logger.error('Пропуск между ячейками', 'catalog-import-service', { rowIndex: rowIndex + 2, currentIndex, nextIndex });
             hasGap = true;
             break;
           }
@@ -281,16 +272,16 @@ export class CatalogImportService {
       }
 
       if (hasGap) {
-        console.error(`ОШИБКА: Пропуск в иерархии в строке ${rowIndex + 2}`);
+        logger.error('Пропуск в иерархии', 'catalog-import-service', { rowIndex: rowIndex + 2 });
         throw new Error(`Строка ${rowIndex + 2}: пропуск в иерархии - промежуточные категории не должны быть пустыми`);
       }
       
-      console.log('Проверка на пропуски пройдена успешно');
+      logger.debug('Проверка на пропуски пройдена успешно', 'catalog-import-service', { rowIndex: rowIndex + 2 });
 
       // Строим полный путь для этой строки
       // Используем специальный разделитель для путей, чтобы не конфликтовать с / в названиях
       const fullPath = filledValues.join('|');
-      console.log('Полный путь:', fullPath);
+      logger.debug('Полный путь', 'catalog-import-service', { rowIndex: rowIndex + 2, fullPath });
       
       // Определяем родительский путь
       let parentFullPath = '';
@@ -299,11 +290,11 @@ export class CatalogImportService {
       if (level > 1) {
         // Создаем родительский путь, убирая последний элемент
         parentFullPath = filledValues.slice(0, -1).join('|');
-        console.log('Родительский путь:', parentFullPath);
+        logger.debug('Родительский путь', 'catalog-import-service', { rowIndex: rowIndex + 2, parentFullPath });
         
         // Проверяем, что родитель существует
         if (!categoryMap.has(parentFullPath)) {
-          console.error(`ОШИБКА: Родительская категория "${parentFullPath}" не найдена`);
+          logger.error('Родительская категория не найдена', 'catalog-import-service', { rowIndex: rowIndex + 2, parentFullPath, categoryName });
           throw new Error(`Строка ${rowIndex + 2}: родительская категория не найдена для "${categoryName}"`);
         }
         
@@ -315,12 +306,12 @@ export class CatalogImportService {
       const isLeafCategory = filledValues.length === level; // Конечная категория в строке
       
       if (isLeafCategory && categoryMap.has(fullPath)) {
-        console.error(`ОШИБКА: Дубликат полного пути "${fullPath}"`);
+        logger.error('Дубликат полного пути', 'catalog-import-service', { rowIndex: rowIndex + 2, fullPath });
         throw new Error(`Строка ${rowIndex + 2}: дубликат полного пути "${fullPath}"`);
       }
 
       // Создаем все промежуточные категории в иерархии
-      console.log('Заполненные значения для создания иерархии:', filledValues);
+      logger.debug('Заполненные значения для создания иерархии', 'catalog-import-service', { rowIndex: rowIndex + 2, filledValues });
       
       for (let i = 0; i < filledValues.length; i++) {
         const currentPath = filledValues.slice(0, i + 1).join('|');
@@ -329,11 +320,11 @@ export class CatalogImportService {
         const currentParentPath = i > 0 ? filledValues.slice(0, i).join('|') : '';
         const currentParentName = i > 0 ? filledValues[i - 1] : '';
         
-        console.log(`  Проверяем категорию уровня ${currentLevel}: "${currentName}" (путь: "${currentPath}")`);
+        logger.debug('Проверяем категорию уровня', 'catalog-import-service', { rowIndex: rowIndex + 2, currentLevel, currentName, currentPath });
         
         // Если категория еще не создана, создаем ее
         if (!categoryMap.has(currentPath)) {
-          console.log(`    Создаем новую категорию: "${currentName}"`);
+          logger.debug('Создаем новую категорию', 'catalog-import-service', { rowIndex: rowIndex + 2, currentName });
           
           categoryMap.set(currentPath, currentName);
           if (currentParentPath) {
@@ -353,9 +344,9 @@ export class CatalogImportService {
             fullPath: currentPath
           });
           
-          console.log(`    Добавлена категория: ${currentName} (уровень ${currentLevel})`);
+          logger.debug('Добавлена категория', 'catalog-import-service', { rowIndex: rowIndex + 2, currentName, currentLevel });
         } else {
-          console.log(`    Категория уже существует: "${currentName}"`);
+          logger.debug('Категория уже существует', 'catalog-import-service', { rowIndex: rowIndex + 2, currentName });
         }
       }
     }
@@ -422,7 +413,7 @@ export class CatalogImportService {
     // Информационное сообщение о статистике
     const totalCategories = categories.length;
     const uniqueNames = nameSet.size;
-    console.log(`Валидация: ${totalCategories} категорий с ${uniqueNames} уникальными названиями.`);
+    logger.info('Валидация завершена', 'catalog-import-service', { totalCategories, uniqueNames });
 
     return {
       isValid: errors.length === 0,
@@ -505,7 +496,7 @@ export class CatalogImportService {
           } catch (error) {
             const errorMsg = `Ошибка создания категории "${categoryData.name}": ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`;
             errors.push(errorMsg);
-            console.error(errorMsg, error);
+            logger.error('Ошибка создания категории', 'catalog-import-service', error instanceof Error ? { error: error.message, stack: error.stack, categoryName: categoryData.name } : { error: String(error), categoryName: categoryData.name });
           }
         }
       });
@@ -513,7 +504,7 @@ export class CatalogImportService {
     } catch (error) {
       const errorMsg = `Ошибка транзакции: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`;
       errors.push(errorMsg);
-      console.error(errorMsg, error);
+      logger.error('Ошибка транзакции', 'catalog-import-service', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     }
 
     return {
@@ -591,7 +582,7 @@ export class CatalogImportService {
         created_at: item.created_at
       }));
     } catch (error) {
-      console.error('Error getting import history:', error);
+      logger.error('Error getting import history', 'catalog-import-service', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
       return [];
     }
   }

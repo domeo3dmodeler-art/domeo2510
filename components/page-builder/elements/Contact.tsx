@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { BaseElement } from '../types';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface ContactProps {
   element: BaseElement;
@@ -23,7 +24,7 @@ export function Contact({ element, onUpdate }: ContactProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Здесь можно добавить логику отправки формы
-    console.log('Form submitted:', formData);
+    clientLogger.debug('Form submitted:', formData);
     alert('Форма отправлена! (Это демо-версия)');
   };
 

@@ -3,9 +3,8 @@
  * Позволяет использовать данные из каталога в формулах
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 export interface CatalogProduct {
   id: string;
@@ -68,7 +67,7 @@ export class CatalogDataSource {
       return result;
 
     } catch (error) {
-      console.error('Ошибка получения товара:', error);
+      logger.error('Ошибка получения товара', 'lib/calculator/CatalogDataSource', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
       return null;
     }
   }
@@ -185,7 +184,7 @@ export class CatalogDataSource {
       return filteredResults;
 
     } catch (error) {
-      console.error('Ошибка поиска товаров:', error);
+      logger.error('Ошибка поиска товаров', 'lib/calculator/CatalogDataSource', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
       return [];
     }
   }
@@ -230,7 +229,7 @@ export class CatalogDataSource {
       return result;
 
     } catch (error) {
-      console.error('Ошибка получения статистики:', error);
+      logger.error('Ошибка получения статистики', 'lib/calculator/CatalogDataSource', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
       return {
         totalCount: 0,
         avgPrice: 0,
@@ -286,7 +285,7 @@ export class CatalogDataSource {
       return rootCategories;
 
     } catch (error) {
-      console.error('Ошибка получения категорий:', error);
+      logger.error('Ошибка получения категорий', 'lib/calculator/CatalogDataSource', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
       return [];
     }
   }
@@ -353,7 +352,7 @@ export class CatalogDataSource {
       return result;
 
     } catch (error) {
-      console.error('Ошибка получения свойств категории:', error);
+      logger.error('Ошибка получения свойств категории', 'lib/calculator/CatalogDataSource', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
       return [];
     }
   }

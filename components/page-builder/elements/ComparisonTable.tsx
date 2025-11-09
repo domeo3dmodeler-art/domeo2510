@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BaseElement } from '../types';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface Product {
   id: string;
@@ -64,7 +65,7 @@ export function ComparisonTable({ element, onUpdate }: ComparisonTableProps) {
           setProducts(mockProducts);
         }
       } catch (error) {
-        console.error('Error loading products:', error);
+        clientLogger.error('Error loading products', error instanceof Error ? error : new Error(String(error)));
       } finally {
         setLoading(false);
       }

@@ -117,7 +117,7 @@ const DetailedBlockEditor: React.FC<DetailedBlockEditorProps> = ({
             }
           }
         } catch (error) {
-          console.error('Error loading available properties:', error);
+          clientLogger.error('Error loading available properties:', error);
         }
       } else {
         setAvailableProperties([]);
@@ -236,23 +236,23 @@ const DetailedBlockEditor: React.FC<DetailedBlockEditorProps> = ({
   const loadPropertyValues = async (propertyKey: string) => {
     if (!editedBlock.catalogCategoryId) return;
     
-    console.log('Loading property values for:', propertyKey);
-    console.log('Category ID:', editedBlock.catalogCategoryId);
+    clientLogger.debug('Loading property values for:', propertyKey);
+    clientLogger.debug('Category ID:', editedBlock.catalogCategoryId);
     
     try {
       // Загружаем больше товаров для точного подсчета
       const url = `/api/products/category/${editedBlock.catalogCategoryId}?page=1&limit=5000&fields=["${propertyKey}"]`;
-      console.log('API URL:', url);
+      clientLogger.debug('API URL:', url);
       
       const response = await fetch(url);
-      console.log('Response status:', response.status);
+      clientLogger.debug('Response status:', response.status);
       
       if (response.ok) {
         const data = await response.json();
-        console.log('API response data:', data);
+        clientLogger.debug('API response data:', data);
         
         if (data.success && data.data.products) {
-          console.log('Products count:', data.data.products.length);
+          clientLogger.debug('Products count:', data.data.products.length);
           
           // Показываем все доступные ключи свойств из первого товара
           if (data.data.products.length > 0) {
@@ -265,12 +265,12 @@ const DetailedBlockEditor: React.FC<DetailedBlockEditorProps> = ({
                 try {
                   propertiesData = JSON.parse(propertiesData);
                 } catch (e) {
-                  console.warn('Failed to parse properties_data for logging:', e);
+                  clientLogger.warn('Failed to parse properties_data for logging:', e);
                 }
               }
               
-              console.log('Available property keys:', Object.keys(propertiesData));
-              console.log('Looking for property:', propertyKey);
+              clientLogger.debug('Available property keys:', Object.keys(propertiesData));
+              clientLogger.debug('Looking for property:', propertyKey);
             }
           }
           
@@ -287,7 +287,7 @@ const DetailedBlockEditor: React.FC<DetailedBlockEditorProps> = ({
                 try {
                   propertiesData = JSON.parse(propertiesData);
                 } catch (e) {
-                  console.warn('Failed to parse properties_data:', e);
+                  clientLogger.warn('Failed to parse properties_data:', e);
                   return;
                 }
               }
@@ -305,7 +305,7 @@ const DetailedBlockEditor: React.FC<DetailedBlockEditorProps> = ({
                 );
                 if (matchingKey) {
                   foundValue = propertiesData[matchingKey];
-                  console.log(`Found property by partial match: "${matchingKey}" for "${propertyKey}"`);
+                  clientLogger.debug(`Found property by partial match: "${matchingKey}" for "${propertyKey}"`);
                 }
               }
               
@@ -316,8 +316,8 @@ const DetailedBlockEditor: React.FC<DetailedBlockEditorProps> = ({
             }
           });
           
-          console.log('Unique values found:', Array.from(values));
-          console.log('Value counts:', Object.fromEntries(valueCounts));
+          clientLogger.debug('Unique values found:', Array.from(values));
+          clientLogger.debug('Value counts:', Object.fromEntries(valueCounts));
           
           // Сортируем по количеству товаров (по убыванию)
           const sortedValues = Array.from(values).map(value => ({
@@ -325,18 +325,18 @@ const DetailedBlockEditor: React.FC<DetailedBlockEditorProps> = ({
             count: valueCounts.get(value)
           })).sort((a, b) => b.count - a.count);
           
-          console.log('Sorted values:', sortedValues);
+          clientLogger.debug('Sorted values:', sortedValues);
           
           setSelectedPropertyValues(sortedValues);
           setFilteredProducts(data.data.products); // Сохраняем товары для фильтрации
         } else {
-          console.log('No products found or API error');
+          clientLogger.debug('No products found or API error');
         }
       } else {
-        console.error('API request failed:', response.status, response.statusText);
+        clientLogger.error('API request failed:', response.status, response.statusText);
       }
     } catch (error) {
-      console.error('Error loading property values:', error);
+      clientLogger.error('Error loading property values:', error);
     }
   };
 

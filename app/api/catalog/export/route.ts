@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exportService } from '@/lib/services/export.service';
+import { logger } from '@/lib/logging/logger';
 
 // POST /api/catalog/export - Экспорт товаров
 export async function POST(request: NextRequest) {
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
 
   } catch (error) {
-    console.error('Error exporting products:', error);
+    logger.error('Error exporting products', 'catalog/export', error instanceof Error ? { error: error.message, stack: error.stack, catalogCategoryId, exportType } : { error: String(error), catalogCategoryId, exportType });
     return NextResponse.json(
       { error: 'Ошибка при экспорте товаров' },
       { status: 500 }
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(configs);
 
   } catch (error) {
-    console.error('Error fetching export configs:', error);
+    logger.error('Error fetching export configs', 'catalog/export', error instanceof Error ? { error: error.message, stack: error.stack, catalogCategoryId } : { error: String(error), catalogCategoryId });
     return NextResponse.json(
       { error: 'Ошибка при получении настроек экспорта' },
       { status: 500 }

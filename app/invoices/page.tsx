@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface Invoice {
   id: string;
@@ -44,11 +45,11 @@ export default function InvoicesPage() {
         const data = await response.json();
         setInvoices(data.invoices || []);
       } else {
-        console.error('Failed to load invoices');
+        clientLogger.error('Failed to load invoices');
         setInvoices([]);
       }
     } catch (error) {
-      console.error('Error loading invoices:', error);
+      clientLogger.error('Error loading invoices:', error);
       setInvoices([]);
     } finally {
       setIsLoading(false);

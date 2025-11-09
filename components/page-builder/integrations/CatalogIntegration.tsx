@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { CatalogCategory, ProductProperty, Product } from '../types';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface CatalogIntegrationProps {
   onCategoriesLoaded: (categories: CatalogCategory[]) => void;
@@ -38,7 +39,7 @@ export function CatalogIntegration({
         setError(data.message || 'Ошибка загрузки категорий');
       }
     } catch (error) {
-      console.error('Error loading categories:', error);
+      clientLogger.error('Error loading categories:', error);
       setError('Ошибка загрузки категорий');
     } finally {
       setLoading(false);
@@ -59,7 +60,7 @@ export function CatalogIntegration({
         setError(data.message || 'Ошибка загрузки свойств');
       }
     } catch (error) {
-      console.error('Error loading properties:', error);
+      clientLogger.error('Error loading properties:', error);
       setError('Ошибка загрузки свойств');
     } finally {
       setLoading(false);
@@ -90,7 +91,7 @@ export function CatalogIntegration({
         setError(data.message || 'Ошибка загрузки товаров');
       }
     } catch (error) {
-      console.error('Error loading products:', error);
+      clientLogger.error('Error loading products:', error);
       setError('Ошибка загрузки товаров');
     } finally {
       setLoading(false);

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui';
 import { CartItem } from '../../lib/cart/types';
 import ProductSelector from './ProductSelector';
 import { useCart } from '../../hooks/useCart';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface MultiCategoryCartProps {
   className?: string;
@@ -34,7 +35,7 @@ export default function MultiCategoryCart({ className = "" }: MultiCategoryCartP
         await updateQuantity(itemId, newQuantity);
       }
     } catch (error) {
-      console.error('Error updating quantity:', error);
+      clientLogger.error('Error updating quantity:', error);
     }
   };
 
@@ -42,7 +43,7 @@ export default function MultiCategoryCart({ className = "" }: MultiCategoryCartP
     try {
       await removeItem(itemId);
     } catch (error) {
-      console.error('Error removing item:', error);
+      clientLogger.error('Error removing item:', error);
     }
   };
 
@@ -51,13 +52,13 @@ export default function MultiCategoryCart({ className = "" }: MultiCategoryCartP
       try {
         await clearCart();
       } catch (error) {
-        console.error('Error clearing cart:', error);
+        clientLogger.error('Error clearing cart:', error);
       }
     }
   };
 
   const handleProductAdded = (product: any) => {
-    console.log('Product added to cart:', product);
+    clientLogger.debug('Product added to cart:', product);
     setShowProductSelector(false);
   };
 

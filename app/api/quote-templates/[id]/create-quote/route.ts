@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 import { quoteTemplateService } from '@/lib/templates/quote-templates';
 import { applyPricing } from '@/lib/doors/pricing';
 
@@ -81,8 +82,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }
     }, { status: 201 });
 
-  } catch (error: any) {
-    console.error('Error creating quote from template:', error);
+  } catch (error: unknown) {
+    logger.error('Error creating quote from template', 'api/quote-templates/[id]/create-quote', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Ошибка при создании КП из шаблона' },
       { status: 500 }

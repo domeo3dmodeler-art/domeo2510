@@ -6,6 +6,7 @@ import {
   Package, Tag, DollarSign, Star, Calendar, Grid, List
 } from 'lucide-react';
 import { BaseElement } from '../ProfessionalPageBuilder';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 export interface ProductFilterElement extends BaseElement {
   props: {
@@ -102,7 +103,7 @@ export const ProductFilterRenderer: React.FC<ProductFilterRendererProps> = ({
       const data = await response.json();
       setProperties(data.availableProperties || []);
     } catch (error) {
-      console.error('Error loading properties:', error);
+      clientLogger.error('Error loading properties:', error);
     } finally {
       setLoading(false);
     }

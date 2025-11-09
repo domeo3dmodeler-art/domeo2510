@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { DoorConfiguratorElement } from '../elements/DoorConfiguratorRenderer';
 import { BaseElement } from '../ProfessionalPageBuilder';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface DoorConfiguratorPropertiesPanelProps {
   selectedElement: DoorConfiguratorElement;
@@ -32,7 +33,7 @@ export const DoorConfiguratorPropertiesPanel: React.FC<DoorConfiguratorPropertie
       const data = await response.json();
       setCategories(data.categories || []);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      clientLogger.error('Error loading categories:', error);
     }
   };
 

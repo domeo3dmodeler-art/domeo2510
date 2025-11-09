@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useCart } from '../../../hooks/useCart';
 import { priceService, PriceCalculationRequest } from '../../../lib/price/price-service';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface DoorCalculatorProps {
   title?: string;
@@ -115,7 +116,7 @@ export function DoorCalculator({
       setApiPrice(priceResult.total);
       
     } catch (error) {
-      console.error('❌ Ошибка расчета цены:', error);
+      clientLogger.error('❌ Ошибка расчета цены:', error);
       setPriceError('Ошибка расчета цены');
     } finally {
       setPriceLoading(false);
@@ -173,7 +174,7 @@ export function DoorCalculator({
       setPhotoLoading(true);
       setPhotoError(null);
       
-      console.log('🔄 Загружаем фото для стиля:', styleName);
+      clientLogger.debug('🔄 Загружаем фото для стиля:', styleName);
       
       // Используем оптимизированный API
       const response = await fetch(`/api/catalog/doors/photos-optimized?model=${encodeURIComponent(styleName)}`);
@@ -184,17 +185,17 @@ export function DoorCalculator({
           const photoPath = data.photos[0];
           const imageUrl = photoPath.startsWith('/uploads') ? photoPath : `/uploads${photoPath}`;
           setCurrentPhoto(imageUrl);
-          console.log('✅ Фото загружено:', imageUrl);
+          clientLogger.debug('✅ Фото загружено:', imageUrl);
         } else {
           setCurrentPhoto(null);
-          console.log('ℹ️ Фото не найдено для стиля:', styleName);
+          clientLogger.debug('ℹ️ Фото не найдено для стиля:', styleName);
         }
       } else {
         setPhotoError('Ошибка загрузки фотографии');
         setCurrentPhoto(null);
       }
     } catch (error) {
-      console.error('❌ Ошибка загрузки фото:', error);
+      clientLogger.error('❌ Ошибка загрузки фото:', error);
       setPhotoError('Ошибка загрузки фотографии');
       setCurrentPhoto(null);
     } finally {
@@ -234,13 +235,13 @@ export function DoorCalculator({
       };
       
       await addItem(cartItem);
-      console.log('✅ Товар добавлен в корзину:', cartItem);
+      clientLogger.debug('✅ Товар добавлен в корзину:', cartItem);
       
       // Показываем уведомление
       alert(`✅ Товар "${cartItem.productName}" добавлен в корзину!\nЦена: ${cartItem.basePrice.toLocaleString()} ₽`);
       
     } catch (error) {
-      console.error('❌ Ошибка добавления в корзину:', error);
+      clientLogger.error('❌ Ошибка добавления в корзину:', error);
       alert('❌ Ошибка при добавлении товара в корзину');
     }
   };

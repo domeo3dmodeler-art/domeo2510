@@ -5,6 +5,7 @@ import { StickyNote, History, Send, Trash2, Edit3, X } from 'lucide-react';
 import { Button } from './Button';
 import { toast } from 'sonner';
 import { useConfirmDialog } from './ConfirmDialog';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface Comment {
   id: string;
@@ -68,7 +69,7 @@ export default function CommentsModal({
         ?.split('=')[1];
 
       if (!token) {
-        console.warn('No auth token found');
+        clientLogger.warn('No auth token found');
         return;
       }
 
@@ -80,13 +81,13 @@ export default function CommentsModal({
       
       if (response.ok) {
         const data = await response.json();
-        console.log('🔍 User data from API:', data);
+        clientLogger.debug('🔍 User data from API:', data);
         setCurrentUser({ id: data.user.id, role: data.user.role });
       } else {
-        console.warn('Failed to fetch current user:', response.status);
+        clientLogger.warn('Failed to fetch current user:', response.status);
       }
     } catch (error) {
-      console.error('Error fetching current user:', error);
+      clientLogger.error('Error fetching current user:', error);
     }
   }, []);
 
@@ -99,7 +100,7 @@ export default function CommentsModal({
         setComments(data.comments);
       }
     } catch (error) {
-      console.error('Error fetching comments:', error);
+      clientLogger.error('Error fetching comments:', error);
     } finally {
       setLoading(false);
     }
@@ -115,7 +116,7 @@ export default function CommentsModal({
   const addComment = async () => {
     if (!newComment.trim() || !currentUser) return;
 
-    console.log('🔍 Adding comment:', {
+    clientLogger.debug('🔍 Adding comment:', {
       text: newComment.trim(),
       user_id: currentUser?.id,
       currentUser: currentUser
@@ -134,7 +135,7 @@ export default function CommentsModal({
         })
       });
 
-      console.log('📡 Comment response:', response.status, response.statusText);
+      clientLogger.debug('📡 Comment response:', response.status, response.statusText);
 
       if (response.ok) {
         const data = await response.json();
@@ -155,11 +156,11 @@ export default function CommentsModal({
         });
       } else {
         const errorData = await response.json();
-        console.error('❌ Comment error:', errorData);
+        clientLogger.error('❌ Comment error:', errorData);
         toast.error(`Ошибка при добавлении комментария: ${errorData.error}`);
       }
     } catch (error) {
-      console.error('Error adding comment:', error);
+      clientLogger.error('Error adding comment:', error);
       toast.error('Ошибка при добавлении комментария');
     } finally {
       setSubmitting(false);
@@ -199,7 +200,7 @@ export default function CommentsModal({
             toast.error('Ошибка при удалении комментария');
           }
         } catch (error) {
-          console.error('Error deleting comment:', error);
+          clientLogger.error('Error deleting comment:', error);
           toast.error('Ошибка при удалении комментария');
         }
       },
@@ -253,7 +254,7 @@ export default function CommentsModal({
         }
       }
     } catch (error) {
-      console.error('Error editing comment:', error);
+      clientLogger.error('Error editing comment:', error);
     }
   };
 

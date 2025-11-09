@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface ProductProperty {
   id: string;
@@ -36,7 +37,7 @@ export function ProductPropertiesSelector({
   // Загрузка свойств товаров
   const loadProperties = useCallback(async () => {
       if (!categoryIds?.length) {
-        console.log('🚨 ProductPropertiesSelector: Нет categoryIds, очищаем свойства');
+        clientLogger.debug('🚨 ProductPropertiesSelector: Нет categoryIds, очищаем свойства');
         setProperties([]);
         return;
       }
@@ -53,7 +54,7 @@ export function ProductPropertiesSelector({
           const data = await response.json();
           const newProperties = data.properties || [];
           
-          console.log('🚨 ProductPropertiesSelector: Загружены свойства', {
+          clientLogger.debug('🚨 ProductPropertiesSelector: Загружены свойства', {
             newPropertiesCount: newProperties.length,
             selectedPropertyIdsCount: selectedPropertyIds.length,
             selectedPropertyIds,
@@ -65,17 +66,17 @@ export function ProductPropertiesSelector({
           // Автоматически выбираем первое свойство, если ничего не выбрано
           if (newProperties.length > 0 && selectedPropertyIds.length === 0) {
             const firstProperty = newProperties[0];
-            console.log('🚨 ProductPropertiesSelector: Автоматически выбираем первое свойство:', firstProperty.name);
+            clientLogger.debug('🚨 ProductPropertiesSelector: Автоматически выбираем первое свойство:', firstProperty.name);
             onPropertiesChange([firstProperty.id]);
           } else {
-            console.log('🚨 ProductPropertiesSelector: Автоматический выбор НЕ выполнен', {
+            clientLogger.debug('🚨 ProductPropertiesSelector: Автоматический выбор НЕ выполнен', {
               hasProperties: newProperties.length > 0,
               hasSelected: selectedPropertyIds.length > 0
             });
           }
         }
       } catch (error) {
-        console.error('Error loading properties:', error);
+        clientLogger.error('Error loading properties:', error);
       } finally {
         setLoading(false);
       }
@@ -96,7 +97,7 @@ export function ProductPropertiesSelector({
       ? selectedPropertyIds.filter(id => id !== propertyId)
       : [...selectedPropertyIds, propertyId];
     
-    console.log('🚨 ProductPropertiesSelector: toggleProperty вызван!', {
+    clientLogger.debug('🚨 ProductPropertiesSelector: toggleProperty вызван!', {
       propertyId,
       newSelected,
       categoryIds

@@ -1,82 +1,82 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import * as XLSX from 'xlsx';
 import { validateDocumentFile } from '../../../../../lib/validation/file-validation';
-
-const prisma = new PrismaClient();
+import { logger } from '@/lib/logging/logger';
+import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
+import { apiSuccess, apiError, withErrorHandling } from '@/lib/api/response';
+import { ValidationError, NotFoundError } from '@/lib/api/errors';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
 // ===================== Импорт товаров по шаблону =====================
 
-export async function POST(req: NextRequest) {
+async function postHandler(
+  req: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(req);
+  const formData = await req.formData();
+  const file = formData.get("file") as File;
+  const categoryId = formData.get("categoryId") as string;
+  const templateId = formData.get("templateId") as string;
+  const mode = formData.get("mode") as string || 'preview'; // 'preview' или 'import'
+
+  if (!file) {
+    throw new ValidationError('Файл не предоставлен');
+  }
+
+  if (!categoryId) {
+    throw new ValidationError('Категория не указана');
+  }
+
+  // Валидация файла
+  const validation = validateDocumentFile(file);
+  if (!validation.isValid) {
+    throw new ValidationError(validation.error || 'Неверный формат файла');
+  }
+
+  logger.debug('Импорт товаров по шаблону', 'admin/import-templates/import/POST', {
+    fileName: file.name,
+    fileSize: file.size,
+    categoryId,
+    templateId,
+    mode
+  }, loggingContext);
+
+  // Получаем шаблон
+  let template;
+  if (templateId) {
+    template = await prisma.importTemplate.findUnique({
+      where: { id: templateId }
+    });
+  } else {
+    template = await prisma.importTemplate.findFirst({
+      where: { 
+        catalog_category_id: categoryId,
+        is_active: true 
+      },
+      orderBy: { created_at: 'desc' }
+    });
+  }
+
+  if (!template) {
+    throw new NotFoundError('Шаблон не найден для данной категории');
+  }
+
+  // Парсим поля шаблона
+  let requiredFields = [];
+  let calculatorFields = [];
+  let exportFields = [];
+
   try {
-    const formData = await req.formData();
-    const file = formData.get("file") as File;
-    const categoryId = formData.get("categoryId") as string;
-    const templateId = formData.get("templateId") as string;
-    const mode = formData.get("mode") as string || 'preview'; // 'preview' или 'import'
-
-    if (!file) {
-      return NextResponse.json(
-        { error: "Файл не предоставлен" },
-        { status: 400 }
-      );
-    }
-
-    if (!categoryId) {
-      return NextResponse.json(
-        { error: "Категория не указана" },
-        { status: 400 }
-      );
-    }
-
-    // Валидация файла
-    const validation = validateDocumentFile(file);
-    if (!validation.isValid) {
-      return NextResponse.json(
-        { error: validation.error },
-        { status: 400 }
-      );
-    }
-
-    // Получаем шаблон
-    let template;
-    if (templateId) {
-      template = await prisma.importTemplate.findUnique({
-        where: { id: templateId }
-      });
-    } else {
-      template = await prisma.importTemplate.findFirst({
-        where: { 
-          catalog_category_id: categoryId,
-          is_active: true 
-        },
-        orderBy: { created_at: 'desc' }
-      });
-    }
-
-    if (!template) {
-      return NextResponse.json(
-        { error: "Шаблон не найден для данной категории" },
-        { status: 404 }
-      );
-    }
-
-    // Парсим поля шаблона
-    let requiredFields = [];
-    let calculatorFields = [];
-    let exportFields = [];
-
-    try {
-      requiredFields = template.required_fields ? JSON.parse(template.required_fields) : [];
-      calculatorFields = template.calculator_fields ? JSON.parse(template.calculator_fields) : [];
-      exportFields = template.export_fields ? JSON.parse(template.export_fields) : [];
-    } catch (error) {
-      console.error('Error parsing template fields:', error);
-      return NextResponse.json(
-        { error: 'Ошибка при чтении полей шаблона' },
-        { status: 500 }
-      );
-    }
+    requiredFields = template.required_fields ? JSON.parse(template.required_fields) : [];
+    calculatorFields = template.calculator_fields ? JSON.parse(template.calculator_fields) : [];
+    exportFields = template.export_fields ? JSON.parse(template.export_fields) : [];
+  } catch (error) {
+    logger.error('Ошибка парсинга полей шаблона', 'admin/import-templates/import/POST', { error }, loggingContext);
+    throw new ValidationError('Ошибка при чтении полей шаблона');
+  }
 
     // Читаем Excel файл
     const buffer = await file.arrayBuffer();
@@ -110,9 +110,11 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    console.log('Field mapping:', fieldMapping);
-    console.log('Headers:', headers);
-    console.log('Template fields:', allTemplateFields.map(f => f.displayName || f.fieldName || f));
+    logger.debug('Маппинг полей', 'admin/import-templates/import/POST', {
+      fieldMapping,
+      headersCount: headers.length,
+      templateFieldsCount: allTemplateFields.length
+    }, loggingContext);
 
     // Обрабатываем строки данных
     const products = [];
@@ -192,8 +194,13 @@ export async function POST(req: NextRequest) {
 
     // Если режим предварительного просмотра, возвращаем результат без сохранения
     if (mode === 'preview') {
-      return NextResponse.json({
-        success: true,
+      logger.info('Режим предварительного просмотра', 'admin/import-templates/import/POST', {
+        total: rows.length,
+        valid: products.length,
+        invalid: errors.length
+      }, loggingContext);
+
+      return apiSuccess({
         mode: 'preview',
         total: rows.length,
         valid: products.length,
@@ -250,7 +257,10 @@ export async function POST(req: NextRequest) {
 
           importedCount++;
         } catch (error) {
-          console.error(`Error importing product at row ${product.rowNumber}:`, error);
+          logger.warn('Ошибка импорта товара', 'admin/import-templates/import/POST', {
+            rowNumber: product.rowNumber,
+            error
+          }, loggingContext);
           importErrors.push({
             rowNumber: product.rowNumber,
             error: 'Ошибка при сохранении в базу данных',
@@ -270,11 +280,16 @@ export async function POST(req: NextRequest) {
           }
         });
       } catch (error) {
-        console.error('Error updating category product count:', error);
+        logger.warn('Ошибка обновления счетчика товаров в категории', 'admin/import-templates/import/POST', { error }, loggingContext);
       }
 
-      return NextResponse.json({
-        success: true,
+      logger.info('Импорт завершен', 'admin/import-templates/import/POST', {
+        total: rows.length,
+        imported: importedCount,
+        errors: errors.length + importErrors.length
+      }, loggingContext);
+
+      return apiSuccess({
         mode: 'import',
         total: rows.length,
         imported: importedCount,
@@ -288,16 +303,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json(
-      { error: "Неверный режим импорта" },
-      { status: 400 }
-    );
-
-  } catch (error) {
-    console.error('Template import error:', error);
-    return NextResponse.json(
-      { error: 'Ошибка при импорте по шаблону' },
-      { status: 500 }
-    );
-  }
+    throw new ValidationError('Неверный режим импорта');
 }
+
+export const POST = withErrorHandling(
+  requireAuthAndPermission(postHandler, 'ADMIN'),
+  'admin/import-templates/import/POST'
+);

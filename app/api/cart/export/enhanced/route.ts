@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { exportDocumentWithPDF } from '@/lib/export/puppeteer-generator';
 import { prisma } from '@/lib/prisma';
 import { generateCartSessionId } from '@/lib/utils/cart-session';
+import { logger } from '@/lib/logging/logger';
+
+interface CartItem {
+  id?: string;
+  type?: string;
+  model?: string;
+  qty?: number;
+  quantity?: number;
+  unitPrice?: number;
+  [key: string]: unknown;
+}
+
+interface Cart {
+  items: CartItem[];
+}
 
 // Улучшенный API для экспорта из корзины с интеграцией в документооборот
 export async function POST(req: NextRequest) {
@@ -18,7 +33,7 @@ export async function POST(req: NextRequest) {
       additionalData = {}
     } = body;
 
-    console.log('🔄 Cart export request:', { 
+    logger.info('Cart export request', 'cart/export/enhanced', { 
       documentType, 
       format, 
       clientId, 
@@ -55,7 +70,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Вычисляем общую сумму
-    const totalAmount = cart.items.reduce((sum: number, item: any) => 
+    const totalAmount = cart.items.reduce((sum: number, item: CartItem) => 
       sum + (item.unitPrice || 0) * (item.qty || item.quantity || 1), 0
     );
 
@@ -75,7 +90,7 @@ export async function POST(req: NextRequest) {
     
     const cartSessionId = `cart_${cartHash}`;
     
-    console.log('🛒 Cart session ID:', cartSessionId);
+    logger.debug('Cart session ID', 'cart/export/enhanced', { cartSessionId, clientId });
     
     // Генерируем документ с помощью существующей системы
     const exportResult = await exportDocumentWithPDF(
@@ -87,10 +102,11 @@ export async function POST(req: NextRequest) {
       cartSessionId
     );
 
-    console.log('✅ Document generated:', {
+    logger.info('Document generated', 'cart/export/enhanced', {
       documentId: exportResult.documentId,
       documentType: exportResult.documentType,
-      documentNumber: exportResult.documentNumber
+      documentNumber: exportResult.documentNumber,
+      clientId
     });
 
     // Если есть исходный документ, создаем связь
@@ -144,7 +160,7 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Error in cart export:', error);
+    logger.error('Error in cart export', 'cart/export/enhanced', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Ошибка при создании документа из корзины' },
       { status: 500 }
@@ -184,9 +200,9 @@ async function createDocumentRelationship(
       });
     }
 
-    console.log('✅ Document relationship created:', { sourceType, sourceId, targetType, targetId });
+    logger.debug('Document relationship created', 'cart/export/enhanced', { sourceType, sourceId, targetType, targetId });
   } catch (error) {
-    console.error('❌ Error creating document relationship:', error);
+    logger.error('Error creating document relationship', 'cart/export/enhanced', error instanceof Error ? { error: error.message, stack: error.stack, sourceType, sourceId, targetType, targetId } : { error: String(error), sourceType, sourceId, targetType, targetId });
     // Не прерываем выполнение, если не удалось создать связь
   }
 }
@@ -215,7 +231,7 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Error fetching export formats:', error);
+    logger.error('Error fetching export formats', 'cart/export/enhanced', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Ошибка при получении форматов экспорта' },
       { status: 500 }

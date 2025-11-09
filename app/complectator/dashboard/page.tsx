@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import dynamicImport from 'next/dynamic';
 import { ClientAuthGuard } from '@/components/auth/ClientAuthGuard';
 import NotificationBell from '@/components/ui/NotificationBell';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 // Динамический импорт основного компонента dashboard с отключением SSR
 const ComplectatorDashboardComponent = dynamicImport(
@@ -82,7 +83,7 @@ function ComplectatorDashboardContent() {
           setUser(data.user);
         }
       } catch (error) {
-        console.error('Error fetching user:', error);
+        clientLogger.error('Error fetching user:', error);
         router.push('/login?redirect=/complectator/dashboard');
       } finally {
         setIsLoading(false);

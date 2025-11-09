@@ -2,11 +2,12 @@
 
 import React, { useState } from 'react';
 import { Card, Button, Input, Select, Checkbox } from '../ui';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface CategoryInfoFormProps {
-  onComplete: (data: any) => void;
+  onComplete: (data: { name: string; description: string; slug: string; [key: string]: unknown }) => void;
   onCancel: () => void;
-  initialData?: any;
+  initialData?: { name?: string; description?: string; slug?: string; [key: string]: unknown };
 }
 
 interface CategoryData {
@@ -65,7 +66,7 @@ export default function CategoryInfoForm({ onComplete, onCancel, initialData }: 
       
       onComplete(finalData);
     } catch (error) {
-      console.error('Error creating category:', error);
+      clientLogger.error('Error creating category:', error);
       alert('Ошибка при создании категории.');
     } finally {
       setIsLoading(false);

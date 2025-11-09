@@ -1,6 +1,7 @@
 // lib/validation/status-blocking.ts
 import { prisma } from '@/lib/prisma';
 import { getStatusLabel } from '@/lib/utils/status-labels';
+import { logger } from '../logging/logger';
 
 // Статусы, которые блокируют ручное изменение
 const BLOCKED_STATUSES = ['ORDERED', 'RECEIVED_FROM_SUPPLIER', 'COMPLETED'];
@@ -38,11 +39,11 @@ export async function isStatusBlocked(documentId: string, documentType: 'invoice
 
     // Блокируем статусы из списка заблокированных
     // Статусы ORDERED, RECEIVED_FROM_SUPPLIER, COMPLETED блокируются автоматически
-    console.log(`🔒 Статус ${document.status} заблокирован для ручного изменения`);
+    logger.warn('Статус заблокирован для ручного изменения', 'status-blocking', { documentId, documentType, status: document.status });
     return true;
 
   } catch (error) {
-    console.error('❌ Ошибка проверки блокировки статуса:', error);
+    logger.error('Ошибка проверки блокировки статуса', 'status-blocking', error instanceof Error ? { error: error.message, stack: error.stack, documentId, documentType } : { error: String(error), documentId, documentType });
     return false; // В случае ошибки разрешаем изменение
   }
 }
@@ -79,7 +80,7 @@ async function checkSupplierOrders(document: any, documentType: 'invoice' | 'quo
     return supplierOrders.length > 0;
 
   } catch (error) {
-    console.error('❌ Ошибка проверки заказов поставщику:', error);
+    logger.error('Ошибка проверки заказов поставщику', 'status-blocking', error instanceof Error ? { error: error.message, stack: error.stack, documentId: document.id, documentType } : { error: String(error), documentId: document.id, documentType });
     return false;
   }
 }

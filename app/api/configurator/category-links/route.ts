@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching category links:', error);
+    logger.error('Error fetching category links', 'configurator/category-links', error instanceof Error ? { error: error.message, stack: error.stack, configuratorCategoryId } : { error: String(error), configuratorCategoryId });
     return NextResponse.json(
       { error: 'Failed to fetch category links' },
       { status: 500 }
@@ -126,7 +127,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error creating category link:', error);
+    logger.error('Error creating category link', 'configurator/category-links', error instanceof Error ? { error: error.message, stack: error.stack, configurator_category_id, catalog_category_id } : { error: String(error), configurator_category_id, catalog_category_id });
     return NextResponse.json(
       { error: 'Failed to create category link' },
       { status: 500 }

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface CatalogCategory {
   id: string;
@@ -46,7 +47,7 @@ export function CatalogTreePanel({ onCategorySelect, selectedCategoryIds = [] }:
           autoExpand(data.categories || []);
         }
       } catch (error) {
-        console.error('Error loading catalog tree:', error);
+        clientLogger.error('Error loading catalog tree', error instanceof Error ? error : new Error(String(error)));
       } finally {
         setLoading(false);
       }

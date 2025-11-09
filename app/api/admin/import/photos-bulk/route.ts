@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { validateImageFile, generateUniqueFileName } from '../../../../../lib/validation/file-validation';
 import { uploadRateLimiter, getClientIP, createRateLimitResponse } from '../../../../../lib/security/rate-limiter';
 
-const prisma = new PrismaClient();
-
 // POST /api/admin/import/photos-bulk - Массовая загрузка фотографий с прогрессом
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(request);
     // Rate limiting
     const clientIP = getClientIP(request);
     if (!uploadRateLimiter.isAllowed(clientIP)) {
@@ -22,31 +26,24 @@ export async function POST(request: NextRequest) {
     const mappingProperty = formData.get('mapping_property') as string;
     const autoLink = formData.get('auto_link') === 'true';
 
-    console.log('=== МАССОВАЯ ЗАГРУЗКА ФОТО ===');
-    console.log('Количество фото:', photos.length);
-    console.log('Категория:', category);
-    console.log('Свойство для привязки:', mappingProperty);
-    console.log('Автопривязка:', autoLink);
+    logger.info('Массовая загрузка фото', 'admin/import/photos-bulk', { 
+      userId: user.userId,
+      photosCount: photos.length, 
+      category, 
+      mappingProperty, 
+      autoLink 
+    });
 
     if (!photos || photos.length === 0) {
-      return NextResponse.json(
-        { success: false, message: 'Не выбраны фотографии для загрузки' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не выбраны фотографии для загрузки');
     }
 
     if (!category) {
-      return NextResponse.json(
-        { success: false, message: 'Не указана категория для загрузки' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не указана категория для загрузки');
     }
 
     if (!mappingProperty) {
-      return NextResponse.json(
-        { success: false, message: 'Не указано свойство для привязки фото' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не указано свойство для привязки фото');
     }
 
     // Создаем директорию для загрузки
@@ -54,9 +51,9 @@ export async function POST(request: NextRequest) {
     
     try {
       await mkdir(uploadDir, { recursive: true });
-      console.log('Директория создана:', uploadDir);
+      logger.debug('Директория создана', 'admin/import/photos-bulk', { uploadDir });
     } catch (error) {
-      console.log('Директория уже существует или ошибка создания:', error);
+      logger.debug('Директория уже существует или ошибка создания', 'admin/import/photos-bulk', { uploadDir, error: error instanceof Error ? error.message : String(error) });
     }
 
     const uploadedPhotos: any[] = [];
@@ -68,7 +65,7 @@ export async function POST(request: NextRequest) {
       const photo = photos[i];
       
       try {
-        console.log(`Загружаем фото ${i + 1}/${photos.length}: ${photo.name}`);
+        logger.debug(`Загружаем фото ${i + 1}/${photos.length}`, 'admin/import/photos-bulk', { photoName: photo.name });
         
         // Валидация файла (убрали проверку размера)
         const validation = validateImageFile(photo);
@@ -98,11 +95,11 @@ export async function POST(request: NextRequest) {
         
         uploadedPhotos.push(photoInfo);
         
-        console.log(`Photo ${i + 1} uploaded successfully:`, fileName, 'size:', photo.size);
+        logger.debug(`Photo ${i + 1} uploaded successfully`, 'admin/import/photos-bulk', { fileName, size: photo.size });
         
       } catch (error) {
-        console.error(`Error uploading photo ${i + 1}:`, error);
-        uploadErrors.push(`Ошибка при загрузке ${photo.name}: ${error.message}`);
+        logger.error(`Error uploading photo ${i + 1}`, 'admin/import/photos-bulk', error instanceof Error ? { error: error.message } : { error: String(error) });
+        uploadErrors.push(`Ошибка при загрузке ${photo.name}: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
     
@@ -111,7 +108,7 @@ export async function POST(request: NextRequest) {
     let linkedProducts = 0;
     
     if (autoLink && mappingProperty && uploadedPhotos.length > 0) {
-      console.log('Автоматическая привязка фото к товарам по свойству:', mappingProperty);
+      logger.info('Автоматическая привязка фото к товарам по свойству', 'admin/import/photos-bulk', { mappingProperty });
       
       try {
         // Получаем все товары из категории
@@ -126,14 +123,13 @@ export async function POST(request: NextRequest) {
           }
         });
         
-        console.log(`Найдено ${products.length} товаров в категории ${category}`);
+        logger.info(`Найдено товаров в категории`, 'admin/import/photos-bulk', { category, productsCount: products.length });
         
         for (const photo of uploadedPhotos) {
           // Извлекаем имя файла без расширения для поиска
           const fileNameWithoutExt = path.parse(photo.originalName).name;
           
-          console.log(`\n=== ОБРАБОТКА ФОТО: ${photo.originalName} ===`);
-          console.log(`Имя файла без расширения: ${fileNameWithoutExt}`);
+          logger.debug(`Обработка фото`, 'admin/import/photos-bulk', { originalName: photo.originalName, fileNameWithoutExt });
           
           // Находим товары с таким же значением свойства
           const matchingProducts = products.filter(product => {
@@ -151,19 +147,19 @@ export async function POST(request: NextRequest) {
                                    fileNameStr.toLowerCase().includes(valueStr.toLowerCase());
                 
                 if (exactMatch || partialMatch) {
-                  console.log(`✅ НАЙДЕНО СОВПАДЕНИЕ для товара ${product.sku}: "${valueStr}" ~ "${fileNameStr}"`);
+                  logger.debug(`Найдено совпадение для товара`, 'admin/import/photos-bulk', { sku: product.sku, valueStr, fileNameStr });
                   return true;
                 }
               }
               
               return false;
             } catch (error) {
-              console.error(`Ошибка при обработке товара ${product.sku}:`, error);
+              logger.error(`Ошибка при обработке товара ${product.sku}`, 'admin/import/photos-bulk', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
               return false;
             }
           });
           
-          console.log(`Найдено ${matchingProducts.length} товаров для фото ${photo.originalName}`);
+          logger.debug(`Найдено товаров для фото`, 'admin/import/photos-bulk', { photoName: photo.originalName, matchingProductsCount: matchingProducts.length });
           
           // Привязываем фото ко всем найденным товарам
           for (const product of matchingProducts) {
@@ -196,7 +192,7 @@ export async function POST(request: NextRequest) {
                 });
                 
                 linkedPhotos++;
-                console.log(`🔄 Фото ${photo.originalName} заменено для товара ${product.sku}`);
+                logger.debug(`Фото заменено для товара`, 'admin/import/photos-bulk', { originalName: photo.originalName, productSku: product.sku });
                 
                 linkingResults.push({
                   photo: photo.originalName,
@@ -215,7 +211,7 @@ export async function POST(request: NextRequest) {
                 });
                 
                 linkedPhotos++;
-                console.log(`✅ Фото ${photo.originalName} добавлено в галерею товара ${product.sku}`);
+                logger.debug(`Фото добавлено в галерею товара`, 'admin/import/photos-bulk', { originalName: photo.originalName, productSku: product.sku });
                 
                 linkingResults.push({
                   photo: photo.originalName,
@@ -224,13 +220,13 @@ export async function POST(request: NextRequest) {
                 });
               }
             } catch (error) {
-              console.error(`Ошибка при привязке фото к товару ${product.sku}:`, error);
+              logger.error(`Ошибка при привязке фото к товару ${product.sku}`, 'admin/import/photos-bulk', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
               
               linkingResults.push({
                 photo: photo.originalName,
                 product: product.sku,
                 status: 'error',
-                error: error.message
+                error: error instanceof Error ? error.message : String(error)
               });
             }
           }
@@ -241,7 +237,7 @@ export async function POST(request: NextRequest) {
         }
         
       } catch (error) {
-        console.error('Ошибка при привязке фото к товарам:', error);
+        logger.error('Ошибка при привязке фото к товарам', 'admin/import/photos-bulk', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
       }
     }
 
@@ -255,10 +251,9 @@ export async function POST(request: NextRequest) {
       linkingResults: linkingResults
     };
 
-    console.log('✅ Массовая загрузка завершена:', stats);
+    logger.info('Массовая загрузка завершена', 'admin/import/photos-bulk', { stats });
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       message: `Загружено ${uploadedPhotos.length} из ${photos.length} фото`,
       stats: stats,
       uploadedPhotos: uploadedPhotos,
@@ -267,10 +262,15 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Ошибка при массовой загрузке фото:', error);
-    return NextResponse.json(
-      { success: false, message: 'Ошибка сервера при загрузке фото' },
-      { status: 500 }
-    );
+    logger.error('Ошибка при массовой загрузке фото', 'admin/import/photos-bulk', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка сервера при загрузке фото', 500);
   }
 }
+
+export const POST = withErrorHandling(
+  requireAuthAndPermission(postHandler, 'ADMIN'),
+  'admin/import/photos-bulk/POST'
+);

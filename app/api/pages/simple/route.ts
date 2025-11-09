@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logging/logger';
 
 // Простой API для тестирования без Prisma
 export async function GET() {
@@ -19,7 +20,7 @@ export async function GET() {
       ]
     });
   } catch (error) {
-    console.error('Error in simple API:', error);
+    logger.error('Error in simple API', 'pages/simple', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { success: false, error: 'Failed to fetch pages' },
       { status: 500 }
@@ -30,7 +31,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    console.log('Received data:', body);
+    logger.debug('Received data', 'pages/simple', { hasTitle: !!body?.title, hasDescription: !!body?.description });
     
     const { title, description } = body;
 
@@ -52,14 +53,14 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date().toISOString()
     };
 
-    console.log('Created page:', newPage);
+    logger.debug('Created page', 'pages/simple', { pageId: newPage.id, title: newPage.title });
 
     return NextResponse.json({ 
       success: true, 
       page: newPage
     });
   } catch (error) {
-    console.error('Error creating simple page:', error);
+    logger.error('Error creating simple page', 'pages/simple', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { success: false, error: 'Failed to create page' },
       { status: 500 }

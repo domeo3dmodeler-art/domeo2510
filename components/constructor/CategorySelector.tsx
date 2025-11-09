@@ -1,6 +1,7 @@
 import React from 'react';
 import { Select } from '@/components/ui';
 import { useCatalogData, CatalogCategory } from './hooks/useCatalogData';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface CategorySelectorProps {
   value?: string;
@@ -83,7 +84,7 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
   }
 
   // Отладочная информация
-  console.log('CategorySelector:', { 
+  clientLogger.debug('CategorySelector:', { 
     categories: categories.length, 
     filteredCategories: filteredCategories.length, 
     level, 

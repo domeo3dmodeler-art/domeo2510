@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logging/logger';
 
 // Временный API для тестирования без Prisma
 export async function GET() {
@@ -32,7 +33,7 @@ export async function GET() {
       pages: testPages
     });
   } catch (error) {
-    console.error('Error in test API:', error);
+    logger.error('Error in test API', 'pages/test', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { success: false, error: 'Failed to fetch pages' },
       { status: 500 }
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
       page: newPage
     });
   } catch (error) {
-    console.error('Error creating test page:', error);
+    logger.error('Error creating test page', 'pages/test', error instanceof Error ? { error: error.message, stack: error.stack, title: body?.title } : { error: String(error), title: body?.title });
     return NextResponse.json(
       { success: false, error: 'Failed to create page' },
       { status: 500 }

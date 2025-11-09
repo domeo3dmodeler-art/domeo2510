@@ -1,12 +1,17 @@
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
 import * as XLSX from 'xlsx';
 
-const prisma = new PrismaClient();
-
 // GET /api/catalog/backup - Создать бэкап каталога
-export async function GET(request: Request) {
+async function getHandler(request: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(request);
+    logger.info('Создание бэкапа каталога', 'catalog/backup', { userId: user.userId });
     // Получаем все категории каталога
     const categories = await prisma.catalogCategory.findMany({
       orderBy: [
@@ -16,10 +21,7 @@ export async function GET(request: Request) {
     });
 
     if (categories.length === 0) {
-      return NextResponse.json({
-        success: false,
-        message: 'Каталог пуст, нет данных для бэкапа'
-      }, { status: 400 });
+      throw new ValidationError('Каталог пуст, нет данных для бэкапа');
     }
 
     // Строим иерархическую структуру для Excel
@@ -84,6 +86,8 @@ export async function GET(request: Request) {
     const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
     const filename = `catalog_backup_${dateStr}_${timeStr}.xlsx`;
 
+    logger.info('Бэкап каталога создан', 'catalog/backup', { filename, categoriesCount: categories.length });
+
     return new NextResponse(buffer, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -93,26 +97,29 @@ export async function GET(request: Request) {
     });
 
   } catch (error) {
-    console.error('Error creating catalog backup:', error);
-    return NextResponse.json({
-      success: false,
-      message: 'Ошибка при создании бэкапа',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    logger.error('Error creating catalog backup', 'catalog/backup', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка при создании бэкапа', 500);
   }
 }
 
+export const GET = withErrorHandling(
+  requireAuthAndPermission(getHandler, 'ADMIN'),
+  'catalog/backup/GET'
+);
+
 // POST /api/catalog/backup - Восстановить каталог из бэкапа
-export async function POST(request: Request) {
+async function postHandler(request: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(request);
+    logger.info('Восстановление каталога из бэкапа', 'catalog/backup', { userId: user.userId });
     const formData = await request.formData();
     const file = formData.get('file') as File;
 
     if (!file) {
-      return NextResponse.json({
-        success: false,
-        message: 'Файл не найден'
-      }, { status: 400 });
+      throw new ValidationError('Файл не найден');
     }
 
     // Читаем Excel файл
@@ -128,13 +135,11 @@ export async function POST(request: Request) {
     const rows = data.slice(1).filter(row => row.length > 0);
     
     if (rows.length === 0) {
-      return NextResponse.json({
-        success: false,
-        message: 'Файл не содержит данных'
-      }, { status: 400 });
+      throw new ValidationError('Файл не содержит данных');
     }
 
     // Начинаем транзакцию
+    let categoriesCount = 0;
     await prisma.$transaction(async (tx) => {
       // Очищаем существующий каталог
       await tx.catalogCategory.deleteMany({});
@@ -178,22 +183,28 @@ export async function POST(request: Request) {
             });
             
             categoryMap.set(currentPath, category.id);
+            categoriesCount++;
           }
         }
       }
     });
 
-    return NextResponse.json({
-      success: true,
+    logger.info('Каталог успешно восстановлен из бэкапа', 'catalog/backup', { userId: user.userId, categoriesCount });
+
+    return apiSuccess({
       message: 'Каталог успешно восстановлен из бэкапа'
     });
 
   } catch (error) {
-    console.error('Error restoring catalog from backup:', error);
-    return NextResponse.json({
-      success: false,
-      message: 'Ошибка при восстановлении каталога',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    logger.error('Error restoring catalog from backup', 'catalog/backup', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка при восстановлении каталога', 500);
   }
 }
+
+export const POST = withErrorHandling(
+  requireAuthAndPermission(postHandler, 'ADMIN'),
+  'catalog/backup/POST'
+);

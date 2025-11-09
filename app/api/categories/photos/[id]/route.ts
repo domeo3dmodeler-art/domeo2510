@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logging/logger';
+
+interface Photo {
+  id: string;
+  url: string;
+  alt: string;
+  category_id: string;
+}
 
 // Mock данные для фото
-let mockPhotos: Record<string, any[]> = {
+let mockPhotos: Record<string, Photo[]> = {
   'doors': [
     {
       id: '1',
@@ -19,7 +27,7 @@ export async function DELETE(
   try {
     const photoId = params.id;
 
-    console.log('Deleting photo:', photoId);
+    logger.debug('Deleting photo', 'categories/photos/[id]', { photoId });
 
     // В реальном приложении здесь будет:
     // 1. Удаление файла с сервера
@@ -32,7 +40,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting photo:', error);
+    logger.error('Error deleting photo', 'categories/photos/[id]', error instanceof Error ? { error: error.message, stack: error.stack, photoId } : { error: String(error), photoId });
     return NextResponse.json({ error: 'Ошибка при удалении фото' }, { status: 500 });
   }
 }

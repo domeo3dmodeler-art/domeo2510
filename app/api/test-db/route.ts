@@ -46,16 +46,16 @@ export async function GET() {
         name: doorsCategory.name
       } : null
     });
-  } catch (error: any) {
-    const errorMessage = error?.message || 'Unknown error';
-    const errorCode = error?.code || 'UNKNOWN_ERROR';
-    const errorMeta = error?.meta || {};
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorCode = error && typeof error === 'object' && 'code' in error ? String(error.code) : 'UNKNOWN_ERROR';
+    const errorMeta = error && typeof error === 'object' && 'meta' in error && typeof error.meta === 'object' ? error.meta : {};
     
     logger.error('Ошибка подключения к БД', 'test-db/GET', { 
       error: errorMessage,
       code: errorCode,
       meta: errorMeta,
-      stack: error?.stack
+      stack: error instanceof Error ? error.stack : undefined
     });
     
     return NextResponse.json({ 

@@ -1,8 +1,11 @@
 /**
  * Кэш для уникальных значений свойств товаров
  */
+
+import { logger } from '../logging/logger';
+
 class UniqueValuesCache {
-  private cache = new Map<string, { data: any; timestamp: number }>();
+  private cache = new Map<string, { data: unknown; timestamp: number }>();
   private readonly TTL = 5 * 60 * 1000; // 5 минут
 
   /**
@@ -24,17 +27,17 @@ class UniqueValuesCache {
   /**
    * Получает данные из кэша
    */
-  get(categoryIds: string[], propertyNames: string[]): any | null {
+  get(categoryIds: string[], propertyNames: string[]): unknown | null {
     const key = this.getCacheKey(categoryIds, propertyNames);
     const cached = this.cache.get(key);
     
     if (cached && this.isValid(cached.timestamp)) {
-      console.log(`Cache hit for key: ${key}`);
+      logger.debug('Cache hit for key', 'unique-values-cache', { key });
       return cached.data;
     }
     
     if (cached) {
-      console.log(`Cache expired for key: ${key}`);
+      logger.debug('Cache expired for key', 'unique-values-cache', { key });
       this.cache.delete(key);
     }
     
@@ -44,13 +47,13 @@ class UniqueValuesCache {
   /**
    * Сохраняет данные в кэш
    */
-  set(categoryIds: string[], propertyNames: string[], data: any): void {
+  set(categoryIds: string[], propertyNames: string[], data: unknown): void {
     const key = this.getCacheKey(categoryIds, propertyNames);
     this.cache.set(key, {
       data,
       timestamp: Date.now()
     });
-    console.log(`Cached data for key: ${key}`);
+    logger.debug('Cached data for key', 'unique-values-cache', { key });
   }
 
   /**
@@ -58,7 +61,7 @@ class UniqueValuesCache {
    */
   clear(): void {
     this.cache.clear();
-    console.log('Unique values cache cleared');
+    logger.info('Unique values cache cleared', 'unique-values-cache');
   }
 
   /**

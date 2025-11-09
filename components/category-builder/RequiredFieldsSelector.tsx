@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Checkbox, Select } from '../ui';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface RequiredField {
   fieldName: string;
@@ -166,13 +167,13 @@ export default function RequiredFieldsSelector({
         });
 
         if (response.ok) {
-          console.log('Шаблон создан успешно');
+          clientLogger.debug('Шаблон создан успешно');
           // Можно добавить уведомление пользователю
         } else {
-          console.error('Ошибка создания шаблона');
+          clientLogger.error('Ошибка создания шаблона');
         }
       } catch (error) {
-        console.error('Ошибка при создании шаблона:', error);
+        clientLogger.error('Ошибка при создании шаблона:', error);
       } finally {
         setIsCreatingTemplate(false);
       }

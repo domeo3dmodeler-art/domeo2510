@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { Card, Button } from '../../components/ui';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface Quote {
   id: string;
@@ -46,11 +47,11 @@ export default function QuotesPage() {
         const data = await response.json();
         setQuotes(data.quotes || []);
       } else {
-        console.error('Failed to load quotes');
+        clientLogger.error('Failed to load quotes');
         setQuotes([]);
       }
     } catch (error) {
-      console.error('Error loading quotes:', error);
+      clientLogger.error('Error loading quotes:', error);
       setQuotes([]);
     } finally {
       setIsLoading(false);

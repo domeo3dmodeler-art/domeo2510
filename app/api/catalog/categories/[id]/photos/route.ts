@@ -1,14 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { NotFoundError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
 
-const prisma = new PrismaClient();
-
-export async function DELETE(
+async function deleteHandler(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  user: ReturnType<typeof getAuthenticatedUser>,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const categoryId = params.id;
+    const resolvedParams = await params;
+    const categoryId = resolvedParams.id;
+    
+    logger.info('Удаление фотографий категории', 'catalog/categories/[id]/photos', { userId: user.userId, categoryId });
 
     // Получаем все товары категории
     const products = await prisma.product.findMany({
@@ -22,10 +29,7 @@ export async function DELETE(
     });
 
     if (products.length === 0) {
-      return NextResponse.json(
-        { success: false, message: 'В категории нет товаров' },
-        { status: 404 }
-      );
+      throw new NotFoundError('В категории нет товаров');
     }
 
     let deletedCount = 0;
@@ -56,24 +60,42 @@ export async function DELETE(
         
         processedCount++;
       } catch (error) {
-        console.error(`Ошибка при обработке товара ${product.sku}:`, error);
+        logger.error(`Ошибка при обработке товара ${product.sku}`, 'catalog/categories/[id]/photos', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
       }
     }
 
-    return NextResponse.json({
-      success: true,
+    logger.info('Фотографии успешно удалены', 'catalog/categories/[id]/photos', { 
+      categoryId, 
+      processedCount, 
+      deletedCount 
+    });
+
+    return apiSuccess({
       message: `Фотографии успешно удалены из ${processedCount} товаров`,
       deletedCount: deletedCount,
       processedCount: processedCount
     });
 
   } catch (error) {
-    console.error('Ошибка при удалении всех фотографий:', error);
-    return NextResponse.json(
-      { success: false, message: 'Ошибка при удалении всех фотографий' },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
+    logger.error('Ошибка при удалении всех фотографий', 'catalog/categories/[id]/photos', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof NotFoundError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка при удалении всех фотографий', 500);
   }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return withErrorHandling(
+    requireAuthAndPermission(
+      async (req: NextRequest, user: ReturnType<typeof getAuthenticatedUser>) => {
+        return await deleteHandler(req, user, { params });
+      },
+      'ADMIN'
+    ),
+    'catalog/categories/[id]/photos/DELETE'
+  )(request);
 }

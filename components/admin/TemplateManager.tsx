@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Download } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface TemplateManagerProps {
   catalogCategoryId: string | null;
@@ -33,10 +34,10 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       } else {
-        console.error('Ошибка при скачивании шаблона');
+        clientLogger.error('Ошибка при скачивании шаблона');
       }
     } catch (error) {
-      console.error('Ошибка при скачивании шаблона:', error);
+      clientLogger.error('Ошибка при скачивании шаблона:', error);
     } finally {
       setDownloading(false);
     }

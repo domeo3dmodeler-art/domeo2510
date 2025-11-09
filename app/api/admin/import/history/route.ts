@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 // GET /api/admin/import/history - Получить историю импорта
 export async function GET(request: NextRequest) {
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching import history:', error);
+    logger.error('Error fetching import history', 'admin/import/history', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Ошибка при получении истории импорта' },
       { status: 500 }

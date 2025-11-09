@@ -32,7 +32,7 @@ export const ProductPropertiesPanel: React.FC<ProductPropertiesPanelProps> = ({
       const data = await response.json();
       setCategories(data.categories || []);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      clientLogger.error('Error loading categories:', error);
     }
   };
 

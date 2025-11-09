@@ -69,13 +69,13 @@ const CategoryTreeSelector: React.FC<CategoryTreeSelectorProps> = ({
   const tree = buildTree(filteredCategories);
   
   // Отладка
-  console.log('CategoryTreeSelector - categories:', categories);
-  console.log('CategoryTreeSelector - filteredCategories:', filteredCategories);
-  console.log('CategoryTreeSelector - tree:', tree);
+  clientLogger.debug('CategoryTreeSelector - categories:', categories);
+  clientLogger.debug('CategoryTreeSelector - filteredCategories:', filteredCategories);
+  clientLogger.debug('CategoryTreeSelector - tree:', tree);
   
   // Показываем категории "Двери"
   const doorsCategories = categories.filter(cat => cat.name.includes('Двер'));
-  console.log('CategoryTreeSelector - doors categories:', doorsCategories);
+  clientLogger.debug('CategoryTreeSelector - doors categories:', doorsCategories);
 
   const renderNode = (node: Category, level: number = 0) => {
     const hasChildren = node.children && node.children.length > 0;

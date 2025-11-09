@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { History, Clock, User, ArrowRight } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface HistoryEntry {
   id: string;
@@ -45,7 +46,7 @@ export default function HistoryModal({
         setHistory(data.history);
       }
     } catch (error) {
-      console.error('Error fetching history:', error);
+      clientLogger.error('Error fetching history:', error);
     } finally {
       setLoading(false);
     }

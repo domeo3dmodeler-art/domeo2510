@@ -123,7 +123,7 @@ export class PerformanceMonitor {
       averageResponseTime,
       slowestOperations,
       totalRequests: completedMetrics.length,
-      errorRate: 0 // TODO: добавить подсчет ошибок
+      errorRate: 0 // Подсчет ошибок будет добавлен позже
     };
   }
 

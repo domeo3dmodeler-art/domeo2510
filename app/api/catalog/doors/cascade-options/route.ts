@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { requireAuth } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode } from '@/lib/api/response';
+import { logger } from '@/lib/logging/logger';
 
 // Простое кэширование в памяти (для продакшена лучше использовать Redis)
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 минут
 
-export async function GET(req: NextRequest) {
+async function getHandler(
+  req: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>
+): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(req.url);
     const style = searchParams.get('style');
@@ -19,13 +24,13 @@ export async function GET(req: NextRequest) {
     const height = searchParams.get('height');
     const edge = searchParams.get('edge');
 
-    console.log('🔍 Каскадная фильтрация:', { style, model, finish, color, type, width, height, edge });
+    logger.info('🔍 Каскадная фильтрация', 'catalog/doors/cascade-options', { style, model, finish, color, type, width, height, edge });
 
     // Проверяем кэш
     const cacheKey = `cascade_${style || 'all'}_${model || 'all'}_${finish || 'all'}_${color || 'all'}`;
     const cached = cache.get(cacheKey);
     if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
-      console.log('⚡ Используем кэшированные данные для:', cacheKey);
+      logger.info('⚡ Используем кэшированные данные', 'catalog/doors/cascade-options', { cacheKey });
       return NextResponse.json(cached.data, {
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
@@ -48,7 +53,7 @@ export async function GET(req: NextRequest) {
 
     // Фильтруем товары по выбранным параметрам
     // НЕ фильтруем по width и height - они нужны для показа всех доступных опций
-    const filteredProducts = products.filter(product => {
+    const filteredProducts = products.filter((product: { properties_data: unknown }) => {
       const properties = product.properties_data ?
         (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
 
@@ -87,16 +92,16 @@ export async function GET(req: NextRequest) {
       return true;
     });
 
-    console.log(`📦 Отфильтровано товаров: ${filteredProducts.length} из ${products.length}`);
+    logger.info(`📦 Отфильтровано товаров: ${filteredProducts.length} из ${products.length}`, 'catalog/doors/cascade-options');
     
     // Отладочная информация
     if (filteredProducts.length === 0 && model) {
-      console.log('🔍 Отладка: проверяем соответствие модели');
+      logger.debug('🔍 Отладка: проверяем соответствие модели', 'catalog/doors/cascade-options');
       const sampleProducts = products.slice(0, 5);
-      sampleProducts.forEach((product, index) => {
+      sampleProducts.forEach((product: { properties_data: unknown }, index: number) => {
         const properties = product.properties_data ?
           (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
-        console.log(`   Товар ${index + 1}: модель="${properties['Domeo_Название модели для Web']}", стиль="${properties['Domeo_Стиль Web']}"`);
+        logger.debug(`   Товар ${index + 1}: модель="${properties['Domeo_Название модели для Web']}", стиль="${properties['Domeo_Стиль Web']}"`, 'catalog/doors/cascade-options');
       });
     }
 
@@ -116,7 +121,7 @@ export async function GET(req: NextRequest) {
     let hasSpecificEdgeProducts = 0;
     const specificEdgeValues = new Set<string>();
 
-    filteredProducts.forEach(product => {
+    filteredProducts.forEach((product: { properties_data: unknown }) => {
       const properties = product.properties_data ?
         (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
 
@@ -174,11 +179,11 @@ export async function GET(req: NextRequest) {
       }
     };
 
-    console.log('✅ Каскадные опции:', responseData.availableOptions);
+    logger.info('✅ Каскадные опции получены', 'catalog/doors/cascade-options', { availableOptions: responseData.availableOptions });
 
     // Сохраняем в кэш
     cache.set(cacheKey, { data: responseData, timestamp: Date.now() });
-    console.log('💾 Сохранили в кэш:', cacheKey);
+    logger.info('💾 Сохранили в кэш', 'catalog/doors/cascade-options', { cacheKey });
 
     return NextResponse.json(responseData, {
       headers: {
@@ -187,10 +192,9 @@ export async function GET(req: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('Error in cascade filtering:', error);
-    return NextResponse.json(
-      { error: "Ошибка каскадной фильтрации" },
-      { status: 500 }
-    );
+    logger.error('Error in cascade filtering', 'catalog/doors/cascade-options', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка каскадной фильтрации', 500);
   }
 }
+
+export const GET = requireAuth(getHandler);

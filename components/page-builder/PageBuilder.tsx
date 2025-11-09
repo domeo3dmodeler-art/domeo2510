@@ -13,6 +13,7 @@ import { useHistory } from './hooks/useHistory';
 import { DocumentProvider } from './context/DocumentContext';
 import { ConnectionsProvider } from './context/ConnectionsContext';
 import { DocumentData, Page, BaseElement, BlockConnection } from './types';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 // Начальный документ
 const initialDocument: DocumentData = {
@@ -151,7 +152,7 @@ export function PageBuilder() {
     ? findElementById((selectedPage?.elements as BaseElement[]) || [], selectedElementId)
     : null;
 
-  console.log('🚨 PageBuilder: Состояние выбора элементов', {
+  clientLogger.debug('PageBuilder: Состояние выбора элементов', {
     selectedElementId,
     selectedElementIds,
     selectedElement: selectedElement ? { id: selectedElement.id, type: selectedElement.type } : null,
@@ -219,7 +220,7 @@ export function PageBuilder() {
   const handleUpdateElement = useCallback((elementId: string, updates: Partial<BaseElement>) => {
     if (!selectedPage) return;
 
-    console.log('🚨 PageBuilder: handleUpdateElement вызван!', {
+    clientLogger.debug('PageBuilder: handleUpdateElement вызван', {
       elementId,
       updates,
       selectedPageId
@@ -240,7 +241,7 @@ export function PageBuilder() {
 
     const updatedPage = updatedDocument.pages.find(page => page.id === selectedPageId);
     const updatedElement = updatedPage?.elements.find(el => el.id === elementId);
-    console.log('🚨 PageBuilder: Документ обновлен!', {
+    clientLogger.debug('PageBuilder: Документ обновлен', {
       elementId,
       updatedElement: updatedElement ? { id: updatedElement.id, type: updatedElement.type } : null
     });
@@ -271,7 +272,7 @@ export function PageBuilder() {
   }, [currentDocument, selectedPageId, addToHistory]);
 
   const handleSelectElement = useCallback((elementId: string | null) => {
-    console.log('🚨 PageBuilder: handleSelectElement вызван!', {
+    clientLogger.debug('PageBuilder: handleSelectElement вызван', {
       elementId,
       previousSelectedElementId: selectedElementId
     });
@@ -280,7 +281,7 @@ export function PageBuilder() {
   }, [selectedElementId]);
 
   const handleSelectElements = useCallback((elementIds: string[]) => {
-    console.log('🚨 PageBuilder: handleSelectElements вызван!', {
+    clientLogger.debug('PageBuilder: handleSelectElements вызван', {
       elementIds,
       previousSelectedElementIds: selectedElementIds,
       elementsCount: elementIds.length
@@ -291,7 +292,7 @@ export function PageBuilder() {
 
   // Функции для работы с деревом элементов
   function updateElementInTree(elements: BaseElement[], elementId: string, updates: Partial<BaseElement>): BaseElement[] {
-    console.log('🚨 updateElementInTree: Обновляем элемент', {
+    clientLogger.debug('updateElementInTree: Обновляем элемент', {
       elementId,
       updates,
       updatesProps: updates.props,
@@ -300,7 +301,7 @@ export function PageBuilder() {
     
     return elements.map(element => {
       if (element.id === elementId) {
-        console.log('🚨 updateElementInTree: НАЙДЕН ЭЛЕМЕНТ!', {
+        clientLogger.debug('updateElementInTree: НАЙДЕН ЭЛЕМЕНТ', {
           elementId,
           currentProps: element.props,
           updatesProps: updates.props,
@@ -316,7 +317,7 @@ export function PageBuilder() {
             ...(updates.props || {})
           }
         };
-        console.log('🚨 updateElementInTree: Элемент найден и обновлен', {
+        clientLogger.debug('updateElementInTree: Элемент найден и обновлен', {
           elementId,
           oldProps: element.props,
           newProps: updatedElement.props,
@@ -411,18 +412,18 @@ export function PageBuilder() {
   }, [currentDocument, selectedPageId, addToHistory]);
 
   const handleSave = useCallback(() => {
-    // TODO: Реализовать сохранение проекта
-    console.log('Сохранение проекта:', currentDocument);
+    // Сохранение проекта будет реализовано позже
+    clientLogger.debug('Сохранение проекта', { documentId: currentDocument.id, documentName: currentDocument.name });
   }, [currentDocument]);
 
 
   // Обработчик выбора шаблона
-  const handleSelectTemplate = useCallback((template: any) => {
+  const handleSelectTemplate = useCallback((template: { name: string; elements: Array<Partial<BaseElement>> }) => {
     const newPage: Page = {
       id: `page-${Date.now()}`,
       name: template.name,
       slug: template.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-      elements: template.elements.map((element: any, index: number) => ({
+      elements: template.elements.map((element: Partial<BaseElement>, index: number) => ({
         ...element,
         id: `element-${Date.now()}-${index}`,
         createdAt: new Date().toISOString(),
@@ -621,15 +622,14 @@ export function PageBuilder() {
   }, [currentDocument, addToHistory]);
 
   // Функция для обработки данных связей
-  const handleConnectionData = useCallback((sourceElementId: string, data: any) => {
-    console.log('🔗 handleConnectionData вызвана:', { sourceElementId, data });
-    console.log('🔗 Все связи в документе:', currentDocument.connections);
-    console.log('🔗 Количество связей:', currentDocument.connections?.length || 0);
+  const handleConnectionData = useCallback((sourceElementId: string, data: Record<string, unknown>) => {
+    clientLogger.debug('handleConnectionData вызвана', { sourceElementId, data });
+    clientLogger.debug('Все связи в документе', { connections: currentDocument.connections, connectionsCount: currentDocument.connections?.length || 0 });
     
     // Находим все активные связи, где данный элемент является ИСТОЧНИКОМ данных
     const outgoingConnections = (currentDocument.connections || []).filter(conn => {
       const matches = conn.sourceElementId === sourceElementId && conn.isActive;
-      console.log('🔗 Проверка ИСХОДЯЩЕЙ связи:', {
+      clientLogger.debug('Проверка ИСХОДЯЩЕЙ связи', {
         connectionId: conn.id,
         sourceElementId: conn.sourceElementId,
         targetElementId: conn.targetElementId,
@@ -644,12 +644,10 @@ export function PageBuilder() {
       return matches;
     });
 
-    console.log('🔗 Найдены исходящие связи:', outgoingConnections);
-    console.log('🔗 Количество найденных связей:', outgoingConnections.length);
+    clientLogger.debug('Найдены исходящие связи', { outgoingConnections, connectionsCount: outgoingConnections.length });
 
     if (outgoingConnections.length === 0) {
-      console.log('⚠️ НЕТ АКТИВНЫХ СВЯЗЕЙ для элемента:', sourceElementId);
-      console.log('⚠️ Все связи в документе:', currentDocument.connections);
+      clientLogger.debug('НЕТ АКТИВНЫХ СВЯЗЕЙ для элемента', { sourceElementId, allConnections: currentDocument.connections });
       return;
     }
 
@@ -657,7 +655,7 @@ export function PageBuilder() {
     outgoingConnections.forEach(connection => {
       const targetElement = findElementById((selectedPage?.elements as BaseElement[]) || [], connection.targetElementId);
       
-      console.log('🔗 Обрабатываем связь:', { 
+      clientLogger.debug('Обрабатываем связь', { 
         connection, 
         targetElement: targetElement ? { id: targetElement.id, type: targetElement.type } : null 
       });
@@ -667,7 +665,7 @@ export function PageBuilder() {
         switch (connection.connectionType) {
           case 'filter':
             // Синхронизация фильтров
-            console.log('🔍 Синхронизация фильтров:', { 
+            clientLogger.debug('Синхронизация фильтров', { 
               sourceElementId, 
               targetElementId: connection.targetElementId, 
               data,
@@ -680,7 +678,7 @@ export function PageBuilder() {
               const propertyName = data.propertyName;
               const propertyValue = data.value || data;
               
-              console.log('🔍 Обновляем PropertyFilter фильтр:', { 
+              clientLogger.debug('Обновляем PropertyFilter фильтр', { 
                 propertyName, 
                 propertyValue,
                 targetElementId: connection.targetElementId,
@@ -699,7 +697,7 @@ export function PageBuilder() {
                 }
               };
               
-              console.log('🔍 Применяем обновления к PropertyFilter:', updates);
+              clientLogger.debug('Применяем обновления к PropertyFilter', { updates });
               handleUpdateElement(connection.targetElementId, updates);
             }
             // Для других типов элементов передаем через filters
@@ -715,22 +713,22 @@ export function PageBuilder() {
             break;
           case 'cart':
             // Добавление в корзину
-            console.log('🛒 Добавление в корзину:', data);
+            clientLogger.debug('Добавление в корзину', { data });
             break;
           case 'navigate':
             // Навигация
-            console.log('🧭 Навигация:', data);
+            clientLogger.debug('Навигация', { data });
             break;
         }
       } else {
-        console.error('❌ Целевой элемент не найден:', connection.targetElementId);
+        clientLogger.error('Целевой элемент не найден', { targetElementId: connection.targetElementId });
       }
     });
   }, [currentDocument.connections, selectedPage?.elements, handleUpdateElement]);
 
   // Функция для тестирования связей
   const handleCreateTestConnection = useCallback(() => {
-    console.log('🧪 Тест связей: Создаем тестовую связь');
+    clientLogger.debug('Тест связей: Создаем тестовую связь');
     
     // Находим PropertyFilter элементы на странице
     const elements = selectedPage?.elements || [];
@@ -744,7 +742,7 @@ export function PageBuilder() {
     const firstFilter = propertyFilters[0];
     const secondFilter = propertyFilters[1];
     
-    console.log('🧪 Тест связей: Создаем связь между PropertyFilter:', {
+    clientLogger.debug('Тест связей: Создаем связь между PropertyFilter', {
       source: { id: firstFilter.id, type: firstFilter.type, propertyName: firstFilter.props.propertyName },
       target: { id: secondFilter.id, type: secondFilter.type, propertyName: secondFilter.props.propertyName }
     });
@@ -770,12 +768,11 @@ export function PageBuilder() {
     setCurrentDocument(updatedDocument);
     addToHistory(updatedDocument);
     
-    console.log('🧪 Тест связей: Связь создана:', testConnection);
-    console.log('🧪 Тест связей: Все связи в документе:', updatedDocument.connections);
+    clientLogger.debug('Тест связей: Связь создана', { testConnection, allConnections: updatedDocument.connections });
     
     // Тестируем передачу данных через связь
     setTimeout(() => {
-      console.log('🧪 Тест связей: Тестируем передачу данных...');
+      clientLogger.debug('Тест связей: Тестируем передачу данных');
       const testData = {
         type: 'filter',
         propertyName: firstFilter.props.propertyName || 'Domeo_Стиль Web',
@@ -783,7 +780,7 @@ export function PageBuilder() {
         categoryIds: firstFilter.props.categoryIds || []
       };
       
-      console.log('🧪 Тест связей: Отправляем тестовые данные:', testData);
+      clientLogger.debug('Тест связей: Отправляем тестовые данные', { testData });
       handleConnectionData(firstFilter.id, testData);
     }, 1000);
     
@@ -792,7 +789,7 @@ export function PageBuilder() {
 
   // Функция для ручного тестирования передачи данных
   const handleTestDataTransfer = useCallback(() => {
-    console.log('🧪 Тест передачи данных: Начинаем тест');
+    clientLogger.debug('Тест передачи данных: Начинаем тест');
     
     const elements = selectedPage?.elements || [];
     const propertyFilters = elements.filter(el => el.type === 'propertyFilter');
@@ -804,7 +801,7 @@ export function PageBuilder() {
     
     const firstFilter = propertyFilters[0];
     
-    console.log('🧪 Тест передачи данных: Используем фильтр:', {
+    clientLogger.debug('Тест передачи данных: Используем фильтр', {
       id: firstFilter.id,
       propertyName: firstFilter.props.propertyName,
       categoryIds: firstFilter.props.categoryIds
@@ -818,7 +815,7 @@ export function PageBuilder() {
       categoryIds: firstFilter.props.categoryIds || []
     };
     
-    console.log('🧪 Тест передачи данных: Отправляем данные:', testData);
+    clientLogger.debug('Тест передачи данных: Отправляем данные', { testData });
     handleConnectionData(firstFilter.id, testData);
     
     alert('Тестовые данные отправлены. Проверьте консоль для логов.');
@@ -826,7 +823,7 @@ export function PageBuilder() {
 
   // Функция для создания новой связи
   const handleCreateConnection = useCallback((sourceElementId: string, targetElementId: string, connectionType: BlockConnection['connectionType']) => {
-    console.log('🔗 Создание связи:', { sourceElementId, targetElementId, connectionType });
+    clientLogger.debug('Создание связи', { sourceElementId, targetElementId, connectionType });
     
     const newConnection: BlockConnection = {
       id: `connection-${Date.now()}`,
@@ -837,8 +834,8 @@ export function PageBuilder() {
       description: `Связь ${connectionType} между элементами`
     };
 
-    console.log('🔗 Новая связь:', newConnection);
-    console.log('🔗 Проверка ID элементов:', {
+    clientLogger.debug('Новая связь', { 
+      newConnection,
       sourceElementExists: selectedPage?.elements?.find(el => el.id === sourceElementId) ? 'ДА' : 'НЕТ',
       targetElementExists: selectedPage?.elements?.find(el => el.id === targetElementId) ? 'ДА' : 'НЕТ',
       allElementIds: selectedPage?.elements?.map(el => el.id),
@@ -852,7 +849,7 @@ export function PageBuilder() {
       updatedAt: new Date().toISOString()
     };
 
-    console.log('🔗 Обновленный документ:', {
+    clientLogger.debug('Обновленный документ', {
       connectionsCount: updatedDocument.connections.length,
       connections: updatedDocument.connections
     });
@@ -930,7 +927,7 @@ export function PageBuilder() {
         }
       }
     } catch (error) {
-      console.error('Error loading saved pages:', error);
+      clientLogger.error('Error loading saved pages', error instanceof Error ? error : new Error(String(error)));
     } finally {
       setLoadingPages(false);
     }
@@ -1101,8 +1098,8 @@ export function PageBuilder() {
             <div className="w-64 lg:w-72 xl:w-80 bg-white border-r border-gray-200 flex-shrink-0 overflow-hidden">
               <CatalogTreePanel
                 onCategorySelect={(categoryId) => {
-                  console.log('Selected category:', categoryId);
-                  // TODO: Handle category selection
+                  clientLogger.debug('Selected category', { categoryId });
+                  // Обработка выбора категории будет реализована позже
                 }}
               />
             </div>

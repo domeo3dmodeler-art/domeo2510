@@ -31,7 +31,17 @@ export async function checkAndFixFileEncoding(file: File): Promise<{
       defval: '' 
     })[0] as string[];
     
-    console.log('🔍 Проверка кодировки файла:', {
+    // Используем logger если доступен
+    const log = typeof window === 'undefined' ? (() => {
+      try {
+        const { logger } = require('./logging/logger');
+        return (msg: string, data?: any) => logger.debug(msg, 'file-encoding-fixer', data);
+      } catch {
+        return console.log;
+      }
+    })() : console.log;
+    
+    log('Проверка кодировки файла', {
       filename: file.name,
       originalHeaders: headers.slice(0, 5) // Показываем первые 5 заголовков
     });
@@ -51,7 +61,7 @@ export async function checkAndFixFileEncoding(file: File): Promise<{
       }
     });
     
-    console.log('🔧 Результат проверки кодировки:', {
+    log('Результат проверки кодировки', {
       hasEncodingIssues,
       issuesCount: encodingIssues.length,
       sampleIssues: encodingIssues.slice(0, 3)
@@ -61,7 +71,7 @@ export async function checkAndFixFileEncoding(file: File): Promise<{
     let fixedFile = file;
     
     if (hasEncodingIssues) {
-      console.log('🛠️ Создание исправленного файла...');
+      log('Создание исправленного файла', { filename: file.name });
       
       // Создаем новый workbook с исправленными заголовками
       const fixedWorkbook = XLSX.utils.book_new();
@@ -90,7 +100,7 @@ export async function checkAndFixFileEncoding(file: File): Promise<{
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       });
       
-      console.log('✅ Файл исправлен:', {
+      log('Файл исправлен', {
         originalSize: file.size,
         fixedSize: fixedFile.size,
         filename: fixedFile.name
@@ -108,7 +118,15 @@ export async function checkAndFixFileEncoding(file: File): Promise<{
     return { fixedFile, result };
     
   } catch (error) {
-    console.error('❌ Ошибка при проверке кодировки файла:', error);
+    const logError = typeof window === 'undefined' ? (() => {
+      try {
+        const { logger } = require('./logging/logger');
+        return (msg: string, data?: any) => logger.error(msg, 'file-encoding-fixer', data);
+      } catch {
+        return console.error;
+      }
+    })() : console.error;
+    logError('Ошибка при проверке кодировки файла', { error: error instanceof Error ? error.message : String(error), filename: file.name });
     throw new Error(`Ошибка проверки кодировки: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
   }
 }
@@ -150,7 +168,15 @@ export async function checkFileEncoding(file: File): Promise<EncodingCheckResult
     };
     
   } catch (error) {
-    console.error('❌ Ошибка при проверке кодировки:', error);
+    const logError = typeof window === 'undefined' ? (() => {
+      try {
+        const { logger } = require('./logging/logger');
+        return (msg: string, data?: any) => logger.error(msg, 'file-encoding-fixer', data);
+      } catch {
+        return console.error;
+      }
+    })() : console.error;
+    logError('Ошибка при проверке кодировки', { error: error instanceof Error ? error.message : String(error) });
     throw new Error(`Ошибка проверки кодировки: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
   }
 }

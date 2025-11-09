@@ -1,24 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
 
 /**
  * GET /api/admin/photos/properties - Получить доступные свойства для загрузки фото
  * Параметры:
  * - category: ID категории
  */
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(request);
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
 
     if (!category) {
-      return NextResponse.json(
-        { success: false, message: 'Не указана категория' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не указана категория');
     }
+
+    logger.info('Получение свойств для загрузки фото', 'admin/photos/properties', { userId: user.userId, category });
 
     // Получаем несколько товаров из категории для анализа свойств
     const products = await prisma.product.findMany({
@@ -32,8 +35,8 @@ export async function GET(request: NextRequest) {
     });
 
     if (products.length === 0) {
-      return NextResponse.json({
-        success: true,
+      logger.info('Товары в категории не найдены', 'admin/photos/properties', { category });
+      return apiSuccess({
         properties: [],
         message: 'Товары в категории не найдены'
       });
@@ -48,13 +51,13 @@ export async function GET(request: NextRequest) {
           allProperties.add(key);
         });
       } catch (error) {
-        console.warn('Ошибка парсинга свойств товара:', error);
+        logger.warn('Ошибка парсинга свойств товара', 'admin/photos/properties', error instanceof Error ? { error: error.message } : { error: String(error) });
       }
     });
 
     // Определяем рекомендуемые свойства для фото в зависимости от категории
     const recommendedProperties: string[] = [];
-    const categoryName = await prisma.catalog_category.findUnique({
+    const categoryName = await prisma.catalogCategory.findUnique({
       where: { id: category },
       select: { name: true }
     });
@@ -100,13 +103,20 @@ export async function GET(request: NextRequest) {
       total: allProperties.size
     };
 
-    return NextResponse.json(result);
+    logger.info('Свойства для фото получены', 'admin/photos/properties', { category, totalProperties: allProperties.size });
+
+    return apiSuccess(result);
 
   } catch (error) {
-    console.error('Ошибка получения свойств для фото:', error);
-    return NextResponse.json(
-      { success: false, message: 'Ошибка сервера при получении свойств' },
-      { status: 500 }
-    );
+    logger.error('Ошибка получения свойств для фото', 'admin/photos/properties', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка сервера при получении свойств', 500);
   }
 }
+
+export const GET = withErrorHandling(
+  requireAuthAndPermission(getHandler, 'ADMIN'),
+  'admin/photos/properties/GET'
+);

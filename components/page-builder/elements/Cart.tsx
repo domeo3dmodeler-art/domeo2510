@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { getCurrentUser } from '@/lib/auth/token-interceptor';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface CartItem {
   id: string;
@@ -14,9 +15,11 @@ interface CartItem {
   totalPrice: number;
 }
 
+import { BaseElement } from '../types';
+
 interface CartProps {
-  element: any;
-  onUpdate: (updates: any) => void;
+  element: BaseElement;
+  onUpdate: (updates: Partial<BaseElement>) => void;
 }
 
 export function Cart({ element, onUpdate }: CartProps) {
@@ -28,7 +31,7 @@ export function Cart({ element, onUpdate }: CartProps) {
   // Получаем роль пользователя
   useEffect(() => {
     const user = getCurrentUser();
-    if (user) {
+    if (user && user.role) {
       setUserRole(user.role);
     }
   }, []);
@@ -40,7 +43,7 @@ export function Cart({ element, onUpdate }: CartProps) {
       try {
         setCartItems(JSON.parse(savedCart));
       } catch (error) {
-        console.error('Error loading cart:', error);
+        clientLogger.error('Error loading cart:', error);
       }
     }
   }, []);
@@ -109,8 +112,8 @@ export function Cart({ element, onUpdate }: CartProps) {
       timestamp: new Date().toISOString()
     };
 
-    // TODO: Реализовать экспорт через API
-    console.log('Exporting cart:', exportData);
+    // Экспорт корзины через API будет реализован позже
+    clientLogger.debug('Exporting cart:', exportData);
   };
 
   const renderCartItem = (item: CartItem) => (

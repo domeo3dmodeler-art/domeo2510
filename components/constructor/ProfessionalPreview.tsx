@@ -20,6 +20,7 @@ import {
   List,
   Sliders
 } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 // ===== ТИПЫ =====
 
@@ -409,18 +410,18 @@ const DocumentGenerator = ({
       date: new Date().toLocaleDateString()
     };
     
-    console.log('Генерация коммерческого предложения:', quoteData);
+    clientLogger.debug('Генерация коммерческого предложения:', quoteData);
     // Здесь будет реальная генерация документа
     alert('Коммерческое предложение сгенерировано!');
   };
 
   const generateInvoice = () => {
-    console.log('Генерация счета-фактуры');
+    clientLogger.debug('Генерация счета-фактуры');
     alert('Счет-фактура сгенерирована!');
   };
 
   const generateOrder = () => {
-    console.log('Генерация заказа');
+    clientLogger.debug('Генерация заказа');
     alert('Заказ сгенерирован!');
   };
 
@@ -488,7 +489,7 @@ export default function ProfessionalPreview({
           setProducts(data.products || []);
         }
       } catch (error) {
-        console.error('Ошибка загрузки товаров:', error);
+        clientLogger.error('Ошибка загрузки товаров:', error);
       }
     };
 

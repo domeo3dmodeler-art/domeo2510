@@ -1,88 +1,85 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
+import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError } from '@/lib/api/errors';
+import { requireAuth } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
 // GET /api/catalog/templates - Получить все шаблоны
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const categoryId = searchParams.get('categoryId');
+async function getHandler(
+  request: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(request);
+  const { searchParams } = new URL(request.url);
+  const categoryId = searchParams.get('categoryId');
 
-    const where = categoryId ? { catalog_category_id: categoryId } : {};
+  const where = categoryId ? { catalog_category_id: categoryId } : {};
 
-    const templates = await prisma.importTemplate.findMany({
-      where,
-      include: {
-        catalog_category: {
-          select: {
-            id: true,
-            name: true,
-            level: true,
-            path: true
-          }
+  const templates = await prisma.importTemplate.findMany({
+    where,
+    include: {
+      catalog_category: {
+        select: {
+          id: true,
+          name: true,
+          level: true,
+          path: true
         }
-      },
-      orderBy: {
-        created_at: 'desc'
       }
-    });
+    },
+    orderBy: {
+      created_at: 'desc'
+    }
+  });
 
-    return NextResponse.json({
-      success: true,
-      templates
-    });
-  } catch (error) {
-    console.error('Error fetching templates:', error);
-    return NextResponse.json(
-      { success: false, message: 'Ошибка при получении шаблонов' },
-      { status: 500 }
-    );
-  }
+  return apiSuccess({ templates });
 }
+
+export const GET = withErrorHandling(
+  requireAuth(getHandler),
+  'catalog/templates/GET'
+);
 
 // POST /api/catalog/templates - Создать новый шаблон
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { catalog_category_id, name, required_fields, calculator_fields, export_fields } = body;
+async function postHandler(
+  request: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(request);
+  const body = await request.json();
+  const { catalog_category_id, name, required_fields, calculator_fields, export_fields } = body;
 
-    if (!catalog_category_id || !name) {
-      return NextResponse.json(
-        { success: false, message: 'Не указаны обязательные поля' },
-        { status: 400 }
-      );
-    }
+  if (!catalog_category_id || !name) {
+    throw new ValidationError('Не указаны обязательные поля: catalog_category_id, name');
+  }
 
-    const template = await prisma.importTemplate.create({
-      data: {
-        catalog_category_id,
-        name,
-        required_fields: JSON.stringify(required_fields || []),
-        calculator_fields: JSON.stringify(calculator_fields || []),
-        export_fields: JSON.stringify(export_fields || [])
-      },
-      include: {
-        catalog_category: {
-          select: {
-            id: true,
-            name: true,
-            level: true,
-            path: true
-          }
+  const template = await prisma.importTemplate.create({
+    data: {
+      catalog_category_id,
+      name,
+      required_fields: JSON.stringify(required_fields || []),
+      calculator_fields: JSON.stringify(calculator_fields || []),
+      export_fields: JSON.stringify(export_fields || [])
+    },
+    include: {
+      catalog_category: {
+        select: {
+          id: true,
+          name: true,
+          level: true,
+          path: true
         }
       }
-    });
+    }
+  });
 
-    return NextResponse.json({
-      success: true,
-      template
-    });
-  } catch (error) {
-    console.error('Error creating template:', error);
-    return NextResponse.json(
-      { success: false, message: 'Ошибка при создании шаблона' },
-      { status: 500 }
-    );
-  }
+  return apiSuccess({ template }, 'Шаблон создан', 201);
 }
+
+export const POST = withErrorHandling(
+  requireAuth(postHandler),
+  'catalog/templates/POST'
+);

@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { validateImageFile, generateUniqueFileName } from '../../../../../lib/validation/file-validation';
 import { uploadRateLimiter, getClientIP, createRateLimitResponse } from '../../../../../lib/security/rate-limiter';
 
-const prisma = new PrismaClient();
-
 // POST /api/admin/import/photos-improved - Улучшенная загрузка фотографий товаров
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(request);
     // Rate limiting
     const clientIP = getClientIP(request);
     if (!uploadRateLimiter.isAllowed(clientIP)) {
@@ -21,30 +25,23 @@ export async function POST(request: NextRequest) {
     const category = formData.get('category') as string;
     const mappingProperty = formData.get('mapping_property') as string;
 
-    console.log('=== УЛУЧШЕННАЯ ЗАГРУЗКА ФОТО ===');
-    console.log('Количество фото:', photos.length);
-    console.log('Категория:', category);
-    console.log('Свойство для привязки:', mappingProperty);
+    logger.info('Улучшенная загрузка фото', 'admin/import/photos-improved', { 
+      userId: user.userId,
+      photosCount: photos.length, 
+      category, 
+      mappingProperty 
+    });
 
     if (!photos || photos.length === 0) {
-      return NextResponse.json(
-        { success: false, message: 'Не выбраны фотографии для загрузки' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не выбраны фотографии для загрузки');
     }
 
     if (!category) {
-      return NextResponse.json(
-        { success: false, message: 'Не указана категория для загрузки' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не указана категория для загрузки');
     }
 
     if (!mappingProperty) {
-      return NextResponse.json(
-        { success: false, message: 'Не указано свойство для привязки фото' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не указано свойство для привязки фото');
     }
 
     // Создаем директорию для загрузки
@@ -52,9 +49,9 @@ export async function POST(request: NextRequest) {
     
     try {
       await mkdir(uploadDir, { recursive: true });
-      console.log('Директория создана:', uploadDir);
+      logger.debug('Директория создана', 'admin/import/photos-improved', { uploadDir });
     } catch (error) {
-      console.log('Директория уже существует или ошибка создания:', error);
+      logger.debug('Директория уже существует или ошибка создания', 'admin/import/photos-improved', error instanceof Error ? { error: error.message } : { error: String(error) });
     }
 
     const uploadedPhotos: any[] = [];
@@ -65,7 +62,7 @@ export async function POST(request: NextRequest) {
       const photo = photos[i];
       
       try {
-        console.log(`Загружаем фото ${i + 1}/${photos.length}: ${photo.name}`);
+        logger.debug(`Загружаем фото ${i + 1}/${photos.length}`, 'admin/import/photos-improved', { photoName: photo.name, photoIndex: i + 1, totalPhotos: photos.length });
         
         // Валидация файла
         const validation = validateImageFile(photo);
@@ -92,18 +89,18 @@ export async function POST(request: NextRequest) {
           type: photo.type
         });
         
-        console.log(`Photo ${i} uploaded successfully:`, fileName, 'size:', photo.size);
+        logger.debug(`Photo ${i} uploaded successfully`, 'admin/import/photos-improved', { fileName, size: photo.size });
         
       } catch (error) {
-        console.error(`Error uploading photo ${i}:`, error);
-        uploadErrors.push(`Ошибка при загрузке ${photo.name}: ${error.message}`);
+        logger.error(`Error uploading photo ${i}`, 'admin/import/photos-improved', error instanceof Error ? { error: error.message } : { error: String(error) });
+        uploadErrors.push(`Ошибка при загрузке ${photo.name}: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
     
     // Привязываем фото к товарам
     let linkedPhotos = 0;
     if (mappingProperty && uploadedPhotos.length > 0) {
-      console.log('Привязка фото к товарам по свойству:', mappingProperty);
+      logger.debug('Привязка фото к товарам по свойству', 'admin/import/photos-improved', { mappingProperty });
       
       try {
         // Получаем все товары из категории
@@ -118,14 +115,13 @@ export async function POST(request: NextRequest) {
           }
         });
         
-        console.log(`Найдено ${products.length} товаров в категории ${category}`);
+        logger.debug(`Найдено товаров в категории`, 'admin/import/photos-improved', { category, productsCount: products.length });
         
         for (const photo of uploadedPhotos) {
           // Извлекаем имя файла без расширения для поиска
           const fileNameWithoutExt = path.parse(photo.originalName).name;
           
-          console.log(`\n=== ОБРАБОТКА ФОТО: ${photo.originalName} ===`);
-          console.log(`Имя файла без расширения: ${fileNameWithoutExt}`);
+          logger.debug(`Обработка фото`, 'admin/import/photos-improved', { originalName: photo.originalName, fileNameWithoutExt });
           
           // Находим товары с таким же значением свойства
           const matchingProducts = products.filter(product => {
@@ -139,19 +135,19 @@ export async function POST(request: NextRequest) {
                 const exactMatch = valueStr === fileNameStr;
                 
                 if (exactMatch) {
-                  console.log(`✅ НАЙДЕНО СОВПАДЕНИЕ для товара ${product.sku}: "${valueStr}" === "${fileNameStr}"`);
+                  logger.debug(`Найдено совпадение для товара`, 'admin/import/photos-improved', { productSku: product.sku, valueStr, fileNameStr });
                   return true;
                 }
               }
               
               return false;
             } catch (error) {
-              console.error(`Ошибка при обработке товара ${product.sku}:`, error);
+              logger.error(`Ошибка при обработке товара`, 'admin/import/photos-improved', { productSku: product.sku, error: error instanceof Error ? error.message : String(error) });
               return false;
             }
           });
           
-          console.log(`Найдено ${matchingProducts.length} товаров для фото ${photo.originalName}`);
+          logger.debug(`Найдено товаров для фото`, 'admin/import/photos-improved', { photoName: photo.originalName, matchingProductsCount: matchingProducts.length });
           
           // Привязываем фото ко всем найденным товарам
           for (const product of matchingProducts) {
@@ -184,7 +180,7 @@ export async function POST(request: NextRequest) {
                 });
                 
                 linkedPhotos++;
-                console.log(`🔄 Фото ${photo.originalName} заменено для товара ${product.sku}`);
+                logger.debug(`Фото заменено для товара`, 'admin/import/photos-improved', { originalName: photo.originalName, productSku: product.sku });
               } else {
                 // Добавляем новое фото в галерею
                 currentProperties.photos.push(photo.filePath);
@@ -197,16 +193,16 @@ export async function POST(request: NextRequest) {
                 });
                 
                 linkedPhotos++;
-                console.log(`✅ Фото ${photo.originalName} добавлено в галерею товара ${product.sku}`);
+                logger.debug(`Фото добавлено в галерею товара`, 'admin/import/photos-improved', { originalName: photo.originalName, productSku: product.sku });
               }
             } catch (error) {
-              console.error(`Ошибка при привязке фото к товару ${product.sku}:`, error);
+              logger.error(`Ошибка при привязке фото к товару`, 'admin/import/photos-improved', { productSku: product.sku, error: error instanceof Error ? error.message : String(error) });
             }
           }
         }
         
       } catch (error) {
-        console.error('Ошибка при привязке фото к товарам:', error);
+        logger.error('Ошибка при привязке фото к товарам', 'admin/import/photos-improved', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
       }
     }
 
@@ -224,18 +220,24 @@ export async function POST(request: NextRequest) {
       }))
     };
 
-    console.log('=== РЕЗУЛЬТАТ ЗАГРУЗКИ ===');
-    console.log('Загружено файлов:', result.uploaded);
-    console.log('Привязано к товарам:', result.linked);
-    console.log('Ошибок:', result.errors);
+    logger.info('Результат загрузки', 'admin/import/photos-improved', { 
+      uploaded: result.uploaded,
+      linked: result.linked,
+      errors: result.errors
+    });
 
-    return NextResponse.json(result);
+    return apiSuccess(result);
 
   } catch (error) {
-    console.error('Ошибка при загрузке фотографий:', error);
-    return NextResponse.json(
-      { success: false, message: 'Ошибка при загрузке фотографий', error: (error as Error).message },
-      { status: 500 }
-    );
+    logger.error('Ошибка при загрузке фотографий', 'admin/import/photos-improved', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка при загрузке фотографий', 500);
   }
 }
+
+export const POST = withErrorHandling(
+  requireAuthAndPermission(postHandler, 'ADMIN'),
+  'admin/import/photos-improved/POST'
+);

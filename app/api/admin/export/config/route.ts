@@ -1,19 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { apiErrorHandler } from '@/lib/api-error-handler';
-import { apiValidator } from '@/lib/api-validator';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
 
 // ===================== НАСТРОЙКИ ЭКСПОРТА =====================
 
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const { searchParams } = new URL(req.url);
     const catalogCategoryId = searchParams.get('catalogCategoryId');
     const exportType = searchParams.get('exportType') || 'default';
 
-    apiValidator.validateId(catalogCategoryId!, 'catalogCategoryId');
+    if (!catalogCategoryId) {
+      throw new ValidationError('catalogCategoryId обязателен');
+    }
+
+    logger.info('Получение настроек экспорта', 'admin/export/config', { userId: user.userId, catalogCategoryId, exportType });
 
     // Получаем настройки экспорта
     let exportSetting = await prisma.exportSetting.findUnique({
@@ -41,8 +47,9 @@ export async function GET(req: NextRequest) {
     const fieldsConfig = JSON.parse(exportSetting.fields_config || '[]');
     const displayConfig = JSON.parse(exportSetting.display_config || '{}');
 
-    return NextResponse.json({
-      success: true,
+    logger.info('Настройки экспорта получены', 'admin/export/config', { catalogCategoryId, exportType });
+
+    return apiSuccess({
       config: {
         id: exportSetting.id,
         exportType: exportSetting.export_type,
@@ -52,12 +59,22 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error) {
-    return apiErrorHandler.handle(error, 'export-config-get');
+    logger.error('Error getting export config', 'admin/export/config', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка получения настроек экспорта', 500);
   }
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withErrorHandling(
+  requireAuthAndPermission(getHandler, 'ADMIN'),
+  'admin/export/config/GET'
+);
+
+async function postHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const body = await req.json();
     const { 
       catalogCategoryId, 
@@ -66,25 +83,23 @@ export async function POST(req: NextRequest) {
       display 
     } = body;
 
-    apiValidator.validateId(catalogCategoryId, 'catalogCategoryId');
+    if (!catalogCategoryId) {
+      throw new ValidationError('catalogCategoryId обязателен');
+    }
 
     // Валидируем поля
     if (!Array.isArray(fields) || fields.length === 0) {
-      return NextResponse.json(
-        { error: 'Поля экспорта не могут быть пустыми' },
-        { status: 400 }
-      );
+      throw new ValidationError('Поля экспорта не могут быть пустыми');
     }
 
     // Проверяем уникальность ключей полей
     const fieldKeys = fields.map(field => field.key);
     const uniqueKeys = new Set(fieldKeys);
     if (uniqueKeys.size !== fieldKeys.length) {
-      return NextResponse.json(
-        { error: 'Ключи полей должны быть уникальными' },
-        { status: 400 }
-      );
+      throw new ValidationError('Ключи полей должны быть уникальными');
     }
+
+    logger.info('Сохранение настроек экспорта', 'admin/export/config', { userId: user.userId, catalogCategoryId, exportType });
 
     // Сохраняем или обновляем настройки
     const exportSetting = await prisma.exportSetting.upsert({
@@ -106,8 +121,9 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    return NextResponse.json({
-      success: true,
+    logger.info('Настройки экспорта сохранены', 'admin/export/config', { catalogCategoryId, exportType, configId: exportSetting.id });
+
+    return apiSuccess({
       config: {
         id: exportSetting.id,
         exportType: exportSetting.export_type,
@@ -117,9 +133,18 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error) {
-    return apiErrorHandler.handle(error, 'export-config-post');
+    logger.error('Error saving export config', 'admin/export/config', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка сохранения настроек экспорта', 500);
   }
 }
+
+export const POST = withErrorHandling(
+  requireAuthAndPermission(postHandler, 'ADMIN'),
+  'admin/export/config/POST'
+);
 
 // ===================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====================
 

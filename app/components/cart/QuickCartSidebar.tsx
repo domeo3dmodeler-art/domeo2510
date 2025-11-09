@@ -7,6 +7,7 @@ import { CartService } from '../../lib/cart/cart-service';
 import { Cart, CartItem, CartCalculation } from '../../lib/cart/types';
 import SimpleDocumentList from '../documents/SimpleDocumentList';
 import { toast } from 'sonner';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface QuickCartSidebarProps {
   isOpen: boolean;
@@ -55,7 +56,7 @@ export default function QuickCartSidebar({
         cartService.updateQuantity(itemId, newQuantity);
       }
     } catch (error) {
-      console.error('Error updating quantity:', error);
+      clientLogger.error('Error updating quantity:', error);
     } finally {
       setIsLoading(false);
     }
@@ -66,7 +67,7 @@ export default function QuickCartSidebar({
     try {
       cartService.removeItem(itemId);
     } catch (error) {
-      console.error('Error removing item:', error);
+      clientLogger.error('Error removing item:', error);
     } finally {
       setIsLoading(false);
     }
@@ -124,7 +125,7 @@ export default function QuickCartSidebar({
           alert(`Ошибка: ${error.error}`);
         }
       } catch (error) {
-        console.error('Error creating supplier order:', error);
+        clientLogger.error('Error creating supplier order:', error);
         alert('Ошибка при создании заказа у поставщика');
       } finally {
         setIsExporting(false);
@@ -179,7 +180,7 @@ export default function QuickCartSidebar({
           toast.error(`Ошибка: ${error.error}`);
         }
       } catch (error) {
-        console.error('Error creating order:', error);
+        clientLogger.error('Error creating order:', error);
         toast.error('Ошибка при создании заказа');
       } finally {
         setIsExporting(false);
@@ -266,7 +267,7 @@ export default function QuickCartSidebar({
       }
 
       const documentResult = await documentResponse.json();
-      console.log('✅ Document created:', documentResult);
+      clientLogger.debug('✅ Document created:', documentResult);
 
       // Шаг 3: Экспортируем PDF для скачивания
       const exportResponse = await fetch('/api/export/fast', {
@@ -298,7 +299,7 @@ export default function QuickCartSidebar({
         toast.success(`${documentType === 'invoice' ? 'Счет' : 'КП'} создан, но не удалось скачать файл`);
       }
     } catch (error) {
-      console.error('Error creating document:', error);
+      clientLogger.error('Error creating document:', error);
       toast.error(`Ошибка при создании ${documentType}`);
     } finally {
       setIsExporting(false);
@@ -306,8 +307,8 @@ export default function QuickCartSidebar({
   };
 
   const handleCreateFromExisting = (sourceType: string, sourceId: string, targetType: string) => {
-    console.log('Creating document from existing:', { sourceType, sourceId, targetType });
-    // TODO: Предзаполнить корзину данными из исходного документа
+    clientLogger.debug('Creating document from existing:', { sourceType, sourceId, targetType });
+    // Предзаполнение корзины данными из исходного документа будет реализовано позже
     alert(`Создание ${targetType} на основе ${sourceType} - функция в разработке`);
   };
 
@@ -366,7 +367,7 @@ export default function QuickCartSidebar({
             <div className="border-b border-gray-200 max-h-64 overflow-y-auto">
               <SimpleDocumentList
                 clientId={selectedClientId}
-                onDocumentSelect={(doc) => console.log('Selected:', doc)}
+                onDocumentSelect={(doc) => clientLogger.debug('Selected:', doc)}
                 onCreateDocument={handleCreateFromExisting}
               />
             </div>
@@ -530,7 +531,7 @@ export default function QuickCartSidebar({
                       toast.error(`Ошибка: ${error.error}`);
                     }
                   } catch (error) {
-                    console.error('Error creating order:', error);
+                    clientLogger.error('Error creating order:', error);
                     toast.error('Ошибка при создании заказа');
                   } finally {
                     setIsExporting(false);

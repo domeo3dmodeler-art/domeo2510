@@ -2,6 +2,12 @@ import { prisma } from '@/lib/prisma';
 import ExcelJS from 'exceljs';
 import puppeteer, { Browser } from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
+import { 
+  findExistingDocument as findExistingDocumentDedup, 
+  findExistingOrder,
+  compareCartContent 
+} from '@/lib/documents/deduplication';
+import { logger } from '@/lib/logging/logger';
 
 // Кэш для товаров по категориям
 const productsCache = new Map<string, any[]>();
@@ -25,7 +31,7 @@ function extractSupplierSku(propertiesData: any): string {
            props['SKU'] || 
            'N/A';
   } catch (error) {
-    console.warn('Failed to parse properties_data for SKU extraction:', error);
+    logger.warn('Failed to parse properties_data for SKU extraction', 'puppeteer-generator', { error: error instanceof Error ? error.message : String(error) });
     return 'N/A';
   }
 }
@@ -36,7 +42,7 @@ let cachedBrowser: Browser | null = null;
 // Функция для очистки кэшированного браузера
 export async function cleanupBrowserCache() {
   if (cachedBrowser && cachedBrowser.isConnected()) {
-    console.log('🧹 Очищаем кэш браузера...');
+    logger.info('Очищаем кэш браузера', 'puppeteer-generator');
     await cachedBrowser.close();
     cachedBrowser = null;
   }
@@ -45,13 +51,13 @@ export async function cleanupBrowserCache() {
 // Генерация PDF с Puppeteer
 export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
   const startTime = Date.now();
-  console.log('🚀 Начинаем генерацию PDF с Puppeteer...');
+  logger.info('Начинаем генерацию PDF с Puppeteer', 'puppeteer-generator', { type: data.type });
 
   try {
     const title = data.type === 'quote' ? 'КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ' :
                   data.type === 'invoice' ? 'СЧЕТ' : 'ЗАКАЗ';
 
-    console.log('📄 Создаем HTML контент для PDF...');
+    logger.debug('Создаем HTML контент для PDF', 'puppeteer-generator', { type: data.type, title });
 
     // Создаем HTML контент с правильной кодировкой
     const htmlContent = `
@@ -171,7 +177,7 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
 </body>
 </html>`;
 
-    console.log('🌐 Запускаем Puppeteer браузер с Chromium...');
+    logger.debug('Запускаем Puppeteer браузер с Chromium', 'puppeteer-generator');
     
     // Используем @sparticuz/chromium для Docker и безголовых окружений
     let executablePath: string | undefined;
@@ -188,7 +194,7 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
       // Если @sparticuz/chromium вернул /tmp/chromium, заменяем на /usr/bin/chromium
       // так как /tmp/chromium может не работать в Alpine Linux контейнере
       if (executablePath && executablePath.includes('/tmp/chromium')) {
-        console.log('⚠️ Обнаружен /tmp/chromium, заменяем на /usr/bin/chromium');
+        logger.warn('Обнаружен /tmp/chromium, заменяем на /usr/bin/chromium', 'puppeteer-generator', { originalPath: executablePath });
         executablePath = '/usr/bin/chromium';
       }
       
@@ -208,7 +214,7 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
               const stats = fs.statSync(path);
               if (stats.isFile()) {
                 executablePath = path;
-                console.log(`✅ Найден Chromium по пути: ${executablePath}`);
+                logger.debug('Найден Chromium по пути', 'puppeteer-generator', { executablePath });
                 break;
               }
             }
@@ -221,15 +227,15 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
       // Если ничего не найдено, используем стандартный путь для Alpine
       if (!executablePath || (!executablePath.includes('chromium') && !executablePath.includes('chrome'))) {
         executablePath = '/usr/bin/chromium';
-        console.log(`⚠️ Используем стандартный путь: ${executablePath}`);
+        logger.warn('Используем стандартный путь', 'puppeteer-generator', { executablePath });
       }
       
-      console.log(`🆕 Создаем браузер с executablePath: ${executablePath}`);
+      logger.debug('Создаем браузер с executablePath', 'puppeteer-generator', { executablePath });
     } catch (error) {
-      console.warn('⚠️ Ошибка получения пути к Chromium:', error);
+      logger.warn('Ошибка получения пути к Chromium', 'puppeteer-generator', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
       // Пробуем стандартные пути
       executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium';
-      console.log(`⚠️ Используем fallback путь: ${executablePath}`);
+      logger.warn('Используем fallback путь', 'puppeteer-generator', { executablePath });
     }
     
     const browser = await puppeteer.launch({
@@ -279,20 +285,20 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
 
     let page: any = null;
     try {
-      console.log('📄 Создаем новую страницу...');
+      logger.debug('Создаем новую страницу', 'puppeteer-generator');
       page = await browser.newPage();
       
       // Устанавливаем размер viewport
       await page.setViewport({ width: 1920, height: 1080 });
       
-      console.log('📝 Устанавливаем HTML контент...');
+      logger.debug('Устанавливаем HTML контент', 'puppeteer-generator');
       // Устанавливаем контент страницы с надежным ожиданием
       await page.setContent(htmlContent, { 
         waitUntil: 'networkidle0',
         timeout: 60000 
       });
 
-      console.log('🖨️ Генерируем PDF...');
+      logger.debug('Генерируем PDF', 'puppeteer-generator');
       // Генерируем PDF
       const pdfBuffer = await page.pdf({
         format: 'A4',
@@ -307,24 +313,25 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
       });
 
       const endTime = Date.now();
-      console.log(`⚡ PDF сгенерирован за ${endTime - startTime}ms`);
+      const duration = endTime - startTime;
+      logger.info('PDF сгенерирован', 'puppeteer-generator', { duration, type: data.type });
 
       // Закрываем страницу ПОСЛЕ получения PDF
       if (page) {
         try {
           await page.close();
         } catch (e) {
-          console.warn('⚠️ Ошибка при закрытии страницы:', e);
+          logger.warn('Ошибка при закрытии страницы', 'puppeteer-generator', { error: e instanceof Error ? e.message : String(e) });
         }
       }
 
       // Закрываем браузер ПОСЛЕ получения PDF, но ДО возврата
-      console.log('🔒 Закрываем браузер...');
+      logger.debug('Закрываем браузер', 'puppeteer-generator');
       if (browser) {
         try {
           await browser.close();
         } catch (e) {
-          console.warn('⚠️ Ошибка при закрытии браузера:', e);
+          logger.warn('Ошибка при закрытии браузера', 'puppeteer-generator', { error: e instanceof Error ? e.message : String(e) });
         }
       }
 
@@ -336,24 +343,24 @@ export async function generatePDFWithPuppeteer(data: any): Promise<Buffer> {
         try {
           await page.close();
         } catch (e) {
-          console.warn('⚠️ Ошибка при закрытии страницы после ошибки:', e);
+          logger.warn('Ошибка при закрытии страницы после ошибки', 'puppeteer-generator', { error: e instanceof Error ? e.message : String(e) });
         }
       }
       
       // Закрываем браузер при ошибке
-      console.log('🔒 Закрываем браузер после ошибки...');
+      logger.debug('Закрываем браузер после ошибки', 'puppeteer-generator');
       if (browser) {
         try {
           await browser.close();
         } catch (e) {
-          console.warn('⚠️ Ошибка при закрытии браузера:', e);
+          logger.warn('Ошибка при закрытии браузера', 'puppeteer-generator', { error: e instanceof Error ? e.message : String(e) });
         }
       }
       throw innerError;
     }
     
   } catch (error) {
-    console.error('❌ Ошибка генерации PDF:', error);
+    logger.error('Ошибка генерации PDF', 'puppeteer-generator', error instanceof Error ? { error: error.message, stack: error.stack, type: data.type } : { error: String(error), type: data.type });
     throw new Error(`PDF generation failed: ${error instanceof Error ? error.message : String(error)}`); 
   }
 }
@@ -385,7 +392,7 @@ async function getDoorTemplate() {
 
 // Поиск ручки в БД по ID
 async function findHandleById(handleId: string) {
-  console.log('🔧 Ищем ручку по ID:', handleId);
+  logger.debug('Ищем ручку по ID', 'puppeteer-generator', { handleId });
   
   const handle = await prisma.product.findFirst({
     where: {
@@ -396,23 +403,23 @@ async function findHandleById(handleId: string) {
   });
 
   if (handle) {
-    console.log('✅ Найдена ручка:', handle.sku);
+    logger.debug('Найдена ручка', 'puppeteer-generator', { handleId, sku: handle.sku });
     return [handle];
   } else {
-    console.log('❌ Ручка не найдена в БД');
+    logger.warn('Ручка не найдена в БД', 'puppeteer-generator', { handleId });
     return [];
   }
 }
 
 // Оптимизированный поиск товаров с кэшированием
 async function findAllProductsByConfiguration(item: any) {
-  console.log('🔍 Ищем товары по конфигурации (оптимизированно):');
-  console.log('🎯 Параметры поиска:', {
+  logger.debug('Ищем товары по конфигурации (оптимизированно)', 'puppeteer-generator', {
     model: item.model,
     finish: item.finish,
     color: item.color,
     width: item.width,
-    height: item.height
+    height: item.height,
+    type: item.type
   });
 
   // Определяем категорию для поиска
@@ -426,12 +433,12 @@ async function findAllProductsByConfiguration(item: any) {
   const now = Date.now();
   
   if (productsCache.has(cacheKey) && cacheExpiry.get(cacheKey)! > now) {
-    console.log('📦 Используем кэшированные товары');
+    logger.debug('Используем кэшированные товары', 'puppeteer-generator', { categoryName });
     const cachedProducts = productsCache.get(cacheKey)!;
     return findMatchingProductsInList(cachedProducts, item);
   }
 
-  console.log('📦 Загружаем товары из БД...');
+  logger.debug('Загружаем товары из БД', 'puppeteer-generator', { categoryName });
   
   // Загружаем товары с оптимизированным запросом
   const allProducts = await prisma.product.findMany({
@@ -448,7 +455,7 @@ async function findAllProductsByConfiguration(item: any) {
     take: 10000
   });
 
-  console.log(`📦 Загружено ${allProducts.length} товаров`);
+  logger.debug('Загружено товаров', 'puppeteer-generator', { categoryName, count: allProducts.length });
 
   // Кэшируем результат
   productsCache.set(cacheKey, allProducts);
@@ -472,7 +479,7 @@ function findMatchingProductsInList(products: any[], item: any) {
         if (item.type === 'handle') {
           // Для ручек проверяем только ID (уже найдено по ID)
           if (product.id === item.handleId) {
-            console.log('✅ Найдена ручка:', product.sku);
+            logger.debug('Найдена ручка', 'puppeteer-generator', { productSku: product.sku, handleId: item.handleId });
             matchingProducts.push(product);
             break; // Для ручек нужен только один товар
           }
@@ -507,12 +514,12 @@ function findMatchingProductsInList(products: any[], item: any) {
             String(props['height']) === String(item.height);
       
           if (modelMatch && finishMatch && colorMatch && widthMatch && heightMatch) {
-            console.log('✅ Найден подходящий товар:', product.sku);
+            logger.debug('Найден подходящий товар', 'puppeteer-generator', { productSku: product.sku, itemModel: item.model });
             matchingProducts.push(product);
             
             // Ограничиваем количество результатов для производительности
             if (matchingProducts.length >= 5) {
-              console.log('⚠️ Ограничиваем результаты до 5 товаров для производительности');
+              logger.warn('Ограничиваем результаты до 5 товаров для производительности', 'puppeteer-generator', { itemModel: item.model });
               break;
             }
           }
@@ -522,23 +529,23 @@ function findMatchingProductsInList(products: any[], item: any) {
         
         // Логируем прогресс каждые 1000 товаров
         if (processedCount % 1000 === 0) {
-          console.log(`📊 Обработано ${processedCount}/${products.length} товаров`);
+          logger.debug('Обработано товаров', 'puppeteer-generator', { processedCount, total: products.length });
         }
         
       } catch (e) {
-        console.warn('Ошибка парсинга properties_data:', e);
+        logger.warn('Ошибка парсинга properties_data', 'puppeteer-generator', { error: e instanceof Error ? e.message : String(e), productId: product.id });
       }
     }
   }
 
-  console.log(`🎯 Найдено ${matchingProducts.length} подходящих товаров из ${processedCount} обработанных`);
+  logger.debug('Найдено подходящих товаров', 'puppeteer-generator', { matchingCount: matchingProducts.length, processedCount, itemModel: item.model });
   return matchingProducts;
 }
 
 // Расширенная генерация Excel для заказа
 export async function generateExcelOrder(data: any): Promise<Buffer> {
   const startTime = Date.now();
-  console.log('🚀 Начинаем генерацию Excel заказа с полными свойствами...');
+  logger.info('Начинаем генерацию Excel заказа с полными свойствами', 'puppeteer-generator', { itemsCount: data.items?.length });
 
   try {
     // Получаем шаблон для дверей (пока не используется)
@@ -629,7 +636,7 @@ export async function generateExcelOrder(data: any): Promise<Buffer> {
     
     for (let i = 0; i < data.items.length; i++) {
       const item = data.items[i];
-      console.log(`📦 Обрабатываем товар ${i + 1} из корзины:`, item.model);
+      logger.debug('Обрабатываем товар из корзины', 'puppeteer-generator', { itemIndex: i + 1, itemModel: item.model, itemName: item.name });
 
       // Ищем подходящие товары в БД
       let matchingProducts: any[] = [];
@@ -641,10 +648,10 @@ export async function generateExcelOrder(data: any): Promise<Buffer> {
         const result = await findAllProductsByConfiguration(item);
         matchingProducts = result || [];
       }
-      console.log(`🔍 Для товара "${item.name}" найдено ${matchingProducts.length} подходящих товаров в БД`);
+      logger.debug('Найдено подходящих товаров в БД', 'puppeteer-generator', { itemName: item.name, matchingCount: matchingProducts.length });
       
       if (matchingProducts.length === 0) {
-        console.log('⚠️ Не найдено подходящих товаров, создаем строку с данными из корзины');
+        logger.warn('Не найдено подходящих товаров, создаем строку с данными из корзины', 'puppeteer-generator', { itemName: item.name, itemModel: item.model });
         
         // Если не найдено товаров, создаем строку с данными из корзины
         const row = worksheet.getRow(rowIndex);
@@ -693,7 +700,7 @@ export async function generateExcelOrder(data: any): Promise<Buffer> {
         rowIndex++;
       } else {
         // Создаем одну строку корзины с объединенными ячейками для данных из БД
-        console.log(`📝 Создаем объединенную строку для товара из корзины с ${matchingProducts.length} вариантами из БД`);
+        logger.debug('Создаем объединенную строку для товара из корзины', 'puppeteer-generator', { itemName: item.name, matchingCount: matchingProducts.length });
         
         const row = worksheet.getRow(rowIndex);
         
@@ -730,7 +737,7 @@ export async function generateExcelOrder(data: any): Promise<Buffer> {
         
         for (let productIndex = 0; productIndex < matchingProducts.length; productIndex++) {
           const productData = matchingProducts[productIndex];
-          console.log(`📝 Заполняем поля из БД для товара ${productData.sku} (${productIndex + 1}/${matchingProducts.length})`);
+          logger.debug('Заполняем поля из БД для товара', 'puppeteer-generator', { productSku: productData.sku, productIndex: productIndex + 1, total: matchingProducts.length });
           
           const currentRow = worksheet.getRow(currentRowIndex);
           let colIndex = 6; // Начинаем с 6-й колонки (после базовых)
@@ -742,8 +749,7 @@ export async function generateExcelOrder(data: any): Promise<Buffer> {
                 : productData.properties_data;
               
               // Заполняем поля в нужном порядке
-              console.log(`🔍 Тип товара: "${item.type}", Заполняем поля для ${productData.sku}`);
-              console.log(`🔍 Проверяем item.type === 'handle': ${item.type === 'handle'}`);
+              logger.debug('Тип товара, заполняем поля', 'puppeteer-generator', { itemType: item.type, productSku: productData.sku, isHandle: item.type === 'handle' });
               dbFields.forEach(fieldName => {
                 let value = '';
                 
@@ -751,42 +757,42 @@ export async function generateExcelOrder(data: any): Promise<Buffer> {
                 if (fieldName === 'Наименование у поставщика') {
                   // Для всех товаров используем правильные поля
                   value = props['Фабрика_наименование'] || props['Наименование двери у поставщика'] || props['Наименование поставщика'] || props['Наименование'] || '';
-                  console.log(`🔍 Поле "${fieldName}" заполняем: ${value} (из props: ${JSON.stringify(props)})`);
+                  logger.debug('Поле заполняем', 'puppeteer-generator', { fieldName, value, productSku: productData.sku });
                 } else if (fieldName === 'Материал/Покрытие') {
                   // Для дверей: Материал/Покрытие, для ручек: пустое
                   if (item.type === 'handle') {
                     value = ''; // Ручки не заполняют материал
-                    console.log(`🔍 Ручка - поле "${fieldName}" оставляем пустым`);
+                    logger.debug('Ручка - поле оставляем пустым', 'puppeteer-generator', { fieldName, productSku: productData.sku });
                   } else {
                     value = props['Материал/Покрытие'] || props['Тип покрытия'] || '';
-                    console.log(`🔍 Дверь - поле "${fieldName}" заполняем: ${value}`);
+                    logger.debug('Дверь - поле заполняем', 'puppeteer-generator', { fieldName, value, productSku: productData.sku });
                   }
                 } else if (fieldName === 'Размер 1') {
                   // Для дверей: Ширина/мм, для ручек: пустое
                   if (item.type === 'handle') {
                     value = ''; // Ручки не заполняют размеры
-                    console.log(`🔍 Ручка - поле "${fieldName}" оставляем пустым`);
+                    logger.debug('Ручка - поле оставляем пустым', 'puppeteer-generator', { fieldName, productSku: productData.sku });
                   } else {
                     value = props['Ширина/мм'] || '';
-                    console.log(`🔍 Дверь - поле "${fieldName}" заполняем: ${value}`);
+                    logger.debug('Дверь - поле заполняем', 'puppeteer-generator', { fieldName, value, productSku: productData.sku });
                   }
                 } else if (fieldName === 'Размер 2') {
                   // Для дверей: Высота/мм, для ручек: пустое
                   if (item.type === 'handle') {
                     value = ''; // Ручки не заполняют размеры
-                    console.log(`🔍 Ручка - поле "${fieldName}" оставляем пустым`);
+                    logger.debug('Ручка - поле оставляем пустым', 'puppeteer-generator', { fieldName, productSku: productData.sku });
                   } else {
                     value = props['Высота/мм'] || '';
-                    console.log(`🔍 Дверь - поле "${fieldName}" заполняем: ${value}`);
+                    logger.debug('Дверь - поле заполняем', 'puppeteer-generator', { fieldName, value, productSku: productData.sku });
                   }
                 } else if (fieldName === 'Размер 3') {
                   // Для дверей: Толщина/мм, для ручек: пустое
                   if (item.type === 'handle') {
                     value = ''; // Ручки не заполняют размеры
-                    console.log(`🔍 Ручка - поле "${fieldName}" оставляем пустым`);
+                    logger.debug('Ручка - поле оставляем пустым', 'puppeteer-generator', { fieldName, productSku: productData.sku });
                   } else {
                     value = props['Толщина/мм'] || '';
-                    console.log(`🔍 Дверь - поле "${fieldName}" заполняем: ${value}`);
+                    logger.debug('Дверь - поле заполняем', 'puppeteer-generator', { fieldName, value, productSku: productData.sku });
                   }
                 } else if (fieldName === 'Цвет/Отделка') {
                   // Для всех товаров используем Цвет/Отделка
@@ -802,11 +808,11 @@ export async function generateExcelOrder(data: any): Promise<Buffer> {
                     } else {
                       value = props[fieldName] || '';
                     }
-                    console.log(`🔍 Ручка - поле "${fieldName}" заполняем: ${value}`);
+                    logger.debug('Ручка - поле заполняем', 'puppeteer-generator', { fieldName, value, productSku: productData.sku });
                   } else {
                     // Для дверей используем стандартную логику
                     value = props[fieldName] || '';
-                    console.log(`🔍 Дверь - поле "${fieldName}" заполняем: ${value}`);
+                    logger.debug('Дверь - поле заполняем', 'puppeteer-generator', { fieldName, value, productSku: productData.sku });
                   }
                 }
                 
@@ -823,15 +829,15 @@ export async function generateExcelOrder(data: any): Promise<Buffer> {
                   } else {
                     currentRow.getCell(colIndex).value = String(value);
                   }
-                  console.log(`✅ Записано поле "${fieldName}": ${value}`);
+                  logger.debug('Записано поле', 'puppeteer-generator', { fieldName, value, productSku: productData.sku });
                 } else {
                   currentRow.getCell(colIndex).value = '';
-                  console.log(`❌ Пустое поле "${fieldName}"`);
+                  logger.debug('Пустое поле', 'puppeteer-generator', { fieldName, productSku: productData.sku });
                 }
                 colIndex++;
               });
             } catch (e) {
-              console.warn('Ошибка парсинга properties_data для товара:', e);
+              logger.warn('Ошибка парсинга properties_data для товара', 'puppeteer-generator', { error: e instanceof Error ? e.message : String(e), productId: productData.id, productSku: productData.sku });
               // Заполняем пустыми значениями
               dbFields.forEach(() => {
                 currentRow.getCell(colIndex).value = '';
@@ -839,7 +845,7 @@ export async function generateExcelOrder(data: any): Promise<Buffer> {
               });
             }
           } else {
-            console.log('❌ Нет properties_data для товара');
+            logger.warn('Нет properties_data для товара', 'puppeteer-generator', { productId: productData.id, productSku: productData.sku });
             // Заполняем пустыми значениями
             dbFields.forEach(() => {
               currentRow.getCell(colIndex).value = '';
@@ -918,12 +924,13 @@ export async function generateExcelOrder(data: any): Promise<Buffer> {
     const buffer = await workbook.xlsx.writeBuffer() as unknown as Buffer;
     
     const endTime = Date.now();
-    console.log(`⚡ Excel заказ сгенерирован за ${endTime - startTime}ms`);
+    const duration = endTime - startTime;
+    logger.info('Excel заказ сгенерирован', 'puppeteer-generator', { duration, itemsCount: data.items?.length });
     
     return buffer;
     
   } catch (error) {
-    console.error('❌ Ошибка генерации Excel заказа:', error);
+    logger.error('Ошибка генерации Excel заказа', 'puppeteer-generator', error instanceof Error ? { error: error.message, stack: error.stack, itemsCount: data.items?.length } : { error: String(error), itemsCount: data.items?.length });
     throw new Error(`Excel order generation failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
@@ -931,7 +938,7 @@ export async function generateExcelOrder(data: any): Promise<Buffer> {
 // Быстрая генерация Excel (для КП и Счета)
 export async function generateExcelFast(data: any): Promise<Buffer> {
   const startTime = Date.now();
-  console.log('🚀 Начинаем генерацию Excel...');
+  logger.info('Начинаем генерацию Excel', 'puppeteer-generator', { itemsCount: data.items?.length });
 
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Документ');
@@ -961,7 +968,8 @@ export async function generateExcelFast(data: any): Promise<Buffer> {
   const buffer = await workbook.xlsx.writeBuffer() as unknown as Buffer;
   
   const endTime = Date.now();
-  console.log(`⚡ Excel сгенерирован за ${endTime - startTime}ms`);
+  const duration = endTime - startTime;
+  logger.info('Excel сгенерирован', 'puppeteer-generator', { duration, itemsCount: data.items?.length });
   
   return buffer;
 }
@@ -977,7 +985,7 @@ export async function exportDocumentWithPDF(
   parentDocumentId?: string | null
 ) {
   const startTime = Date.now();
-  console.log(`🚀 Экспорт ${type} в формате ${format} для ${items.length} позиций`);
+  logger.info('Экспорт документа', 'puppeteer-generator', { type, format, itemsCount: items.length, clientId });
   
   // Валидация входных данных
   if (!clientId || typeof clientId !== 'string') {
@@ -989,12 +997,33 @@ export async function exportDocumentWithPDF(
   }
   
   // Проверяем, есть ли уже документ с таким содержимым
-  console.log(`🔍 Ищем существующий документ типа ${type} для клиента ${clientId}`);
+  logger.debug('Ищем существующий документ', 'puppeteer-generator', { type, clientId });
   let existingDocument = null;
   try {
-    existingDocument = await findExistingDocument(type, clientId, items, totalAmount, parentDocumentId, cartSessionId);
+    // Используем централизованную функцию дедубликации
+    // Адаптируем параметры под сигнатуру функции из deduplication.ts
+    if (type === 'order') {
+      // Для order используем специальную логику (parent_document_id должен быть null)
+      existingDocument = await findExistingOrder(
+        null, // Order - основной документ, parent_document_id всегда null
+        cartSessionId || null,
+        clientId,
+        items,
+        totalAmount
+      );
+    } else {
+      // Для quote и invoice используем общую функцию
+      existingDocument = await findExistingDocumentDedup(
+        type as 'quote' | 'invoice',
+        parentDocumentId || null,
+        cartSessionId || null,
+        clientId,
+        items,
+        totalAmount
+      );
+    }
   } catch (error) {
-    console.warn('⚠️ Ошибка при поиске существующего документа:', error);
+    logger.warn('Ошибка при поиске существующего документа', 'puppeteer-generator', error instanceof Error ? { error: error.message, stack: error.stack, type, clientId } : { error: String(error), type, clientId });
     // Продолжаем работу, создадим новый документ
   }
   
@@ -1006,7 +1035,7 @@ export async function exportDocumentWithPDF(
     // Используем существующий документ
     documentNumberForDB = existingDocument.number;
     documentId = existingDocument.id;
-    console.log(`🔄 Используем существующий документ: ${documentNumberForDB} (ID: ${documentId})`);
+    logger.debug('Используем существующий документ', 'puppeteer-generator', { documentNumber: documentNumberForDB, documentId, type });
     
     // Для экспорта используем тот же номер, что и в БД, но с латинскими префиксами
     const exportPrefix = type === 'quote' ? 'KP' : type === 'invoice' ? 'Invoice' : 'Order';
@@ -1020,7 +1049,7 @@ export async function exportDocumentWithPDF(
     }
     
     documentNumberForExport = `${exportPrefix}-${timestamp}`;
-    console.log(`📄 Номер для экспорта (тот же): ${documentNumberForExport}`);
+    logger.debug('Номер для экспорта (тот же)', 'puppeteer-generator', { documentNumberForExport, documentNumberForDB });
   } else {
     // Создаем новый документ с кириллическими префиксами для БД
     const dbPrefix = type === 'quote' ? 'КП' : type === 'invoice' ? 'Счет' : 'Заказ';
@@ -1030,7 +1059,7 @@ export async function exportDocumentWithPDF(
     // Генерируем номер для экспорта с латинскими префиксами (тот же timestamp)
     const exportPrefix = type === 'quote' ? 'KP' : type === 'invoice' ? 'Invoice' : 'Order';
     documentNumberForExport = `${exportPrefix}-${dbTimestamp}`;
-    console.log(`🆕 Создаем новый документ: ${documentNumberForDB} (для экспорта: ${documentNumberForExport})`);
+    logger.debug('Создаем новый документ', 'puppeteer-generator', { documentNumberForDB, documentNumberForExport, type });
   }
 
   // Получаем данные клиента
@@ -1039,7 +1068,7 @@ export async function exportDocumentWithPDF(
   });
 
   if (!client) {
-    console.log('⚠️ Клиент не найден, создаем тестового клиента');
+    logger.warn('Клиент не найден, создаем тестового клиента', 'puppeteer-generator', { clientId });
     // Создаем тестового клиента в базе данных
     try {
       client = await prisma.client.create({
@@ -1055,9 +1084,9 @@ export async function exportDocumentWithPDF(
           isActive: true
         }
       });
-      console.log(`✅ Тестовый клиент создан: ${client.firstName} ${client.lastName} (ID: ${client.id})`);
+      logger.info('Тестовый клиент создан', 'puppeteer-generator', { clientId: client.id, firstName: client.firstName, lastName: client.lastName });
     } catch (error: any) {
-      console.error('❌ Ошибка создания тестового клиента:', error);
+      logger.error('Ошибка создания тестового клиента', 'puppeteer-generator', error instanceof Error ? { error: error.message, stack: error.stack, clientId } : { error: String(error), clientId });
       // Если не удалось создать клиента, используем объект в памяти
       client = {
         id: clientId,
@@ -1076,7 +1105,7 @@ export async function exportDocumentWithPDF(
   }
 
   // Подготавливаем данные для экспорта
-  console.log('🔍 Debug items data:', JSON.stringify(items, null, 2));
+  logger.debug('Debug items data', 'puppeteer-generator', { itemsCount: items.length, items: items.map(i => ({ name: i.name, type: i.type, model: i.model })) });
   
   const exportData = {
     type,
@@ -1157,7 +1186,7 @@ export async function exportDocumentWithPDF(
     return 'X';
   });
   
-  console.log(`🔒 Безопасный номер для экспорта: ${safeDocumentNumber}`);
+  logger.debug('Безопасный номер для экспорта', 'puppeteer-generator', { safeDocumentNumber, documentNumberForExport });
 
   // Генерируем файл в зависимости от формата
   switch (format) {
@@ -1195,17 +1224,18 @@ export async function exportDocumentWithPDF(
   if (!existingDocument) {
     try {
       dbResult = await createDocumentRecordsSimple(type, clientId, items, totalAmount, documentNumberForDB, parentDocumentId, cartSessionId);
-      console.log(`✅ Записи в БД созданы: ${dbResult.type} #${dbResult.id}`);
+      logger.info('Записи в БД созданы', 'puppeteer-generator', { documentId: dbResult.id, type: dbResult.type, documentNumber: documentNumberForDB });
     } catch (error) {
-      console.error('❌ Ошибка создания записей в БД:', error);
+      logger.error('Ошибка создания записей в БД', 'puppeteer-generator', error instanceof Error ? { error: error.message, stack: error.stack, type, clientId } : { error: String(error), type, clientId });
     }
   } else {
-    console.log(`✅ Используем существующий документ в БД: ${documentNumberForDB}`);
+    logger.debug('Используем существующий документ в БД', 'puppeteer-generator', { documentNumber: documentNumberForDB, documentId, type });
     dbResult = { id: documentId, type: type };
   }
 
   const endTime = Date.now();
-  console.log(`⚡ Экспорт завершен за ${endTime - startTime}ms`);
+  const duration = endTime - startTime;
+  logger.info('Экспорт завершен', 'puppeteer-generator', { duration, type, format, itemsCount: items.length });
 
   return {
     buffer,
@@ -1230,196 +1260,6 @@ function generateCSVSimple(data: any): string {
   ]);
   
   return [headers.join(','), ...rows.map((row: any[]) => row.join(','))].join('\n');
-}
-
-// Поиск существующего документа по содержимому с учетом parent_document_id и cart_session_id
-async function findExistingDocument(
-  type: 'quote' | 'invoice' | 'order',
-  clientId: string,
-  items: any[],
-  totalAmount: number,
-  parentDocumentId?: string | null,
-  cartSessionId?: string | null
-) {
-  try {
-    console.log(`🔍 Поиск существующего документа: ${type}, клиент: ${clientId}, сумма: ${totalAmount}, родитель: ${parentDocumentId || 'нет'}, сессия: ${cartSessionId}`);
-    
-    // Создаем хеш содержимого для более точного сравнения
-    const contentHash = createContentHash(clientId, items, totalAmount);
-    console.log(`🔍 Content hash: ${contentHash}`);
-    console.log(`🔍 Items count: ${items.length}, Items:`, items.map(item => `${item.type}:${item.model}:${item.qty || item.quantity}:${item.unitPrice || item.price}`));
-    
-    if (type === 'quote') {
-      // Строгая логика поиска существующего КП - точное совпадение всех полей
-      const existingQuote = await prisma.quote.findFirst({
-        where: {
-          parent_document_id: parentDocumentId || null,
-          cart_session_id: cartSessionId || null,
-          client_id: clientId,
-          total_amount: totalAmount
-        } as any,
-        orderBy: {
-          created_at: 'desc'
-        }
-      });
-      
-      if (existingQuote && compareCartContent(items, existingQuote.cart_data)) {
-        console.log(`✅ Найден существующий КП: ${existingQuote.number} (ID: ${existingQuote.id})`);
-        return existingQuote;
-      }
-    } else if (type === 'invoice') {
-      // Строгая логика поиска существующего счета - точное совпадение всех полей
-      const existingInvoice = await prisma.invoice.findFirst({
-        where: {
-          parent_document_id: parentDocumentId || null,
-          cart_session_id: cartSessionId || null,
-          client_id: clientId,
-          total_amount: totalAmount
-        } as any,
-        orderBy: {
-          created_at: 'desc'
-        }
-      });
-      
-      if (existingInvoice && compareCartContent(items, existingInvoice.cart_data)) {
-        console.log(`✅ Найден существующий счет: ${existingInvoice.number} (ID: ${existingInvoice.id})`);
-        return existingInvoice;
-      }
-    } else if (type === 'order') {
-      // Строгая логика поиска существующего заказа - точное совпадение всех полей
-      const existingOrder = await prisma.order.findFirst({
-        where: {
-          parent_document_id: parentDocumentId || null,
-          cart_session_id: cartSessionId || null,
-          client_id: clientId,
-          total_amount: totalAmount
-        } as any,
-        orderBy: {
-          created_at: 'desc'
-        }
-      });
-      
-      if (existingOrder && compareCartContent(items, existingOrder.cart_data)) {
-        console.log(`✅ Найден существующий заказ: ${existingOrder.number} (ID: ${existingOrder.id})`);
-        return existingOrder;
-      }
-    }
-
-    console.log(`❌ Существующий документ не найден`);
-    return null;
-  } catch (error) {
-    console.error('❌ Ошибка поиска существующего документа:', error);
-    return null;
-  }
-}
-
-// Создание хеша содержимого для сравнения
-// Нормализация items для сравнения (улучшенная версия с учетом всех важных полей)
-function normalizeItems(items: any[]): any[] {
-  return items.map(item => {
-    // Нормализуем основные поля
-    const normalized: any = {
-      type: String(item.type || 'door').toLowerCase(),
-      style: String(item.style || '').toLowerCase().trim(),
-      model: String(item.model || item.name || '').toLowerCase().trim(),
-      finish: String(item.finish || '').toLowerCase().trim(),
-      color: String(item.color || '').toLowerCase().trim(),
-      width: Number(item.width || 0),
-      height: Number(item.height || 0),
-      quantity: Number(item.qty || item.quantity || 1),
-      unitPrice: Number(item.unitPrice || item.price || 0),
-      // Фурнитура и ручки
-      hardwareKitId: String(item.hardwareKitId || '').trim(),
-      handleId: String(item.handleId || '').trim(),
-      // Дополнительные идентификаторы
-      sku_1c: String(item.sku_1c || '').trim()
-    };
-    
-    // Для ручек - сравниваем только handleId и quantity
-    if (normalized.type === 'handle' || item.handleId) {
-      return {
-        type: 'handle',
-        handleId: normalized.handleId,
-        quantity: normalized.quantity,
-        unitPrice: normalized.unitPrice
-      };
-    }
-    
-    // Для дверей - сравниваем все параметры
-    return normalized;
-  }).sort((a, b) => {
-    // Сортируем для консистентного сравнения
-    const keyA = `${a.type}:${(a.handleId || a.model || '')}:${a.finish}:${a.color}:${a.width}:${a.height}:${a.hardwareKitId}`;
-    const keyB = `${b.type}:${(b.handleId || b.model || '')}:${b.finish}:${b.color}:${b.width}:${b.height}:${b.hardwareKitId}`;
-    return keyA.localeCompare(keyB);
-  });
-}
-
-// Сравнение содержимого корзины
-function compareCartContent(items1: any[], items2String: string | null): boolean {
-  try {
-    if (!items2String) return false;
-    
-    const normalized1 = normalizeItems(items1);
-    const items2 = JSON.parse(items2String);
-    const normalized2 = normalizeItems(Array.isArray(items2) ? items2 : []);
-    
-    if (normalized1.length !== normalized2.length) return false;
-    
-    // Сравниваем каждый элемент
-    for (let i = 0; i < normalized1.length; i++) {
-      const item1 = normalized1[i];
-      const item2 = normalized2[i];
-      
-      // Для ручек сравниваем только handleId, quantity и unitPrice
-      if (item1.type === 'handle' || item2.type === 'handle') {
-        if (item1.type !== item2.type ||
-            item1.handleId !== item2.handleId ||
-            item1.quantity !== item2.quantity ||
-            Math.abs(item1.unitPrice - item2.unitPrice) > 0.01) {
-          return false;
-        }
-        continue;
-      }
-      
-      // Для дверей сравниваем все важные параметры
-      if (item1.type !== item2.type || 
-          item1.style !== item2.style ||
-          item1.model !== item2.model ||
-          item1.finish !== item2.finish ||
-          item1.color !== item2.color ||
-          item1.width !== item2.width ||
-          item1.height !== item2.height ||
-          item1.hardwareKitId !== item2.hardwareKitId ||
-          item1.handleId !== item2.handleId ||
-          item1.quantity !== item2.quantity ||
-          Math.abs(item1.unitPrice - item2.unitPrice) > 0.01) { // Допуск на округление
-        return false;
-      }
-    }
-    
-    return true;
-  } catch (error) {
-    console.warn('⚠️ Ошибка сравнения содержимого корзины:', error);
-    return false;
-  }
-}
-
-function createContentHash(clientId: string, items: any[], totalAmount: number): string {
-  // Используем нормализованные items для создания хеша
-  const normalized = normalizeItems(items);
-  const content = {
-    client_id: clientId,
-    items: normalized,
-    total_amount: totalAmount
-  };
-  
-  // Создаем более длинный и уникальный хеш
-  const contentString = JSON.stringify(content);
-  const hash = Buffer.from(contentString).toString('base64');
-  
-  // Берем первые 100 символов для лучшей уникальности
-  return hash.substring(0, 100);
 }
 
 // Пакетное создание записей в БД с поддержкой parent_document_id и cart_session_id

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { ProductElement } from '../elements/ProductElementRenderer';
 import { BaseElement } from '../ProfessionalPageBuilder';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface ProductPropertiesPanelProps {
   selectedElement: ProductElement;
@@ -32,7 +33,7 @@ export const ProductPropertiesPanel: React.FC<ProductPropertiesPanelProps> = ({
       const data = await response.json();
       setCategories(data.categories || []);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      clientLogger.error('Error loading categories:', error);
     }
   };
 

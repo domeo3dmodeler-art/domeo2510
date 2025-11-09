@@ -1,5 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { catalogService } from '@/lib/services/catalog.service';
+import { logger } from '@/lib/logging/logger';
+
+interface CategoryNode {
+  id: string;
+  name: string;
+  parent_id?: string | null;
+  products_count?: number;
+  image_url?: string | null;
+  description?: string | null;
+  is_active?: boolean;
+  sort_order?: number;
+  subcategories?: CategoryNode[];
+}
+
+interface FlatCategory {
+  id: string;
+  name: string;
+  parentId: string | null;
+  level: number;
+  productCount: number;
+  imageUrl: string | null;
+  description: string | null;
+  isActive: boolean;
+  sortOrder: number;
+}
 
 // GET /api/constructor/categories - Получить плоский список категорий для конструктора
 export async function GET(request: NextRequest) {
@@ -7,10 +32,10 @@ export async function GET(request: NextRequest) {
     const treeResult = await catalogService.getCatalogTree();
     
     // Функция для преобразования дерева в плоский список с правильной иерархией
-    const flattenCategories = (categories: any[], level = 0): any[] => {
-      const result: any[] = [];
+    const flattenCategories = (categories: CategoryNode[], level = 0): FlatCategory[] => {
+      const result: FlatCategory[] = [];
       
-      categories.forEach(category => {
+      categories.forEach((category: CategoryNode) => {
         // Добавляем текущую категорию
         result.push({
           id: category.id,
@@ -41,7 +66,7 @@ export async function GET(request: NextRequest) {
     
     return response;
   } catch (error) {
-    console.error('Error fetching constructor categories:', error);
+    logger.error('Error fetching constructor categories', 'constructor/categories', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Failed to fetch constructor categories' },
       { status: 500 }

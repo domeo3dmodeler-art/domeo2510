@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, Prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
+
+interface TemplateFieldMapping {
+  fieldName?: string;
+  displayName?: string;
+  dataType?: string;
+  isRequired?: boolean;
+  isVisible?: boolean;
+  [key: string]: unknown;
+}
 
 // GET /api/products/category/[categoryId] - Получить товары категории с фильтрами
 export async function GET(
@@ -19,12 +29,12 @@ export async function GET(
     
     // Фильтры по свойствам (JSON строка)
     const filtersParam = searchParams.get('filters');
-    let filters: { [key: string]: any } = {};
+    let filters: Record<string, unknown> = {};
     if (filtersParam) {
       try {
         filters = JSON.parse(filtersParam);
       } catch (e) {
-        console.warn('Invalid filters parameter:', filtersParam);
+        logger.warn('Invalid filters parameter', 'products/category/[categoryId]', { filtersParam, error: e instanceof Error ? e.message : String(e) });
       }
     }
     
@@ -35,12 +45,12 @@ export async function GET(
       try {
         displayFields = JSON.parse(fieldsParam);
       } catch (e) {
-        console.warn('Invalid fields parameter:', fieldsParam);
+        logger.warn('Invalid fields parameter', 'products/category/[categoryId]', { fieldsParam, error: e instanceof Error ? e.message : String(e) });
       }
     }
     
     // Базовый запрос
-    const where: any = {
+    const where: Prisma.ProductWhereInput = {
       catalog_category_id: categoryId,
       is_active: true
     };
@@ -56,7 +66,7 @@ export async function GET(
     
     // Фильтры по свойствам товара
     if (Object.keys(filters).length > 0) {
-      const propertyConditions: any[] = [];
+      const propertyConditions: Prisma.ProductWhereInput[] = [];
       
       for (const [propertyKey, propertyValue] of Object.entries(filters)) {
         if (propertyValue !== null && propertyValue !== undefined && propertyValue !== '') {
@@ -129,7 +139,7 @@ export async function GET(
       try {
         propertiesData = JSON.parse(product.properties_data || '{}');
       } catch (e) {
-        console.warn('Invalid properties_data for product:', product.id);
+        logger.warn('Invalid properties_data for product', 'products/category/[categoryId]', { productId: product.id, error: e instanceof Error ? e.message : String(e) });
       }
       
       return {
@@ -165,34 +175,32 @@ export async function GET(
     });
     
   } catch (error) {
-    console.error('Error fetching products:', error);
+    logger.error('Error fetching products', 'products/category/[categoryId]', error instanceof Error ? { error: error.message, stack: error.stack, categoryId } : { error: String(error), categoryId });
     return NextResponse.json(
       { success: false, error: 'Failed to fetch products' },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
 // Кэш для свойств
-const propertiesCache = new Map<string, { data: any[], timestamp: number }>();
+const propertiesCache = new Map<string, { data: unknown[], timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 минут
 
 // Функция для получения доступных свойств категории
 async function getAvailableProperties(categoryId: string) {
   try {
-    console.log('🚀 Loading properties for category:', categoryId);
+    logger.debug('Loading properties for category', 'products/category/[categoryId]', { categoryId });
     
     // Проверяем кэш
     const cached = propertiesCache.get(categoryId);
     if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
-      console.log('⚡ Using cached properties:', cached.data.length);
+      logger.debug('Using cached properties', 'products/category/[categoryId]', { categoryId, cachedCount: cached.data.length });
       return cached.data;
     }
     
     // Сначала получаем шаблон (это быстрее чем анализировать товары)
-    let templateFieldMappings: any[] = [];
+    let templateFieldMappings: TemplateFieldMapping[] = [];
     try {
       const template = await prisma.importTemplate.findFirst({
         where: { catalog_category_id: categoryId },
@@ -207,7 +215,7 @@ async function getAvailableProperties(categoryId: string) {
         
         // Если в шаблоне есть fieldMappings, используем их вместо анализа товаров
         if (templateFieldMappings.length > 0) {
-          console.log('⚡ Using template field mappings:', templateFieldMappings.length);
+          logger.debug('Using template field mappings', 'products/category/[categoryId]', { categoryId, mappingsCount: templateFieldMappings.length });
           
           const availableProperties = templateFieldMappings
             .filter(mapping => mapping.fieldName && mapping.displayName)
@@ -219,7 +227,7 @@ async function getAvailableProperties(categoryId: string) {
               count: 0
             }));
             
-          console.log('✅ Quick template properties loaded:', availableProperties.length);
+          logger.debug('Quick template properties loaded', 'products/category/[categoryId]', { categoryId, propertiesCount: availableProperties.length });
           
           // Кэшируем результат
           propertiesCache.set(categoryId, {
@@ -231,11 +239,11 @@ async function getAvailableProperties(categoryId: string) {
         }
       }
     } catch (templateError) {
-      console.log('No template found, falling back to product analysis');
+      logger.debug('No template found, falling back to product analysis', 'products/category/[categoryId]', { categoryId });
     }
 
     // Fallback: анализируем небольшое количество товаров
-    console.log('🔍 Analyzing products for properties...');
+    logger.debug('Analyzing products for properties', 'products/category/[categoryId]', { categoryId });
     const products = await prisma.product.findMany({
       where: {
         catalog_category_id: categoryId,
@@ -282,7 +290,7 @@ async function getAvailableProperties(categoryId: string) {
       count: values.size
     }));
     
-    console.log('✅ Product properties analyzed:', availableProperties.length);
+    logger.debug('Product properties analyzed', 'products/category/[categoryId]', { categoryId, propertiesCount: availableProperties.length });
     
     // Кэшируем результат
     propertiesCache.set(categoryId, {
@@ -293,7 +301,7 @@ async function getAvailableProperties(categoryId: string) {
     return availableProperties;
     
   } catch (error) {
-    console.error('❌ Error getting available properties:', error);
+    logger.error('Error getting available properties', 'products/category/[categoryId]', error instanceof Error ? { error: error.message, stack: error.stack, categoryId } : { error: String(error), categoryId });
     return [];
   }
 }

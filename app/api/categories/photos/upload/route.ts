@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logging/logger';
+
+interface Photo {
+  id: string;
+  url: string;
+  alt: string;
+  category_id: string;
+}
 
 // Mock данные для фото
-let mockPhotos: Record<string, any[]> = {
+let mockPhotos: Record<string, Photo[]> = {
   'doors': [
     {
       id: '1',
@@ -19,9 +27,7 @@ export async function POST(request: NextRequest) {
     const folderUrl = formData.get('folderUrl') as string;
     const photos = formData.getAll('photos') as File[];
 
-    console.log('Uploading photos for category:', categoryId);
-    console.log('Folder URL:', folderUrl);
-    console.log('Photos count:', photos.length);
+    logger.info('Uploading photos for category', 'categories/photos/upload', { categoryId, folderUrl, photosCount: photos.length });
 
     // В реальном приложении здесь будет:
     // 1. Сохранение файлов на сервер или в облачное хранилище
@@ -29,7 +35,7 @@ export async function POST(request: NextRequest) {
     // 3. Сохранение метаданных в базу данных
 
     // Mock обработка
-    const newPhotos: any[] = [];
+    const newPhotos: Photo[] = [];
 
     // Обработка загруженных файлов
     photos.forEach((photo, index) => {
@@ -66,7 +72,7 @@ export async function POST(request: NextRequest) {
       photos: newPhotos
     });
   } catch (error) {
-    console.error('Error uploading photos:', error);
+    logger.error('Error uploading photos', 'categories/photos/upload', error instanceof Error ? { error: error.message, stack: error.stack, categoryId } : { error: String(error), categoryId });
     return NextResponse.json({ error: 'Ошибка при загрузке фото' }, { status: 500 });
   }
 }

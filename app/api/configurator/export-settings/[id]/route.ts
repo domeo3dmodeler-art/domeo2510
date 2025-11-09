@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 export async function GET(
   request: NextRequest,
@@ -26,7 +27,7 @@ export async function GET(
     });
 
   } catch (error) {
-    console.error('Error fetching export setting:', error);
+    logger.error('Error fetching export setting', 'configurator/export-settings/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Failed to fetch export setting' },
       { status: 500 }
@@ -61,7 +62,7 @@ export async function PUT(
     });
 
   } catch (error) {
-    console.error('Error updating export setting:', error);
+    logger.error('Error updating export setting', 'configurator/export-settings/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Failed to update export setting' },
       { status: 500 }
@@ -84,7 +85,7 @@ export async function DELETE(
     });
 
   } catch (error) {
-    console.error('Error deleting export setting:', error);
+    logger.error('Error deleting export setting', 'configurator/export-settings/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Failed to delete export setting' },
       { status: 500 }

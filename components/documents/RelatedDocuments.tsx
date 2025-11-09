@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { FileText, ArrowRight, ExternalLink } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface RelatedDocumentsProps {
   document: any;
@@ -52,7 +53,7 @@ export function RelatedDocuments({ document }: RelatedDocumentsProps) {
 
       setRelatedDocs(uniqueRelated);
     } catch (error) {
-      console.error('Ошибка получения связанных документов:', error);
+      clientLogger.error('Ошибка получения связанных документов:', error);
     } finally {
       setLoading(false);
     }
@@ -71,7 +72,7 @@ export function RelatedDocuments({ document }: RelatedDocumentsProps) {
         return await response.json();
       }
     } catch (error) {
-      console.error('Ошибка получения документа:', error);
+      clientLogger.error('Ошибка получения документа:', error);
     }
     return null;
   };
@@ -84,7 +85,7 @@ export function RelatedDocuments({ document }: RelatedDocumentsProps) {
         return data.documents || [];
       }
     } catch (error) {
-      console.error('Ошибка получения счетов:', error);
+      clientLogger.error('Ошибка получения счетов:', error);
     }
     return [];
   };
@@ -97,7 +98,7 @@ export function RelatedDocuments({ document }: RelatedDocumentsProps) {
         return data.documents || [];
       }
     } catch (error) {
-      console.error('Ошибка получения заказов:', error);
+      clientLogger.error('Ошибка получения заказов:', error);
     }
     return [];
   };

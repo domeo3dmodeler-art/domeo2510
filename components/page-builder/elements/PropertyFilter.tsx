@@ -464,11 +464,11 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
     });
     
     if (element.props.filters && Object.keys(element.props.filters).length > 0) {
-      console.log('🔍 PropertyFilter: Получены внешние фильтры:', element.props.filters);
+      clientLogger.debug('🔍 PropertyFilter: Получены внешние фильтры:', element.props.filters);
       
       // Если есть фильтр по свойству, перезагружаем данные
       if (element.props.filters.propertyName && element.props.filters.propertyValue) {
-        console.log('🔍 PropertyFilter: Перезагружаем данные с учетом фильтра:', {
+        clientLogger.debug('🔍 PropertyFilter: Перезагружаем данные с учетом фильтра:', {
           propertyName: element.props.filters.propertyName,
           propertyValue: element.props.filters.propertyValue,
           categoryIds: element.props.filters.categoryIds
@@ -484,13 +484,13 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
         loadPropertyValues();
       }
     } else {
-      console.log('🔍 PropertyFilter: Нет внешних фильтров, используем обычную загрузку');
+      clientLogger.debug('🔍 PropertyFilter: Нет внешних фильтров, используем обычную загрузку');
     }
   }, [element.props.filters]);
 
   // Загружаем товары при изменении выбранного значения или при загрузке компонента
   useEffect(() => {
-    console.log('🔄 PropertyFilter: useEffect для загрузки товаров', {
+    clientLogger.debug('🔄 PropertyFilter: useEffect для загрузки товаров', {
       elementId: element.id,
       propertyName: element.props.propertyName,
       selectedValue,
@@ -501,28 +501,28 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
     
     if (element.props.propertyName) {
       if (selectedValue) {
-        console.log('🔄 PropertyFilter: Загружаем товары для выбранного значения:', selectedValue);
+        clientLogger.debug('🔄 PropertyFilter: Загружаем товары для выбранного значения:', selectedValue);
         // Загружаем товары для выбранного значения
         loadProducts(element.props.propertyName, selectedValue);
       } else if (displaySettings.showProductCards && element.props.categoryIds?.length > 0) {
-        console.log('🔄 PropertyFilter: Загружаем все товары из категорий');
+        clientLogger.debug('🔄 PropertyFilter: Загружаем все товары из категорий');
         // Загружаем все товары из категорий, если нет выбранного значения
         loadAllProducts();
       } else {
-        console.log('🔄 PropertyFilter: Условия не выполнены для загрузки товаров', {
+        clientLogger.debug('🔄 PropertyFilter: Условия не выполнены для загрузки товаров', {
           showProductCards: displaySettings.showProductCards,
           hasCategoryIds: !!element.props.categoryIds,
           categoryIdsLength: element.props.categoryIds?.length
         });
       }
     } else {
-      console.log('🔄 PropertyFilter: propertyName не определен');
+      clientLogger.debug('🔄 PropertyFilter: propertyName не определен');
     }
   }, [element.props.propertyName, selectedValue, displaySettings.showProductCards, element.props.categoryIds, loadProducts, loadAllProducts]);
 
   // Принудительная загрузка товаров при инициализации компонента
   useEffect(() => {
-    console.log('🔄 PropertyFilter: Принудительная загрузка товаров при инициализации', {
+    clientLogger.debug('🔄 PropertyFilter: Принудительная загрузка товаров при инициализации', {
       elementId: element.id,
       propertyName: element.props.propertyName,
       categoryIds: element.props.categoryIds,
@@ -532,7 +532,7 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
     // Загружаем товары через небольшую задержку, чтобы убедиться, что все props загружены
     const timer = setTimeout(() => {
       if (displaySettings.showProductCards && element.props.categoryIds?.length > 0) {
-        console.log('🔄 PropertyFilter: Принудительно загружаем товары');
+        clientLogger.debug('🔄 PropertyFilter: Принудительно загружаем товары');
         loadAllProducts();
       }
     }, 1000);
@@ -542,7 +542,7 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
 
   // Логирование состояния карточек свойств
   useEffect(() => {
-    console.log('🔄 PropertyFilter: Состояние карточек свойств', {
+    clientLogger.debug('🔄 PropertyFilter: Состояние карточек свойств', {
       elementId: element.id,
       optionsLength: options.length,
       options: options,
@@ -554,7 +554,7 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
   }, [options, loading, error, element.props.propertyName, element.props.categoryIds]);
 
   const handleValueChange = (value: string) => {
-    console.log(`🔍 PropertyFilter [${element.id}]: handleValueChange НАЧАЛО`, {
+    clientLogger.debug(`🔍 PropertyFilter [${element.id}]: handleValueChange НАЧАЛО`, {
       elementId: element.id,
       propertyName: element.props.propertyName,
       oldValue: selectedValue,
@@ -566,7 +566,7 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
     updateFilter(value, element.props.categoryIds || []);
     
     // --- ДОБАВЛЕННЫЙ ЛОГ: Перед отправкой данных через onConnectionData ---
-    console.log(`PropertyFilter [${element.id}]: handleValueChange. element.props.propertyName:`, element.props.propertyName, 'value:', value);
+    clientLogger.debug(`PropertyFilter [${element.id}]: handleValueChange. element.props.propertyName:`, element.props.propertyName, 'value:', value);
     
     // Уведомляем родительский компонент об изменении
     if (onFilterChange) {
@@ -582,7 +582,7 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
         categoryIds: element.props.categoryIds
       };
       
-      console.log('🔗 PropertyFilter отправляет данные:', {
+      clientLogger.debug('🔗 PropertyFilter отправляет данные:', {
         elementId: element.id,
         connectionData,
         hasOnConnectionData: !!onConnectionData
@@ -590,12 +590,12 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
       
       try {
         onConnectionData(element.id, connectionData);
-        console.log('🔗 PropertyFilter: onConnectionData вызван успешно');
+        clientLogger.debug('🔗 PropertyFilter: onConnectionData вызван успешно');
       } catch (error) {
-        console.error('🔗 PropertyFilter: Ошибка при вызове onConnectionData:', error);
+        clientLogger.error('🔗 PropertyFilter: Ошибка при вызове onConnectionData:', error);
       }
     } else {
-      console.log('🔗 PropertyFilter: onConnectionData НЕ ПЕРЕДАН!', {
+      clientLogger.debug('🔗 PropertyFilter: onConnectionData НЕ ПЕРЕДАН!', {
         elementId: element.id,
         hasOnConnectionData: !!onConnectionData
       });
@@ -614,7 +614,7 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
       }
     });
     
-    console.log(`🔍 PropertyFilter [${element.id}]: handleValueChange КОНЕЦ`);
+    clientLogger.debug(`🔍 PropertyFilter [${element.id}]: handleValueChange КОНЕЦ`);
   };
 
   const clearSelection = () => {
@@ -723,7 +723,7 @@ export function PropertyFilter({ element, onUpdate, onFilterChange, onConnection
               <div className={`${displaySettings.cardLayout === 'vertical' ? 'flex flex-col h-full' : 'flex items-start space-x-3 h-full'}`}>
                 <div className={`${displaySettings.cardLayout === 'vertical' ? 'w-full h-16 mb-2 flex-shrink-0' : 'w-12 h-12 flex-shrink-0'}`}>
                   {(() => {
-                    console.log('🖼️ PropertyFilter: Проверка изображений для опции', {
+                    clientLogger.debug('🖼️ PropertyFilter: Проверка изображений для опции', {
                       optionValue: option.value,
                       optionLabel: option.label,
                       individualImage: displaySettings.individualImages[option.value],

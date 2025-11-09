@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
+import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { NotFoundError } from '@/lib/api/errors';
+import { requireAuth } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+
 // Импортируем функции напрямую для совместимости
 function structurePhotos(photos: string[]) {
   const coverPhotos: string[] = [];
-  const galleryPhotos: { photo: string; number: number }[] = [];
+  const galleryPhotos: Array<{ photo: string; number: number }> = [];
   
   photos.forEach(photo => {
     const photoInfo = parsePhotoFileName(photo);
@@ -74,84 +81,83 @@ function getPhotoCount(photoStructure: { cover: string | null; gallery: string[]
   return count;
 }
 
-const prisma = new PrismaClient();
-
 // GET /api/catalog/products/by-sku/[sku] - Получить товар по SKU с структурированными фото
+async function getHandler(
+  request: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>,
+  { params }: { params: Promise<{ sku: string }> }
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(request);
+  const { sku } = await params;
+  const decodedSku = decodeURIComponent(sku);
+
+  logger.debug('Получение товара по SKU', 'catalog/products/by-sku/[sku]/GET', { sku: decodedSku }, loggingContext);
+
+  const product = await prisma.product.findUnique({
+    where: { sku: decodedSku },
+    include: {
+      catalog_category: {
+        select: {
+          id: true,
+          name: true,
+          level: true,
+          path: true
+        }
+      }
+    }
+  });
+
+  if (!product) {
+    throw new NotFoundError('Товар', decodedSku);
+  }
+
+  // Парсим свойства товара
+  const properties = product.properties_data ? 
+    (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
+
+  // Структурируем фото
+  const photos = (properties.photos || []) as string[];
+  const photoStructure = structurePhotos(photos);
+
+  // Формируем ответ
+  const response = {
+    product: {
+      id: product.id,
+      sku: product.sku,
+      name: product.name,
+      description: product.description,
+      brand: product.brand,
+      model: product.model,
+      series: product.series,
+      price: product.price,
+      base_price: product.base_price,
+      properties: properties,
+      photos: {
+        structure: photoStructure,
+        cover: getCoverPhoto(photoStructure),
+        all: getAllPhotos(photoStructure),
+        hasPhotos: hasPhotos(photoStructure),
+        count: getPhotoCount(photoStructure)
+      },
+      category: product.catalog_category
+    }
+  };
+
+  logger.debug('Товар найден', 'catalog/products/by-sku/[sku]/GET', {
+    productName: product.name,
+    hasCover: !!photoStructure.cover,
+    galleryCount: photoStructure.gallery.length
+  }, loggingContext);
+
+  return apiSuccess(response);
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ sku: string }> }
-) {
-  try {
-    const { sku } = await params;
-    const decodedSku = decodeURIComponent(sku);
-
-    console.log('=== ПОЛУЧЕНИЕ ТОВАРА ПО SKU ===');
-    console.log('SKU:', decodedSku);
-
-    const product = await prisma.product.findUnique({
-      where: { sku: decodedSku },
-      include: {
-        catalog_category: {
-          select: {
-            id: true,
-            name: true,
-            level: true,
-            path: true
-          }
-        }
-      }
-    });
-
-    if (!product) {
-      return NextResponse.json(
-        { success: false, message: 'Товар не найден' },
-        { status: 404 }
-      );
-    }
-
-    // Парсим свойства товара
-    const properties = product.properties_data ? 
-      (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
-
-    // Структурируем фото
-    const photos = properties.photos || [];
-    const photoStructure = structurePhotos(photos);
-
-    // Формируем ответ
-    const response = {
-      success: true,
-      product: {
-        id: product.id,
-        sku: product.sku,
-        name: product.name,
-        description: product.description,
-        brand: product.brand,
-        model: product.model,
-        series: product.series,
-        price: product.price,
-        base_price: product.base_price,
-        properties: properties,
-        photos: {
-          structure: photoStructure,
-          cover: getCoverPhoto(photoStructure),
-          all: getAllPhotos(photoStructure),
-          hasPhotos: hasPhotos(photoStructure),
-          count: getPhotoCount(photoStructure)
-        },
-        category: product.catalog_category
-      }
-    };
-
-    console.log(`Товар найден: ${product.name}`);
-    console.log(`Фото: обложка=${!!photoStructure.cover}, галерея=${photoStructure.gallery.length}`);
-
-    return NextResponse.json(response);
-
-  } catch (error) {
-    console.error('Ошибка при получении товара:', error);
-    return NextResponse.json(
-      { success: false, message: 'Ошибка сервера' },
-      { status: 500 }
-    );
-  }
+): Promise<NextResponse> {
+  return withErrorHandling(
+    requireAuth((req, user) => getHandler(req, user, { params })),
+    'catalog/products/by-sku/[sku]/GET'
+  )(request);
 }

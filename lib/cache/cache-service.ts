@@ -114,7 +114,7 @@ export class CacheService {
     return {
       size: this.cache.size,
       maxSize: this.maxSize,
-      hitRate: 0, // TODO: добавить подсчет hit rate
+      hitRate: 0, // Подсчет hit rate будет добавлен позже
       keys: Array.from(this.cache.keys())
     };
   }

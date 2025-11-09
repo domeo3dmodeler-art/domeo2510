@@ -3,6 +3,7 @@ import { ShoppingCart, X, Plus, Minus, Trash2, FileText, Download } from 'lucide
 import { Button } from '@/components/ui';
 import { CartService } from '../../lib/cart/cart-service';
 import { Cart, CartItem, CartCalculation } from '../../lib/cart/types';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface CartSidebarProps {
   isOpen: boolean;
@@ -49,7 +50,7 @@ export default function CartSidebar({
         cartService.updateQuantity(itemId, newQuantity);
       }
     } catch (error) {
-      console.error('Error updating quantity:', error);
+      clientLogger.error('Error updating quantity:', error);
     } finally {
       setIsLoading(false);
     }
@@ -60,7 +61,7 @@ export default function CartSidebar({
     try {
       cartService.removeItem(itemId);
     } catch (error) {
-      console.error('Error removing item:', error);
+      clientLogger.error('Error removing item:', error);
     } finally {
       setIsLoading(false);
     }
@@ -72,7 +73,7 @@ export default function CartSidebar({
       try {
         cartService.clearCart();
       } catch (error) {
-        console.error('Error clearing cart:', error);
+        clientLogger.error('Error clearing cart:', error);
       } finally {
         setIsLoading(false);
       }

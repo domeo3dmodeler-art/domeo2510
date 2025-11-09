@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
+import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
+import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
+import { apiSuccess, apiError, withErrorHandling } from '@/lib/api/response';
+import { ValidationError } from '@/lib/api/errors';
+import { requireAuth } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
 interface ConfiguratorCategory {
   id: string;
@@ -52,37 +59,43 @@ interface ExportData {
 }
 
 // POST /api/configurator/export - Экспорт документов
-export async function POST(request: NextRequest) {
-  try {
-    const body: ExportData = await request.json();
-    const { configurator_category, cart_items, export_type, total_price, export_setting_id } = body;
+async function postHandler(
+  request: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(request);
+  const body: ExportData = await request.json();
+  const { configurator_category, cart_items, export_type, total_price, export_setting_id } = body;
 
-    if (!cart_items || cart_items.length === 0) {
-      return NextResponse.json(
-        { success: false, message: 'Корзина пуста' },
-        { status: 400 }
-      );
-    }
+  if (!cart_items || cart_items.length === 0) {
+    throw new ValidationError('Корзина пуста');
+  }
 
-    // Загружаем настройки экспорта если указаны
-    let exportSettings = null;
-    if (export_setting_id) {
-      const { PrismaClient } = await import('@prisma/client');
-      const prisma = new PrismaClient();
-      
-      const setting = await prisma.exportSetting.findUnique({
-        where: { id: export_setting_id }
-      });
-      
-      if (setting) {
-        exportSettings = {
-          fields_config: JSON.parse(setting.fields_config),
-          display_options: JSON.parse(setting.display_options),
-          header_config: JSON.parse(setting.header_config),
-          footer_config: JSON.parse(setting.footer_config)
-        };
-      }
+  logger.debug('Экспорт документов', 'configurator/export/POST', {
+    exportType: export_type,
+    cartItemsCount: cart_items.length,
+    exportSettingId: export_setting_id
+  }, loggingContext);
+
+  // Загружаем настройки экспорта если указаны
+  let exportSettings = null;
+  if (export_setting_id) {
+    const setting = await prisma.exportSetting.findUnique({
+      where: { id: export_setting_id }
+    });
+    
+    if (setting) {
+      exportSettings = {
+        fields_config: JSON.parse(setting.fields_config),
+        display_options: JSON.parse(setting.display_options),
+        header_config: JSON.parse(setting.header_config),
+        footer_config: JSON.parse(setting.footer_config)
+      };
+      logger.debug('Настройки экспорта загружены', 'configurator/export/POST', {
+        exportSettingId: export_setting_id
+      }, loggingContext);
     }
+  }
 
     // Группируем товары по настройкам экспорта
     const groupedItems: any[] = [];
@@ -277,13 +290,15 @@ export async function POST(request: NextRequest) {
     responseHeaders.set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     responseHeaders.set('Content-Disposition', `attachment; filename="${documentTitles[export_type]}.xlsx"`);
 
-    return new NextResponse(buffer, { headers: responseHeaders });
+    logger.info('Документ экспортирован', 'configurator/export/POST', {
+      exportType: export_type,
+      itemsCount: groupedItems.length
+    }, loggingContext);
 
-  } catch (error) {
-    console.error('Error exporting document:', error);
-    return NextResponse.json(
-      { success: false, message: 'Ошибка при экспорте документа' },
-      { status: 500 }
-    );
-  }
+    return new NextResponse(buffer, { headers: responseHeaders });
 }
+
+export const POST = withErrorHandling(
+  requireAuth(postHandler),
+  'configurator/export/POST'
+);

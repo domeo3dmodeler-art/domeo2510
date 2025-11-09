@@ -10,6 +10,7 @@ import TemplateManager from '../../../../components/admin/TemplateManager';
 import TemplateEditor from '../../../../components/admin/TemplateEditor';
 import ImportInstructionsCard from '../../../../components/admin/ImportInstructionsCard';
 import { checkAndFixFileEncoding, checkFileEncoding } from '../../../../lib/file-encoding-fixer';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface ImportHistoryItem {
   id: string;
@@ -138,7 +139,7 @@ export default function CatalogImportPage() {
       const data = await response.json();
       setImportHistory(data);
     } catch (error) {
-      console.error('Error loading import history:', error);
+      clientLogger.error('Error loading import history:', error);
     } finally {
       setLoadingHistory(false);
     }
@@ -174,7 +175,7 @@ export default function CatalogImportPage() {
                 }
               });
             } catch (error) {
-              console.error('Error parsing properties_data:', error);
+              clientLogger.error('Error parsing properties_data:', error);
             }
           }
         });
@@ -184,7 +185,7 @@ export default function CatalogImportPage() {
         setExistingProductProperties([]);
       }
     } catch (error) {
-      console.error('Error loading existing product properties:', error);
+      clientLogger.error('Error loading existing product properties:', error);
       setExistingProductProperties([]);
     } finally {
       setLoadingProperties(false);
@@ -206,7 +207,7 @@ export default function CatalogImportPage() {
       
       
     } catch (error) {
-      console.error('Error loading catalog categories:', error);
+      clientLogger.error('Error loading catalog categories:', error);
     }
   };
 
@@ -253,7 +254,7 @@ export default function CatalogImportPage() {
       setEncodingCheckResult(encodingResult);
       
       if (encodingResult.hasEncodingIssues) {
-        console.log('⚠️ Проблемы с кодировкой:', {
+        clientLogger.debug('⚠️ Проблемы с кодировкой:', {
           issuesCount: encodingResult.encodingIssues.length,
           sampleIssues: encodingResult.encodingIssues.slice(0, 3)
         });
@@ -278,7 +279,7 @@ export default function CatalogImportPage() {
       }
       
     } catch (error) {
-      console.error('❌ Ошибка при обработке файла:', error);
+      clientLogger.error('❌ Ошибка при обработке файла:', error);
       alert(`Ошибка при обработке файла: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
     } finally {
       setIsProcessing(false);
@@ -298,7 +299,7 @@ export default function CatalogImportPage() {
       // Сохраняем оригинальный файл для дальнейшего использования при импорте
       setOriginalFile(file);
 
-      console.log('📤 Отправка файла на preview:', {
+      clientLogger.debug('📤 Отправка файла на preview:', {
         filename: file.name,
         categoryId: selectedCatalogCategoryId,
         fileSize: file.size,
@@ -403,7 +404,7 @@ export default function CatalogImportPage() {
       const headers = jsonData[0] as string[];
       const rows = jsonData.slice(1) as any[][];
       
-      console.log('📄 Файл загружен:', {
+      clientLogger.debug('📄 Файл загружен:', {
         filename: file.name,
         headers: headers.length,
         rows: rows.length,
@@ -420,7 +421,7 @@ export default function CatalogImportPage() {
       setCompletedSteps(prev => [...prev, 'upload']);
       setCurrentStep('validation');
     } catch (error) {
-      console.error('❌ Ошибка при обработке файла:', error);
+      clientLogger.error('❌ Ошибка при обработке файла:', error);
       alert(`Ошибка при обработке файла: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
       throw error;
     }
@@ -497,7 +498,7 @@ export default function CatalogImportPage() {
       setCurrentPhotoStep('photo-complete');
       
     } catch (error) {
-      console.error('Error uploading photos:', error);
+      clientLogger.error('Error uploading photos:', error);
       alert('Ошибка при загрузке фотографий: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'));
     } finally {
       setUploadingPhotos(false);
@@ -965,7 +966,7 @@ export default function CatalogImportPage() {
                     setCompletedSteps(prev => [...prev, 'import']);
                     setCurrentStep('complete');
                   } catch (error) {
-                    console.error('Ошибка импорта:', error);
+                    clientLogger.error('Ошибка импорта:', error);
                     alert('Ошибка при импорте товаров: ' + (error as Error).message);
                   } finally {
                     setIsProcessing(false);

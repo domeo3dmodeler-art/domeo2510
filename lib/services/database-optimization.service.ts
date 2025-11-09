@@ -1,6 +1,5 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 /**
  * Сервис оптимизации производительности базы данных
@@ -23,7 +22,7 @@ export class DatabaseOptimizationService {
    */
   async optimizeSQLiteSettings(): Promise<void> {
     try {
-      console.log('🔧 Применяем оптимизации SQLite...');
+      logger.info('Применяем оптимизации SQLite', 'database-optimization-service');
       
       // Настройки для лучшей производительности
       await prisma.$executeRaw`PRAGMA journal_mode = WAL`;
@@ -33,9 +32,9 @@ export class DatabaseOptimizationService {
       await prisma.$executeRaw`PRAGMA mmap_size = 268435456`;
       await prisma.$executeRaw`PRAGMA optimize`;
       
-      console.log('✅ Настройки SQLite оптимизированы');
+      logger.info('Настройки SQLite оптимизированы', 'database-optimization-service');
     } catch (error) {
-      console.error('❌ Ошибка при оптимизации SQLite:', error);
+      logger.error('Ошибка при оптимизации SQLite', 'database-optimization-service', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     }
   }
 
@@ -44,7 +43,7 @@ export class DatabaseOptimizationService {
    */
   async createVirtualColumns(): Promise<void> {
     try {
-      console.log('🔧 Создаем виртуальные колонки для JSON полей...');
+      logger.info('Создаем виртуальные колонки для JSON полей', 'database-optimization-service');
       
       // Создаем виртуальные колонки для часто используемых JSON полей
       const virtualColumns = [
@@ -79,10 +78,10 @@ export class DatabaseOptimizationService {
           await prisma.$executeRawUnsafe(
             `ALTER TABLE products ADD COLUMN ${column.name} TEXT GENERATED ALWAYS AS (${column.expression}) VIRTUAL`
           );
-          console.log(`✅ Создана виртуальная колонка: ${column.name}`);
+          logger.debug('Создана виртуальная колонка', 'database-optimization-service', { columnName: column.name });
         } catch (error) {
           // Колонка уже существует
-          console.log(`⚠️ Колонка ${column.name} уже существует`);
+          logger.debug('Колонка уже существует', 'database-optimization-service', { columnName: column.name });
         }
       }
 
@@ -100,9 +99,9 @@ export class DatabaseOptimizationService {
         await prisma.$executeRawUnsafe(indexQuery);
       }
 
-      console.log('✅ Виртуальные колонки и индексы созданы');
+      logger.info('Виртуальные колонки и индексы созданы', 'database-optimization-service');
     } catch (error) {
-      console.error('❌ Ошибка при создании виртуальных колонок:', error);
+      logger.error('Ошибка при создании виртуальных колонок', 'database-optimization-service', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     }
   }
 
@@ -111,7 +110,7 @@ export class DatabaseOptimizationService {
    */
   async updateProductStatsCache(): Promise<void> {
     try {
-      console.log('📊 Обновляем кэш статистики товаров...');
+      logger.info('Обновляем кэш статистики товаров', 'database-optimization-service');
       
       const categories = await prisma.catalogCategory.findMany({
         select: { id: true, name: true }
@@ -167,9 +166,9 @@ export class DatabaseOptimizationService {
         });
       }
 
-      console.log(`✅ Статистика обновлена для ${categories.length} категорий`);
+      logger.info('Статистика обновлена', 'database-optimization-service', { categoriesCount: categories.length });
     } catch (error) {
-      console.error('❌ Ошибка при обновлении статистики:', error);
+      logger.error('Ошибка при обновлении статистики', 'database-optimization-service', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     }
   }
 
@@ -178,7 +177,7 @@ export class DatabaseOptimizationService {
    */
   async normalizeProductProperties(): Promise<void> {
     try {
-      console.log('🔄 Нормализуем свойства товаров...');
+      logger.info('Нормализуем свойства товаров', 'database-optimization-service');
       
       const products = await prisma.product.findMany({
         select: {
@@ -216,13 +215,13 @@ export class DatabaseOptimizationService {
             processedCount++;
           }
         } catch (error) {
-          console.error(`Ошибка при обработке товара ${product.id}:`, error);
+          logger.error('Ошибка при обработке товара', 'database-optimization-service', error instanceof Error ? { error: error.message, stack: error.stack, productId: product.id } : { error: String(error), productId: product.id });
         }
       }
 
-      console.log(`✅ Нормализовано ${processedCount} товаров`);
+      logger.info('Нормализовано товаров', 'database-optimization-service', { processedCount });
     } catch (error) {
-      console.error('❌ Ошибка при нормализации свойств:', error);
+      logger.error('Ошибка при нормализации свойств', 'database-optimization-service', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     }
   }
 
@@ -248,11 +247,11 @@ export class DatabaseOptimizationService {
     const cached = this.queryCache.get(cacheKey);
 
     if (cached && cached.expires > now) {
-      console.log(`📦 Используем кэш для ключа: ${cacheKey}`);
+      logger.debug('Используем кэш для ключа', 'database-optimization-service', { cacheKey });
       return cached.data;
     }
 
-    console.log(`🔍 Выполняем запрос для ключа: ${cacheKey}`);
+    logger.debug('Выполняем запрос для ключа', 'database-optimization-service', { cacheKey });
     const startTime = Date.now();
     
     try {
@@ -272,7 +271,7 @@ export class DatabaseOptimizationService {
 
       return result;
     } catch (error) {
-      console.error(`❌ Ошибка при выполнении запроса ${cacheKey}:`, error);
+      logger.error('Ошибка при выполнении запроса', 'database-optimization-service', error instanceof Error ? { error: error.message, stack: error.stack, cacheKey } : { error: String(error), cacheKey });
       throw error;
     }
   }
@@ -291,7 +290,7 @@ export class DatabaseOptimizationService {
         }
       });
     } catch (error) {
-      console.error('Ошибка при логировании медленного запроса:', error);
+      logger.error('Ошибка при логировании медленного запроса', 'database-optimization-service', error instanceof Error ? { error: error.message, stack: error.stack, queryKey } : { error: String(error), queryKey });
     }
   }
 
@@ -319,9 +318,9 @@ export class DatabaseOptimizationService {
         }
       });
 
-      console.log(`🧹 Очищено ${cleanedCount} записей из кэша`);
+      logger.info('Очищено записей из кэша', 'database-optimization-service', { cleanedCount });
     } catch (error) {
-      console.error('❌ Ошибка при очистке кэша:', error);
+      logger.error('Ошибка при очистке кэша', 'database-optimization-service', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     }
   }
 
@@ -359,7 +358,7 @@ export class DatabaseOptimizationService {
         }
       };
     } catch (error) {
-      console.error('❌ Ошибка при получении статистики:', error);
+      logger.error('Ошибка при получении статистики', 'database-optimization-service', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
       return null;
     }
   }
@@ -369,7 +368,7 @@ export class DatabaseOptimizationService {
    */
   async optimizeIndexes(): Promise<void> {
     try {
-      console.log('🔧 Оптимизируем индексы...');
+      logger.info('Оптимизируем индексы', 'database-optimization-service');
       
       // Анализируем использование индексов
       await prisma.$executeRaw`ANALYZE`;
@@ -377,9 +376,9 @@ export class DatabaseOptimizationService {
       // Перестраиваем индексы для лучшей производительности
       await prisma.$executeRaw`REINDEX`;
       
-      console.log('✅ Индексы оптимизированы');
+      logger.info('Индексы оптимизированы', 'database-optimization-service');
     } catch (error) {
-      console.error('❌ Ошибка при оптимизации индексов:', error);
+      logger.error('Ошибка при оптимизации индексов', 'database-optimization-service', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     }
   }
 
@@ -388,7 +387,7 @@ export class DatabaseOptimizationService {
    */
   async performFullOptimization(): Promise<void> {
     try {
-      console.log('🚀 Начинаем полную оптимизацию базы данных...');
+      logger.info('Начинаем полную оптимизацию базы данных', 'database-optimization-service');
       
       // 1. Применяем настройки SQLite
       await this.optimizeSQLiteSettings();
@@ -408,9 +407,9 @@ export class DatabaseOptimizationService {
       // 6. Очищаем кэш
       await this.cleanupExpiredCache();
       
-      console.log('✅ Полная оптимизация завершена');
+      logger.info('Полная оптимизация завершена', 'database-optimization-service');
     } catch (error) {
-      console.error('❌ Ошибка при полной оптимизации:', error);
+      logger.error('Ошибка при полной оптимизации', 'database-optimization-service', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     }
   }
 
@@ -465,7 +464,7 @@ export class DatabaseOptimizationService {
       }
 
     } catch (error) {
-      console.error('Ошибка при получении рекомендаций:', error);
+      logger.error('Ошибка при получении рекомендаций', 'database-optimization-service', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     }
 
     return recommendations;

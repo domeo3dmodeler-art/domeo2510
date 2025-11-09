@@ -1,4 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 import { 
   CANONICAL_PROPERTIES, 
   normalizeProperties, 
@@ -7,8 +8,6 @@ import {
   UPDATE_MODES,
   CanonicalPropertyValue 
 } from './canonical-properties';
-
-const prisma = new PrismaClient();
 
 export interface ProductUpdateResult {
   success: boolean;
@@ -61,8 +60,7 @@ export class ProductPartialUpdateService {
       const headers = jsonData[0] as string[];
       const rows = jsonData.slice(1) as any[][];
       
-      console.log('📊 Заголовки Excel:', headers);
-      console.log('📊 Количество строк:', rows.length);
+      logger.debug('Заголовки Excel', 'product-partial-update-service', { headers, rowsCount: rows.length });
       
       // Нормализуем заголовки
       const normalizedHeaders = headers.map(header => ({
@@ -71,7 +69,7 @@ export class ProductPartialUpdateService {
         index: headers.indexOf(header)
       }));
       
-      console.log('🔧 Нормализованные заголовки:', normalizedHeaders);
+      logger.debug('Нормализованные заголовки', 'product-partial-update-service', { normalizedHeaders });
       
       // Определяем ключевые поля для поиска товаров
       const skuIndex = normalizedHeaders.findIndex(h => 
@@ -112,7 +110,7 @@ export class ProductPartialUpdateService {
           }
           
           const sku = skuValue.toString().trim();
-          console.log(`\n🔍 Обработка товара с SKU: ${sku}`);
+          logger.debug('Обработка товара с SKU', 'product-partial-update-service', { sku, rowIndex: rowIndex + 2 });
           
           // Ищем товар в БД
           const product = await prisma.product.findFirst({
@@ -140,7 +138,7 @@ export class ProductPartialUpdateService {
             continue;
           }
           
-          console.log(`✅ Найден товар: ${product.name} (ID: ${product.id})`);
+          logger.debug('Найден товар', 'product-partial-update-service', { sku, productId: product.id, productName: product.name });
           
           // Собираем обновления
           const updates: Record<string, any> = {};
@@ -174,9 +172,7 @@ export class ProductPartialUpdateService {
             updatedProperties.push(headerInfo.original);
           }
           
-          console.log(`📝 Обновления для ${sku}:`, updates);
-          console.log(`✅ Обновлено свойств: ${updatedProperties.length}`);
-          console.log(`⏭️ Пропущено свойств: ${skippedProperties.length}`);
+          logger.debug('Обновления для товара', 'product-partial-update-service', { sku, updates, updatedPropertiesCount: updatedProperties.length, skippedPropertiesCount: skippedProperties.length });
           
           // Применяем обновления в зависимости от режима
           let finalPropertiesData = product.properties_data;
@@ -230,24 +226,21 @@ export class ProductPartialUpdateService {
             skippedProperties: skippedProperties
           });
           
-          console.log(`✅ Товар ${sku} успешно обновлен`);
+          logger.debug('Товар успешно обновлен', 'product-partial-update-service', { sku });
           
         } catch (error) {
           const errorMsg = `Ошибка при обработке строки ${rowIndex + 2}: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`;
           results.errors.push(errorMsg);
-          console.error(errorMsg);
+          logger.error('Ошибка при обработке строки', 'product-partial-update-service', error instanceof Error ? { error: error.message, stack: error.stack, rowIndex: rowIndex + 2 } : { error: String(error), rowIndex: rowIndex + 2 });
         }
       }
       
-      console.log(`\n📊 ИТОГИ ОБНОВЛЕНИЯ:`);
-      console.log(`✅ Обновлено товаров: ${results.updated}`);
-      console.log(`❌ Ошибок: ${results.errors.length}`);
-      console.log(`⚠️ Предупреждений: ${results.warnings.length}`);
+      logger.info('Итоги обновления', 'product-partial-update-service', { updated: results.updated, errorsCount: results.errors.length, warningsCount: results.warnings.length });
       
       return results;
       
     } catch (error) {
-      console.error('❌ Критическая ошибка при обновлении товаров:', error);
+      logger.error('Критическая ошибка при обновлении товаров', 'product-partial-update-service', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
       return {
         success: false,
         updated: 0,
@@ -411,7 +404,7 @@ export class ProductPartialUpdateService {
       return buffer;
       
     } catch (error) {
-      console.error('Ошибка при создании шаблона:', error);
+      logger.error('Ошибка при создании шаблона', 'product-partial-update-service', error instanceof Error ? { error: error.message, stack: error.stack, categoryId } : { error: String(error), categoryId });
       throw error;
     }
   }

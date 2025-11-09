@@ -1,13 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FormulaEngine, Variable, Formula } from '@/lib/calculator/FormulaEngine';
 import { catalogDataSource } from '@/lib/calculator/CatalogDataSource';
+import { logger } from '@/lib/logging/logger';
+
+interface CalculatorVariable {
+  id: string;
+  name: string;
+  type: string;
+  defaultValue?: unknown;
+}
+
+interface CalculatorConfig {
+  variables?: CalculatorVariable[];
+  formulas?: Array<{
+    id: string;
+    name: string;
+    expression: string;
+    variables?: string[];
+  }>;
+  elements?: Array<{
+    id: string;
+    name: string;
+    type: string;
+    config?: {
+      formula?: string;
+      variables?: string[];
+    };
+  }>;
+}
+
+interface CalculationResult {
+  value?: number;
+  error?: string;
+}
 
 /**
  * 🧮 Выполнить расчеты калькулятора
  */
 export async function POST(req: NextRequest) {
   try {
-    const { config, values } = await req.json();
+    const { config, values }: { config: CalculatorConfig; values: Record<string, unknown> } = await req.json();
     
     if (!config) {
       return NextResponse.json(
@@ -21,7 +53,7 @@ export async function POST(req: NextRequest) {
 
     // Добавляем переменные
     if (config.variables) {
-      config.variables.forEach((variable: any) => {
+      config.variables.forEach((variable: CalculatorVariable) => {
         const engineVariable: Variable = {
           id: variable.id,
           name: variable.name,
@@ -34,7 +66,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Добавляем формулы
-    const results: Record<string, any> = {};
+    const results: Record<string, CalculationResult | number> = {};
     
     if (config.formulas) {
       for (const formula of config.formulas) {
@@ -51,7 +83,7 @@ export async function POST(req: NextRequest) {
           const result = engine.calculate(formula.id);
           results[formula.id] = result;
         } catch (error) {
-          console.error(`Ошибка вычисления формулы ${formula.id}:`, error);
+          logger.error('Ошибка вычисления формулы', 'calculator/execute', { formulaId: formula.id, error: error instanceof Error ? error.message : String(error) });
           results[formula.id] = { error: error instanceof Error ? error.message : 'Ошибка вычисления' };
         }
       }
@@ -74,7 +106,7 @@ export async function POST(req: NextRequest) {
             const result = engine.calculate(element.id);
             results[element.id] = result;
           } catch (error) {
-            console.error(`Ошибка вычисления элемента ${element.id}:`, error);
+            logger.error('Ошибка вычисления элемента', 'calculator/execute', { elementId: element.id, error: error instanceof Error ? error.message : String(error) });
             results[element.id] = { error: error instanceof Error ? error.message : 'Ошибка вычисления' };
           }
         }
@@ -88,7 +120,7 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Ошибка выполнения калькулятора:', error);
+    logger.error('Ошибка выполнения калькулятора', 'calculator/execute', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { 
         error: 'Ошибка при выполнении расчетов',
@@ -162,7 +194,7 @@ export async function GET(req: NextRequest) {
     }
 
   } catch (error) {
-    console.error('Ошибка получения данных каталога:', error);
+    logger.error('Ошибка получения данных каталога', 'calculator/execute', error instanceof Error ? { error: error.message, stack: error.stack, action } : { error: String(error), action });
     return NextResponse.json(
       { 
         error: 'Ошибка при получении данных каталога',

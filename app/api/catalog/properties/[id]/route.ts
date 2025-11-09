@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { catalogService } from '@/lib/services/catalog.service';
 import { UpdateProductPropertyDto } from '@/lib/types/catalog';
+import { logger } from '@/lib/logging/logger';
 
 // PUT /api/catalog/properties/[id] - Обновить свойство
 export async function PUT(
@@ -39,7 +40,7 @@ export async function PUT(
     const property = await catalogService.updateProperty(params.id, data);
     return NextResponse.json(property);
   } catch (error) {
-    console.error('Error updating product property:', error);
+    logger.error('Error updating product property', 'catalog/properties/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Failed to update product property' },
       { status: 500 }
@@ -56,7 +57,7 @@ export async function DELETE(
     await catalogService.deleteProperty(params.id);
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting product property:', error);
+    logger.error('Error deleting product property', 'catalog/properties/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     
     if (error instanceof Error) {
       return NextResponse.json(

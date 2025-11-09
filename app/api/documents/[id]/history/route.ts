@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 // GET /api/documents/[id]/history - Получить историю изменений документа
 export async function GET(
@@ -27,7 +28,7 @@ export async function GET(
 
     return NextResponse.json({ history });
   } catch (error) {
-    console.error('Error fetching history:', error);
+    logger.error('Error fetching history', 'documents/[id]/history', error instanceof Error ? { error: error.message, stack: error.stack, id } : { error: String(error), id });
     return NextResponse.json(
       { error: 'Failed to fetch history' },
       { status: 500 }
@@ -106,7 +107,7 @@ export async function POST(
 
     return NextResponse.json({ historyEntry });
   } catch (error) {
-    console.error('Error creating history entry:', error);
+    logger.error('Error creating history entry', 'documents/[id]/history', error instanceof Error ? { error: error.message, stack: error.stack, id } : { error: String(error), id });
     return NextResponse.json(
       { error: 'Failed to create history entry' },
       { status: 500 }

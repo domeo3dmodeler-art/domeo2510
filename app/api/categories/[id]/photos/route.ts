@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logging/logger';
+
+interface Photo {
+  id: string;
+  url: string;
+  alt: string;
+  category_id: string;
+}
 
 // Mock данные для фото
-const mockPhotos: Record<string, any[]> = {
+const mockPhotos: Record<string, Photo[]> = {
   'doors': [
     {
       id: '1',
@@ -22,7 +30,7 @@ export async function GET(
 
     return NextResponse.json({ photos });
   } catch (error) {
-    console.error('Error fetching photos:', error);
+    logger.error('Error fetching photos', 'categories/[id]/photos', error instanceof Error ? { error: error.message, stack: error.stack, categoryId } : { error: String(error), categoryId });
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 });
   }
 }

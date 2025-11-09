@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/prisma';
+import { logger } from '../../../../lib/logging/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (error) {
-        console.error('Error parsing properties_data:', error);
+        logger.error('Error parsing properties_data', 'catalog/configurable-products', { productId: product.id, error: error instanceof Error ? error.message : String(error) });
       }
 
       return {
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
         description: product.description || '',
         basePrice: product.base_price || 0,
         images: productImages,
-        variants: [], // TODO: Реализовать варианты товаров
+        variants: [],
         configurableProperties: [
           {
             id: 'color',
@@ -112,7 +113,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching configurable products:', error);
+    logger.error('Error fetching configurable products', 'catalog/configurable-products', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

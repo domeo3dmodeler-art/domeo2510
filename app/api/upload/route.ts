@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { storageService, FileType, FileUtils } from '../../../lib/storage/yandex-storage';
+import { logger } from '../../../lib/logging/logger';
 
 // Максимальный размер файла (10MB)
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Upload error:', error);
+    logger.error('Upload error', 'upload', error instanceof Error ? { error: error.message, stack: error.stack, fileType, filesCount: files?.length } : { error: String(error), fileType, filesCount: files?.length });
     return NextResponse.json(
       { success: false, error: 'Failed to upload files' },
       { status: 500 }
@@ -124,7 +125,7 @@ export async function DELETE(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Delete error:', error);
+    logger.error('Delete error', 'upload', error instanceof Error ? { error: error.message, stack: error.stack, filename } : { error: String(error), filename });
     return NextResponse.json(
       { success: false, error: 'Failed to delete file' },
       { status: 500 }
@@ -155,7 +156,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Get signed URL error:', error);
+    logger.error('Get signed URL error', 'upload', error instanceof Error ? { error: error.message, stack: error.stack, filename, expiresIn } : { error: String(error), filename, expiresIn });
     return NextResponse.json(
       { success: false, error: 'Failed to generate signed URL' },
       { status: 500 }

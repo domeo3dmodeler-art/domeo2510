@@ -11,6 +11,7 @@ import ProductFilters from '../../../components/admin/ProductFilters';
 import ImportInstructionsDialog from '../../../components/admin/ImportInstructionsDialog';
 import InstructionsModal from '../../../components/admin/InstructionsModal';
 import { fixFieldsEncoding } from '@/lib/encoding-utils';
+import { clientLogger } from '@/lib/logging/client-logger';
 
   // Функция анализа свойств группы товаров
   const analyzeGroupProperties = (products: Product[]) => {
@@ -410,7 +411,7 @@ export default function CatalogPage() {
       const data = await response.json();
       setCategories(data.categories || []);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      clientLogger.error('Error loading categories:', error);
     } finally {
       setLoading(false);
     }
@@ -451,7 +452,7 @@ export default function CatalogPage() {
         setTotalProductsCount(0);
       }
     } catch (error) {
-      console.error('Error loading products:', error);
+      clientLogger.error('Error loading products:', error);
       if (!append) {
         setCategoryProducts([]);
         setCurrentLoadedCount(0);
@@ -478,10 +479,10 @@ export default function CatalogPage() {
             // Исправляем кодировку полей
             const fixedFields = fixFieldsEncoding(fields);
           } catch (e) {
-            console.error('Error processing requiredFields:', e);
+            clientLogger.error('Error processing requiredFields:', e);
           }
         } else {
-          console.error('Template has no requiredFields!');
+          clientLogger.error('Template has no requiredFields!');
         }
         
         setSelectedTemplate(template);
@@ -489,7 +490,7 @@ export default function CatalogPage() {
         setSelectedTemplate(null);
       }
     } catch (error) {
-      console.error('Error loading template:', error);
+      clientLogger.error('Error loading template:', error);
       setSelectedTemplate(null);
     } finally {
       setTemplateLoading(false);
@@ -531,7 +532,7 @@ export default function CatalogPage() {
         alert(`❌ Ошибка при обновлении: ${result.error}`);
       }
     } catch (error) {
-      console.error('Ошибка массового редактирования:', error);
+      clientLogger.error('Ошибка массового редактирования:', error);
       alert('Ошибка при массовом редактировании товаров');
     }
   }, [selectedCategory, loadCategoryProducts]);
@@ -623,7 +624,7 @@ export default function CatalogPage() {
         alert(`Ошибка при удалении товаров: ${result.error}`);
       }
     } catch (error) {
-      console.error('Ошибка при удалении товаров:', error);
+      clientLogger.error('Ошибка при удалении товаров:', error);
       alert('Ошибка при удалении товаров');
     }
   };
@@ -645,7 +646,7 @@ export default function CatalogPage() {
         setNewCategoryParent(undefined);
       }
     } catch (error) {
-      console.error('Error creating category:', error);
+      clientLogger.error('Error creating category:', error);
     }
   };
 
@@ -665,7 +666,7 @@ export default function CatalogPage() {
         setCategoryToEdit(null);
       }
     } catch (error) {
-      console.error('Error updating category:', error);
+      clientLogger.error('Error updating category:', error);
     }
   };
 
@@ -684,7 +685,7 @@ export default function CatalogPage() {
         setSelectedCategory(null);
       }
     } catch (error) {
-      console.error('Error deleting category:', error);
+      clientLogger.error('Error deleting category:', error);
     }
   };
 
@@ -718,7 +719,7 @@ export default function CatalogPage() {
         alert(`❌ Ошибка при удалении товара: ${result.error}`);
       }
     } catch (error) {
-      console.error('Ошибка при удалении товара:', error);
+      clientLogger.error('Ошибка при удалении товара:', error);
       alert('Ошибка при удалении товара');
     }
   };
@@ -745,7 +746,7 @@ export default function CatalogPage() {
         alert(`Ошибка: ${result.message}`);
       }
     } catch (error) {
-      console.error('Ошибка при удалении фотографий:', error);
+      clientLogger.error('Ошибка при удалении фотографий:', error);
       alert('Ошибка при удалении фотографий');
     }
   };
@@ -768,7 +769,7 @@ export default function CatalogPage() {
         alert(`❌ Ошибка: ${result.message}`);
       }
     } catch (error) {
-      console.error('Ошибка при удалении всех фотографий:', error);
+      clientLogger.error('Ошибка при удалении всех фотографий:', error);
       alert('❌ Ошибка при удалении всех фотографий');
     }
   };
@@ -799,7 +800,7 @@ export default function CatalogPage() {
         alert(`❌ Ошибка при обновлении товара: ${result.error}`);
       }
     } catch (error) {
-      console.error('Ошибка при обновлении товара:', error);
+      clientLogger.error('Ошибка при обновлении товара:', error);
       alert('Ошибка при обновлении товара');
     }
   };

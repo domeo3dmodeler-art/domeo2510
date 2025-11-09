@@ -8,6 +8,7 @@ import PhotoUploader from './PhotoUploader';
 import CatalogCategorySelector from './CatalogCategorySelector';
 import RequiredFieldsSelector from './RequiredFieldsSelector';
 import * as XLSX from 'xlsx';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 // Функция для создания CSV из данных прайса
 function createCSVFromPriceListData(rows: any[][], headers: string[]): string {
@@ -131,7 +132,7 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
         totalRows: filteredRows.length
       };
       
-      console.log('Загружен прайс-лист:', {
+      clientLogger.debug('Загружен прайс-лист', {
         headers: headers.length,
         rows: filteredRows.length,
         sampleData: filteredRows.slice(0, 3)
@@ -143,7 +144,7 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
       setCurrentStep('catalog');
       
     } catch (error) {
-      console.error('Error processing price list:', error);
+      clientLogger.error('Error processing price list', error instanceof Error ? error : new Error(String(error)));
       alert('Ошибка при обработке файла: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'));
     } finally {
       setIsProcessing(false);
@@ -172,21 +173,19 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
           throw new Error('Ошибка при сохранении данных каталога');
         }
 
-        console.log('Данные каталога сохранены в БД');
+        clientLogger.debug('Данные каталога сохранены в БД');
       }
       
       setCompletedSteps(prev => [...prev, 'upload', 'catalog']);
     setCurrentStep('properties');
     } catch (error) {
-      console.error('Error saving catalog data:', error);
+      clientLogger.error('Error saving catalog data', error instanceof Error ? error : new Error(String(error)));
       alert('Ошибка при сохранении данных каталога: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'));
     }
   };
 
   const handleRequiredFieldsConfigured = async (fields: any[]) => {
-    console.log('=== handleRequiredFieldsConfigured ВЫЗВАН ===');
-    console.log('fields:', fields);
-    console.log('categoryId:', categoryId);
+    clientLogger.debug('handleRequiredFieldsConfigured вызван', { fields, categoryId });
     
     setRequiredFields(fields);
     
@@ -202,17 +201,18 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
         return;
       }
 
-      console.log('Сохранение товаров и свойств в БД...');
-      console.log('categoryId:', categoryId);
-      console.log('selectedCatalogCategoryId:', selectedCatalogCategoryId);
-      console.log('priceListData:', priceListData);
-      console.log('propertyMappings:', propertyMappings);
+      clientLogger.debug('Сохранение товаров и свойств в БД', {
+        categoryId,
+        selectedCatalogCategoryId,
+        priceListData: priceListData ? { headers: priceListData.headers.length, rows: priceListData.rows.length } : null,
+        propertyMappings: propertyMappings.length
+      });
 
       // 1. Сохраняем товары в БД через API импорта
       setProgressMessage('Создание файла данных...');
       // Создаем временный CSV файл из данных прайса
       const csvData = createCSVFromPriceListData(priceListData?.rows || [], priceListData?.headers || []);
-      console.log('CSV данные созданы, размер:', csvData.length);
+      clientLogger.debug('CSV данные созданы', { size: csvData.length });
       
       const csvBlob = new Blob([csvData], { type: 'text/csv' });
       const csvFile = new File([csvBlob], 'price_list.csv', { type: 'text/csv' });
@@ -224,24 +224,25 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
       formData.append('mapping', JSON.stringify(propertyMappings));
       formData.append('mode', 'full');
       
-      console.log('Отправляем данные на /api/admin/import/universal...');
+      clientLogger.debug('Отправляем данные на /api/admin/import/universal');
       const productsResponse = await fetch('/api/admin/import/universal', {
         method: 'POST',
         body: formData,
       });
       
-      console.log('Ответ от API импорта:', productsResponse.status, productsResponse.statusText);
+      clientLogger.debug('Ответ от API импорта', { status: productsResponse.status, statusText: productsResponse.statusText });
 
       if (!productsResponse.ok) {
         throw new Error('Ошибка при сохранении товаров в БД');
       }
 
       const productsResult = await productsResponse.json();
-      console.log('Товары сохранены в БД:', productsResult);
-      console.log('Количество импортированных товаров:', productsResult.imported);
-      console.log('Общее количество товаров:', productsResult.count);
-      console.log('database_saved:', productsResult.database_saved);
-      console.log('save_message:', productsResult.save_message);
+      clientLogger.debug('Товары сохранены в БД', {
+        imported: productsResult.imported,
+        count: productsResult.count,
+        database_saved: productsResult.database_saved,
+        save_message: productsResult.save_message
+      });
 
       // 2. Сохраняем маппинг свойств в категорию конфигуратора
       const categoryResponse = await fetch(`/api/admin/categories/${categoryId}`, {
@@ -258,17 +259,16 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
         throw new Error('Ошибка при сохранении маппинга свойств');
       }
 
-      console.log('Маппинг свойств сохранен в БД');
+      clientLogger.debug('Маппинг свойств сохранен в БД');
 
       // 3. Создаем шаблон загрузки
-      console.log('=== CREATING TEMPLATE ===');
-      console.log('Template data:', {
+      clientLogger.debug('Создание шаблона', {
         name: `Шаблон для ${categoryData?.name || 'категории'}`,
         frontend_category_id: categoryId,
         catalog_category_id: selectedCatalogCategoryId,
-        fields: fields,
-        propertyMappings: propertyMappings,
-        headers: priceListData?.headers || []
+        fieldsCount: fields.length,
+        propertyMappingsCount: propertyMappings.length,
+        headersCount: priceListData?.headers.length || 0
       });
       
       const templateResponse = await fetch('/api/admin/import-templates', {
@@ -293,27 +293,27 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
       });
 
       if (templateResponse.ok) {
-        console.log('Шаблон загрузки создан');
+        clientLogger.debug('Шаблон загрузки создан');
       } else {
-        console.warn('Не удалось создать шаблон загрузки');
+        clientLogger.warn('Не удалось создать шаблон загрузки');
       }
       
       // Показываем успешное сохранение с кнопкой "Загрузка фото"
       const savedProductsCount = productsResult.database_saved || productsResult.imported || productsResult.count || productsResult.products?.length || priceListData?.rows?.length || 0;
       const categoryName = categoryData?.name || 'категории';
       
-      console.log('Итоговое количество сохраненных товаров:', savedProductsCount);
-      console.log('productsResult:', productsResult);
-      console.log('priceListData?.rows?.length:', priceListData?.rows?.length);
-      console.log('database_saved:', productsResult.database_saved);
+      clientLogger.debug('Итоговое количество сохраненных товаров', {
+        savedProductsCount,
+        priceListDataRowsLength: priceListData?.rows?.length,
+        database_saved: productsResult.database_saved
+      });
       
       // Принудительно показываем модальное окно
-      console.log('Показываем модальное окно с результатами...');
+      clientLogger.debug('Показываем модальное окно с результатами');
       
       // Если товары не сохранились, показываем предупреждение
       if (savedProductsCount === 0) {
-        console.warn('ВНИМАНИЕ: Товары не сохранились в базу данных!');
-        console.warn('productsResult:', productsResult);
+        clientLogger.warn('ВНИМАНИЕ: Товары не сохранились в базу данных!', { productsResult });
       }
       
       // Создаем красивое модальное окно
@@ -358,11 +358,11 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
       successModal.querySelector('#continueLater')?.addEventListener('click', () => {
         document.body.removeChild(successModal);
         // Можно добавить редирект или другую логику
-        console.log('Пользователь выбрал "Вернуться позже"');
+        clientLogger.debug('Пользователь выбрал "Вернуться позже"');
       });
       
     } catch (error) {
-      console.error('Error saving products and properties:', error);
+      clientLogger.error('Error saving products and properties', error instanceof Error ? error : new Error(String(error)));
       setShowProgressModal(false);
       alert(`Ошибка при сохранении данных: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
       return;
@@ -375,9 +375,7 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
   };
 
   const handlePropertyMappingComplete = async (mappings: PropertyMapping[]) => {
-    console.log('=== handlePropertyMappingComplete ВЫЗВАН ===');
-    console.log('mappings:', mappings);
-    console.log('categoryId:', categoryId);
+    clientLogger.debug('handlePropertyMappingComplete вызван', { mappingsCount: mappings.length, categoryId });
     
     setPropertyMappings(mappings);
     
@@ -387,16 +385,17 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
         return;
       }
 
-      console.log('Сохранение товаров и свойств в БД...');
-      console.log('categoryId:', categoryId);
-      console.log('selectedCatalogCategoryId:', selectedCatalogCategoryId);
-      console.log('priceListData:', priceListData);
-      console.log('mappings:', mappings);
+      clientLogger.debug('Сохранение товаров и свойств в БД', {
+        categoryId,
+        selectedCatalogCategoryId,
+        priceListData: priceListData ? { headers: priceListData.headers.length, rows: priceListData.rows.length } : null,
+        mappingsCount: mappings.length
+      });
 
       // 1. Сохраняем товары в БД через API импорта
       // Создаем временный CSV файл из данных прайса
       const csvData = createCSVFromPriceListData(priceListData?.rows || [], priceListData?.headers || []);
-      console.log('CSV данные созданы, размер:', csvData.length);
+      clientLogger.debug('CSV данные созданы', { size: csvData.length });
       
       const csvBlob = new Blob([csvData], { type: 'text/csv' });
       const csvFile = new File([csvBlob], 'price_list.csv', { type: 'text/csv' });
@@ -407,24 +406,25 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
       formData.append('mapping', JSON.stringify(mappings));
       formData.append('mode', 'full');
       
-      console.log('Отправляем данные на /api/admin/import/universal...');
+      clientLogger.debug('Отправляем данные на /api/admin/import/universal');
       const productsResponse = await fetch('/api/admin/import/universal', {
         method: 'POST',
         body: formData,
       });
       
-      console.log('Ответ от API импорта:', productsResponse.status, productsResponse.statusText);
+      clientLogger.debug('Ответ от API импорта', { status: productsResponse.status, statusText: productsResponse.statusText });
 
       if (!productsResponse.ok) {
         throw new Error('Ошибка при сохранении товаров в БД');
       }
 
       const productsResult = await productsResponse.json();
-      console.log('Товары сохранены в БД:', productsResult);
-      console.log('Количество импортированных товаров:', productsResult.imported);
-      console.log('Общее количество товаров:', productsResult.count);
-      console.log('database_saved:', productsResult.database_saved);
-      console.log('save_message:', productsResult.save_message);
+      clientLogger.debug('Товары сохранены в БД', {
+        imported: productsResult.imported,
+        count: productsResult.count,
+        database_saved: productsResult.database_saved,
+        save_message: productsResult.save_message
+      });
 
       // 2. Сохраняем маппинг свойств в категорию конфигуратора
       const categoryResponse = await fetch(`/api/admin/categories/${categoryId}`, {
@@ -441,7 +441,7 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
         throw new Error('Ошибка при сохранении маппинга свойств');
       }
 
-      console.log('Маппинг свойств сохранен в БД');
+      clientLogger.debug('Маппинг свойств сохранен в БД');
 
       // 3. Создаем шаблон загрузки для этой категории
       const templateResponse = await fetch('/api/admin/import-templates', {
@@ -465,27 +465,27 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
       });
 
       if (templateResponse.ok) {
-        console.log('Шаблон загрузки создан');
+        clientLogger.debug('Шаблон загрузки создан');
       } else {
-        console.warn('Не удалось создать шаблон загрузки');
+        clientLogger.warn('Не удалось создать шаблон загрузки');
       }
       
       // Показываем успешное сохранение с кнопкой "Загрузка фото"
       const savedProductsCount = productsResult.database_saved || productsResult.imported || productsResult.count || productsResult.products?.length || priceListData?.rows?.length || 0;
       const categoryName = categoryData?.name || 'категории';
       
-      console.log('Итоговое количество сохраненных товаров:', savedProductsCount);
-      console.log('productsResult:', productsResult);
-      console.log('priceListData?.rows?.length:', priceListData?.rows?.length);
-      console.log('database_saved:', productsResult.database_saved);
+      clientLogger.debug('Итоговое количество сохраненных товаров', {
+        savedProductsCount,
+        priceListDataRowsLength: priceListData?.rows?.length,
+        database_saved: productsResult.database_saved
+      });
       
       // Принудительно показываем модальное окно
-      console.log('Показываем модальное окно с результатами...');
+      clientLogger.debug('Показываем модальное окно с результатами');
       
       // Если товары не сохранились, показываем предупреждение
       if (savedProductsCount === 0) {
-        console.warn('ВНИМАНИЕ: Товары не сохранились в базу данных!');
-        console.warn('productsResult:', productsResult);
+        clientLogger.warn('ВНИМАНИЕ: Товары не сохранились в базу данных!', { productsResult });
       }
       
       // Создаем красивое модальное окно
@@ -538,7 +538,7 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
         };
       }
     } catch (error) {
-      console.error('Error saving products and properties:', error);
+      clientLogger.error('Error saving products and properties', error instanceof Error ? error : new Error(String(error)));
       alert('Ошибка при сохранении товаров и свойств: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'));
     }
   };
@@ -551,12 +551,12 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
     };
     setPhotoData(photoData);
     
-    console.log('handlePhotoMappingComplete вызван с categoryId:', categoryId);
+    clientLogger.debug('handlePhotoMappingComplete вызван', { categoryId });
     
     try {
       // Сохраняем данные фотографий в БД
       if (!categoryId) {
-        console.error('categoryId не определен! Нельзя сохранить данные фотографий.');
+        clientLogger.error('categoryId не определен! Нельзя сохранить данные фотографий.');
         alert('Ошибка: ID категории не определен. Невозможно сохранить данные фотографий.');
         return;
       }
@@ -577,7 +577,7 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
         // Проверяем размер данных перед отправкой
         const jsonString = JSON.stringify(safePhotoMapping);
         if (jsonString.length > 1000000) { // 1MB лимит
-          console.error('Размер photoMapping слишком большой:', jsonString.length, 'байт');
+          clientLogger.error('Размер photoMapping слишком большой', { size: jsonString.length });
           alert('Ошибка: Слишком много файлов для сохранения. Попробуйте загрузить меньше фотографий.');
           return;
         }
@@ -598,7 +598,7 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
           }
         };
         
-        console.log('Отправляем МИНИМАЛЬНЫЕ данные фотографий на сервер:', {
+        clientLogger.debug('Отправляем МИНИМАЛЬНЫЕ данные фотографий на сервер', {
           categoryId,
           photoMapping: minimalPhotoMapping,
           photoData: requestBody.photoData,
@@ -616,7 +616,7 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          console.error('Ошибка ответа сервера:', {
+          clientLogger.error('Ошибка ответа сервера', {
             status: response.status,
             statusText: response.statusText,
             errorData
@@ -624,7 +624,7 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
           
           // Если ошибка из-за размера данных, попробуем альтернативный способ
           if (errorData.error && errorData.error.includes('слишком много данных')) {
-            console.log('Пробуем альтернативный способ сохранения...');
+            clientLogger.debug('Пробуем альтернативный способ сохранения');
             
             // Сохраняем только основную информацию без mappedPhotos
             const minimalMapping = {
@@ -643,7 +643,7 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
             });
             
             if (minimalResponse.ok) {
-              console.log('Минимальные данные фотографий сохранены');
+              clientLogger.debug('Минимальные данные фотографий сохранены');
               alert('⚠️ Данные фотографий частично сохранены (без детальной информации о связях). Попробуйте загрузить меньше фотографий за раз.');
               onPhotosLoaded(photoData);
               setCurrentStep('complete');
@@ -654,13 +654,13 @@ export default function DataUpload({ categoryId, onPriceListLoaded, onPhotosLoad
           throw new Error(`Ошибка при сохранении данных фотографий: ${errorData.error || response.statusText}`);
         }
 
-        console.log('Данные фотографий сохранены в БД');
+        clientLogger.debug('Данные фотографий сохранены в БД');
       }
       
     onPhotosLoaded(photoData);
     setCurrentStep('complete');
     } catch (error) {
-      console.error('Error saving photo data:', error);
+      clientLogger.error('Error saving photo data', error instanceof Error ? error : new Error(String(error)));
       alert('Ошибка при сохранении данных фотографий: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'));
     }
   };

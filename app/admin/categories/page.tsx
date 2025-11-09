@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import AdminLayout from '../../../components/layout/AdminLayout';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 type FieldMapping = {
   key: string;
@@ -64,10 +65,10 @@ export default function CategoriesPage() {
       if (data.success) {
         setCategories(data.categories || []);
       } else {
-        console.error('Error fetching categories:', data.error);
+        clientLogger.error('Error fetching categories:', data.error);
       }
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      clientLogger.error('Error fetching categories:', error);
     } finally {
       setLoading(false);
     }
@@ -93,7 +94,7 @@ export default function CategoriesPage() {
         alert('Ошибка при удалении категории: ' + data.error);
       }
     } catch (error) {
-      console.error('Error deleting category:', error);
+      clientLogger.error('Error deleting category:', error);
       alert('Ошибка при удалении категории');
     }
   };

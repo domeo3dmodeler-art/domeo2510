@@ -1,55 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { catalogService } from '@/lib/services/catalog.service';
 import { CreateCatalogCategoryDto } from '@/lib/types/catalog';
+import { logger } from '@/lib/logging/logger';
+import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError } from '@/lib/api/errors';
+import { requireAuth } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
 // GET /api/catalog/categories - Получить дерево каталога
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const level = searchParams.get('level');
-    const search = searchParams.get('search');
+async function getHandler(
+  request: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(request);
+  const { searchParams } = new URL(request.url);
+  const level = searchParams.get('level');
+  const search = searchParams.get('search');
 
-    if (level) {
-      const categories = await catalogService.getCategoriesByLevel(parseInt(level));
-      return NextResponse.json(categories);
-    }
-
-    if (search) {
-      const categories = await catalogService.searchCategories(search);
-      return NextResponse.json(categories);
-    }
-
-    const result = await catalogService.getCatalogTree();
-    return NextResponse.json(result);
-  } catch (error) {
-    console.error('Error fetching catalog categories:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch catalog categories' },
-      { status: 500 }
-    );
+  if (level) {
+    const categories = await catalogService.getCategoriesByLevel(parseInt(level));
+    return apiSuccess(categories);
   }
+
+  if (search) {
+    const categories = await catalogService.searchCategories(search);
+    return apiSuccess(categories);
+  }
+
+  const result = await catalogService.getCatalogTree();
+  return apiSuccess(result);
 }
+
+export const GET = withErrorHandling(
+  requireAuth(getHandler),
+  'catalog/categories/GET'
+);
 
 // POST /api/catalog/categories - Создать новую категорию
-export async function POST(request: NextRequest) {
-  try {
-    const data: CreateCatalogCategoryDto = await request.json();
+async function postHandler(
+  request: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(request);
+  const data: CreateCatalogCategoryDto = await request.json();
 
-    // Валидация
-    if (!data.name || data.name.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Name is required' },
-        { status: 400 }
-      );
-    }
-
-    const category = await catalogService.createCategory(data);
-    return NextResponse.json(category, { status: 201 });
-  } catch (error) {
-    console.error('Error creating catalog category:', error);
-    return NextResponse.json(
-      { error: 'Failed to create catalog category' },
-      { status: 500 }
-    );
+  // Валидация
+  if (!data.name || data.name.trim().length === 0) {
+    throw new ValidationError('Name is required');
   }
+
+  const category = await catalogService.createCategory(data);
+  return apiSuccess(category, 'Категория создана', 201);
 }
+
+export const POST = withErrorHandling(
+  requireAuth(postHandler),
+  'catalog/categories/POST'
+);

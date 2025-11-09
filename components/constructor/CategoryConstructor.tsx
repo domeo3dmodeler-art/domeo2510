@@ -13,6 +13,7 @@ import {
   Maximize,
   Minimize
 } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 import CatalogSelector from './CatalogSelector';
 import PropertyMapper from './PropertyMapper';
 import FormulaBuilder from './FormulaBuilder';
@@ -393,7 +394,7 @@ export default function CategoryConstructor() {
       }
     };
 
-    console.log('Сохранение конфигурации:', config);
+    clientLogger.debug('Сохранение конфигурации:', config);
     // Здесь будет логика сохранения в базу данных
     alert('Конфигурация сохранена!');
   }, [blocks]);

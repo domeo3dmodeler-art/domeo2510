@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logger } from '@/lib/logging/logger';
 
 // API для получения опубликованной страницы калькулятора дверей
 export async function GET() {
@@ -122,7 +123,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('Error fetching door calculator page:', error);
+    logger.error('Error fetching door calculator page', 'pages/publish-door-calculator', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

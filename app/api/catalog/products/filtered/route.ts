@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,15 +23,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log(`Loading filtered products for property "${propertyName}" from categories: ${categoryIds.join(', ')}`);
+    logger.debug('Loading filtered products for property', 'catalog/products/filtered', { propertyName, categoryIds });
     
     let filters = {};
     if (filtersParam) {
       try {
         filters = JSON.parse(filtersParam);
-        console.log('Applied filters:', filters);
+        logger.debug('Applied filters', 'catalog/products/filtered', { filters });
       } catch (error) {
-        console.warn('Error parsing filters:', error);
+        logger.warn('Error parsing filters', 'catalog/products/filtered', { error: error instanceof Error ? error.message : String(error) });
       }
     }
 
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    console.log(`Found ${products.length} products`);
+    logger.debug('Found products', 'catalog/products/filtered', { productsCount: products.length });
 
     // Фильтруем товары по значениям свойств
     const filteredProducts = products.filter(product => {
@@ -71,12 +72,12 @@ export async function GET(request: NextRequest) {
         // Проверяем, что у товара есть нужное свойство
         return props.hasOwnProperty(propertyName);
       } catch (error) {
-        console.warn(`Error parsing properties for product ${product.id}:`, error);
+        logger.warn('Error parsing properties for product', 'catalog/products/filtered', { productId: product.id, error: error instanceof Error ? error.message : String(error) });
         return false;
       }
     });
 
-    console.log(`Found ${filteredProducts.length} products matching filters`);
+    logger.debug('Found products matching filters', 'catalog/products/filtered', { filteredProductsCount: filteredProducts.length });
 
     // Извлекаем уникальные значения нужного свойства
     const uniqueValues = new Set<string>();
@@ -93,14 +94,14 @@ export async function GET(request: NextRequest) {
             uniqueValues.add(value.trim());
           }
         } catch (error) {
-          console.warn(`Error parsing properties for product ${product.id}:`, error);
+          logger.warn('Error parsing properties for product', 'catalog/products/filtered', { productId: product.id, error: error instanceof Error ? error.message : String(error) });
         }
       }
     }
 
     const result = Array.from(uniqueValues).sort();
 
-    console.log(`Found ${result.length} unique values for property "${propertyName}"`);
+    logger.debug('Found unique values for property', 'catalog/products/filtered', { propertyName, valuesCount: result.length });
 
     return NextResponse.json({
       success: true,
@@ -112,7 +113,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error loading filtered products:', error);
+    logger.error('Error loading filtered products', 'catalog/products/filtered', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

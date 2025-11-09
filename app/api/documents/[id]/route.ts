@@ -1,27 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { canUserPerformAction } from '@/lib/auth/permissions';
-import jwt from 'jsonwebtoken';
 import { logger } from '@/lib/logging/logger';
 import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
+import { apiSuccess, withErrorHandling } from '@/lib/api/response';
+import { NotFoundError, ForbiddenError, BusinessRuleError } from '@/lib/api/errors';
+import { requireAuth } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
 // GET /api/documents/[id] - Получение документа по ID
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function getHandler(
+  req: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
   const loggingContext = getLoggingContextFromRequest(req);
-  try {
-    const { id } = await params;
-    
-    logger.debug(`Получение документа ${id}`, 'documents/[id]/GET', { documentId: id }, loggingContext);
-
-    // Получаем пользователя из токена
-    const token = req.cookies.get('auth-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "your-super-secret-jwt-key-change-this-in-production-min-32-chars") as any;
-    const userId = decoded.userId;
-    const userRole = decoded.role;
+  const { id } = await params;
+  
+  logger.debug(`Получение документа ${id}`, 'documents/[id]/GET', { documentId: id, userId: user.userId }, loggingContext);
 
     // Ищем документ в разных таблицах
     let document = null;
@@ -138,246 +134,211 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       }
     }
 
-    if (!document) {
-      return NextResponse.json({ error: 'Документ не найден' }, { status: 404 });
-    }
-
-    // Проверяем права доступа
-    const permissionMap = {
-      'quote': 'quotes.read',
-      'invoice': 'invoices.read', 
-      'order': 'orders.read',
-      'supplier_order': 'supplier_orders.read'
-    };
-    
-    const requiredPermission = permissionMap[documentType as keyof typeof permissionMap];
-    if (!requiredPermission) {
-      return NextResponse.json(
-        { error: 'Неизвестный тип документа' },
-        { status: 400 }
-      );
-    }
-
-    // Проверяем права через canUserPerformAction с правильным разрешением
-    if (!canUserPerformAction(userRole, requiredPermission)) {
-      return NextResponse.json(
-        { error: 'Недостаточно прав для просмотра документа' },
-        { status: 403 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      document: {
-        ...document,
-        type: documentType,
-        totalAmount: document.total_amount, // Преобразуем total_amount в totalAmount
-        createdAt: document.created_at, // Преобразуем created_at в createdAt
-        updatedAt: document.updated_at, // Преобразуем updated_at в updatedAt
-        content: document.content ? JSON.parse(document.content) : null,
-        documentData: document.documentData ? JSON.parse(document.documentData) : null
-      }
-    });
-
-  } catch (error) {
-    logger.error('Error fetching document', 'documents/[id]/GET', { error }, loggingContext);
-    return NextResponse.json(
-      { error: 'Ошибка при получении документа' },
-      { status: 500 }
-    );
+  if (!document) {
+    throw new NotFoundError('Документ', id);
   }
+
+  // Проверяем права доступа
+  const permissionMap: Record<string, string> = {
+    'quote': 'quotes.read',
+    'invoice': 'invoices.read', 
+    'order': 'orders.read',
+    'supplier_order': 'supplier_orders.read'
+  };
+  
+  const requiredPermission = permissionMap[documentType as string];
+  if (!requiredPermission) {
+    throw new BusinessRuleError('Неизвестный тип документа');
+  }
+
+  // Проверяем права через canUserPerformAction с правильным разрешением
+  if (!canUserPerformAction(user.role, requiredPermission)) {
+    throw new ForbiddenError('Недостаточно прав для просмотра документа');
+  }
+
+  return apiSuccess({
+    document: {
+      ...document,
+      type: documentType,
+      totalAmount: document.total_amount,
+      createdAt: document.created_at,
+      updatedAt: document.updated_at,
+      content: document.content ? JSON.parse(document.content) : null,
+      documentData: document.documentData ? JSON.parse(document.documentData) : null
+    }
+  });
+}
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse> {
+  return withErrorHandling(
+    requireAuth(async (request: NextRequest, user: ReturnType<typeof getAuthenticatedUser>) => {
+      return await getHandler(request, user, { params });
+    }),
+    'documents/[id]/GET'
+  )(req);
 }
 
 // DELETE /api/documents/[id] - Удаление документа
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function deleteHandler(
+  req: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
   const loggingContext = getLoggingContextFromRequest(req);
-  try {
-    const { id } = await params;
-    
-    logger.debug(`Удаление документа ${id}`, 'documents/[id]/DELETE', { documentId: id }, loggingContext);
+  const { id } = await params;
+  
+  logger.debug(`Удаление документа ${id}`, 'documents/[id]/DELETE', { documentId: id, userId: user.userId }, loggingContext);
 
-    // Получаем пользователя из токена
-    const token = req.cookies.get('auth-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
-    }
+  // Ищем документ в разных таблицах
+  let document: any = null;
+  let documentType: string | null = null;
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-    const userId = decoded.userId;
-    const userRole = decoded.role;
+  // Проверяем в таблице счетов
+  const invoice = await prisma.invoice.findUnique({
+    where: { id }
+  });
 
-    // Ищем документ в разных таблицах
-    let document = null;
-    let documentType = null;
-
-    // Проверяем в таблице счетов
-    const invoice = await prisma.invoice.findUnique({
+  if (invoice) {
+    document = invoice;
+    documentType = 'invoice';
+  } else {
+    // Проверяем в таблице КП
+    const quote = await prisma.quote.findUnique({
       where: { id }
     });
 
-    if (invoice) {
-      document = invoice;
-      documentType = 'invoice';
+    if (quote) {
+      document = quote;
+      documentType = 'quote';
     } else {
-      // Проверяем в таблице КП
-      const quote = await prisma.quote.findUnique({
+      // Проверяем в таблице заказов
+      const order = await prisma.order.findUnique({
         where: { id }
       });
 
-      if (quote) {
-        document = quote;
-        documentType = 'quote';
+      if (order) {
+        document = order;
+        documentType = 'order';
       } else {
-        // Проверяем в таблице заказов
-        const order = await prisma.order.findUnique({
+        // Проверяем в таблице заказов поставщиков
+        const supplierOrder = await prisma.supplierOrder.findUnique({
           where: { id }
         });
 
-        if (order) {
-          document = order;
-          documentType = 'order';
-        } else {
-          // Проверяем в таблице заказов поставщиков
-          const supplierOrder = await prisma.supplierOrder.findUnique({
-            where: { id }
-          });
-
-          if (supplierOrder) {
-            document = supplierOrder;
-            documentType = 'supplier_order';
-          }
+        if (supplierOrder) {
+          document = supplierOrder;
+          documentType = 'supplier_order';
         }
       }
     }
-
-    if (!document) {
-      logger.warn(`Документ с ID ${id} не найден`, 'documents/[id]/DELETE', { documentId: id }, loggingContext);
-      return NextResponse.json(
-        { error: 'Документ не найден' },
-        { status: 404 }
-      );
-    }
-
-    // Проверяем возможность удаления по статусу
-    if (!canDeleteDocument(documentType, document.status)) {
-      return NextResponse.json(
-        { 
-          error: 'Документ нельзя удалить в текущем статусе',
-          details: {
-            currentStatus: document.status,
-            documentType: documentType
-          }
-        },
-        { status: 400 }
-      );
-    }
-
-    // Проверяем права на удаление (включая авторство)
-    if (!canUserPerformAction(userRole, 'DELETE', documentType, document.status, document.created_by, userId)) {
-      return NextResponse.json(
-        { error: 'Недостаточно прав для удаления документа' },
-        { status: 403 }
-      );
-    }
-
-    // Проверяем наличие дочерних документов
-    let hasChildren = false;
-    if (documentType === 'quote') {
-      const childInvoices = await prisma.invoice.count({
-        where: { parent_document_id: id }
-      });
-      hasChildren = childInvoices > 0;
-    } else if (documentType === 'invoice') {
-      // Проверяем связанные Order через parent_document_id
-      const childOrders = await prisma.order.count({
-        where: { parent_document_id: id }
-      });
-      // Также проверяем Order, связанный через invoice_id (one-to-one связь)
-      const relatedOrder = await prisma.order.findFirst({
-        where: { invoice_id: id }
-      });
-      hasChildren = childOrders > 0 || !!relatedOrder;
-    } else if (documentType === 'order') {
-      // Проверяем SupplierOrder через parent_document_id
-      const childSupplierOrders = await prisma.supplierOrder.count({
-        where: { parent_document_id: id }
-      });
-      // Также проверяем связанный Invoice через order_id (one-to-one связь)
-      const relatedInvoice = await prisma.invoice.findFirst({
-        where: { order_id: id }
-      });
-      hasChildren = childSupplierOrders > 0 || !!relatedInvoice;
-    } else if (documentType === 'supplier_order') {
-      // SupplierOrder не имеет дочерних документов
-      hasChildren = false;
-    }
-
-    if (hasChildren) {
-      logger.warn('Attempt to delete document with children', 'documents/[id]/DELETE', { 
-        documentId: id, 
-        documentType 
-      }, loggingContext);
-      return NextResponse.json(
-        { error: 'Нельзя удалить документ, у которого есть дочерние документы' },
-        { status: 400 }
-      );
-    }
-
-    // Удаляем документ
-    let deletedDocument;
-    if (documentType === 'invoice') {
-      // Перед удалением Invoice обновляем Order.invoice_id на null
-      const relatedOrder = await prisma.order.findFirst({
-        where: { invoice_id: id }
-      });
-      if (relatedOrder) {
-        await prisma.order.update({
-          where: { id: relatedOrder.id },
-          data: { invoice_id: null }
-        });
-        logger.debug('Cleared invoice_id from Order', 'documents/[id]/DELETE', { orderId: relatedOrder.id }, loggingContext);
-      }
-      deletedDocument = await prisma.invoice.delete({
-        where: { id }
-      });
-    } else if (documentType === 'quote') {
-      deletedDocument = await prisma.quote.delete({
-        where: { id }
-      });
-    } else if (documentType === 'order') {
-      // Перед удалением Order обновляем Invoice.order_id на null
-      const relatedInvoice = await prisma.invoice.findFirst({
-        where: { order_id: id }
-      });
-      if (relatedInvoice) {
-        await prisma.invoice.update({
-          where: { id: relatedInvoice.id },
-          data: { order_id: null }
-        });
-        logger.debug('Cleared order_id from Invoice', 'documents/[id]/DELETE', { invoiceId: relatedInvoice.id }, loggingContext);
-      }
-      deletedDocument = await prisma.order.delete({
-        where: { id }
-      });
-    } else if (documentType === 'supplier_order') {
-      deletedDocument = await prisma.supplierOrder.delete({
-        where: { id }
-      });
-    }
-
-    logger.info(`Документ ${id} удален пользователем ${userId}`, 'documents/[id]/DELETE', { documentId: id, userId }, loggingContext);
-
-    return NextResponse.json({
-      success: true,
-      message: 'Документ успешно удален',
-      document: deletedDocument
-    });
-
-  } catch (error) {
-    logger.error('Ошибка удаления документа', 'documents/[id]/DELETE', { error }, loggingContext);
-    return NextResponse.json(
-      { error: 'Ошибка при удалении документа' },
-      { status: 500 }
-    );
   }
+
+  if (!document) {
+    throw new NotFoundError('Документ', id);
+  }
+
+  // Проверяем возможность удаления по статусу (только DRAFT или CANCELLED можно удалять)
+  const deletableStatuses = ['DRAFT', 'CANCELLED'];
+  if (document.status && !deletableStatuses.includes(document.status)) {
+    throw new BusinessRuleError('Документ нельзя удалить в текущем статусе', {
+      currentStatus: document.status,
+      documentType: documentType
+    });
+  }
+
+  // Проверяем права на удаление (включая авторство)
+  if (!canUserPerformAction(user.role, 'DELETE', documentType || undefined, document.status, document.created_by, user.userId)) {
+    throw new ForbiddenError('Недостаточно прав для удаления документа');
+  }
+
+  // Проверяем наличие дочерних документов
+  let hasChildren = false;
+  if (documentType === 'quote') {
+    const childInvoices = await prisma.invoice.count({
+      where: { parent_document_id: id }
+    });
+    hasChildren = childInvoices > 0;
+  } else if (documentType === 'invoice') {
+    const childOrders = await prisma.order.count({
+      where: { parent_document_id: id }
+    });
+    const relatedOrder = await prisma.order.findFirst({
+      where: { invoice_id: id }
+    });
+    hasChildren = childOrders > 0 || !!relatedOrder;
+  } else if (documentType === 'order') {
+    const childSupplierOrders = await prisma.supplierOrder.count({
+      where: { parent_document_id: id }
+    });
+    const relatedInvoice = await prisma.invoice.findFirst({
+      where: { order_id: id }
+    });
+    hasChildren = childSupplierOrders > 0 || !!relatedInvoice;
+  } else if (documentType === 'supplier_order') {
+    hasChildren = false;
+  }
+
+  if (hasChildren) {
+    logger.warn('Attempt to delete document with children', 'documents/[id]/DELETE', { 
+      documentId: id, 
+      documentType 
+    }, loggingContext);
+    throw new BusinessRuleError('Нельзя удалить документ, у которого есть дочерние документы');
+  }
+
+  // Удаляем документ
+  let deletedDocument;
+  if (documentType === 'invoice') {
+    const relatedOrder = await prisma.order.findFirst({
+      where: { invoice_id: id }
+    });
+    if (relatedOrder) {
+      await prisma.order.update({
+        where: { id: relatedOrder.id },
+        data: { invoice_id: null }
+      });
+      logger.debug('Cleared invoice_id from Order', 'documents/[id]/DELETE', { orderId: relatedOrder.id }, loggingContext);
+    }
+    deletedDocument = await prisma.invoice.delete({
+      where: { id }
+    });
+  } else if (documentType === 'quote') {
+    deletedDocument = await prisma.quote.delete({
+      where: { id }
+    });
+  } else if (documentType === 'order') {
+    const relatedInvoice = await prisma.invoice.findFirst({
+      where: { order_id: id }
+    });
+    if (relatedInvoice) {
+      await prisma.invoice.update({
+        where: { id: relatedInvoice.id },
+        data: { order_id: null }
+      });
+      logger.debug('Cleared order_id from Invoice', 'documents/[id]/DELETE', { invoiceId: relatedInvoice.id }, loggingContext);
+    }
+    deletedDocument = await prisma.order.delete({
+      where: { id }
+    });
+  } else if (documentType === 'supplier_order') {
+    deletedDocument = await prisma.supplierOrder.delete({
+      where: { id }
+    });
+  }
+
+  logger.info(`Документ ${id} удален пользователем ${user.userId}`, 'documents/[id]/DELETE', { documentId: id, userId: user.userId }, loggingContext);
+
+  return apiSuccess(
+    { document: deletedDocument },
+    'Документ успешно удален'
+  );
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse> {
+  return withErrorHandling(
+    requireAuth(async (request: NextRequest, user: ReturnType<typeof getAuthenticatedUser>) => {
+      return await deleteHandler(request, user, { params });
+    }),
+    'documents/[id]/DELETE'
+  )(req);
 }

@@ -1,37 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { getPropertyPhotos, structurePropertyPhotos } from '@/lib/property-photos';
-
-const prisma = new PrismaClient();
+import { logger } from '@/lib/logging/logger';
+import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
+import { apiSuccess, apiError, withErrorHandling } from '@/lib/api/response';
+import { ValidationError } from '@/lib/api/errors';
+import { requireAuth } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
 // Кэш для фото
 const photoCache = new Map<string, { data: any; timestamp: number }>();
 const PHOTO_CACHE_TTL = 30 * 60 * 1000; // 30 минут для фото
 
 // DELETE - очистка кэша
-export async function DELETE() {
-  try {
-    photoCache.clear();
-    console.log('🧹 Кэш photos-batch очищен');
-    return NextResponse.json({ success: true, message: 'Кэш photos-batch очищен' });
-  } catch (error) {
-    console.error('❌ Ошибка очистки кэша photos-batch:', error);
-    return NextResponse.json(
-      { error: 'Ошибка очистки кэша' },
-      { status: 500 }
-    );
-  }
+async function deleteHandler(
+  req: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(req);
+  photoCache.clear();
+  logger.info('Кэш photos-batch очищен', 'catalog/doors/photos-batch/DELETE', {}, loggingContext);
+  return apiSuccess({ success: true, message: 'Кэш photos-batch очищен' });
 }
 
-export async function POST(req: NextRequest) {
-  try {
-    const { models } = await req.json();
-    
-    if (!models || !Array.isArray(models)) {
-      return NextResponse.json({ error: "Неверный формат запроса" }, { status: 400 });
-    }
+export const DELETE = withErrorHandling(
+  requireAuth(deleteHandler),
+  'catalog/doors/photos-batch/DELETE'
+);
 
-    console.log('📸 Batch загрузка фото для моделей:', models.length);
+async function postHandler(
+  req: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(req);
+  const { models } = await req.json();
+  
+  if (!models || !Array.isArray(models)) {
+    throw new ValidationError('Неверный формат запроса: ожидается массив models');
+  }
+
+  logger.debug('Batch загрузка фото для моделей', 'catalog/doors/photos-batch/POST', { modelsCount: models.length }, loggingContext);
 
     const results: Record<string, any> = {};
     const uncachedModels: string[] = [];
@@ -48,7 +56,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    console.log(`⚡ Из кэша: ${models.length - uncachedModels.length}, загружаем: ${uncachedModels.length}`);
+    logger.debug('Статистика кэша', 'catalog/doors/photos-batch/POST', {
+      cached: models.length - uncachedModels.length,
+      toLoad: uncachedModels.length
+    }, loggingContext);
 
     // Загружаем только не кэшированные модели
     if (uncachedModels.length > 0) {
@@ -64,7 +75,7 @@ export async function POST(req: NextRequest) {
         }
       });
 
-      console.log(`📦 Получено товаров из БД: ${products.length}`);
+      logger.debug('Получено товаров из БД', 'catalog/doors/photos-batch/POST', { productsCount: products.length }, loggingContext);
 
       // Создаем мапу модель -> артикул (для поиска фото по артикулу)
       const modelToValue = new Map<string, string>();
@@ -82,10 +93,12 @@ export async function POST(req: NextRequest) {
                 }
                 properties = JSON.parse(product.properties_data);
               } catch (parseError) {
-                console.error('❌ ОШИБКА ПАРСИНГА JSON:', parseError);
-                console.error('🔍 Тип данных:', typeof product.properties_data);
-                console.error('🔍 Длина строки:', product.properties_data?.length);
-                console.error('🔍 Первые 200 символов:', product.properties_data?.substring(0, 200));
+                logger.warn('Ошибка парсинга JSON для товара', 'catalog/doors/photos-batch/POST', {
+                  dataType: typeof product.properties_data,
+                  dataLength: product.properties_data?.length,
+                  preview: typeof product.properties_data === 'string' ? product.properties_data.substring(0, 200) : null,
+                  error: parseError
+                }, loggingContext);
                 continue; // Пропускаем этот товар
               }
             } else if (typeof product.properties_data === 'object') {
@@ -103,7 +116,7 @@ export async function POST(req: NextRequest) {
             modelToValue.set(modelName, article || modelName);
           }
         } catch (error) {
-          console.error('Ошибка обработки товара:', error);
+          logger.warn('Ошибка обработки товара', 'catalog/doors/photos-batch/POST', { error }, loggingContext);
           // Пропускаем этот товар
         }
       }
@@ -115,7 +128,11 @@ export async function POST(req: NextRequest) {
         // Приводим propertyValue к нижнему регистру для поиска
         const normalizedPropertyValue = propertyValue.toLowerCase();
         
-        console.log(`🔍 Ищем фото для модели "${modelName}" по артикулу "${propertyValue}" (normalized: "${normalizedPropertyValue}")`);
+        logger.debug('Поиск фото для модели', 'catalog/doors/photos-batch/POST', {
+          modelName,
+          propertyValue,
+          normalizedPropertyValue
+        }, loggingContext);
         
         // Получаем фотографии для этой модели из PropertyPhoto
         // Сначала ищем по "Артикул поставщика" (т.к. фото привязаны по артикулу)
@@ -125,10 +142,13 @@ export async function POST(req: NextRequest) {
           normalizedPropertyValue
         );
         
-        console.log(`📸 Найдено ${propertyPhotos.length} фото для базового артикула "${propertyValue}"`);
+        logger.debug('Найдено фото для базового артикула', 'catalog/doors/photos-batch/POST', {
+          propertyValue,
+          photosCount: propertyPhotos.length
+        }, loggingContext);
         
         // Всегда ищем фото для вариантов артикула (d2 → d2_1, d2_2, ...)
-        console.log(`🔍 Ищем фото для вариантов артикула "${propertyValue}"`);
+        logger.debug('Поиск фото для вариантов артикула', 'catalog/doors/photos-batch/POST', { propertyValue }, loggingContext);
         
         // Ищем фото для вариантов: d2 → d2_1, d2_2, d2_3 и т.д.
         for (let i = 1; i <= 10; i++) {
@@ -140,14 +160,17 @@ export async function POST(req: NextRequest) {
           );
           
           if (variantPhotos.length > 0) {
-            console.log(`  ✅ Найдено ${variantPhotos.length} фото для варианта "${variantArticle}"`);
+            logger.debug('Найдено фото для варианта артикула', 'catalog/doors/photos-batch/POST', {
+              variantArticle,
+              photosCount: variantPhotos.length
+            }, loggingContext);
             propertyPhotos.push(...variantPhotos);
           }
         }
         
         // Если не найдено ни по артикулу, ни по вариантам, ищем по "Domeo_Название модели для Web"
         if (propertyPhotos.length === 0) {
-          console.log(`🔍 Фото не найдено, пробуем поиск по названию модели`);
+          logger.debug('Фото не найдено, пробуем поиск по названию модели', 'catalog/doors/photos-batch/POST', { modelName }, loggingContext);
           propertyPhotos = await getPropertyPhotos(
             'cmg50xcgs001cv7mn0tdyk1wo', // ID категории "Межкомнатные двери"
             'Domeo_Название модели для Web',
@@ -155,15 +178,19 @@ export async function POST(req: NextRequest) {
           );
         }
         
-        console.log(`📸 Всего найдено ${propertyPhotos.length} фото для "${modelName}"`);
+        logger.debug('Всего найдено фото для модели', 'catalog/doors/photos-batch/POST', {
+          modelName,
+          photosCount: propertyPhotos.length
+        }, loggingContext);
 
         // Структурируем фотографии в обложку и галерею
         const photoStructure = structurePropertyPhotos(propertyPhotos);
         
-        console.log(`📸 Фото для ${modelName}:`, {
+        logger.debug('Структурированные фото для модели', 'catalog/doors/photos-batch/POST', {
+          modelName,
           cover: photoStructure.cover,
           galleryCount: photoStructure.gallery.length
-        });
+        }, loggingContext);
         
         // Путь из БД может быть с префиксом /uploads/ или без него
         // Нужно привести к единому формату: /uploads/...
@@ -182,11 +209,12 @@ export async function POST(req: NextRequest) {
           return `/uploads/${p}`;
         });
         
-        console.log(`📸 Формируем результат для ${modelName}:`, {
-          'cover из БД': photoStructure.cover,
-          'final photo path': finalPhotoPath,
-          'starts with /uploads': finalPhotoPath?.startsWith('/uploads')
-        });
+        logger.debug('Формируем результат для модели', 'catalog/doors/photos-batch/POST', {
+          modelName,
+          coverFromDB: photoStructure.cover,
+          finalPhotoPath,
+          startsWithUploads: finalPhotoPath?.startsWith('/uploads')
+        }, loggingContext);
         
         photosByModel.set(modelName, {
           modelKey: modelName, // Используем полное имя модели для поиска фото
@@ -218,35 +246,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    console.log('✅ Batch загрузка завершена');
-    console.log('📊 Пример результата:', {
-      'Первая модель': Object.keys(results)[0],
-      'Данные фото': results[Object.keys(results)[0]]
-    });
-    
-    console.log('🔍 Все результаты для моделей:', {
-      'models requested': models,
-      'models with results': Object.keys(results),
-      'first result sample': results[Object.keys(results)[0]]
-    });
+    logger.info('Batch загрузка завершена', 'catalog/doors/photos-batch/POST', {
+      modelsRequested: models.length,
+      modelsWithResults: Object.keys(results).length,
+      firstModel: Object.keys(results)[0]
+    }, loggingContext);
 
-    return NextResponse.json({
-      ok: true,
+    return apiSuccess({
       photos: results
-    }, {
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'no-cache, no-store, must-revalidate'
-      }
     });
-
-  } catch (error) {
-    console.error('Error in batch photo loading:', error);
-    return NextResponse.json(
-      { error: "Ошибка загрузки фото" },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
-  }
 }
+
+export const POST = withErrorHandling(
+  requireAuth(postHandler),
+  'catalog/doors/photos-batch/POST'
+);

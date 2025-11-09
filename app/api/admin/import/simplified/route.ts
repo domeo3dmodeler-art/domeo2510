@@ -1,28 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError, NotFoundError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
 import * as XLSX from 'xlsx';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
 
 // Упрощенный импорт без маппинга
-export async function POST(req: NextRequest) {
-    console.log('🚀 УПРОЩЕННЫЙ ИМПОРТ БЕЗ МАППИНГА');
-    console.log('==================================');
-    
+async function postHandler(req: NextRequest) {
     try {
+        const user = await getAuthenticatedUser(req);
+        logger.info('Упрощенный импорт без маппинга', 'admin/import/simplified', { userId: user.userId });
+        
         const formData = await req.formData();
         const file = formData.get('file') as File;
         const categoryId = formData.get('category') as string;
         
         if (!file || !categoryId) {
-            return NextResponse.json(
-                { error: 'Файл и категория обязательны' },
-                { status: 400 }
-            );
+            throw new ValidationError('Файл и категория обязательны');
         }
 
-        console.log(`📁 Файл: ${file.name}`);
-        console.log(`📂 Категория: ${categoryId}`);
+        logger.info('Начало импорта', 'admin/import/simplified', { fileName: file.name, categoryId });
 
         // Читаем Excel файл
         const buffer = await file.arrayBuffer();
@@ -32,22 +31,14 @@ export async function POST(req: NextRequest) {
         const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
         if (data.length === 0) {
-            return NextResponse.json(
-                { error: 'Файл пустой или не содержит данных' },
-                { status: 400 }
-            );
+            throw new ValidationError('Файл пустой или не содержит данных');
         }
 
         // Первая строка - заголовки (они же поля шаблона)
         const headers = data[0] as string[];
         const rows = data.slice(1) as any[][];
 
-        console.log(`📋 Заголовки (${headers.length}):`);
-        headers.forEach((header, index) => {
-            console.log(`   ${index + 1}. "${header}"`);
-        });
-
-        console.log(`📊 Строк данных: ${rows.length}`);
+        logger.info('Файл прочитан', 'admin/import/simplified', { headersCount: headers.length, rowsCount: rows.length });
 
         // Получаем категорию
         const category = await prisma.catalogCategory.findUnique({
@@ -55,13 +46,10 @@ export async function POST(req: NextRequest) {
         });
 
         if (!category) {
-            return NextResponse.json(
-                { error: 'Категория не найдена' },
-                { status: 404 }
-            );
+            throw new NotFoundError('Категория не найдена');
         }
 
-        console.log(`✅ Категория найдена: ${category.name}`);
+        logger.info('Категория найдена', 'admin/import/simplified', { categoryName: category.name });
 
         // Обрабатываем товары
         const products = [];
@@ -71,12 +59,15 @@ export async function POST(req: NextRequest) {
             const row = rows[i];
             
             if (row.length === 0 || row.every(cell => !cell)) {
-                console.log(`⏭️ Пропускаем пустую строку ${i + 2}`);
+                if (i < 5) {
+                    logger.debug(`Пропускаем пустую строку`, 'admin/import/simplified', { rowIndex: i + 2 });
+                }
                 continue;
             }
 
-            console.log(`\n📦 Обрабатываем строку ${i + 2}:`);
-            console.log(`   Данные: ${row.slice(0, 5).join(', ')}...`);
+            if (i < 5) {
+                logger.debug(`Обрабатываем строку`, 'admin/import/simplified', { rowIndex: i + 2, rowData: row.slice(0, 5).join(', ') });
+            }
 
             try {
                 // Создаем товар
@@ -95,7 +86,6 @@ export async function POST(req: NextRequest) {
                 headers.forEach((header, headerIndex) => {
                     if (row[headerIndex] !== undefined && row[headerIndex] !== null && row[headerIndex] !== '') {
                         product.properties_data[header] = row[headerIndex];
-                        console.log(`   ${header}: ${row[headerIndex]}`);
                     }
                 });
 
@@ -128,7 +118,9 @@ export async function POST(req: NextRequest) {
                         const price = parseFloat(priceValue.toString().replace(/[^\d.,]/g, '').replace(',', '.'));
                         if (!isNaN(price)) {
                             product.base_price = price;
-                            console.log(`   💰 Цена найдена: ${price} руб.`);
+                            if (i < 5) {
+                                logger.debug(`Цена найдена`, 'admin/import/simplified', { price, rowIndex: i + 2 });
+                            }
                         }
                     }
                 }
@@ -145,17 +137,17 @@ export async function POST(req: NextRequest) {
                 }
 
                 products.push(product);
-                console.log(`   ✅ Товар добавлен: ${product.name} (${product.sku})`);
+                if (i < 5) {
+                    logger.debug(`Товар добавлен`, 'admin/import/simplified', { productName: product.name, productSku: product.sku, rowIndex: i + 2 });
+                }
 
             } catch (error) {
-                console.error(`   ❌ Ошибка обработки строки ${i + 2}:`, error);
-                errors.push(`Строка ${i + 2}: Ошибка обработки - ${error.message}`);
+                logger.error(`Ошибка обработки строки`, 'admin/import/simplified', { rowIndex: i + 2, error: error instanceof Error ? error.message : String(error) });
+                errors.push(`Строка ${i + 2}: Ошибка обработки - ${error instanceof Error ? error.message : String(error)}`);
             }
         }
 
-        console.log(`\n📊 РЕЗУЛЬТАТЫ ОБРАБОТКИ:`);
-        console.log(`   Товаров обработано: ${products.length}`);
-        console.log(`   Ошибок: ${errors.length}`);
+        logger.info(`Результаты обработки`, 'admin/import/simplified', { productsCount: products.length, errorsCount: errors.length });
 
         // Сохраняем товары в базу данных
         let savedCount = 0;
@@ -169,7 +161,7 @@ export async function POST(req: NextRequest) {
                 });
 
                 if (existingProduct) {
-                    console.log(`⚠️ Товар с SKU ${product.sku} уже существует, обновляем`);
+                    logger.debug(`Товар с SKU уже существует, обновляем`, 'admin/import/simplified', { productSku: product.sku });
                     
                     const updatedProduct = await prisma.product.update({
                         where: { sku: product.sku },
@@ -183,7 +175,7 @@ export async function POST(req: NextRequest) {
                     
                     savedProducts.push(updatedProduct);
                 } else {
-                    console.log(`➕ Создаем новый товар: ${product.name}`);
+                    logger.debug(`Создаем новый товар`, 'admin/import/simplified', { productName: product.name });
                     
                     const newProduct = await prisma.product.create({
                         data: {
@@ -204,8 +196,8 @@ export async function POST(req: NextRequest) {
                 savedCount++;
                 
             } catch (error) {
-                console.error(`❌ Ошибка сохранения товара ${product.name}:`, error);
-                errors.push(`Товар "${product.name}": Ошибка сохранения - ${error.message}`);
+                logger.error(`Ошибка сохранения товара`, 'admin/import/simplified', { productName: product.name, error: error instanceof Error ? error.message : String(error) });
+                errors.push(`Товар "${product.name}": Ошибка сохранения - ${error instanceof Error ? error.message : String(error)}`);
             }
         }
 
@@ -224,11 +216,6 @@ export async function POST(req: NextRequest) {
                 updated_at: new Date()
             }
         });
-
-        console.log(`\n🎉 ИМПОРТ ЗАВЕРШЕН:`);
-        console.log(`   Сохранено товаров: ${savedCount}`);
-        console.log(`   Всего товаров в категории: ${categoryProductsCount}`);
-        console.log(`   Ошибок: ${errors.length}`);
 
         // Создаем запись в истории импорта
         await prisma.importHistory.create({
@@ -249,8 +236,14 @@ export async function POST(req: NextRequest) {
             }
         });
 
-        return NextResponse.json({
-            success: true,
+        logger.info('Импорт завершен', 'admin/import/simplified', { 
+            userId: user.userId,
+            savedCount, 
+            categoryProductsCount, 
+            errorsCount: errors.length 
+        });
+
+        return apiSuccess({
             message: 'Импорт завершен успешно',
             data: {
                 filename: file.name,
@@ -270,37 +263,49 @@ export async function POST(req: NextRequest) {
         });
 
     } catch (error) {
-        console.error('❌ Критическая ошибка импорта:', error);
-        return NextResponse.json(
-            { 
-                error: 'Ошибка при импорте файла',
-                details: error.message 
-            },
-            { status: 500 }
-        );
-    } finally {
-        await prisma.$disconnect();
+        logger.error('Критическая ошибка импорта', 'admin/import/simplified', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+        if (error instanceof ValidationError || error instanceof NotFoundError) {
+            throw error;
+        }
+        return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка при импорте файла', 500);
     }
 }
 
+export const POST = withErrorHandling(
+    requireAuthAndPermission(postHandler, 'ADMIN'),
+    'admin/import/simplified/POST'
+);
+
 // GET - информация об упрощенном импорте
-export async function GET(req: NextRequest) {
-    return NextResponse.json({
-        ok: true,
-        message: "Упрощенный API импорта без маппинга",
-        description: "Заголовки Excel = Поля шаблона (прямое соответствие)",
-        usage: "POST запрос с FormData: file, category",
-        features: [
-            "Прямое соответствие заголовков Excel и полей шаблона",
-            "Нет промежуточного маппинга",
-            "Автоматическое определение цены",
-            "Автоматическая генерация SKU",
-            "Обновление существующих товаров",
-            "Подсчет товаров в категории"
-        ],
-        example: {
-            method: "POST",
-            body: "FormData с полями: file (Excel файл), category (ID категории)"
-        }
-    });
+async function getHandler(req: NextRequest) {
+    try {
+        const user = await getAuthenticatedUser(req);
+        logger.info('Получение информации об упрощенном импорте', 'admin/import/simplified', { userId: user.userId });
+        
+        return apiSuccess({
+            message: "Упрощенный API импорта без маппинга",
+            description: "Заголовки Excel = Поля шаблона (прямое соответствие)",
+            usage: "POST запрос с FormData: file, category",
+            features: [
+                "Прямое соответствие заголовков Excel и полей шаблона",
+                "Нет промежуточного маппинга",
+                "Автоматическое определение цены",
+                "Автоматическая генерация SKU",
+                "Обновление существующих товаров",
+                "Подсчет товаров в категории"
+            ],
+            example: {
+                method: "POST",
+                body: "FormData с полями: file (Excel файл), category (ID категории)"
+            }
+        });
+    } catch (error) {
+        logger.error('Error in simplified import GET', 'admin/import/simplified', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+        return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка получения информации об импорте', 500);
+    }
 }
+
+export const GET = withErrorHandling(
+    requireAuthAndPermission(getHandler, 'ADMIN'),
+    'admin/import/simplified/GET'
+);

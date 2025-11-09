@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { BlockConnection } from '../types';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface ConnectionContextMenuProps {
   selectedElementIds: string[];
@@ -16,7 +17,7 @@ export function ConnectionContextMenu({
   onClose, 
   position 
 }: ConnectionContextMenuProps) {
-  console.log('🔗 ConnectionContextMenu: Рендер', {
+  clientLogger.debug('🔗 ConnectionContextMenu: Рендер', {
     selectedElementIds,
     selectedElementIdsLength: selectedElementIds.length,
     position,
@@ -24,7 +25,7 @@ export function ConnectionContextMenu({
   });
   
   if (selectedElementIds.length < 2) {
-    console.log('🔗 ConnectionContextMenu: Недостаточно элементов для создания связи');
+    clientLogger.debug('🔗 ConnectionContextMenu: Недостаточно элементов для создания связи');
     return null;
   }
 
@@ -60,7 +61,7 @@ export function ConnectionContextMenu({
     const sourceElementId = direction === 'forward' ? selectedElementIds[0] : selectedElementIds[1];
     const targetElementId = direction === 'forward' ? selectedElementIds[1] : selectedElementIds[0];
     
-    console.log('🔗 ConnectionContextMenu: handleCreateConnection вызван', {
+    clientLogger.debug('🔗 ConnectionContextMenu: handleCreateConnection вызван', {
       connectionType,
       direction,
       sourceElementId,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 // GET - получить опубликованную страницу по URL
 export async function GET(
@@ -45,7 +46,7 @@ export async function GET(
       }
     });
   } catch (error) {
-    console.error('Error fetching published page:', error);
+    logger.error('Error fetching published page', 'pages/publish/[url]', error instanceof Error ? { error: error.message, stack: error.stack, url: params.url } : { error: String(error), url: params.url });
     return NextResponse.json(
       { success: false, error: 'Failed to fetch published page' },
       { status: 500 }

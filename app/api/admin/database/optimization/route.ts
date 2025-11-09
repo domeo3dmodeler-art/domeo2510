@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbOptimizationService } from '../../../../../lib/services/database-optimization.service';
+import { logger } from '../../../../../lib/logging/logger';
 
 // GET /api/admin/database/optimization - Получение статистики и рекомендаций
 export async function GET(req: NextRequest) {
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
         });
     }
   } catch (error) {
-    console.error('Ошибка при получении данных оптимизации:', error);
+    logger.error('Ошибка при получении данных оптимизации', 'admin/database/optimization', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Ошибка при получении данных оптимизации' },
       { status: 500 }
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
 
     switch (action) {
       case 'optimize':
-        console.log('🚀 Запуск полной оптимизации БД...');
+        logger.info('Запуск полной оптимизации БД', 'admin/database/optimization');
         await dbOptimizationService.performFullOptimization();
         return NextResponse.json({
           success: true,
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
         });
 
       case 'update-stats':
-        console.log('📊 Обновление статистики товаров...');
+        logger.info('Обновление статистики товаров', 'admin/database/optimization');
         await dbOptimizationService.updateProductStatsCache();
         return NextResponse.json({
           success: true,
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
         });
 
       case 'normalize-properties':
-        console.log('🔄 Нормализация свойств товаров...');
+        logger.info('Нормализация свойств товаров', 'admin/database/optimization');
         await dbOptimizationService.normalizeProductProperties();
         return NextResponse.json({
           success: true,
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest) {
         });
 
       case 'cleanup-cache':
-        console.log('🧹 Очистка кэша...');
+        logger.info('Очистка кэша', 'admin/database/optimization');
         await dbOptimizationService.cleanupExpiredCache();
         return NextResponse.json({
           success: true,
@@ -92,7 +93,7 @@ export async function POST(req: NextRequest) {
         });
 
       case 'optimize-sqlite':
-        console.log('🔧 Оптимизация настроек SQLite...');
+        logger.info('Оптимизация настроек SQLite', 'admin/database/optimization');
         await dbOptimizationService.optimizeSQLiteSettings();
         return NextResponse.json({
           success: true,
@@ -100,7 +101,7 @@ export async function POST(req: NextRequest) {
         });
 
       case 'create-virtual-columns':
-        console.log('🔧 Создание виртуальных колонок...');
+        logger.info('Создание виртуальных колонок', 'admin/database/optimization');
         await dbOptimizationService.createVirtualColumns();
         return NextResponse.json({
           success: true,
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
         });
 
       case 'optimize-indexes':
-        console.log('🔧 Оптимизация индексов...');
+        logger.info('Оптимизация индексов', 'admin/database/optimization');
         await dbOptimizationService.optimizeIndexes();
         return NextResponse.json({
           success: true,
@@ -122,7 +123,7 @@ export async function POST(req: NextRequest) {
         );
     }
   } catch (error) {
-    console.error(`Ошибка при выполнении действия ${action}:`, error);
+    logger.error(`Ошибка при выполнении действия`, 'admin/database/optimization', { action, error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
     return NextResponse.json(
       { 
         error: 'Ошибка при выполнении операции оптимизации',

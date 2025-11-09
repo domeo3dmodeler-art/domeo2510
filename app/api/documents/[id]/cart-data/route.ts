@@ -1,5 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, Prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
+
+interface DocumentWithCartData {
+  id: string;
+  number?: string | null;
+  cart_data?: string | null;
+  client_id?: string | null;
+  parent_document_id?: string | null;
+}
+
+interface CartData {
+  items?: unknown[];
+  total?: number;
+  [key: string]: unknown;
+}
 
 // GET /api/documents/[id]/cart-data - Получить данные корзины из документа
 export async function GET(
@@ -15,10 +30,10 @@ export async function GET(
       return NextResponse.json({ error: 'Document type is required' }, { status: 400 });
     }
 
-    console.log('🔄 Fetching cart data for document:', { id, documentType });
+    logger.debug('Fetching cart data for document', 'documents/[id]/cart-data', { id, documentType });
 
-    let document: any = null;
-    let cartData: any = null;
+    let document: DocumentWithCartData | null = null;
+    let cartData: CartData | null = null;
 
     switch (documentType) {
       case 'quote':
@@ -62,12 +77,12 @@ export async function GET(
       try {
         cartData = JSON.parse(document.cart_data);
       } catch (error) {
-        console.error('❌ Error parsing cart_data:', error);
+        logger.error('Error parsing cart_data', 'documents/[id]/cart-data', { id, documentType, error: error instanceof Error ? error.message : String(error) });
         return NextResponse.json({ error: 'Invalid cart data format' }, { status: 400 });
       }
     }
 
-    console.log('✅ Cart data retrieved:', { documentId: id, hasCartData: !!cartData });
+    logger.debug('Cart data retrieved', 'documents/[id]/cart-data', { documentId: id, hasCartData: !!cartData, documentType });
 
     return NextResponse.json({
       success: true,
@@ -80,8 +95,8 @@ export async function GET(
       }
     });
 
-  } catch (error: any) {
-    console.error('❌ Error fetching cart data:', error);
+  } catch (error: unknown) {
+    logger.error('Error fetching cart data', 'documents/[id]/cart-data', error instanceof Error ? { error: error.message, stack: error.stack, id } : { error: String(error), id });
     return NextResponse.json(
       { error: 'Failed to fetch cart data' },
       { status: 500 }
@@ -103,7 +118,7 @@ export async function POST(
       return NextResponse.json({ error: 'Document type and cart data are required' }, { status: 400 });
     }
 
-    console.log('💾 Saving cart data for document:', { id, documentType });
+    logger.debug('Saving cart data for document', 'documents/[id]/cart-data', { id, documentType });
 
     const cartDataString = JSON.stringify(cartData);
 
@@ -140,15 +155,15 @@ export async function POST(
         return NextResponse.json({ error: 'Invalid document type' }, { status: 400 });
     }
 
-    console.log('✅ Cart data saved successfully');
+    logger.debug('Cart data saved successfully', 'documents/[id]/cart-data', { id, documentType });
 
     return NextResponse.json({
       success: true,
       message: 'Cart data saved successfully'
     });
 
-  } catch (error: any) {
-    console.error('❌ Error saving cart data:', error);
+  } catch (error: unknown) {
+    logger.error('Error saving cart data', 'documents/[id]/cart-data', error instanceof Error ? { error: error.message, stack: error.stack, id, documentType } : { error: String(error), id, documentType });
     return NextResponse.json(
       { error: 'Failed to save cart data' },
       { status: 500 }

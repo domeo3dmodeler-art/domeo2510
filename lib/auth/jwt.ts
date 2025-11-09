@@ -3,9 +3,8 @@
  */
 
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 // Секретный ключ для подписи JWT (в продакшене должен быть в переменных окружения)
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
@@ -51,7 +50,7 @@ export function verifyToken(token: string): JWTPayload | null {
     
     return decoded;
   } catch (error) {
-    console.error('JWT verification failed:', error);
+    logger.error('JWT verification failed', 'lib/auth/jwt', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return null;
   }
 }
@@ -83,7 +82,7 @@ export async function getUserFromToken(token: string): Promise<AuthUser | null> 
 
     return user;
   } catch (error) {
-    console.error('Error getting user from token:', error);
+    logger.error('Error getting user from token', 'lib/auth/jwt', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return null;
   }
 }
@@ -116,7 +115,7 @@ export async function refreshToken(oldToken: string): Promise<string | null> {
       role: user.role
     });
   } catch (error) {
-    console.error('Error refreshing token:', error);
+    logger.error('Error refreshing token', 'lib/auth/jwt', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return null;
   }
 }
@@ -190,7 +189,7 @@ export async function createUserToken(userId: string): Promise<string | null> {
       role: user.role
     });
   } catch (error) {
-    console.error('Error creating user token:', error);
+    logger.error('Error creating user token', 'lib/auth/jwt', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return null;
   }
 }
@@ -216,7 +215,7 @@ export async function checkUserPermissions(
     // Пока возвращаем true для активных пользователей
     return true;
   } catch (error) {
-    console.error('Error checking user permissions:', error);
+    logger.error('Error checking user permissions', 'lib/auth/jwt', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return false;
   }
 }
@@ -232,7 +231,7 @@ export async function logAuthAttempt(
 ): Promise<void> {
   try {
     // Здесь можно добавить логирование в базу данных
-    console.log('Auth attempt:', {
+    logger.info('Auth attempt', 'lib/auth/jwt', {
       userId,
       success,
       ip,
@@ -240,6 +239,6 @@ export async function logAuthAttempt(
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error logging auth attempt:', error);
+    logger.error('Error logging auth attempt', 'lib/auth/jwt', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
   }
 }

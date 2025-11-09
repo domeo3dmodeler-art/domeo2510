@@ -33,257 +33,10 @@ import {
   Maximize2 as Maximize,
   Minimize2 as Minimize
 } from 'lucide-react';
+import { ResizeHandles, snapToGrid, createBlock, availableBlocks } from './ultimate';
+import type { DragState, BlockSettings } from './ultimate';
 
-// Компонент ручек для изменения размера
-const ResizeHandles = ({ block, onStartResize }: { block: BlockSettings; onStartResize: (e: React.MouseEvent, handle: string) => void }) => {
-  const handles = [
-    { position: 'n', cursor: 'n-resize', icon: '↕' },
-    { position: 's', cursor: 's-resize', icon: '↕' },
-    { position: 'e', cursor: 'e-resize', icon: '↔' },
-    { position: 'w', cursor: 'w-resize', icon: '↔' },
-    { position: 'ne', cursor: 'ne-resize', icon: '↗' },
-    { position: 'nw', cursor: 'nw-resize', icon: '↖' },
-    { position: 'se', cursor: 'se-resize', icon: '↘' },
-    { position: 'sw', cursor: 'sw-resize', icon: '↙' }
-  ];
-
-  return (
-    <>
-      {handles.map(({ position, cursor, icon }) => (
-        <div
-          key={position}
-          className={`resize-handle resize-handle-${position}`}
-          style={{
-            position: 'absolute',
-            width: '8px',
-            height: '8px',
-            backgroundColor: '#3b82f6',
-            border: '1px solid white',
-            cursor: cursor,
-            zIndex: 1000,
-            ...(position === 'n' && { top: '-4px', left: '50%', transform: 'translateX(-50%)' }),
-            ...(position === 's' && { bottom: '-4px', left: '50%', transform: 'translateX(-50%)' }),
-            ...(position === 'e' && { right: '-4px', top: '50%', transform: 'translateY(-50%)' }),
-            ...(position === 'w' && { left: '-4px', top: '50%', transform: 'translateY(-50%)' }),
-            ...(position === 'ne' && { top: '-4px', right: '-4px' }),
-            ...(position === 'nw' && { top: '-4px', left: '-4px' }),
-            ...(position === 'se' && { bottom: '-4px', right: '-4px' }),
-            ...(position === 'sw' && { bottom: '-4px', left: '-4px' })
-          }}
-          onMouseDown={(e) => onStartResize(e, position)}
-        />
-      ))}
-    </>
-  );
-};
-
-// Типы для конструктора
-interface DragState {
-  isDragging: boolean;
-  dragType: 'new' | 'move' | 'resize';
-  startPos: { x: number; y: number };
-  currentPos: { x: number; y: number };
-  draggedItem: {
-    id: string;
-    type: string;
-    source: 'palette' | 'canvas';
-  } | null;
-  dragOffset: { x: number; y: number };
-}
-
-interface BlockSettings {
-  id: string;
-  name: string;
-  type: 'category-title' | 'main-category' | 'subcategory' | 'additional-category' | 'product-selector' | 'filter-constructor' | 'product-image' | 'cart-export' | 'text' | 'document-generator' | 'cart';
-  
-  // Позиция и размеры
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-
-  // Настройки для новых блоков
-  categoryTitleSettings?: {
-    title: string;
-    subtitle?: string;
-    showBreadcrumbs: boolean;
-    showProductCount: boolean;
-  };
-
-  mainCategorySettings?: {
-    categoryId: string;
-    layout: 'grid' | 'list' | 'masonry';
-    columns: number;
-    itemsPerPage: number;
-    showImages: boolean;
-    showPrices: boolean;
-    showDescriptions: boolean;
-    imageSize: 'small' | 'medium' | 'large';
-    imageAspectRatio: 'square' | 'landscape' | 'portrait';
-    showCaptions: boolean;
-    captionProperty: 'name' | 'description' | 'price' | 'material' | 'color';
-  };
-
-  subcategorySettings?: {
-    parentCategoryId: string;
-    layout: 'horizontal' | 'vertical' | 'grid';
-    maxSubcategories: number;
-    showProductCount: boolean;
-    showImages: boolean;
-    showDescriptions: boolean;
-    imageSize: 'small' | 'medium' | 'large';
-    imageAspectRatio: 'square' | 'landscape' | 'portrait';
-  };
-
-  additionalCategorySettings?: {
-    categoryId: string;
-    pricingStrategy: 'separate' | 'combined';
-    targetMainCategory?: string;
-    showImages: boolean;
-    showPrices: boolean;
-    showDescriptions: boolean;
-    imageSize: 'small' | 'medium' | 'large';
-    imageAspectRatio: 'square' | 'landscape' | 'portrait';
-    showCaptions: boolean;
-    captionProperty: 'name' | 'description' | 'price' | 'material' | 'color';
-  };
-
-  productSelectorSettings?: {
-    categoryId: string;
-    selectedProperties: string[];
-    layout: 'horizontal' | 'vertical';
-    showPrice: boolean;
-    showImage: boolean;
-    showDescription: boolean;
-  };
-
-  filterConstructorSettings?: {
-    categoryId: string;
-    selectedFilters: string[];
-    layout: 'horizontal' | 'vertical' | 'sidebar';
-    showApplyButton: boolean;
-    showClearButton: boolean;
-    autoApply: boolean;
-    showResultCount: boolean;
-  };
-
-  productImageSettings?: {
-    size: 'small' | 'medium' | 'large' | 'fullscreen';
-    aspectRatio: 'square' | 'landscape' | 'portrait' | 'auto';
-    showGallery: boolean;
-    showZoom: boolean;
-    showThumbnails: boolean;
-    zoomLevel: number;
-  };
-
-  cartExportSettings?: {
-    quote: {
-      enabled: boolean;
-      showPrices: boolean;
-      showTotals: boolean;
-    };
-    invoice: {
-      enabled: boolean;
-      showPrices: boolean;
-      showTaxes: boolean;
-      showTotals: boolean;
-    };
-    order: {
-      enabled: boolean;
-      showPrices: boolean;
-      showDelivery: boolean;
-      showTotals: boolean;
-    };
-    combineAdditionalCategories: boolean;
-    showSeparateLines: boolean;
-    calculateTotal: boolean;
-  };
-  
-  // Настройки макета
-  displayWidth: '25%' | '33%' | '50%' | '66%' | '75%' | '100%' | 'custom';
-  customWidth?: string;
-  alignment: 'left' | 'center' | 'right';
-  margin: { top: string; right: string; bottom: string; left: string };
-  padding: { top: string; right: string; bottom: string; left: string };
-  backgroundColor: string;
-  borderColor: string;
-  borderRadius: string;
-  zIndex: number;
-  
-  // Настройки товаров
-  productSettings?: {
-    categoryId: string;
-    showImages: boolean;
-    imageSize: 'small' | 'medium' | 'large';
-    imageAspectRatio: 'square' | 'landscape' | 'portrait';
-    showPrices: boolean;
-    showDescriptions: boolean;
-    columns: number;
-    itemsPerPage: number;
-    sortBy: 'name' | 'price' | 'popularity';
-    filters: any[];
-  };
-  
-  // Настройки детального просмотра
-  detailSettings?: {
-    showMainImage: boolean;
-    showThumbnailGallery: boolean;
-    showZoom: boolean;
-    imageSize: 'small' | 'medium' | 'large';
-    showProductInfo: boolean;
-    showPrice: boolean;
-    showDescription: boolean;
-    showSpecifications: boolean;
-  };
-  
-  // Настройки текста
-  textSettings?: {
-    content: string;
-    fontSize: string;
-    fontFamily: string;
-    fontWeight: 'normal' | 'bold';
-    textAlign: 'left' | 'center' | 'right';
-    color: string;
-    backgroundColor: string;
-  };
-
-  documentGeneratorSettings?: {
-    enabledDocuments: string[]; // Типы документов, которые можно генерировать
-    defaultTemplate: string; // Шаблон по умолчанию
-    showPreview: boolean; // Показывать превью документа
-    allowCustomFields: boolean; // Разрешить пользовательские поля
-  };
-
-  cartSettings?: {
-    showItemList: boolean; // Показывать список товаров
-    showCalculation: boolean; // Показывать расчет стоимости
-    showActions: boolean; // Показывать кнопки действий
-    allowQuantityChange: boolean; // Разрешить изменение количества
-    allowItemRemoval: boolean; // Разрешить удаление товаров
-    showClientForm: boolean; // Показывать форму клиента
-    autoCalculate: boolean; // Автоматический расчет
-    showTax: boolean; // Показывать НДС
-    showDiscount: boolean; // Показывать скидки
-    maxItems: number; // Максимальное количество товаров
-  };
-  
-  // Настройки изображения
-  imageSettings?: {
-    src: string;
-    alt: string;
-    width: string;
-    height: string;
-    objectFit: 'cover' | 'contain' | 'fill';
-    borderRadius: string;
-    shadow: boolean;
-  };
-  
-  // Настройки фильтров
-  filterSettings?: {
-    filters: any[];
-    showApplyButton: boolean;
-  };
-}
+// Типы и утилиты импортируются из ./ultimate
 
 // Главный компонент конструктора
 export default function UltimateConstructorFixed({ hideHeader = false }: { hideHeader?: boolean }) {
@@ -306,203 +59,14 @@ export default function UltimateConstructorFixed({ hideHeader = false }: { hideH
 
   const selectedBlock = blocks.find(block => block.id === selectedBlockId);
 
-  // Функция для привязки к сетке
-  const snapToGrid = useCallback((x: number, y: number, width: number, height: number) => {
-    const gridSize = 16;
-    const snapX = Math.round(x / gridSize) * gridSize;
-    const snapY = Math.round(y / gridSize) * gridSize;
-    const snapWidth = Math.round(width / gridSize) * gridSize;
-    const snapHeight = Math.round(height / gridSize) * gridSize;
-    return { x: snapX, y: snapY, width: snapWidth, height: snapHeight };
+  // Функция для привязки к сетке (импортируется из ./ultimate)
+  const snapToGridCallback = useCallback((x: number, y: number, width: number, height: number) => {
+    return snapToGrid(x, y, width, height);
   }, []);
 
-  // Создание нового блока
-  const createBlock = useCallback((type: BlockSettings['type'], x: number, y: number): BlockSettings => {
-    const blockNames = {
-      'category-title': 'Наименование категории',
-      'main-category': 'Основная категория товаров',
-      'subcategory': 'Подкатегории товаров',
-      'additional-category': 'Дополнительные категории',
-      'product-selector': 'Конструктор подбора товара',
-      'filter-constructor': 'Конструктор фильтров',
-      'product-image': 'Блок изображения товара',
-      'cart-export': 'Корзина с экспортами',
-      'text': 'Текстовый блок',
-      'image': 'Блок изображения',
-      'product-grid': 'Каталог товаров',
-      'product-detail': 'Карточка товара',
-      'configurator': 'Конструктор товара',
-      'cart': 'Корзина покупок',
-      'filter': 'Фильтры поиска'
-    };
-    
-    return {
-      id: Date.now().toString(),
-      name: blockNames[type] || `Блок ${blocks.length + 1}`,
-      type,
-      x,
-      y,
-      width: 400,
-      height: 300,
-      displayWidth: '100%',
-      alignment: 'left',
-      margin: { top: '0', right: '0', bottom: '0', left: '0' },
-      padding: { top: '16px', right: '16px', bottom: '16px', left: '16px' },
-      backgroundColor: '#ffffff',
-      borderColor: '#e2e8f0',
-      borderRadius: '8px',
-      zIndex: blocks.length + 1,
-
-      // Новые блоки с настройками
-      ...(type === 'category-title' && {
-        categoryTitleSettings: {
-          title: 'Межкомнатные двери',
-          subtitle: 'Широкий выбор дверей для любого интерьера',
-          showBreadcrumbs: true,
-          showProductCount: true
-        }
-      }),
-
-      ...(type === 'main-category' && {
-        mainCategorySettings: {
-          categoryId: 'doors',
-          layout: 'grid',
-          columns: 3,
-          itemsPerPage: 6,
-          showImages: true,
-          showPrices: true,
-          showDescriptions: false,
-          imageSize: 'medium',
-          imageAspectRatio: 'square',
-          showCaptions: true,
-          captionProperty: 'name'
-        }
-      }),
-
-      ...(type === 'subcategory' && {
-        subcategorySettings: {
-          parentCategoryId: 'doors',
-          layout: 'horizontal',
-          maxSubcategories: 6,
-          showProductCount: true,
-          showImages: true,
-          showDescriptions: false,
-          imageSize: 'small',
-          imageAspectRatio: 'square'
-        }
-      }),
-
-      ...(type === 'additional-category' && {
-        additionalCategorySettings: {
-          categoryId: 'handles',
-          pricingStrategy: 'combined',
-          targetMainCategory: 'doors',
-          showImages: true,
-          showPrices: true,
-          showDescriptions: false,
-          imageSize: 'small',
-          imageAspectRatio: 'square',
-          showCaptions: true,
-          captionProperty: 'name'
-        }
-      }),
-
-      ...(type === 'product-selector' && {
-        productSelectorSettings: {
-          categoryId: 'doors',
-          selectedProperties: ['material', 'color', 'size'],
-          layout: 'vertical',
-          showPrice: true,
-          showImage: true,
-          showDescription: false
-        }
-      }),
-
-      ...(type === 'filter-constructor' && {
-        filterConstructorSettings: {
-          categoryId: 'doors',
-          selectedFilters: ['price', 'color', 'material'],
-          layout: 'horizontal',
-          showApplyButton: true,
-          showClearButton: true,
-          autoApply: false,
-          showResultCount: true
-        }
-      }),
-
-      ...(type === 'product-image' && {
-        productImageSettings: {
-          size: 'large',
-          aspectRatio: 'square',
-          showGallery: true,
-          showZoom: true,
-          showThumbnails: true,
-          zoomLevel: 2
-        }
-      }),
-
-      ...(type === 'cart-export' && {
-        cartExportSettings: {
-          quote: {
-            enabled: true,
-            showPrices: true,
-            showTotals: true
-          },
-          invoice: {
-            enabled: true,
-            showPrices: true,
-            showTaxes: true,
-            showTotals: true
-          },
-          order: {
-            enabled: true,
-            showPrices: true,
-            showDelivery: true,
-            showTotals: true
-          },
-          combineAdditionalCategories: true,
-          showSeparateLines: false,
-          calculateTotal: true
-        }
-      }),
-      
-      // Настройки для базовых блоков
-      ...(type === 'text' && {
-        textSettings: {
-          content: 'Пример текстового содержимого',
-          fontSize: '16px',
-          fontFamily: 'system-ui',
-          fontWeight: 'normal',
-          textAlign: 'left',
-          color: '#333333',
-          backgroundColor: 'transparent'
-        }
-      }),
-
-      ...(type === 'document-generator' && {
-        documentGeneratorSettings: {
-          enabledDocuments: ['quote', 'invoice', 'supplier_order'],
-          defaultTemplate: 'quote',
-          showPreview: true,
-          allowCustomFields: true
-        }
-      }),
-
-      ...(type === 'cart' && {
-        cartSettings: {
-          showItemList: true,
-          showCalculation: true,
-          showActions: true,
-          allowQuantityChange: true,
-          allowItemRemoval: true,
-          showClientForm: false,
-          autoCalculate: true,
-          showTax: true,
-          showDiscount: true,
-          maxItems: 50
-        }
-      })
-    };
+  // Создание нового блока (импортируется из ./ultimate)
+  const createBlockCallback = useCallback((type: BlockSettings['type'], x: number, y: number): BlockSettings => {
+    return createBlock(type, x, y, blocks.length);
   }, [blocks.length]);
 
   // Обновление блока
@@ -544,11 +108,11 @@ export default function UltimateConstructorFixed({ hideHeader = false }: { hideH
       const rect = canvas.getBoundingClientRect();
       const x = rect.width / 2 - 200;
       const y = rect.height / 2 - 150;
-      const newBlock = createBlock(type, x, y);
+      const newBlock = createBlockCallback(type, x, y);
       setBlocks(prev => [...prev, newBlock]);
       setSelectedBlockId(newBlock.id);
     }
-  }, [createBlock]);
+  }, [createBlockCallback]);
 
   // Простое перемещение блока
   const moveBlock = useCallback((blockId: string, newX: number, newY: number) => {
@@ -558,14 +122,14 @@ export default function UltimateConstructorFixed({ hideHeader = false }: { hideH
     if (snapToGridEnabled) {
       const block = blocks.find(b => b.id === blockId);
       if (block) {
-        const snapped = snapToGrid(finalX, finalY, block.width, block.height);
+        const snapped = snapToGridCallback(finalX, finalY, block.width, block.height);
         finalX = snapped.x;
         finalY = snapped.y;
       }
     }
     
     updateBlock(blockId, { x: finalX, y: finalY });
-  }, [blocks, snapToGridEnabled, snapToGrid, updateBlock]);
+  }, [blocks, snapToGridEnabled, snapToGridCallback, updateBlock]);
 
   // Начало изменения размера
   const handleResizeStart = useCallback((e: React.MouseEvent, handle: string) => {
@@ -629,77 +193,7 @@ export default function UltimateConstructorFixed({ hideHeader = false }: { hideH
     document.addEventListener('mouseup', handleMouseUp);
   }, [selectedBlock, updateBlock]);
 
-    const availableBlocks = [
-      // Профессиональные блоки для конфигуратора
-      {
-        type: 'category-title' as const,
-        name: 'Наименование категории',
-        icon: '📋',
-        description: 'Заголовок категории с хлебными крошками, количеством товаров и описанием.'
-      },
-      {
-        type: 'main-category' as const,
-        name: 'Основная категория товаров',
-        icon: '🏪',
-        description: 'Основная категория товаров с связью с деревом каталога, настройкой отображения и фильтрации.'
-      },
-      {
-        type: 'subcategory' as const,
-        name: 'Подкатегории товаров',
-        icon: '📁',
-        description: 'Вложенные категории верхнего уровня с настройкой макета и отображения.'
-      },
-      {
-        type: 'additional-category' as const,
-        name: 'Дополнительные категории',
-        icon: '➕',
-        description: 'Дополнительные категории для расчета общей цены, с настройкой объединения или отдельного отображения.'
-      },
-      {
-        type: 'product-selector' as const,
-        name: 'Конструктор подбора товара',
-        icon: '⚙️',
-        description: 'Конструктор параметров для подбора товара, настройка отображаемых свойств и типов ввода.'
-      },
-      {
-        type: 'filter-constructor' as const,
-        name: 'Конструктор фильтров',
-        icon: '🔍',
-        description: 'Конструктор фильтров с выбором параметров из каталога товаров, настройка типов и расположения.'
-      },
-      {
-        type: 'product-image' as const,
-        name: 'Блок изображения товара',
-        icon: '🖼️',
-        description: 'Укрупненное изображение товара с галереей, зумом и настройками отображения.'
-      },
-      {
-        type: 'cart-export' as const,
-        name: 'Корзина с экспортами',
-        icon: '📄',
-        description: 'Корзина с экспортами КП, Счета, Заказа покупателю с настройкой строк и шаблонов.'
-      },
-
-      // Базовые блоки
-      {
-        type: 'text' as const,
-        name: 'Текстовый блок',
-        icon: '📝',
-        description: 'Текстовое содержимое с настройкой шрифта, цвета, размера и выравнивания.'
-      },
-      {
-        type: 'document-generator' as const,
-        name: 'Генератор документов',
-        icon: '📄',
-        description: 'Блок для генерации документов: КП, Счет, Заказ поставщику из корзины.'
-      },
-      {
-        type: 'cart' as const,
-        name: 'Корзина',
-        icon: '🛒',
-        description: 'Блок корзины с товарами, расчетом стоимости и возможностью генерации документов.'
-      }
-    ];
+    // availableBlocks импортируется из ./ultimate
 
   return (
     <div className="flex flex-col h-full bg-gray-100">

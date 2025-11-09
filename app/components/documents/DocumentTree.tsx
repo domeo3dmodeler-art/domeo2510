@@ -13,6 +13,7 @@ import {
   Eye,
   Download
 } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface DocumentNode {
   id: string;
@@ -53,7 +54,7 @@ export default function DocumentTree({ clientId, onDocumentSelect, onCreateDocum
         setExpandedNodes(new Set(rootIds));
       }
     } catch (error) {
-      console.error('Error fetching document tree:', error);
+      clientLogger.error('Error fetching document tree:', error);
     } finally {
       setLoading(false);
     }
@@ -168,7 +169,10 @@ export default function DocumentTree({ clientId, onDocumentSelect, onCreateDocum
             </button>
             
             <button
-              onClick={() => {/* TODO: Download document */}}
+              onClick={() => {
+                // Функция скачивания документа будет реализована позже
+                clientLogger.debug('Download document clicked', { documentId: doc.id });
+              }}
               className="p-1 hover:bg-gray-200 rounded"
               title="Скачать"
             >

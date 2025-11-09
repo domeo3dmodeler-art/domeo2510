@@ -3,9 +3,13 @@
 import React, { useState } from 'react';
 import { Card, Button } from '../ui';
 import Constructor from '../constructor/Constructor';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface CategoryBuilderProps {
-  categoryData: any;
+  categoryData: {
+    id: string;
+    [key: string]: unknown;
+  } | null;
   onComplete: () => void;
 }
 
@@ -30,7 +34,7 @@ export default function CategoryBuilder({
         onComplete();
       }
     } catch (error) {
-      console.error('Error saving template:', error);
+      clientLogger.error('Error saving template:', error);
     }
   };
 

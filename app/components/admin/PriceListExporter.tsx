@@ -37,11 +37,11 @@ export default function PriceListExporter({ catalogCategoryId, catalogCategoryNa
         alert('Прайс успешно экспортирован в Excel! Все товары категории включены.');
       } else {
         const errorData = await response.json();
-        console.error('Failed to export price list:', errorData.error);
+        clientLogger.error('Failed to export price list:', errorData.error);
         alert(`Ошибка при экспорте прайса: ${errorData.error}`);
       }
     } catch (error) {
-      console.error('Error exporting price list:', error);
+      clientLogger.error('Error exporting price list:', error);
       alert('Произошла ошибка при экспорте прайса.');
     } finally {
       setExporting(false);

@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 import { parseAnyTable } from '@/lib/import/parse';
 import { autoMap } from '@/lib/import/automap';
 import { doorsAdapter } from '@/lib/import/adapters/doors';
@@ -52,9 +53,7 @@ function dedupeBy<T>(arr: T[], keyFn: (x:T)=>string) {
 }
 
 export async function POST(req: Request, { params }: { params: { category: string } }) {
-  console.log('=== [CATEGORY] ROUTE CALLED ===');
-  console.log('Category param:', params.category);
-  console.log('Request URL:', req.url);
+  logger.debug('[CATEGORY] ROUTE CALLED', 'admin/import/[category]', { category: params.category, requestUrl: req.url });
   
   const form = await req.formData();
   const file = form.get('file') as File | null;

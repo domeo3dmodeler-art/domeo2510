@@ -1,70 +1,100 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
+import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
+import { apiSuccess, apiError, withErrorHandling } from '@/lib/api/response';
+import { NotFoundError } from '@/lib/api/errors';
+import { requireAuth } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
 // PUT /api/configurator/category-links/[id]/hierarchies/[hierarchyId] - Обновить иерархию
-export async function PUT(
+async function putHandler(
   request: NextRequest,
-  { params }: { params: { id: string; hierarchyId: string } }
-) {
-  try {
-    const body = await request.json();
-    const { display_order } = body;
+  { params }: { params: Promise<{ id: string; hierarchyId: string }> },
+  user: ReturnType<typeof getAuthenticatedUser>
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(request);
+  const { id, hierarchyId } = await params;
+  const body = await request.json();
+  const { display_order } = body;
 
-    const hierarchy = await prisma.additionalCategoryHierarchy.update({
-      where: { id: params.hierarchyId },
-      data: {
-        display_order
+  logger.debug('Обновление иерархии', 'configurator/category-links/[id]/hierarchies/[hierarchyId]/PUT', {
+    hierarchyId,
+    displayOrder: display_order
+  }, loggingContext);
+
+  const hierarchy = await prisma.additionalCategoryHierarchy.update({
+    where: { id: hierarchyId },
+    data: {
+      display_order
+    },
+    include: {
+      parent_category: {
+        select: {
+          id: true,
+          name: true
+        }
       },
-      include: {
-        parent_category: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
-        child_category: {
-          select: {
-            id: true,
-            name: true
-          }
+      child_category: {
+        select: {
+          id: true,
+          name: true
         }
       }
-    });
+    }
+  });
 
-    return NextResponse.json({
-      success: true,
-      hierarchy
-    });
-  } catch (error) {
-    console.error('Error updating hierarchy:', error);
-    return NextResponse.json(
-      { success: false, message: 'Ошибка при обновлении иерархии' },
-      { status: 500 }
-    );
-  }
+  logger.info('Иерархия обновлена', 'configurator/category-links/[id]/hierarchies/[hierarchyId]/PUT', {
+    hierarchyId
+  }, loggingContext);
+
+  return apiSuccess({ hierarchy });
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string; hierarchyId: string }> }
+) {
+  return withErrorHandling(
+    requireAuth(async (req: NextRequest, user: ReturnType<typeof getAuthenticatedUser>) => {
+      return await putHandler(req, { params }, user);
+    }),
+    'configurator/category-links/[id]/hierarchies/[hierarchyId]/PUT'
+  )(request);
 }
 
 // DELETE /api/configurator/category-links/[id]/hierarchies/[hierarchyId] - Удалить иерархию
+async function deleteHandler(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string; hierarchyId: string }> },
+  user: ReturnType<typeof getAuthenticatedUser>
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(request);
+  const { id, hierarchyId } = await params;
+
+  logger.debug('Удаление иерархии', 'configurator/category-links/[id]/hierarchies/[hierarchyId]/DELETE', {
+    hierarchyId
+  }, loggingContext);
+
+  await prisma.additionalCategoryHierarchy.delete({
+    where: { id: hierarchyId }
+  });
+
+  logger.info('Иерархия удалена', 'configurator/category-links/[id]/hierarchies/[hierarchyId]/DELETE', {
+    hierarchyId
+  }, loggingContext);
+
+  return apiSuccess({ message: 'Иерархия удалена' });
+}
+
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; hierarchyId: string } }
+  { params }: { params: Promise<{ id: string; hierarchyId: string }> }
 ) {
-  try {
-    await prisma.additionalCategoryHierarchy.delete({
-      where: { id: params.hierarchyId }
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: 'Иерархия удалена'
-    });
-  } catch (error) {
-    console.error('Error deleting hierarchy:', error);
-    return NextResponse.json(
-      { success: false, message: 'Ошибка при удалении иерархии' },
-      { status: 500 }
-    );
-  }
+  return withErrorHandling(
+    requireAuth(async (req: NextRequest, user: ReturnType<typeof getAuthenticatedUser>) => {
+      return await deleteHandler(req, { params }, user);
+    }),
+    'configurator/category-links/[id]/hierarchies/[hierarchyId]/DELETE'
+  )(request);
 }

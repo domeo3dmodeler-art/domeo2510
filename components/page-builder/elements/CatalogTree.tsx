@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BaseElement } from '../types';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface CatalogCategory {
   id: string;
@@ -42,7 +43,7 @@ export function CatalogTree({ element, onUpdate }: CatalogTreeProps) {
           setExpandedNodes(new Set(rootIds));
         }
       } catch (error) {
-        console.error('Error loading categories:', error);
+        clientLogger.error('Error loading categories', error instanceof Error ? error : new Error(String(error)));
       } finally {
         setLoading(false);
       }

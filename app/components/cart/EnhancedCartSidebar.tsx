@@ -7,6 +7,7 @@ import { Button } from '@/components/ui';
 import { CartService } from '@/lib/cart/cart-service';
 import { Cart, CartItem, CartCalculation } from '@/lib/cart/types';
 import DocumentTree from '../documents/DocumentTree';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface EnhancedCartSidebarProps {
   isOpen: boolean;
@@ -57,7 +58,7 @@ export default function EnhancedCartSidebar({
         cartService.updateQuantity(itemId, newQuantity);
       }
     } catch (error) {
-      console.error('Error updating quantity:', error);
+      clientLogger.error('Error updating quantity:', error);
     } finally {
       setIsLoading(false);
     }
@@ -68,7 +69,7 @@ export default function EnhancedCartSidebar({
     try {
       cartService.removeItem(itemId);
     } catch (error) {
-      console.error('Error removing item:', error);
+      clientLogger.error('Error removing item:', error);
     } finally {
       setIsLoading(false);
     }
@@ -130,7 +131,7 @@ export default function EnhancedCartSidebar({
           toast.error(`Ошибка: ${error.error}`);
         }
       } catch (error) {
-        console.error('Error creating supplier order:', error);
+        clientLogger.error('Error creating supplier order:', error);
         toast.error('Ошибка при создании заказа у поставщика');
       } finally {
         setIsExporting(false);
@@ -217,14 +218,14 @@ export default function EnhancedCartSidebar({
               URL.revokeObjectURL(url);
             }
           } catch (exportError) {
-            console.warn('Не удалось экспортировать Order:', exportError);
+            clientLogger.warn('Не удалось экспортировать Order:', exportError);
           }
         } else {
           const error = await response.json();
           toast.error(`Ошибка: ${error.error}`);
         }
       } catch (error) {
-        console.error('Error creating order:', error);
+        clientLogger.error('Error creating order:', error);
         toast.error('Ошибка при создании заказа');
       } finally {
         setIsExporting(false);
@@ -317,7 +318,7 @@ export default function EnhancedCartSidebar({
       }
 
       const documentResult = await documentResponse.json();
-      console.log('✅ Document created:', documentResult);
+      clientLogger.debug('✅ Document created:', documentResult);
       
       // Добавляем в список созданных документов
       setCreatedDocuments(prev => [...prev, {
@@ -356,7 +357,7 @@ export default function EnhancedCartSidebar({
         toast.success(`${documentType === 'invoice' ? 'Счет' : 'КП'} создан, но не удалось скачать файл`);
       }
     } catch (error) {
-      console.error('Error creating document:', error);
+      clientLogger.error('Error creating document:', error);
       toast.error(`Ошибка при создании ${documentType}`);
     } finally {
       setIsExporting(false);
@@ -365,7 +366,7 @@ export default function EnhancedCartSidebar({
 
   const handleCreateFromExisting = (sourceType: string, sourceId: string, targetType: string) => {
     // Эта функция будет вызвана из DocumentTree
-    console.log('Creating document from existing:', { sourceType, sourceId, targetType });
+    clientLogger.debug('Creating document from existing:', { sourceType, sourceId, targetType });
     // Можно добавить логику для предзаполнения корзины данными из исходного документа
   };
 
@@ -454,7 +455,7 @@ export default function EnhancedCartSidebar({
             <div className="border-b border-gray-200 max-h-64 overflow-y-auto">
               <DocumentTree
                 clientId={selectedClientId}
-                onDocumentSelect={(doc) => console.log('Selected:', doc)}
+                onDocumentSelect={(doc) => clientLogger.debug('Selected:', doc)}
                 onCreateDocument={handleCreateFromExisting}
               />
             </div>
@@ -627,7 +628,7 @@ export default function EnhancedCartSidebar({
                         toast.error(`Ошибка: ${error.error}`);
                       }
                     } catch (error) {
-                      console.error('Error creating order:', error);
+                      clientLogger.error('Error creating order:', error);
                       toast.error('Ошибка при создании заказа');
                     } finally {
                       setIsExporting(false);

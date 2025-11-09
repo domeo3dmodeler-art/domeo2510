@@ -5,6 +5,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { createComponentStyles } from '../../lib/design/tokens';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -29,7 +30,7 @@ export function Modal({
   const modalRef = useRef<HTMLDivElement>(null);
   
   // Логирование для отладки
-  console.log('🔍 Modal component render:', { isOpen, size, className });
+  clientLogger.debug('🔍 Modal component render:', { isOpen, size, className });
   
   // Закрытие по Escape
   useEffect(() => {
@@ -73,7 +74,7 @@ export function Modal({
         .replace(/w-\S+/g, '')
         .replace(/min-w-\S+/g, '')
         .trim();
-      console.log(`🔍 Modal ${size} - стили установлены через setProperty с !important, ширина:`, maxWidth);
+      clientLogger.debug(`🔍 Modal ${size} - стили установлены через setProperty с !important, ширина:`, maxWidth);
     };
     
     // Устанавливаем ширину сразу
@@ -88,11 +89,11 @@ export function Modal({
   }, [isOpen, size]);
 
   if (!isOpen) {
-    console.log('🔍 Modal: isOpen=false, не рендерим');
+    clientLogger.debug('🔍 Modal: isOpen=false, не рендерим');
     return null;
   }
 
-  console.log('🔍 Modal: isOpen=true, рендерим с size=', size);
+  clientLogger.debug('🔍 Modal: isOpen=true, рендерим с size=', size);
 
   // Определяем размеры для разных типов модальных окон
   const getSizeStyles = (): React.CSSProperties => {

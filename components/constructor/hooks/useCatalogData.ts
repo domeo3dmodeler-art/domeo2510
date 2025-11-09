@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 // Типы данных для каталога
 export interface CatalogCategory {
@@ -97,7 +98,7 @@ export const useCatalogData = () => {
       setCategories(data.categories || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
-      console.error('Error loading categories:', err);
+      clientLogger.error('Error loading categories:', err);
     } finally {
       setLoading(false);
     }
@@ -126,7 +127,7 @@ export const useCatalogData = () => {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
-      console.error('Error loading products:', err);
+      clientLogger.error('Error loading products:', err);
     } finally {
       setLoading(false);
     }
@@ -150,7 +151,7 @@ export const useCatalogData = () => {
       setProperties(data.properties || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
-      console.error('Error loading properties:', err);
+      clientLogger.error('Error loading properties:', err);
     } finally {
       setLoading(false);
     }
@@ -180,7 +181,7 @@ export const useCatalogData = () => {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
-      console.error('Error searching products:', err);
+      clientLogger.error('Error searching products:', err);
       return [];
     } finally {
       setLoading(false);
@@ -203,7 +204,7 @@ export const useCatalogData = () => {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
-      console.error('Error loading product:', err);
+      clientLogger.error('Error loading product:', err);
       return null;
     }
   };
@@ -223,7 +224,7 @@ export const useCatalogData = () => {
         throw new Error(data.message || 'Ошибка загрузки изображений');
       }
     } catch (err) {
-      console.error('Error loading product images:', err);
+      clientLogger.error('Error loading product images:', err);
       return [];
     }
   };

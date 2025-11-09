@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Badge, Input, Dialog, DialogContent, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui';
 import { Plus, Search, Edit, Trash2, Upload, Download, Eye, Package, AlertCircle, ChevronRight, ChevronDown, Folder, FolderOpen } from 'lucide-react';
 import { CatalogCategory } from '@/lib/types/catalog';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface Product {
   id: string;
@@ -72,7 +73,7 @@ export default function ProductsPage() {
       setTotalPages(productsData.totalPages);
       setTotal(productsData.total);
     } catch (error) {
-      console.error('Error loading data:', error);
+      clientLogger.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
@@ -94,7 +95,7 @@ export default function ProductsPage() {
         await loadData();
       }
     } catch (error) {
-      console.error('Error deleting product:', error);
+      clientLogger.error('Error deleting product:', error);
     }
   };
 
@@ -114,7 +115,7 @@ export default function ProductsPage() {
         document.body.removeChild(a);
       }
     } catch (error) {
-      console.error('Error downloading template:', error);
+      clientLogger.error('Error downloading template:', error);
     }
   };
 
@@ -138,11 +139,11 @@ export default function ProductsPage() {
       } else {
         alert(`Ошибка импорта: ${result.message}`);
         if (result.errors && result.errors.length > 0) {
-          console.error('Import errors:', result.errors);
+          clientLogger.error('Import errors:', result.errors);
         }
       }
     } catch (error) {
-      console.error('Error importing products:', error);
+      clientLogger.error('Error importing products:', error);
       alert('Ошибка при импорте товаров');
     }
   };

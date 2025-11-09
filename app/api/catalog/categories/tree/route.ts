@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../../lib/prisma';
+import { logger } from '../../../../../lib/logging/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -37,8 +38,18 @@ export async function GET(request: NextRequest) {
     }));
 
     // Строим дерево
-    const categoryMap = new Map();
-    const rootCategories: any[] = [];
+    interface CategoryNode {
+      id: string;
+      name: string;
+      parent_id: string | null;
+      level: number;
+      path: string;
+      products_count: number;
+      children: CategoryNode[];
+    }
+
+    const categoryMap = new Map<string, CategoryNode>();
+    const rootCategories: CategoryNode[] = [];
 
     // Создаем карту категорий
     categoriesWithCounts.forEach(category => {
@@ -68,7 +79,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching category tree:', error);
+    logger.error('Error fetching category tree', 'catalog/categories/tree', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

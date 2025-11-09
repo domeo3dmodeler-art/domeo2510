@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from '@/lib/logging/logger';
 
 // Универсальная система для управления категориями товаров
 export async function GET(req: NextRequest) {
@@ -197,7 +198,7 @@ export async function GET(req: NextRequest) {
       message: "Универсальная система категорий товаров (демо-режим)"
     });
   } catch (error) {
-    console.error('Ошибка получения категорий:', error);
+    logger.error('Ошибка получения категорий', 'categories', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: "Ошибка получения категорий" },
       { status: 500 }
@@ -238,7 +239,7 @@ export async function POST(req: NextRequest) {
       category: newCategory
     }, { status: 201 });
   } catch (error) {
-    console.error('Ошибка создания категории:', error);
+    logger.error('Ошибка создания категории', 'categories', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: "Ошибка создания категории" },
       { status: 500 }

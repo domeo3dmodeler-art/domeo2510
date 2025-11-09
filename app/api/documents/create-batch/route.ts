@@ -1,570 +1,134 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { generateCartSessionId } from '@/lib/utils/cart-session';
+import { findExistingDocument } from '@/lib/documents/deduplication';
+import { documentService } from '@/lib/services/document.service';
+import { logger } from '@/lib/logging/logger';
+import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { requireAuth } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
 // POST /api/documents/create-batch - Создание нескольких документов из корзины
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const {
-      cart_session_id, // ID сессии корзины (опционально, будет сгенерирован если не передан)
-      client_id,
-      items,
-      total_amount,
-      subtotal = 0,
-      tax_amount = 0,
-      notes,
-      document_types = ['quote', 'invoice'], // Типы документов для создания
-      created_by = 'system'
-    } = body;
+async function postHandler(
+  req: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(req);
+  const body = await req.json();
+  const {
+    cart_session_id, // ID сессии корзины (опционально, будет сгенерирован если не передан)
+    client_id,
+    items,
+    total_amount,
+    subtotal = 0,
+    tax_amount = 0,
+    notes,
+    document_types = ['quote', 'invoice'], // Типы документов для создания
+  } = body;
 
-    // Генерируем cart_session_id если не передан
-    const finalCartSessionId = cart_session_id || generateCartSessionId();
+  // Генерируем cart_session_id если не передан
+  const finalCartSessionId = cart_session_id || generateCartSessionId();
 
-    console.log(`🆕 Создание документов из корзины: ${document_types.join(', ')}, сессия: ${finalCartSessionId}`);
+  logger.info('Создание документов из корзины', 'documents/create-batch', {
+    documentTypes: document_types.join(', '),
+    cartSessionId: finalCartSessionId
+  }, loggingContext);
 
-    // Валидация
-    if (!client_id || !items || !Array.isArray(items)) {
-      return NextResponse.json(
-        { error: 'Необходимые поля: client_id, items' },
-        { status: 400 }
-      );
-    }
-
-    const results = [];
-    const errors = [];
-
-    // Создаем каждый тип документа
-    for (const type of document_types) {
-      try {
-        // Проверяем существующий документ
-        const existingDocument = await findExistingDocument(type, null, finalCartSessionId, client_id, items, total_amount);
-        
-        let documentNumber: string;
-        let documentId: string | null = null;
-
-        if (existingDocument) {
-          documentNumber = existingDocument.number;
-          documentId = existingDocument.id;
-          console.log(`🔄 Используем существующий ${type}: ${documentNumber} (ID: ${documentId})`);
-        } else {
-          const documentNumberPrefix = type === 'quote' ? 'КП' : type === 'invoice' ? 'Счет' : type === 'order' ? 'Заказ' : 'Документ';
-          documentNumber = `${documentNumberPrefix}-${Date.now()}`;
-          console.log(`🆕 Создаем новый ${type}: ${documentNumber}`);
-        }
-
-        // Создаем или обновляем документ в БД
-        let dbResult;
-        if (!existingDocument) {
-          dbResult = await createDocumentRecord(type, {
-            number: documentNumber,
-            parent_document_id: null,
-            cart_session_id: finalCartSessionId,
-            client_id,
-            items,
-            total_amount,
-            subtotal,
-            tax_amount,
-            notes,
-            created_by
-          });
-          documentId = dbResult.id;
-          console.log(`✅ Запись в БД создана: ${type} #${dbResult.id}`);
-        } else {
-          console.log(`✅ Используем существующий документ в БД: ${documentNumber}`);
-          dbResult = { id: documentId, type: type };
-        }
-
-        results.push({
-          type: type,
-          documentId: documentId,
-          documentNumber: documentNumber,
-          isNew: !existingDocument,
-          message: existingDocument ? 'Использован существующий документ' : 'Создан новый документ'
-        });
-
-      } catch (error) {
-        console.error(`❌ Ошибка создания ${type}:`, error);
-        errors.push({
-          type: type,
-          error: error.message || 'Неизвестная ошибка'
-        });
-      }
-    }
-
-    return NextResponse.json({
-      success: errors.length === 0,
-      cart_session_id,
-      results,
-      errors,
-      message: `Создано ${results.length} документов из корзины`
-    });
-
-  } catch (error) {
-    console.error('❌ Ошибка создания документов из корзины:', error);
-    return NextResponse.json(
-      { error: 'Ошибка при создании документов из корзины' },
-      { status: 500 }
+  // Валидация
+  if (!client_id || !items || !Array.isArray(items)) {
+    return apiError(
+      ApiErrorCode.VALIDATION_ERROR,
+      'Необходимые поля: client_id, items',
+      400
     );
   }
-}
 
-// Нормализация items для сравнения (улучшенная версия с учетом всех важных полей)
-function normalizeItems(items: any[]): any[] {
-  return items.map(item => {
-    // Нормализуем основные поля
-    const normalized: any = {
-      type: String(item.type || 'door').toLowerCase(),
-      style: String(item.style || '').toLowerCase().trim(),
-      model: String(item.model || item.name || '').toLowerCase().trim(),
-      finish: String(item.finish || '').toLowerCase().trim(),
-      color: String(item.color || '').toLowerCase().trim(),
-      width: Number(item.width || 0),
-      height: Number(item.height || 0),
-      quantity: Number(item.qty || item.quantity || 1),
-      unitPrice: Number(item.unitPrice || item.price || 0),
-      // Фурнитура и ручки
-      hardwareKitId: String(item.hardwareKitId || '').trim(),
-      handleId: String(item.handleId || '').trim(),
-      // Дополнительные идентификаторы
-      sku_1c: String(item.sku_1c || '').trim()
-    };
-    
-    // Для ручек - сравниваем только handleId и quantity
-    if (normalized.type === 'handle' || item.handleId) {
-      return {
-        type: 'handle',
-        handleId: normalized.handleId,
-        quantity: normalized.quantity,
-        unitPrice: normalized.unitPrice
-      };
+  const results: Array<{
+    type: string;
+    documentId: string | null;
+    documentNumber: string;
+    isNew: boolean;
+    message: string;
+  }> = [];
+  const errors: Array<{
+    type: string;
+    error: string;
+  }> = [];
+
+  // Создаем каждый тип документа
+  for (const type of document_types) {
+    try {
+      // Проверяем существующий документ
+      const existingDocument = await findExistingDocument(
+        type as 'quote' | 'invoice' | 'supplier_order',
+        null,
+        finalCartSessionId,
+        client_id,
+        items,
+        total_amount
+      );
+      
+      let documentId: string | null = null;
+      let documentNumber: string;
+      let isNew = false;
+
+      if (existingDocument) {
+        documentNumber = existingDocument.number;
+        documentId = existingDocument.id;
+        logger.debug(`Используем существующий ${type}`, 'documents/create-batch', {
+          documentNumber,
+          documentId
+        }, loggingContext);
+      } else {
+        // Используем documentService для создания документа
+        const document = await documentService.createDocument({
+          type: type as 'quote' | 'invoice' | 'order' | 'supplier_order',
+          client_id,
+          items,
+          total_amount,
+          subtotal,
+          tax_amount,
+          notes,
+          parent_document_id: null,
+          cart_session_id: finalCartSessionId,
+          created_by: user.userId || 'system'
+        });
+
+        documentId = document.id;
+        documentNumber = document.number;
+        isNew = true;
+        logger.info(`Создан новый ${type}`, 'documents/create-batch', {
+          documentNumber,
+          documentId
+        }, loggingContext);
+      }
+
+      results.push({
+        type: type,
+        documentId: documentId,
+        documentNumber: documentNumber,
+        isNew: isNew,
+        message: isNew ? 'Создан новый документ' : 'Использован существующий документ'
+      });
+
+    } catch (error: unknown) {
+      logger.error(`Ошибка создания ${type}`, 'documents/create-batch', { error }, loggingContext);
+      errors.push({
+        type: type,
+        error: error instanceof Error ? error.message : 'Неизвестная ошибка'
+      });
     }
-    
-    // Для дверей - сравниваем все параметры
-    return normalized;
-  }).sort((a, b) => {
-    // Сортируем для консистентного сравнения
-    const keyA = `${a.type}:${(a.handleId || a.model || '')}:${a.finish}:${a.color}:${a.width}:${a.height}:${a.hardwareKitId}`;
-    const keyB = `${b.type}:${(b.handleId || b.model || '')}:${b.finish}:${b.color}:${b.width}:${b.height}:${b.hardwareKitId}`;
-    return keyA.localeCompare(keyB);
+  }
+
+  return apiSuccess({
+    cart_session_id: finalCartSessionId,
+    results,
+    errors,
+    message: `Создано ${results.length} документов из корзины`
   });
 }
 
-// Сравнение содержимого корзины
-function compareCartContent(items1: any[], items2String: string | null): boolean {
-  try {
-    if (!items2String) return false;
-    
-    const normalized1 = normalizeItems(items1);
-    const items2 = JSON.parse(items2String);
-    const normalized2 = normalizeItems(Array.isArray(items2) ? items2 : []);
-    
-    if (normalized1.length !== normalized2.length) return false;
-    
-    // Сравниваем каждый элемент
-    for (let i = 0; i < normalized1.length; i++) {
-      const item1 = normalized1[i];
-      const item2 = normalized2[i];
-      
-      // Для ручек сравниваем только handleId, quantity и unitPrice
-      if (item1.type === 'handle' || item2.type === 'handle') {
-        if (item1.type !== item2.type ||
-            item1.handleId !== item2.handleId ||
-            item1.quantity !== item2.quantity ||
-            Math.abs(item1.unitPrice - item2.unitPrice) > 0.01) {
-          return false;
-        }
-        continue;
-      }
-      
-      // Для дверей сравниваем все важные параметры
-      if (item1.type !== item2.type || 
-          item1.style !== item2.style ||
-          item1.model !== item2.model ||
-          item1.finish !== item2.finish ||
-          item1.color !== item2.color ||
-          item1.width !== item2.width ||
-          item1.height !== item2.height ||
-          item1.hardwareKitId !== item2.hardwareKitId ||
-          item1.handleId !== item2.handleId ||
-          item1.quantity !== item2.quantity ||
-          Math.abs(item1.unitPrice - item2.unitPrice) > 0.01) { // Допуск на округление
-        return false;
-      }
-    }
-    
-    return true;
-  } catch (error) {
-    console.warn('⚠️ Ошибка сравнения содержимого корзины:', error);
-    return false;
-  }
-}
-
-// Поиск существующего документа (копируем из create/route.ts)
-async function findExistingDocument(
-  type: 'quote' | 'invoice' | 'order' | 'supplier_order',
-  parentDocumentId: string | null,
-  cartSessionId: string | null,
-  clientId: string,
-  items: any[],
-  totalAmount: number
-) {
-  try {
-    console.log(`🔍 Поиск существующего документа: ${type}, родитель: ${parentDocumentId || 'нет'}, корзина: ${cartSessionId || 'нет'}, клиент: ${clientId}, сумма: ${totalAmount}`);
-
-    if (type === 'quote') {
-      // Строгая логика поиска существующего КП - точное совпадение всех полей
-      const existingQuote = await prisma.quote.findFirst({
-        where: {
-          parent_document_id: parentDocumentId,
-          cart_session_id: cartSessionId,
-          client_id: clientId,
-          total_amount: totalAmount
-        } as any,
-        orderBy: { created_at: 'desc' }
-      });
-      if (existingQuote) {
-        if (compareCartContent(items, existingQuote.cart_data)) {
-          console.log(`✅ Найден существующий КП (строгое совпадение): ${existingQuote.number} (ID: ${existingQuote.id})`);
-          return existingQuote;
-        }
-      }
-      
-      // Этап 2: Поиск по содержимому корзины
-      // ВАЖНО: Ищем только в документах ТОГО ЖЕ клиента - разные клиенты могут иметь одинаковые товары
-      const quoteCandidates = await prisma.quote.findMany({
-        where: {
-          client_id: clientId, // Только для того же клиента!
-          parent_document_id: parentDocumentId,
-          total_amount: {
-            gte: totalAmount - 0.01,
-            lte: totalAmount + 0.01
-          }
-        } as any,
-        orderBy: { created_at: 'desc' },
-        take: 10
-      });
-      
-      for (const candidate of quoteCandidates) {
-        if (compareCartContent(items, candidate.cart_data)) {
-          console.log(`✅ Найден существующий КП (по содержимому): ${candidate.number} (ID: ${candidate.id})`);
-          return candidate;
-        }
-      }
-      
-    } else if (type === 'invoice') {
-      // Этап 1: Строгий поиск
-      const existingInvoice = await prisma.invoice.findFirst({
-        where: {
-          parent_document_id: parentDocumentId,
-          cart_session_id: cartSessionId,
-          client_id: clientId,
-          total_amount: totalAmount
-        } as any,
-        orderBy: { created_at: 'desc' }
-      });
-      if (existingInvoice) {
-        if (compareCartContent(items, existingInvoice.cart_data)) {
-          console.log(`✅ Найден существующий счет (строгое совпадение): ${existingInvoice.number} (ID: ${existingInvoice.id})`);
-          return existingInvoice;
-        }
-      }
-      
-      // Этап 2: Поиск по содержимому
-      // ВАЖНО: Ищем только в документах ТОГО ЖЕ клиента - разные клиенты могут иметь одинаковые товары
-      const invoiceCandidates = await prisma.invoice.findMany({
-        where: {
-          client_id: clientId, // Только для того же клиента!
-          parent_document_id: parentDocumentId,
-          total_amount: {
-            gte: totalAmount - 0.01,
-            lte: totalAmount + 0.01
-          }
-        } as any,
-        orderBy: { created_at: 'desc' },
-        take: 10
-      });
-      
-      for (const candidate of invoiceCandidates) {
-        if (compareCartContent(items, candidate.cart_data)) {
-          console.log(`✅ Найден существующий счет (по содержимому): ${candidate.number} (ID: ${candidate.id})`);
-          return candidate;
-        }
-      }
-      
-    } else if (type === 'order') {
-      // Для Order проверяем через invoice.cart_data и invoice.total_amount
-      const existingOrder = await prisma.order.findFirst({
-        where: {
-          parent_document_id: parentDocumentId,
-          cart_session_id: cartSessionId,
-          client_id: clientId
-        } as any,
-        include: {
-          invoice: {
-            select: {
-              cart_data: true,
-              total_amount: true
-            }
-          }
-        },
-        orderBy: { created_at: 'desc' }
-      });
-      if (existingOrder && existingOrder.invoice) {
-        if (Math.abs(existingOrder.invoice.total_amount - totalAmount) <= 0.01) {
-          if (compareCartContent(items, existingOrder.invoice.cart_data)) {
-            console.log(`✅ Найден существующий заказ (строгое совпадение): ${existingOrder.number} (ID: ${existingOrder.id})`);
-            return existingOrder;
-          }
-        }
-      }
-      
-      // Этап 2: Поиск по содержимому через invoice
-      // ВАЖНО: Ищем только в документах ТОГО ЖЕ клиента
-      const orderCandidates = await prisma.order.findMany({
-        where: {
-          client_id: clientId,
-          parent_document_id: parentDocumentId
-        } as any,
-        include: {
-          invoice: {
-            select: {
-              cart_data: true,
-              total_amount: true
-            }
-          }
-        },
-        orderBy: { created_at: 'desc' },
-        take: 10
-      });
-      
-      for (const candidate of orderCandidates) {
-        if (candidate.invoice && candidate.invoice.cart_data) {
-          if (Math.abs(candidate.invoice.total_amount - totalAmount) <= 0.01) {
-            if (compareCartContent(items, candidate.invoice.cart_data)) {
-              console.log(`✅ Найден существующий заказ (по содержимому): ${candidate.number} (ID: ${candidate.id})`);
-              return candidate;
-            }
-          }
-        }
-      }
-      
-    } else if (type === 'supplier_order') {
-      const existingSupplierOrder = await prisma.supplierOrder.findFirst({
-        where: {
-          parent_document_id: parentDocumentId,
-          cart_session_id: cartSessionId
-        } as any,
-        orderBy: { created_at: 'desc' }
-      });
-      if (existingSupplierOrder) {
-        if (compareCartContent(items, existingSupplierOrder.cart_data)) {
-          console.log(`✅ Найден существующий заказ у поставщика: ${existingSupplierOrder.id}`);
-          return existingSupplierOrder;
-        }
-      }
-    }
-
-    console.log(`❌ Существующий документ не найден`);
-    return null;
-  } catch (error) {
-    console.error('❌ Ошибка поиска существующего документа:', error);
-    return null;
-  }
-}
-
-// Создание записи документа в БД (копируем из create/route.ts)
-async function createDocumentRecord(
-  type: 'quote' | 'invoice' | 'order' | 'supplier_order',
-  data: {
-    number: string;
-    parent_document_id: string | null;
-    cart_session_id: string | null;
-    client_id: string;
-    items: any[];
-    total_amount: number;
-    subtotal: number;
-    tax_amount: number;
-    notes?: string;
-    created_by: string;
-  }
-) {
-  const cartData = JSON.stringify(data.items);
-
-  if (type === 'quote') {
-    const quote = await prisma.quote.create({
-      data: {
-        number: data.number,
-        parent_document_id: data.parent_document_id,
-        cart_session_id: data.cart_session_id,
-        client_id: data.client_id,
-        created_by: data.created_by,
-        subtotal: data.subtotal,
-        tax_amount: data.tax_amount,
-        total_amount: data.total_amount,
-        currency: 'RUB',
-        notes: data.notes,
-        cart_data: cartData
-      } as any
-    });
-
-    // Создаем элементы КП
-    for (const item of data.items) {
-      await prisma.quoteItem.create({
-        data: {
-          quote_id: quote.id,
-          product_id: item.product_id || 'unknown',
-          quantity: item.quantity || 1,
-          unit_price: item.price || 0,
-          total_price: (item.price || 0) * (item.quantity || 1),
-          notes: item.notes
-        }
-      });
-    }
-
-    return quote;
-  } else if (type === 'invoice') {
-    // Invoice создается на основе Order
-    // Если parent_document_id указан, устанавливаем order_id
-    let orderId: string | null = null;
-    if (data.parent_document_id) {
-      const parentOrder = await prisma.order.findUnique({
-        where: { id: data.parent_document_id },
-        select: { id: true }
-      });
-      if (parentOrder) {
-        orderId = parentOrder.id;
-        // Проверяем, что у Order еще нет Invoice
-        const existingInvoiceForOrder = await prisma.invoice.findFirst({
-          where: { order_id: orderId }
-        });
-        if (existingInvoiceForOrder) {
-          throw new Error(`У заказа ${data.parent_document_id} уже есть счет ${existingInvoiceForOrder.number}`);
-        }
-      }
-    }
-
-    const invoice = await prisma.invoice.create({
-      data: {
-        number: data.number,
-        parent_document_id: data.parent_document_id, // ID Order
-        cart_session_id: data.cart_session_id,
-        client_id: data.client_id,
-        order_id: orderId, // Связь с Order через order_id
-        created_by: data.created_by,
-        subtotal: data.subtotal,
-        tax_amount: data.tax_amount,
-        total_amount: data.total_amount,
-        currency: 'RUB',
-        notes: data.notes,
-        cart_data: cartData
-      } as any
-    });
-
-    // Если invoice создан для Order, обновляем Order.invoice_id и проверяем целостность
-    if (orderId) {
-      await prisma.order.update({
-        where: { id: orderId },
-        data: { invoice_id: invoice.id }
-      });
-
-      // Проверяем целостность связи после создания
-      const { validateOrderInvoiceLink } = await import('@/lib/validation/document-integrity');
-      const validation = await validateOrderInvoiceLink(orderId, invoice.id);
-      if (!validation.valid) {
-        console.warn('Обнаружена несогласованность связи Order ↔ Invoice после создания', {
-          orderId,
-          invoiceId: invoice.id,
-          errors: validation.errors
-        });
-        // Пытаемся исправить автоматически
-        const { fixOrderInvoiceLink } = await import('@/lib/validation/document-integrity');
-        await fixOrderInvoiceLink(orderId, invoice.id);
-      }
-    }
-
-    // Создаем элементы счета
-    for (const item of data.items) {
-      await prisma.invoiceItem.create({
-        data: {
-          invoice_id: invoice.id,
-          product_id: item.product_id || 'unknown',
-          quantity: item.quantity || 1,
-          unit_price: item.price || 0,
-          total_price: (item.price || 0) * (item.quantity || 1),
-          notes: item.notes
-        }
-      });
-    }
-
-    return invoice;
-  } else if (type === 'order') {
-    // Для Order создаем базовую запись без total_amount, subtotal, tax_amount, cart_data
-    // Эти данные хранятся в Invoice
-    const order = await prisma.order.create({
-      data: {
-        number: data.number,
-        parent_document_id: data.parent_document_id,
-        cart_session_id: data.cart_session_id,
-        client_id: data.client_id,
-        status: 'NEW_PLANNED',
-        notes: data.notes
-      }
-    });
-
-    // Примечание: элементы заказа не создаются здесь, так как они хранятся в Invoice
-    // Если нужно создать OrderItem, нужно сначала создать Invoice с order_id
-
-    return order;
-  } else if (type === 'supplier_order') {
-    // SupplierOrder создается на основе Order
-    // Если parent_document_id указан, проверяем что это Order
-    if (data.parent_document_id) {
-      const parentOrder = await prisma.order.findUnique({
-        where: { id: data.parent_document_id },
-        select: { id: true }
-      });
-      if (!parentOrder) {
-        throw new Error(`Заказ ${data.parent_document_id} не найден. SupplierOrder должен создаваться на основе Order.`);
-      }
-    }
-    
-    const supplierOrder = await prisma.supplierOrder.create({
-      data: {
-        parent_document_id: data.parent_document_id, // ID Order
-        cart_session_id: data.cart_session_id,
-        executor_id: data.created_by,
-        supplier_name: 'Поставщик', // Можно передавать в параметрах
-        notes: data.notes,
-        cart_data: cartData,
-        total_amount: data.total_amount
-      } as any
-    });
-
-    return supplierOrder;
-  }
-
-  throw new Error(`Неизвестный тип документа: ${type}`);
-}
-
-// Создание хеша содержимого для сравнения
-function createContentHash(clientId: string, items: any[], totalAmount: number): string {
-  const content = {
-    client_id: clientId,
-    items: items.map(item => ({
-      id: item.id,
-      type: item.type,
-      quantity: item.qty || item.quantity,
-      unitPrice: item.unitPrice || item.price,
-      name: item.name
-    })),
-    total_amount: totalAmount
-  };
-  
-  // Создаем более длинный и уникальный хеш
-  const contentString = JSON.stringify(content);
-  const hash = Buffer.from(contentString).toString('base64');
-  
-  // Берем первые 100 символов для лучшей уникальности
-  return hash.substring(0, 100);
-}
+export const POST = withErrorHandling(
+  requireAuth(postHandler),
+  'documents/create-batch/POST'
+);

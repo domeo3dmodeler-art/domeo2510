@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '../ui';
 import ConfiguratorCategoryDisplay from './ConfiguratorCategoryDisplay';
 import ConfiguratorCart from './ConfiguratorCart';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface ConfiguratorCategory {
   id: string;
@@ -67,7 +68,7 @@ export default function ConfiguratorMain({
       try {
         setCartItems(JSON.parse(savedCart));
       } catch (error) {
-        console.error('Error loading cart from localStorage:', error);
+        clientLogger.error('Error loading cart from localStorage:', error);
       }
     }
   }, [configuratorCategoryId]);
@@ -163,7 +164,7 @@ export default function ConfiguratorMain({
         throw new Error('Ошибка экспорта');
       }
     } catch (error) {
-      console.error('Error exporting:', error);
+      clientLogger.error('Error exporting:', error);
       alert('Ошибка при экспорте документа');
     }
   };

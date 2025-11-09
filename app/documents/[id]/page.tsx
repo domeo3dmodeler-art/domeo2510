@@ -6,6 +6,7 @@ import { DocumentHistory } from '@/components/documents/DocumentHistory';
 import { DocumentActions } from '@/components/documents/DocumentActions';
 import { DocumentComments } from '@/components/documents/DocumentComments';
 import { RelatedDocuments } from '@/components/documents/RelatedDocuments';
+import { logger } from '@/lib/logging/logger';
 
 interface DocumentPageProps {
   params: Promise<{ id: string }>;
@@ -87,7 +88,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
       </div>
     );
   } catch (error) {
-    console.error('Ошибка загрузки документа:', error);
+    logger.error('Ошибка загрузки документа:', error);
     notFound();
   }
 }

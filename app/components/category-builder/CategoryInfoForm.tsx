@@ -65,7 +65,7 @@ export default function CategoryInfoForm({ onComplete, onCancel, initialData }: 
       
       onComplete(finalData);
     } catch (error) {
-      console.error('Error creating category:', error);
+      clientLogger.error('Error creating category:', error);
       alert('Ошибка при создании категории.');
     } finally {
       setIsLoading(false);

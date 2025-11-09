@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logging/logger';
 
 // POST /api/cart/restore-from-document - Восстановить корзину из документа
 export async function POST(request: NextRequest) {
@@ -10,7 +11,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Document ID and type are required' }, { status: 400 });
     }
 
-    console.log('🔄 Restoring cart from document:', { documentId, documentType });
+    logger.debug('Restoring cart from document', 'cart/restore-from-document', { documentId, documentType });
 
     // Получаем данные корзины из документа
     const cartDataResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/documents/${documentId}/cart-data?type=${documentType}`);
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No cart data found in document' }, { status: 404 });
     }
 
-    console.log('✅ Cart data restored:', { 
+    logger.debug('Cart data restored', 'cart/restore-from-document', { 
       documentId, 
       documentType, 
       itemsCount: cartData.items?.length || 0,
@@ -40,8 +41,8 @@ export async function POST(request: NextRequest) {
       document: cartDataResult.document
     });
 
-  } catch (error: any) {
-    console.error('❌ Error restoring cart from document:', error);
+  } catch (error: unknown) {
+    logger.error('Error restoring cart from document', 'cart/restore-from-document', error instanceof Error ? { error: error.message, stack: error.stack, documentId, documentType } : { error: String(error), documentId, documentType });
     return NextResponse.json(
       { error: 'Failed to restore cart from document' },
       { status: 500 }

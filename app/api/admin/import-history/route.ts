@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
 
-const prisma = new PrismaClient();
-
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const { searchParams } = new URL(req.url);
     const category = searchParams.get('category');
     
-    console.log('=== IMPORT HISTORY API CALL ===');
-    console.log('Category:', category);
+    logger.info('Получение истории импортов', 'admin/import-history', { userId: user.userId, category });
     
     if (!category) {
-      return NextResponse.json(
-        { error: "Категория не указана" },
-        { status: 400 }
-      );
+      throw new ValidationError('Категория не указана');
     }
     
     // Получаем историю импортов из базы данных
@@ -46,34 +46,35 @@ export async function GET(req: NextRequest) {
       error_message: item.errors
     }));
     
-    console.log('History for category:', formattedHistory);
+    logger.info('История импортов получена', 'admin/import-history', { category, count: formattedHistory.length });
     
-    return NextResponse.json({
-      ok: true,
+    return apiSuccess({
       history: formattedHistory,
       category: category
     });
   } catch (error) {
-    console.error('Error fetching import history:', error);
-    return NextResponse.json(
-      { error: "Ошибка получения истории импортов" },
-      { status: 500 }
-    );
+    logger.error('Error fetching import history', 'admin/import-history', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка получения истории импортов', 500);
   }
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withErrorHandling(
+  requireAuthAndPermission(getHandler, 'ADMIN'),
+  'admin/import-history/GET'
+);
+
+async function postHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const { category, filename, imported, status, error_message } = await req.json();
     
-    console.log('=== IMPORT HISTORY POST ===');
-    console.log('Category:', category, 'Filename:', filename, 'Imported:', imported);
+    logger.info('Создание записи истории импорта', 'admin/import-history', { userId: user.userId, category, filename, imported });
     
     if (!category || !filename) {
-      return NextResponse.json(
-        { error: "Категория и имя файла обязательны" },
-        { status: 400 }
-      );
+      throw new ValidationError('Категория и имя файла обязательны');
     }
     
     // Создаем запись в истории импортов
@@ -88,18 +89,22 @@ export async function POST(req: NextRequest) {
       }
     });
     
-    console.log('Created import history record:', importRecord.id);
+    logger.info('Запись истории импорта создана', 'admin/import-history', { importRecordId: importRecord.id });
     
-    return NextResponse.json({
-      ok: true,
+    return apiSuccess({
       id: importRecord.id,
       message: "Запись истории импорта создана"
     });
   } catch (error) {
-    console.error('Error creating import history:', error);
-    return NextResponse.json(
-      { error: "Ошибка создания записи истории импорта" },
-      { status: 500 }
-    );
+    logger.error('Error creating import history', 'admin/import-history', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка создания записи истории импорта', 500);
   }
 }
+
+export const POST = withErrorHandling(
+  requireAuthAndPermission(postHandler, 'ADMIN'),
+  'admin/import-history/POST'
+);

@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 import { useImportTemplate, useFileAnalysis } from '../../../../hooks/useImportTemplate';
 import CatalogTree from '../../../../components/admin/CatalogTree';
 import TemplateManager from '../../../../components/admin/TemplateManager';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface ImportHistoryItem {
   id: string;
@@ -116,7 +117,7 @@ export default function CatalogImportPage() {
       const data = await response.json();
       setImportHistory(data);
     } catch (error) {
-      console.error('Error loading import history:', error);
+      clientLogger.error('Error loading import history:', error);
     } finally {
       setLoadingHistory(false);
     }
@@ -133,7 +134,7 @@ export default function CatalogImportPage() {
       const response = await fetch(`/api/catalog/products?categoryId=${categoryId}&limit=10`);
       const data = await response.json();
       
-      console.log('Existing products response:', data);
+      clientLogger.debug('Existing products response:', data);
       
       if (data.success && data.products && data.products.length > 0) {
         // Собираем все уникальные свойства из товаров
@@ -153,18 +154,18 @@ export default function CatalogImportPage() {
                 }
               });
             } catch (error) {
-              console.error('Error parsing properties_data:', error);
+              clientLogger.error('Error parsing properties_data:', error);
             }
           }
         });
         
         setExistingProductProperties(Array.from(allProperties).sort());
-        console.log('Loaded existing properties:', Array.from(allProperties));
+        clientLogger.debug('Loaded existing properties:', Array.from(allProperties));
       } else {
         setExistingProductProperties([]);
       }
     } catch (error) {
-      console.error('Error loading existing product properties:', error);
+      clientLogger.error('Error loading existing product properties:', error);
       setExistingProductProperties([]);
     } finally {
       setLoadingProperties(false);
@@ -173,25 +174,25 @@ export default function CatalogImportPage() {
 
   const loadCatalogCategories = async () => {
     try {
-      console.log('🔄 Загружаем категории для импорта...');
+      clientLogger.debug('🔄 Загружаем категории для импорта...');
       const response = await fetch('/api/catalog/categories-flat');
       const data = await response.json();
       
-      console.log('📦 Ответ API категорий:', data);
+      clientLogger.debug('📦 Ответ API категорий:', data);
       
       // Используем данные напрямую из нового API
       const categories = data.categories || [];
       
-      console.log(`✅ Загружено ${categories.length} категорий`);
-      console.log('Пример категории:', categories[0]);
+      clientLogger.debug(`✅ Загружено ${categories.length} категорий`);
+      clientLogger.debug('Пример категории:', categories[0]);
       
       // Просто устанавливаем категории без дополнительной обработки
       setCatalogCategories(categories);
       
-      console.log('📊 Категории с товарами:', categories.filter((c: any) => c.product_count > 0).length);
+      clientLogger.debug('📊 Категории с товарами:', categories.filter((c: any) => c.product_count > 0).length);
       
     } catch (error) {
-      console.error('Error loading catalog categories:', error);
+      clientLogger.error('Error loading catalog categories:', error);
     }
   };
 
@@ -253,7 +254,7 @@ export default function CatalogImportPage() {
       setCompletedSteps(prev => [...prev, 'upload']);
       setCurrentStep('validation');
     } catch (error) {
-      console.error('Ошибка обработки файла:', error);
+      clientLogger.error('Ошибка обработки файла:', error);
       alert('Ошибка при обработке файла');
     } finally {
       setIsProcessing(false);
@@ -284,7 +285,7 @@ export default function CatalogImportPage() {
       formData.append('category', selectedCatalogCategoryId);
       formData.append('mapping_property', photoMappingProperty);
 
-      console.log('Отправка фотографий...', photoFiles.length, 'файлов');
+      clientLogger.debug('Отправка фотографий...', photoFiles.length, 'файлов');
       
       const response = await fetch('/api/admin/import/photos-improved', {
         method: 'POST',
@@ -296,7 +297,7 @@ export default function CatalogImportPage() {
       }
 
       const result = await response.json();
-      console.log('Фотографии загружены:', result);
+      clientLogger.debug('Фотографии загружены:', result);
       
       // Создаем детальный отчет
       let reportMessage = `📸 ЗАГРУЗКА ФОТО ЗАВЕРШЕНА!\n\n`;
@@ -329,7 +330,7 @@ export default function CatalogImportPage() {
       setCurrentStep('complete');
       
     } catch (error) {
-      console.error('Error uploading photos:', error);
+      clientLogger.error('Error uploading photos:', error);
       alert('Ошибка при загрузке фотографий: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'));
     } finally {
       setUploadingPhotos(false);

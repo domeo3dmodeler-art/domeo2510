@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, Prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
+
+interface PageElementInput {
+  type: string;
+  props?: Record<string, unknown>;
+  position?: { x: number; y: number };
+  size?: { width: number; height: number };
+  zIndex?: number;
+  parentId?: string | null;
+}
 
 // GET - получить страницу по ID
 export async function GET(
@@ -45,7 +55,7 @@ export async function GET(
       }
     });
   } catch (error) {
-    console.error('Error fetching page:', error);
+    logger.error('Error fetching page', 'pages/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { success: false, error: 'Failed to fetch page' },
       { status: 500 }
@@ -84,7 +94,7 @@ export async function PUT(
         url: url !== undefined ? url : existingPage.url,
         elements: elements ? {
           deleteMany: {}, // Удаляем все существующие элементы
-          create: elements.map((element: any, index: number) => ({
+          create: (elements as PageElementInput[]).map((element: PageElementInput, index: number) => ({
             type: element.type,
             props: JSON.stringify(element.props || {}),
             position: JSON.stringify(element.position || { x: 0, y: 0 }),
@@ -122,7 +132,7 @@ export async function PUT(
       }
     });
   } catch (error) {
-    console.error('Error updating page:', error);
+    logger.error('Error updating page', 'pages/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { success: false, error: 'Failed to update page' },
       { status: 500 }
@@ -156,7 +166,7 @@ export async function DELETE(
       message: 'Page deleted successfully' 
     });
   } catch (error) {
-    console.error('Error deleting page:', error);
+    logger.error('Error deleting page', 'pages/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { success: false, error: 'Failed to delete page' },
       { status: 500 }

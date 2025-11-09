@@ -8,6 +8,7 @@ import {
   TrendingUp, BarChart3, Users, CheckSquare, CircleDot
 } from 'lucide-react';
 import { ElementType } from '../ProfessionalPageBuilder';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface UniversalProductComponentsProps {
   onAddElement: (element: ElementType) => void;
@@ -106,7 +107,7 @@ export const UniversalProductComponents: React.FC<UniversalProductComponentsProp
       const data = await response.json();
       setCategories(data.categories || []);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      clientLogger.error('Error loading categories:', error);
     } finally {
       setLoading(false);
     }

@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PhotoGallery } from "../../../../components/PhotoGallery";
+import { clientLogger } from '@/lib/logging/client-logger';
 
 export default function DoorProductPage({ params }: { params: { sku: string } }) {
   const router = useRouter();
@@ -26,7 +27,7 @@ export default function DoorProductPage({ params }: { params: { sku: string } })
           }
         }
       } catch (error) {
-        console.error('Ошибка загрузки товара:', error);
+        clientLogger.error('Ошибка загрузки товара:', error);
         if (!cancelled) {
           setData(null);
         }

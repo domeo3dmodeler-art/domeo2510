@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { shouldShowFilters } from '@/lib/display-mode';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface FilterOption {
   value: string;
@@ -48,7 +49,7 @@ export function ProductFilters({ categoryIds, onFiltersChange }: ProductFiltersP
           setFilterGroups(data.filters || []);
         }
       } catch (error) {
-        console.error('Error loading filters:', error);
+        clientLogger.error('Error loading filters:', error);
       } finally {
         setLoading(false);
       }

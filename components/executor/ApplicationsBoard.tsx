@@ -13,6 +13,7 @@ import {
   Eye,
   Search
 } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 import { toast } from 'sonner';
 
 // Статусы заявок
@@ -35,7 +36,14 @@ interface Application {
   executor_id: string | null;
   status: keyof typeof APPLICATION_STATUSES;
   project_file_url: string | null;
-  door_dimensions: any[] | null;
+  door_dimensions: Array<{
+    width?: number;
+    height?: number;
+    quantity?: number;
+    opening_side?: string | null;
+    latches_count?: number;
+    [key: string]: unknown;
+  }> | null;
   measurement_done: boolean;
   project_complexity: string | null;
   wholesale_invoices: string[];
@@ -87,7 +95,7 @@ export function ApplicationsBoard({ executorId }: ApplicationsBoardProps) {
         toast.error('Ошибка загрузки заявок');
       }
     } catch (error) {
-      console.error('Error fetching applications:', error);
+      clientLogger.error('Error fetching applications:', error);
       toast.error('Ошибка загрузки заявок');
     } finally {
       setLoading(false);
@@ -299,7 +307,7 @@ export function ApplicationsBoard({ executorId }: ApplicationsBoardProps) {
         </div>
       </Card>
 
-      {/* TODO: Модальное окно детального вида заявки */}
+      {/* Модальное окно детального вида заявки */}
       {showApplicationDetail && selectedApplication && (
         <ApplicationDetailModal
           application={selectedApplication}
@@ -335,7 +343,13 @@ function ApplicationDetailModal({
   const [newStatus, setNewStatus] = useState<string>(application.status);
   const [requireMeasurement, setRequireMeasurement] = useState(false);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
-  const [verifyResult, setVerifyResult] = useState<any>(null);
+  const [verifyResult, setVerifyResult] = useState<{
+    matches: boolean;
+    invoice_items_count: number;
+    project_doors_count: number;
+    details?: Array<{ index?: number; width?: number; height?: number; quantity?: number; opening_side?: string | null; latches_count?: number; [key: string]: unknown }>;
+    [key: string]: unknown;
+  } | null>(null);
 
   // Обновление данных заявки
   const fetchApplication = async () => {
@@ -346,7 +360,7 @@ function ApplicationDetailModal({
         setCurrentApplication(data.application);
       }
     } catch (error) {
-      console.error('Error fetching application:', error);
+      clientLogger.error('Error fetching application:', error);
     }
   };
 
@@ -377,7 +391,7 @@ function ApplicationDetailModal({
         toast.error(error.error || 'Ошибка загрузки проекта');
       }
     } catch (error) {
-      console.error('Error uploading project:', error);
+      clientLogger.error('Error uploading project:', error);
       toast.error('Ошибка загрузки проекта');
     } finally {
       setLoading(false);
@@ -419,7 +433,7 @@ function ApplicationDetailModal({
         toast.error(error.error || 'Ошибка загрузки файлов');
       }
     } catch (error) {
-      console.error('Error uploading files:', error);
+      clientLogger.error('Error uploading files:', error);
       toast.error('Ошибка загрузки файлов');
     } finally {
       setLoading(false);
@@ -451,7 +465,7 @@ function ApplicationDetailModal({
         toast.error(error.error || 'Ошибка изменения статуса');
       }
     } catch (error) {
-      console.error('Error changing status:', error);
+      clientLogger.error('Error changing status:', error);
       toast.error('Ошибка изменения статуса');
     } finally {
       setLoading(false);
@@ -470,7 +484,7 @@ function ApplicationDetailModal({
       const items = cartData.items || [];
 
       // Преобразуем данные из счета в формат door_dimensions
-      const doorDimensions = items.map((item: any) => ({
+      const doorDimensions = items.map((item: { width?: number; height?: number; quantity?: number; qty?: number; [key: string]: unknown }) => ({
         width: item.width || 0,
         height: item.height || 0,
         quantity: item.quantity || item.qty || 1,
@@ -498,7 +512,7 @@ function ApplicationDetailModal({
         toast.error(error.error || 'Ошибка загрузки данных дверей');
       }
     } catch (error) {
-      console.error('Error loading doors from invoice:', error);
+      clientLogger.error('Error loading doors from invoice:', error);
       toast.error('Ошибка загрузки данных дверей');
     } finally {
       setLoading(false);
@@ -530,7 +544,7 @@ function ApplicationDetailModal({
         toast.error(error.error || 'Ошибка проверки заявки');
       }
     } catch (error) {
-      console.error('Error verifying application:', error);
+      clientLogger.error('Error verifying application:', error);
       toast.error('Ошибка проверки заявки');
     } finally {
       setLoading(false);
@@ -696,7 +710,7 @@ function ApplicationDetailModal({
                 
                 {currentApplication.door_dimensions && currentApplication.door_dimensions.length > 0 ? (
                   <div className="space-y-3">
-                    {currentApplication.door_dimensions.map((door: any, index: number) => (
+                    {currentApplication.door_dimensions.map((door: { width?: number; height?: number; quantity?: number; opening_side?: string | null; latches_count?: number; [key: string]: unknown }, index: number) => (
                       <div key={index} className="border rounded p-3">
                         <div className="font-medium mb-2">Дверь {index + 1}</div>
                         <div className="grid grid-cols-2 gap-2 text-sm">
@@ -1022,7 +1036,7 @@ function ApplicationDetailModal({
                   <div>
                     <div className="text-sm font-medium mb-2">Детали проверки:</div>
                     <div className="space-y-2">
-                      {verifyResult.details.map((detail: any, index: number) => (
+                      {verifyResult.details.map((detail: { index?: number; [key: string]: unknown }, index: number) => (
                         <div key={index} className="border rounded p-3">
                           <div className="font-medium mb-2">Позиция {detail.index}</div>
                           <div className="grid grid-cols-2 gap-4 text-sm">

@@ -1,5 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, Prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
+
+interface CartItem {
+  width?: number;
+  height?: number;
+  quantity?: number;
+  qty?: number;
+  name?: string;
+  model?: string;
+  sku_1c?: string;
+  id?: string;
+}
+
+interface DoorDimension {
+  width: number;
+  height: number;
+  quantity: number;
+  opening_side?: string | null;
+  latches_count?: number | null;
+}
+
+interface ComparisonDetail {
+  index: number;
+  invoice: {
+    width: number | null;
+    height: number | null;
+    quantity: number | null;
+  } | null;
+  project: {
+    width: number | null;
+    height: number | null;
+    quantity: number | null;
+    opening_side: string | null;
+    latches_count: number | null;
+  } | null;
+  matches: boolean;
+}
 
 // POST /api/applications/[id]/verify - Проверка данных заказа
 // ⚠️ DEPRECATED: Используйте POST /api/orders/[id]/verify напрямую
@@ -62,14 +99,14 @@ export async function POST(
     }
 
     // Извлекаем данные дверей из счета
-    let invoiceDoorData: any[] = [];
+    let invoiceDoorData: DoorDimension[] = [];
     if (order.invoice?.cart_data) {
       try {
-        const cartData = JSON.parse(order.invoice.cart_data);
+        const cartData = JSON.parse(order.invoice.cart_data) as { items?: CartItem[] };
         // Парсим данные дверей из cart_data
         // Структура cart_data: { items: [{ width, height, quantity/qty, ... }] }
         const items = cartData.items || [];
-        invoiceDoorData = items.map((item: any) => ({
+        invoiceDoorData = items.map((item: CartItem) => ({
           width: item.width || 0,
           height: item.height || 0,
           quantity: item.quantity || item.qty || 1,
@@ -77,7 +114,7 @@ export async function POST(
           sku: item.sku_1c || item.id || ''
         }));
       } catch (error) {
-        console.error('Error parsing cart_data:', error);
+        logger.error('Error parsing cart_data', 'applications/[id]/verify', { id: params.id, error: error instanceof Error ? error.message : String(error) });
       }
     }
 
@@ -91,7 +128,7 @@ export async function POST(
       invoice_items_count: invoiceDoorData.length,
       project_doors_count: projectDoorData.length,
       matches: invoiceDoorData.length === projectDoorData.length,
-      details: [] as any[]
+      details: [] as ComparisonDetail[]
     };
 
     // Детальное сравнение если есть данные
@@ -163,7 +200,7 @@ export async function POST(
     });
 
   } catch (error) {
-    console.error('Error verifying order:', error);
+    logger.error('Error verifying order', 'applications/[id]/verify', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Ошибка проверки заказа' },
       { status: 500 }

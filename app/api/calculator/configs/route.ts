@@ -1,21 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { requireAuth } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError, NotFoundError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
 
 /**
  * 💾 Сохранить конфигурацию калькулятора
  */
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const config = await req.json();
     
     if (!config.name) {
-      return NextResponse.json(
-        { error: 'Название калькулятора обязательно' },
-        { status: 400 }
-      );
+      throw new ValidationError('Название калькулятора обязательно');
     }
+
+    logger.info('Создание конфигурации калькулятора', 'calculator/configs', { userId: user.userId, name: config.name });
 
     // Создаем новую конфигурацию калькулятора
     const calculatorConfig = await prisma.calculatorConfig.create({
@@ -29,28 +32,33 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    return NextResponse.json({
-      success: true,
+    logger.info('Конфигурация калькулятора создана', 'calculator/configs', { configId: calculatorConfig.id });
+
+    return apiSuccess({
       id: calculatorConfig.id,
       message: 'Калькулятор сохранен успешно'
     });
 
   } catch (error) {
-    console.error('Ошибка сохранения калькулятора:', error);
-    return NextResponse.json(
-      { error: 'Ошибка при сохранении калькулятора' },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
+    logger.error('Ошибка сохранения калькулятора', 'calculator/configs', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка при сохранении калькулятора', 500);
   }
 }
+
+export const POST = withErrorHandling(
+  requireAuth(postHandler),
+  'calculator/configs/POST'
+);
 
 /**
  * 📋 Получить список калькуляторов
  */
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
@@ -61,14 +69,12 @@ export async function GET(req: NextRequest) {
       });
 
       if (!calculator) {
-        return NextResponse.json(
-          { error: 'Калькулятор не найден' },
-          { status: 404 }
-        );
+        throw new NotFoundError('Калькулятор не найден');
       }
 
-      return NextResponse.json({
-        success: true,
+      logger.info('Получена конфигурация калькулятора', 'calculator/configs', { userId: user.userId, configId: id });
+
+      return apiSuccess({
         calculator: {
           id: calculator.id,
           name: calculator.name,
@@ -93,36 +99,38 @@ export async function GET(req: NextRequest) {
         }
       });
 
-      return NextResponse.json({
-        success: true,
-        calculators
-      });
+      logger.info('Получен список калькуляторов', 'calculator/configs', { userId: user.userId, count: calculators.length });
+
+      return apiSuccess({ calculators });
     }
 
   } catch (error) {
-    console.error('Ошибка получения калькуляторов:', error);
-    return NextResponse.json(
-      { error: 'Ошибка при получении калькуляторов' },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
+    logger.error('Ошибка получения калькуляторов', 'calculator/configs', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof NotFoundError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка при получении калькуляторов', 500);
   }
 }
+
+export const GET = withErrorHandling(
+  requireAuth(getHandler),
+  'calculator/configs/GET'
+);
 
 /**
  * ✏️ Обновить калькулятор
  */
-export async function PUT(req: NextRequest) {
+async function putHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const { id, ...config } = await req.json();
     
     if (!id) {
-      return NextResponse.json(
-        { error: 'ID калькулятора обязателен' },
-        { status: 400 }
-      );
+      throw new ValidationError('ID калькулятора обязателен');
     }
+
+    logger.info('Обновление конфигурации калькулятора', 'calculator/configs', { userId: user.userId, configId: id });
 
     const updatedCalculator = await prisma.calculatorConfig.update({
       where: { id },
@@ -134,36 +142,40 @@ export async function PUT(req: NextRequest) {
       }
     });
 
-    return NextResponse.json({
-      success: true,
+    logger.info('Конфигурация калькулятора обновлена', 'calculator/configs', { configId: id });
+
+    return apiSuccess({
       message: 'Калькулятор обновлен успешно'
     });
 
   } catch (error) {
-    console.error('Ошибка обновления калькулятора:', error);
-    return NextResponse.json(
-      { error: 'Ошибка при обновлении калькулятора' },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
+    logger.error('Ошибка обновления калькулятора', 'calculator/configs', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка при обновлении калькулятора', 500);
   }
 }
+
+export const PUT = withErrorHandling(
+  requireAuth(putHandler),
+  'calculator/configs/PUT'
+);
 
 /**
  * 🗑️ Удалить калькулятор
  */
-export async function DELETE(req: NextRequest) {
+async function deleteHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     
     if (!id) {
-      return NextResponse.json(
-        { error: 'ID калькулятора обязателен' },
-        { status: 400 }
-      );
+      throw new ValidationError('ID калькулятора обязателен');
     }
+
+    logger.info('Удаление конфигурации калькулятора', 'calculator/configs', { userId: user.userId, configId: id });
 
     // Мягкое удаление
     await prisma.calculatorConfig.update({
@@ -171,18 +183,22 @@ export async function DELETE(req: NextRequest) {
       data: { is_active: false }
     });
 
-    return NextResponse.json({
-      success: true,
+    logger.info('Конфигурация калькулятора удалена', 'calculator/configs', { configId: id });
+
+    return apiSuccess({
       message: 'Калькулятор удален успешно'
     });
 
   } catch (error) {
-    console.error('Ошибка удаления калькулятора:', error);
-    return NextResponse.json(
-      { error: 'Ошибка при удалении калькулятора' },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
+    logger.error('Ошибка удаления калькулятора', 'calculator/configs', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка при удалении калькулятора', 500);
   }
 }
+
+export const DELETE = withErrorHandling(
+  requireAuth(deleteHandler),
+  'calculator/configs/DELETE'
+);

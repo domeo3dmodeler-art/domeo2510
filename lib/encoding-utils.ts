@@ -146,7 +146,17 @@ export function ensureUTF8Encoding(text: string): string {
     const encoded = Buffer.from(text, 'utf8').toString('utf8');
     return encoded;
   } catch (error) {
-    console.warn('Ошибка кодировки UTF-8:', error);
+    // Используем logger если доступен (серверная среда)
+    if (typeof window === 'undefined') {
+      try {
+        const { logger } = require('./logging/logger');
+        logger.warn('Ошибка кодировки UTF-8', 'encoding-utils', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+      } catch {
+        // Fallback для случаев, когда logger недоступен
+        // В production коде это не должно происходить
+      }
+    }
+    // В клиентской среде просто возвращаем исходный текст без логирования
     return text;
   }
 }
@@ -154,7 +164,7 @@ export function ensureUTF8Encoding(text: string): string {
 /**
  * Валидирует и исправляет данные перед сохранением в базу
  */
-export function validateAndFixData(data: any): any {
+export function validateAndFixData(data: unknown): unknown {
   if (typeof data === 'string') {
     return ensureUTF8Encoding(data);
   }
@@ -164,7 +174,7 @@ export function validateAndFixData(data: any): any {
   }
   
   if (typeof data === 'object' && data !== null) {
-    const fixed: any = {};
+    const fixed: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(data)) {
       fixed[key] = validateAndFixData(value);
     }
@@ -177,7 +187,7 @@ export function validateAndFixData(data: any): any {
 /**
  * Исправляет кодировку во всех текстовых полях объекта
  */
-export function fixAllEncoding(data: any): any {
+export function fixAllEncoding(data: unknown): unknown {
   if (typeof data === 'string') {
     return fixFieldEncoding(data);
   }
@@ -187,7 +197,7 @@ export function fixAllEncoding(data: any): any {
   }
   
   if (typeof data === 'object' && data !== null) {
-    const result: any = {};
+    const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(data)) {
       result[fixFieldEncoding(key)] = fixAllEncoding(value);
     }
@@ -210,7 +220,17 @@ export function fixJSONEncoding(jsonString: string): string {
     const fixed = fixAllEncoding(parsed);
     return JSON.stringify(fixed);
   } catch (error) {
-    console.warn('Ошибка парсинга JSON для исправления кодировки:', error);
+    // Используем logger если доступен (серверная среда)
+    if (typeof window === 'undefined') {
+      try {
+        const { logger } = require('./logging/logger');
+        logger.warn('Ошибка парсинга JSON для исправления кодировки', 'encoding-utils', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+      } catch {
+        // Fallback для случаев, когда logger недоступен
+        // В production коде это не должно происходить
+      }
+    }
+    // В клиентской среде просто возвращаем исходную строку без логирования
     return jsonString;
   }
 }

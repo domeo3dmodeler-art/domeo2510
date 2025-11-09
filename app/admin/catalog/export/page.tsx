@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, Card, Badge, Input, Dialog, DialogContent, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Checkbox } from '../../../../components/ui';
 import { Download, Settings, FileText, Receipt, ShoppingCart, Plus, Trash2, Edit } from 'lucide-react';
 import { CatalogCategory } from '@/lib/types/catalog';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface ExportConfig {
   export_type: 'quote' | 'invoice' | 'supplier_order';
@@ -67,7 +68,7 @@ export default function ExportSettingsPage() {
       const data = await response.json();
       setCatalogCategories(data.categories || []);
     } catch (error) {
-      console.error('Error loading catalog categories:', error);
+      clientLogger.error('Error loading catalog categories:', error);
     } finally {
       setLoading(false);
     }
@@ -79,7 +80,7 @@ export default function ExportSettingsPage() {
       const configs = await response.json();
       setExportConfigs(configs);
     } catch (error) {
-      console.error('Error loading export configs:', error);
+      clientLogger.error('Error loading export configs:', error);
     }
   };
 
@@ -113,7 +114,7 @@ export default function ExportSettingsPage() {
         alert(`Ошибка экспорта: ${result.message}`);
       }
     } catch (error) {
-      console.error('Error exporting:', error);
+      clientLogger.error('Error exporting:', error);
       alert('Ошибка при экспорте');
     }
   };
@@ -149,7 +150,7 @@ export default function ExportSettingsPage() {
         await loadExportConfigs(selectedCategory);
       }
     } catch (error) {
-      console.error('Error deleting config:', error);
+      clientLogger.error('Error deleting config:', error);
     }
   };
 
@@ -380,7 +381,7 @@ function ExportConfigDialog({
         onSave();
       }
     } catch (error) {
-      console.error('Error saving config:', error);
+      clientLogger.error('Error saving config:', error);
     }
   };
 

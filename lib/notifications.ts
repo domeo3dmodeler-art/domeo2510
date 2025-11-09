@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { logger } from './logging/logger';
 
 export interface NotificationData {
   userId: string;
@@ -14,7 +15,14 @@ export async function createNotification(data: NotificationData) {
   try {
     // Проверяем дублирование: не создавать уведомление, если такое же уже есть
     // Для уведомлений о смене статуса учитываем title для более точного определения дубликата
-    const whereClause: any = {
+    const whereClause: {
+      user_id: string;
+      document_id: string | null;
+      type: string;
+      is_read: boolean;
+      created_at: { gte: Date };
+      title?: string;
+    } = {
       user_id: data.userId,
       document_id: data.documentId || null,
       type: data.type,
@@ -34,7 +42,7 @@ export async function createNotification(data: NotificationData) {
     });
 
     if (existingNotification) {
-      console.log('⚠️ Дубликат уведомления обнаружен, пропускаем создание:', {
+      logger.warn('Дубликат уведомления обнаружен, пропускаем создание', 'notifications', {
         userId: data.userId,
         documentId: data.documentId,
         type: data.type
@@ -54,10 +62,10 @@ export async function createNotification(data: NotificationData) {
       }
     });
 
-    console.log('📢 Notification created:', notification);
+    logger.debug('Notification created', 'notifications', { notificationId: notification.id, userId: data.userId, type: data.type });
     return notification;
   } catch (error) {
-    console.error('Error creating notification:', error);
+    logger.error('Error creating notification', 'notifications', error instanceof Error ? { error: error.message, stack: error.stack, userId: data.userId, type: data.type } : { error: String(error), userId: data.userId, type: data.type });
     throw error;
   }
 }
@@ -94,18 +102,18 @@ export async function notifyUsersByRole(role: string, data: Omit<NotificationDat
       });
     }
 
-    console.log(`📢 Уведомление роли ${roleUpperCase}: найдено ${users.length} активных пользователей`);
+    logger.debug('Уведомление роли: найдено активных пользователей', 'notifications', { role: roleUpperCase, usersCount: users.length });
     
     if (users.length === 0) {
-      console.warn(`⚠️ Нет активных пользователей с ролью ${roleUpperCase} (пробовали также ${role.toLowerCase()}). Уведомления не будут отправлены.`);
+      logger.warn('Нет активных пользователей с ролью', 'notifications', { role: roleUpperCase, triedRole: role.toLowerCase() });
       return [];
     }
 
-    console.log(`📤 Отправка уведомления "${data.title}" пользователям:`, users.map(u => u.email).join(', '));
+    logger.debug('Отправка уведомления пользователям', 'notifications', { role: roleUpperCase, title: data.title, usersEmails: users.map((u: { id: string; email: string }) => u.email) });
 
     // Создаем уведомления для каждого пользователя
     const notifications = await Promise.all(
-      users.map(user => 
+      users.map((user: { id: string; email: string }) => 
         createNotification({
           ...data,
           userId: user.id
@@ -113,10 +121,10 @@ export async function notifyUsersByRole(role: string, data: Omit<NotificationDat
       )
     );
 
-    console.log(`✅ Успешно создано ${notifications.length} уведомлений для роли ${roleUpperCase}`);
+    logger.info('Успешно создано уведомлений для роли', 'notifications', { role: roleUpperCase, notificationsCount: notifications.length });
     return notifications;
   } catch (error) {
-    console.error('❌ Ошибка отправки уведомлений роли:', role, error);
+    logger.error('Ошибка отправки уведомлений роли', 'notifications', error instanceof Error ? { error: error.message, stack: error.stack, role } : { error: String(error), role });
     throw error;
   }
 }

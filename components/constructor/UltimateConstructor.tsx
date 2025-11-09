@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import ImagePreviewSettings from './ImagePreviewSettings';
 import ProductDetailBlock from './ProductDetailBlock';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 // Компонент ручек для изменения размера
 const ResizeHandles = ({ block, onStartResize }: { block: BlockSettings; onStartResize: (e: React.MouseEvent, handle: string) => void }) => {
@@ -330,7 +331,7 @@ export default function UltimateConstructor() {
     
     // Проверяем, что currentTarget существует
     if (!e.currentTarget) {
-      console.warn('currentTarget is null, cannot get bounding rect');
+      clientLogger.warn('currentTarget is null, cannot get bounding rect');
       return;
     }
     
@@ -802,7 +803,7 @@ export default function UltimateConstructor() {
                                 
                                 // Начинаем перетаскивание напрямую
                                 if (!e.currentTarget) {
-                                  console.warn('currentTarget is null, cannot get bounding rect');
+                                  clientLogger.warn('currentTarget is null, cannot get bounding rect');
                                   return;
                                 }
                                 

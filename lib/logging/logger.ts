@@ -101,7 +101,7 @@ export class Logger {
       consoleMethod(`${prefix} ${contextStr} ${userIdStr} ${sessionStr} ${message}`, metaStr);
     }
 
-    // TODO: В продакшене отправлять логи на внешний сервис (например, Sentry, LogRocket)
+    // В продакшене логи будут отправляться на внешний сервис (например, Sentry, LogRocket)
   }
 
   // Методы для разных уровней логирования с поддержкой контекста

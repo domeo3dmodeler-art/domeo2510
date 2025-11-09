@@ -1,23 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError, NotFoundError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
 
 // ===================== Удаление категории =====================
 
-export async function DELETE(
+async function deleteHandler(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  user: ReturnType<typeof getAuthenticatedUser>,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const categoryId = params.id;
+    const resolvedParams = await params;
+    const categoryId = resolvedParams.id;
 
     if (!categoryId) {
-      return NextResponse.json(
-        { error: 'Не указан ID категории' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не указан ID категории');
     }
+
+    logger.info('Удаление категории', 'admin/categories/[id]', { userId: user.userId, categoryId });
 
     // Проверяем существование категории
     const category = await prisma.frontendCategory.findUnique({
@@ -25,10 +29,7 @@ export async function DELETE(
     });
 
     if (!category) {
-      return NextResponse.json(
-        { error: 'Категория не найдена' },
-        { status: 404 }
-      );
+      throw new NotFoundError('Категория не найдена');
     }
 
     // Удаляем категорию
@@ -36,30 +37,46 @@ export async function DELETE(
       where: { id: categoryId }
     });
 
-    return NextResponse.json({
-      success: true,
+    logger.info('Категория удалена', 'admin/categories/[id]', { categoryId });
+
+    return apiSuccess({
       message: 'Категория успешно удалена'
     });
 
   } catch (error) {
-    console.error('Category deletion error:', error);
-    return NextResponse.json(
-      { error: 'Ошибка при удалении категории' },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
+    logger.error('Category deletion error', 'admin/categories/[id]', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError || error instanceof NotFoundError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка при удалении категории', 500);
   }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return withErrorHandling(
+    requireAuthAndPermission(
+      async (request: NextRequest, user: ReturnType<typeof getAuthenticatedUser>) => {
+        return await deleteHandler(request, user, { params });
+      },
+      'ADMIN'
+    ),
+    'admin/categories/[id]/DELETE'
+  )(req);
 }
 
 // ===================== Обновление категории =====================
 
-export async function PUT(
+async function putHandler(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  user: ReturnType<typeof getAuthenticatedUser>,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const categoryId = params.id;
+    const resolvedParams = await params;
+    const categoryId = resolvedParams.id;
     const { 
       name, 
       slug, 
@@ -71,44 +88,28 @@ export async function PUT(
       photoData 
     } = await req.json();
 
-    console.log('PUT /api/admin/categories/[id] - Обновление категории:', {
+    logger.info('Обновление категории', 'admin/categories/[id]', { 
+      userId: user.userId, 
       categoryId,
       hasPhotoMapping: !!photoMapping,
-      hasPhotoData: !!photoData,
-      photoMappingType: typeof photoMapping,
-      photoDataType: typeof photoData
+      hasPhotoData: !!photoData
     });
 
     if (!categoryId) {
-      return NextResponse.json(
-        { error: 'Не указан ID категории' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не указан ID категории');
     }
 
     // Проверяем существование категории
-    console.log('Проверяем существование категории:', categoryId);
     const existingCategory = await prisma.frontendCategory.findUnique({
       where: { id: categoryId }
     });
 
     if (!existingCategory) {
-      console.error('Категория не найдена:', categoryId);
-      return NextResponse.json(
-        { error: 'Категория не найдена' },
-        { status: 404 }
-      );
+      throw new NotFoundError('Категория не найдена');
     }
-    
-    console.log('Категория найдена:', {
-      id: existingCategory.id,
-      name: existingCategory.name,
-      slug: existingCategory.slug,
-      isActive: existingCategory.is_active
-    });
 
     // Подготавливаем данные для обновления
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       updated_at: new Date() // Всегда обновляем timestamp
     };
 
@@ -136,12 +137,10 @@ export async function PUT(
     }
     
     if (photoMapping) {
-      console.log('Сохранение УПРОЩЕННОГО photoMapping:', {
+      logger.debug('Сохранение упрощенного photoMapping', 'admin/categories/[id]', {
         mappingType: photoMapping.mappingType,
         totalFiles: photoMapping.totalFiles,
-        mappedCount: photoMapping.mappedCount,
-        hasPhotoFiles: !!photoMapping.photoFiles,
-        hasMappedPhotos: !!photoMapping.mappedPhotos
+        mappedCount: photoMapping.mappedCount
       });
       
       try {
@@ -153,44 +152,34 @@ export async function PUT(
           savedAt: new Date().toISOString()
         };
         
-        const jsonString = JSON.stringify(minimalMapping);
-        console.log('Размер УПРОЩЕННОГО photoMapping:', jsonString.length, 'байт');
-        
-        updateData.photo_mapping = jsonString;
-        console.log('Упрощенный photoMapping успешно сохранен');
+        updateData.photo_mapping = JSON.stringify(minimalMapping);
+        logger.debug('Упрощенный photoMapping подготовлен', 'admin/categories/[id]');
       } catch (error) {
-        console.error('Ошибка сериализации упрощенного photoMapping:', error);
-        return NextResponse.json(
-          { error: 'Ошибка сериализации данных фотографий' },
-          { status: 400 }
-        );
+        logger.error('Ошибка сериализации упрощенного photoMapping', 'admin/categories/[id]', error instanceof Error ? { error: error.message } : { error: String(error) });
+        throw new ValidationError('Ошибка сериализации данных фотографий');
       }
     }
     
     if (photoData) {
-      console.log('Сохранение photoData:', photoData);
+      logger.debug('Сохранение photoData', 'admin/categories/[id]');
       try {
         updateData.photo_data = JSON.stringify(photoData);
-        console.log('photoData успешно сериализован');
+        logger.debug('photoData успешно сериализован', 'admin/categories/[id]');
       } catch (error) {
-        console.error('Ошибка сериализации photoData:', error);
-        return NextResponse.json(
-          { error: 'Ошибка сериализации данных фотографий' },
-          { status: 400 }
-        );
+        logger.error('Ошибка сериализации photoData', 'admin/categories/[id]', error instanceof Error ? { error: error.message } : { error: String(error) });
+        throw new ValidationError('Ошибка сериализации данных фотографий');
       }
     }
 
     // Обновляем категорию
-    console.log('Обновление в БД с данными:', updateData);
     const updatedCategory = await prisma.frontendCategory.update({
       where: { id: categoryId },
       data: updateData
     });
-    console.log('Категория успешно обновлена:', updatedCategory.id);
+    
+    logger.info('Категория успешно обновлена', 'admin/categories/[id]', { categoryId });
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       category: {
         id: updatedCategory.id,
         name: updatedCategory.name,
@@ -206,41 +195,52 @@ export async function PUT(
     });
 
   } catch (error) {
-    console.error('Category update error:', error);
-    return NextResponse.json(
-      { error: 'Ошибка при обновлении категории' },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
+    logger.error('Category update error', 'admin/categories/[id]', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError || error instanceof NotFoundError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка при обновлении категории', 500);
   }
+}
+
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return withErrorHandling(
+    requireAuthAndPermission(
+      async (request: NextRequest, user: ReturnType<typeof getAuthenticatedUser>) => {
+        return await putHandler(request, user, { params });
+      },
+      'ADMIN'
+    ),
+    'admin/categories/[id]/PUT'
+  )(req);
 }
 
 // ===================== Получение категории по ID =====================
 
-export async function GET(
+async function getHandler(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  user: ReturnType<typeof getAuthenticatedUser>,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const categoryId = params.id;
+    const resolvedParams = await params;
+    const categoryId = resolvedParams.id;
 
     if (!categoryId) {
-      return NextResponse.json(
-        { error: 'Не указан ID категории' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не указан ID категории');
     }
+
+    logger.info('Получение категории по ID', 'admin/categories/[id]', { userId: user.userId, categoryId });
 
     const category = await prisma.frontendCategory.findUnique({
       where: { id: categoryId }
     });
 
     if (!category) {
-      return NextResponse.json(
-        { error: 'Категория не найдена' },
-        { status: 404 }
-      );
+      throw new NotFoundError('Категория не найдена');
     }
 
     const formattedCategory = {
@@ -262,18 +262,32 @@ export async function GET(
       updatedAt: category.updated_at
     };
 
-    return NextResponse.json({
-      success: true,
+    logger.info('Категория получена', 'admin/categories/[id]', { categoryId });
+
+    return apiSuccess({
       category: formattedCategory
     });
 
   } catch (error) {
-    console.error('Category fetch error:', error);
-    return NextResponse.json(
-      { error: 'Ошибка при получении категории' },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
+    logger.error('Category fetch error', 'admin/categories/[id]', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError || error instanceof NotFoundError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка при получении категории', 500);
   }
+}
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return withErrorHandling(
+    requireAuthAndPermission(
+      async (request: NextRequest, user: ReturnType<typeof getAuthenticatedUser>) => {
+        return await getHandler(request, user, { params });
+      },
+      'ADMIN'
+    ),
+    'admin/categories/[id]/GET'
+  )(req);
 }

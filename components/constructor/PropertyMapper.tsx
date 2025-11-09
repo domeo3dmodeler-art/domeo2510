@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Checkbox, Input, Select } from '../ui';
 import { Plus, Trash2, GripVertical, Eye, EyeOff } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface PropertyField {
   id: string;
@@ -118,7 +119,7 @@ export default function PropertyMapper({
         ]);
       }
     } catch (error) {
-      console.error('Ошибка при загрузке свойств:', error);
+      clientLogger.error('Ошибка при загрузке свойств:', error);
       // Используем базовые свойства при ошибке
       setProperties([
         {

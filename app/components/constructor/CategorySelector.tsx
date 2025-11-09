@@ -83,7 +83,7 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
   }
 
   // Отладочная информация
-  console.log('CategorySelector:', { 
+  clientLogger.debug('CategorySelector:', { 
     categories: categories.length, 
     filteredCategories: filteredCategories.length, 
     level, 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { catalogService } from '@/lib/services/catalog.service';
 import { CreateFrontendCategoryDto } from '@/lib/types/catalog';
+import { logger } from '@/lib/logging/logger';
 
 // GET /api/frontend-categories - Получить категории фронта
 export async function GET(request: NextRequest) {
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(categories);
     }
   } catch (error) {
-    console.error('Error fetching frontend categories:', error);
+    logger.error('Error fetching frontend categories', 'frontend-categories', error instanceof Error ? { error: error.message, stack: error.stack, slug } : { error: String(error), slug });
     return NextResponse.json(
       { error: 'Failed to fetch frontend categories' },
       { status: 500 }
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
     const category = await catalogService.createFrontendCategory(data);
     return NextResponse.json(category, { status: 201 });
   } catch (error) {
-    console.error('Error creating frontend category:', error);
+    logger.error('Error creating frontend category', 'frontend-categories', error instanceof Error ? { error: error.message, stack: error.stack, slug: data.slug } : { error: String(error), slug: data.slug });
     return NextResponse.json(
       { error: 'Failed to create frontend category' },
       { status: 500 }

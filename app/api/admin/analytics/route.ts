@@ -1,18 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
 import { promises as fs } from 'fs';
-import { apiErrorHandler } from '@/lib/api-error-handler';
-import { apiValidator } from '@/lib/api-validator';
 
-const prisma = new PrismaClient();
-
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(request);
     const { searchParams } = new URL(request.url);
     const periodParam = searchParams.get('period');
     
     // Валидация параметров
-    const period = apiValidator.validatePeriod(periodParam);
+    const validPeriods = ['7d', '30d', '90d', '1y'];
+    const period = periodParam && validPeriods.includes(periodParam) ? periodParam : '30d';
+
+    logger.info('Получение аналитики', 'admin/analytics', { userId: user.userId, period });
 
     // Вычисляем дату начала периода
     const now = new Date();
@@ -128,7 +133,7 @@ export async function GET(request: NextRequest) {
       const stats = await fs.stat(dbPath);
       dbSize = stats.size;
     } catch (error) {
-      console.warn('Не удалось получить размер БД:', error);
+      logger.warn('Не удалось получить размер БД', 'admin/analytics', error instanceof Error ? { error: error.message } : { error: String(error) });
     }
 
     // Симуляция метрик производительности
@@ -243,18 +248,28 @@ export async function GET(request: NextRequest) {
       alerts
     };
 
-    return NextResponse.json(analyticsData, {
+    logger.info('Аналитика получена', 'admin/analytics', { 
+      totalProducts, 
+      activeProducts, 
+      totalCategories, 
+      totalUsers 
+    });
+
+    return apiSuccess(analyticsData, {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
-        'Expires': '0',
-        'Content-Type': 'application/json; charset=utf-8'
+        'Expires': '0'
       }
     });
 
   } catch (error) {
-    return apiErrorHandler.handle(error, 'analytics');
-  } finally {
-    await prisma.$disconnect();
+    logger.error('Error fetching analytics', 'admin/analytics', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка получения аналитики', 500);
   }
 }
+
+export const GET = withErrorHandling(
+  requireAuthAndPermission(getHandler, 'ADMIN'),
+  'admin/analytics/GET'
+);

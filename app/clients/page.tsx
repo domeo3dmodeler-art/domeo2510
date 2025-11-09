@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { Card, Button } from '../../components/ui';
 import { PhoneInput } from '@/components/ui/PhoneInput';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface Client {
   id: string;
@@ -39,11 +40,11 @@ export default function ClientsPage() {
         const data = await response.json();
         setClients(data.clients || []);
       } else {
-        console.error('Failed to load clients');
+        clientLogger.error('Failed to load clients');
         setClients([]);
       }
     } catch (error) {
-      console.error('Error loading clients:', error);
+      clientLogger.error('Error loading clients:', error);
       setClients([]);
     } finally {
       setIsLoading(false);
@@ -99,10 +100,10 @@ export default function ClientsPage() {
           notes: ''
         });
       } else {
-        console.error('Failed to save client');
+        clientLogger.error('Failed to save client');
       }
     } catch (error) {
-      console.error('Error saving client:', error);
+      clientLogger.error('Error saving client:', error);
     }
   };
 

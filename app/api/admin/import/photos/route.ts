@@ -1,27 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
 import { writeFile, mkdir } from 'fs/promises';
-import fs from 'fs';
 import path from 'path';
 import { validateImageFile, generateUniqueFileName } from '../../../../../lib/validation/file-validation';
 import { uploadRateLimiter, getClientIP, createRateLimitResponse } from '../../../../../lib/security/rate-limiter';
 import { upsertPropertyPhoto, deletePropertyPhotos } from '../../../../../lib/property-photos';
 
-const prisma = new PrismaClient();
-
 // DELETE /api/admin/import/photos - Очистка всех привязок фото в категории
-export async function DELETE(request: NextRequest) {
+async function deleteHandler(request: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(request);
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
     const propertyName = searchParams.get('property_name');
 
     if (!category) {
-      return NextResponse.json(
-        { success: false, message: 'Не указана категория' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не указана категория');
     }
+
+    logger.info('Очистка привязок фото в категории', 'admin/import/photos', { userId: user.userId, category, propertyName });
 
     let deletedCount = 0;
 
@@ -53,27 +55,34 @@ export async function DELETE(request: NextRequest) {
         method: 'DELETE'
       });
       } catch (error) {
-      console.warn('Ошибка очистки кэша:', error);
+      logger.warn('Ошибка очистки кэша', 'admin/import/photos', error instanceof Error ? { error: error.message } : { error: String(error) });
     }
 
-    return NextResponse.json({
-      success: true,
+    logger.info('Привязки фото удалены', 'admin/import/photos', { deletedCount });
+
+    return apiSuccess({
       message: `Удалено ${deletedCount} фото`,
       deletedCount
     });
 
   } catch (error) {
-    console.error('Ошибка очистки фото:', error);
-    return NextResponse.json(
-      { success: false, message: 'Ошибка сервера при очистке фото' },
-      { status: 500 }
-    );
+    logger.error('Ошибка очистки фото', 'admin/import/photos', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка сервера при очистке фото', 500);
   }
 }
 
+export const DELETE = withErrorHandling(
+  requireAuthAndPermission(deleteHandler, 'ADMIN'),
+  'admin/import/photos/DELETE'
+);
+
 // POST /api/admin/import/photos - Загрузка фотографий для свойств товаров
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(request);
     // Проверка rate limiting
     const clientIP = getClientIP(request);
     const isAllowed = uploadRateLimiter.isAllowed(clientIP);
@@ -88,17 +97,16 @@ export async function POST(request: NextRequest) {
     const mappingProperty = formData.get('mapping_property') as string;
     const uploadType = formData.get('upload_type') as string || 'property';
 
-    console.log('=== ЗАГРУЗКА ФОТО ===');
-    console.log('Количество фото:', photos.length);
-    console.log('Категория:', category);
-    console.log('Свойство для привязки:', mappingProperty);
-    console.log('Тип загрузки:', uploadType);
+    logger.info('Загрузка фото', 'admin/import/photos', { 
+      userId: user.userId,
+      photosCount: photos.length, 
+      category, 
+      mappingProperty, 
+      uploadType 
+    });
 
     if (!category || !mappingProperty) {
-      return NextResponse.json(
-        { success: false, message: 'Не указаны категория или свойство для привязки' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не указаны категория или свойство для привязки');
     }
 
     // Создаем директорию для загрузки
@@ -106,9 +114,9 @@ export async function POST(request: NextRequest) {
     
     try {
       await mkdir(uploadDir, { recursive: true });
-      console.log('Директория создана:', uploadDir);
+      logger.debug('Директория создана', 'admin/import/photos', { uploadDir });
     } catch (error) {
-      console.log('Директория уже существует или ошибка создания:', error);
+      logger.debug('Директория уже существует или ошибка создания', 'admin/import/photos', error instanceof Error ? { error: error.message } : { error: String(error) });
     }
 
     const uploadedPhotos: any[] = [];
@@ -119,7 +127,7 @@ export async function POST(request: NextRequest) {
       const photo = photos[i];
       
       try {
-        console.log(`Загружаем фото ${i + 1}/${photos.length}: ${photo.name}`);
+        logger.debug(`Загружаем фото ${i + 1}/${photos.length}`, 'admin/import/photos', { photoName: photo.name, photoIndex: i + 1, totalPhotos: photos.length });
         
         // Валидация файла
         const validation = validateImageFile(photo);
@@ -149,11 +157,11 @@ export async function POST(request: NextRequest) {
         
         uploadedPhotos.push(uploadedPhoto);
         
-        console.log(`Photo ${i} uploaded successfully:`, fileName);
+        logger.debug(`Photo ${i} uploaded successfully`, 'admin/import/photos', { fileName });
         
       } catch (error) {
-        console.error(`Error uploading photo ${i}:`, error);
-        uploadErrors.push(`Ошибка при загрузке ${photo.name}: ${error.message}`);
+        logger.error(`Error uploading photo ${i}`, 'admin/import/photos', error instanceof Error ? { error: error.message } : { error: String(error) });
+        uploadErrors.push(`Ошибка при загрузке ${photo.name}: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
     
@@ -171,8 +179,7 @@ export async function POST(request: NextRequest) {
     // "DomeoDoors_Base_2.png" -> базовое имя "domeodoors_base_2" -> обложка
     // "DomeoDoors_Base_2_1.png" -> базовое имя "domeodoors_base_2" -> галерея_1
     
-    console.log('\n=== ОПРЕДЕЛЕНИЕ ТИПА ФОТО ===');
-    console.log('Всего файлов:', uploadedPhotos.length);
+    logger.debug('Определение типа фото', 'admin/import/photos', { totalFiles: uploadedPhotos.length });
     
     for (const photo of uploadedPhotos) {
       const nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "").toLowerCase();
@@ -214,14 +221,14 @@ export async function POST(request: NextRequest) {
         galleryNumber = parseInt(galleryMatch[1]);
         isCover = false;
         
-        console.log(`📸 ГАЛЕРЕЯ: ${nameWithoutExt} → база "${baseName}", номер ${galleryNumber}`);
+        logger.debug(`Галерея определена`, 'admin/import/photos', { nameWithoutExt, baseName, galleryNumber });
       } else {
         // НЕТ дополнительного суффикса _N - это ОБЛОЖКА
         baseName = nameWithoutExt;
         galleryNumber = null;
         isCover = true;
         
-        console.log(`📷 ОБЛОЖКА: ${nameWithoutExt}`);
+        logger.debug(`Обложка определена`, 'admin/import/photos', { nameWithoutExt });
       }
       
       const modelName = baseName;
@@ -235,13 +242,11 @@ export async function POST(request: NextRequest) {
       };
       
       if (isCover) {
-        console.log(`✅ Обложка: ${photo.originalName} -> модель "${modelName}"`);
+        logger.debug(`Обложка привязана`, 'admin/import/photos', { originalName: photo.originalName, modelName });
       } else {
-        console.log(`📸 Галерея ${galleryNumber}: ${photo.originalName} -> модель "${modelName}"`);
+        logger.debug(`Галерея привязана`, 'admin/import/photos', { originalName: photo.originalName, modelName, galleryNumber });
       }
     }
-    
-    console.log('\n=== КОНЕЦ ОПРЕДЕЛЕНИЯ ТИПА ===\n');
     
     // Привязываем фото к товарам или свойствам
     let linkedPhotos = 0;
@@ -249,24 +254,26 @@ export async function POST(request: NextRequest) {
 
     if (mappingProperty && uploadedPhotos.length > 0) {
       if (uploadType === 'property') {
-        console.log('Привязка фото к свойствам товаров (property_photos)...');
+        logger.debug('Привязка фото к свойствам товаров (property_photos)', 'admin/import/photos');
         
         for (const photo of uploadedPhotos) {
           const { photoInfo } = photo;
           
           // Проверяем, что photoInfo был установлен
           if (!photoInfo) {
-            console.error(`❌ photoInfo не установлен для ${photo.originalName}`);
+            logger.error(`photoInfo не установлен`, 'admin/import/photos', { originalName: photo.originalName });
             continue;
           }
           
           // Получаем имя файла без расширения
           const nameWithoutExt = photo.originalName.replace(/\.[^/.]+$/, "").toLowerCase();
           
-          console.log(`\n=== ОБРАБОТКА ФОТО: ${photo.originalName} ===`);
-          console.log(`Тип фото: ${photoInfo.isCover ? 'ОБЛОЖКА' : 'ГАЛЕРЕЯ'}`);
-          console.log(`Базовое имя: ${photoInfo.baseName}`);
-          console.log(`Номер: ${photoInfo.number || 'N/A'}`);
+          logger.debug(`Обработка фото`, 'admin/import/photos', {
+            originalName: photo.originalName,
+            photoType: photoInfo.isCover ? 'ОБЛОЖКА' : 'ГАЛЕРЕЯ',
+            baseName: photoInfo.baseName,
+            number: photoInfo.number || 'N/A'
+          });
 
           // Определяем тип фото для базы данных
           const photoType = photoInfo.isCover 
@@ -299,7 +306,7 @@ export async function POST(request: NextRequest) {
               ? photo.originalName.replace(/\.[^/.]+$/, "").toLowerCase()
               : photoInfo.baseName;
             
-            console.log(`Ищем товары по свойству "${mappingProperty}" = "${searchValue}"`);
+            logger.debug(`Ищем товары по свойству`, 'admin/import/photos', { mappingProperty, searchValue });
             
             // Находим товары с этим значением свойства для статистики
         const products = await prisma.product.findMany({
@@ -327,25 +334,24 @@ export async function POST(request: NextRequest) {
               }))
             });
 
-            console.log(`✅ Фото ${photo.originalName} привязано к свойству ${mappingProperty}="${photoInfo.baseName}"`);
+            logger.info(`Фото привязано к свойству`, 'admin/import/photos', { originalName: photo.originalName, mappingProperty, baseName: photoInfo.baseName });
           } else {
-            console.error(`❌ Ошибка сохранения фото ${photo.originalName}`);
+            logger.error(`Ошибка сохранения фото`, 'admin/import/photos', { originalName: photo.originalName });
           }
         }
       } else {
-        console.log('Привязка фото к товарам (properties_data)...');
+        logger.debug('Привязка фото к товарам (properties_data)', 'admin/import/photos');
 
         for (const photo of uploadedPhotos) {
           const { photoInfo } = photo;
           
           // Проверяем, что photoInfo был установлен
           if (!photoInfo) {
-            console.error(`❌ photoInfo не установлен для ${photo.originalName}`);
+            logger.error(`photoInfo не установлен`, 'admin/import/photos', { originalName: photo.originalName });
             continue;
           }
           
-          console.log(`\n=== ОБРАБОТКА ФОТО: ${photo.originalName} ===`);
-          console.log(`Базовое имя: ${photoInfo.baseName}`);
+          logger.debug(`Обработка фото`, 'admin/import/photos', { originalName: photo.originalName, baseName: photoInfo.baseName });
 
           // Для поиска по выбранному свойству используем имя файла без расширения и префикса
           // Формат файла: 1761588175210_db5p3e_akcent_bl.png
@@ -361,9 +367,13 @@ export async function POST(request: NextRequest) {
           const searchValue = extractedName.replace(/\s+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();
           
           // Логируем для отладки
-          console.log(`Файл: ${photo.originalName}, Части: ${parts.join('|')}, Извлеченное имя: "${searchValue}"`);
+          logger.debug(`Извлечение имени из файла`, 'admin/import/photos', {
+            originalName: photo.originalName,
+            parts: parts.join('|'),
+            extractedName: searchValue
+          });
           
-          console.log(`Ищем товары по свойству "${mappingProperty}" = "${searchValue}"`);
+          logger.debug(`Ищем товары по свойству`, 'admin/import/photos', { mappingProperty, searchValue });
 
           // Находим товары с этим значением свойства
           // Парсим все товары категории и сравниваем по свойству
@@ -395,12 +405,12 @@ export async function POST(request: NextRequest) {
               
               return normalizedPropertyValue === normalizedSearchValue;
             } catch (error) {
-              console.error(`Ошибка парсинга свойств для товара ${product.sku}:`, error);
+              logger.error(`Ошибка парсинга свойств для товара`, 'admin/import/photos', { productSku: product.sku, error: error instanceof Error ? error.message : String(error) });
               return false;
             }
           });
           
-          console.log(`✅ Найдено товаров: ${products.length}`);
+          logger.debug(`Найдено товаров`, 'admin/import/photos', { productsCount: products.length });
 
           let productsUpdated = 0;
           for (const product of products) {
@@ -423,7 +433,7 @@ export async function POST(request: NextRequest) {
               if (photo.photoInfo.isCover) {
                 // Обложка - заменяем существующую
                 properties.photos.cover = photo.filePath;
-                console.log(`📸 Обложка для товара ${product.sku}: ${photo.filePath}`);
+                logger.debug(`Обложка для товара`, 'admin/import/photos', { productSku: product.sku, filePath: photo.filePath });
               } else if (photo.photoInfo.number) {
                 // Галерея - добавляем в массив
                 const galleryNumber = photo.photoInfo.number;
@@ -432,7 +442,7 @@ export async function POST(request: NextRequest) {
                   properties.photos.gallery.push(null);
                 }
                 properties.photos.gallery[galleryNumber - 1] = photo.filePath;
-                console.log(`📸 Фото галереи ${galleryNumber} для товара ${product.sku}: ${photo.filePath}`);
+                logger.debug(`Фото галереи для товара`, 'admin/import/photos', { productSku: product.sku, galleryNumber, filePath: photo.filePath });
               } else {
                 // Без номера - добавляем в конец галереи
                 properties.photos.gallery.push(photo.filePath);
@@ -447,7 +457,7 @@ export async function POST(request: NextRequest) {
               
               productsUpdated++;
             } catch (error) {
-              console.error(`Ошибка обновления товара ${product.sku}:`, error);
+              logger.error(`Ошибка обновления товара`, 'admin/import/photos', { productSku: product.sku, error: error instanceof Error ? error.message : String(error) });
             }
           }
 
@@ -464,7 +474,7 @@ export async function POST(request: NextRequest) {
               }))
             });
 
-            console.log(`✅ Фото ${photo.originalName} привязано к ${productsUpdated} товарам`);
+            logger.info(`Фото привязано к товарам`, 'admin/import/photos', { originalName: photo.originalName, productsUpdated });
           }
         }
       }
@@ -479,7 +489,7 @@ export async function POST(request: NextRequest) {
         method: 'DELETE'
       });
     } catch (error) {
-      console.warn('Ошибка очистки кэша:', error);
+      logger.warn('Ошибка очистки кэша', 'admin/import/photos', error instanceof Error ? { error: error.message } : { error: String(error) });
     }
 
     const result = {
@@ -495,18 +505,24 @@ export async function POST(request: NextRequest) {
       mapping_property: mappingProperty
     };
 
-        console.log('=== РЕЗУЛЬТАТ ЗАГРУЗКИ ===');
-    console.log(`Загружено файлов: ${result.uploaded}`);
-    console.log(`Привязано к ${uploadType === 'property' ? 'свойствам' : 'товарам'}: ${result.linked}`);
-    console.log(`Ошибок: ${result.errors}`);
+    logger.info('Результат загрузки', 'admin/import/photos', { 
+      uploaded: result.uploaded,
+      linked: result.linked,
+      errors: result.errors
+    });
 
-        return NextResponse.json(result);
+    return apiSuccess(result);
 
   } catch (error) {
-    console.error('Критическая ошибка загрузки фото:', error);
-    return NextResponse.json(
-      { success: false, message: 'Критическая ошибка сервера при загрузке фото' },
-      { status: 500 }
-    );
+    logger.error('Критическая ошибка загрузки фото', 'admin/import/photos', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Критическая ошибка сервера при загрузке фото', 500);
   }
 }
+
+export const POST = withErrorHandling(
+  requireAuthAndPermission(postHandler, 'ADMIN'),
+  'admin/import/photos/POST'
+);

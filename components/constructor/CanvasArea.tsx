@@ -6,6 +6,7 @@ import { BLOCK_DEFINITIONS } from './blockDefinitions';
 import ElementRenderer from './ElementRenderer';
 import { Button } from '../ui';
 import { Grid, Maximize2, ZoomIn, ZoomOut } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 export default function CanvasArea() {
   const { elements, addElement, selectElement, selectedElementId } = useConstructor();
@@ -40,7 +41,7 @@ export default function CanvasArea() {
         });
       }
     } catch (error) {
-      console.error('Error handling drop:', error);
+      clientLogger.error('Error handling drop:', error);
     }
   };
 

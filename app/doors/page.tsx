@@ -16,58 +16,17 @@ import GlobalHeader from "../../components/layout/GlobalHeader";
 import NotificationBell from "../../components/ui/NotificationBell";
 import HandleSelectionModal from "../../components/HandleSelectionModal";
 import { clientLogger } from "@/lib/logging/client-logger";
+import { DoorCard, StickyPreview, Select, HardwareSelect, HandleSelect, SelectMini } from "@/components/doors";
+import type { BasicState, CartItem, Domain, HardwareKit, Handle, ModelItem } from "@/components/doors";
+import { resetDependentParams, formatModelNameForCard, formatModelNameForPreview, fmtInt, fmt2, uid, hasBasic, slugify } from "@/components/doors";
+import type { CreateClientInput } from "@/lib/validation/client.schemas";
 
-// ===================== Типы =====================
-type BasicState = {
-  // Уровень 1: Основные характеристики
-  style?: string;        // Стиль двери (влияет на модели)
-  model?: string;        // Модель двери (влияет на покрытия)
-  
-  // Уровень 2: Материалы и отделка
-  finish?: string;       // Покрытие (влияет на цвета)
-  color?: string;        // Цвет (влияет на размеры)
-  
-  // Уровень 3: Размеры
-  width?: number;        // Ширина (влияет на кромку)
-  height?: number;       // Высота (влияет на кромку)
-  
-  // Уровень 4: Дополнительные элементы
-  // edge?: string;         // Кромка (временно отключена)
-  // edge_note?: string;    // Примечание к кромке
-  // edge_cost?: string;    // Стоимость надбавки за кромку
-  
-  // Уровень 5: Фурнитура
-  hardware_kit?: { id: string };  // Комплект фурнитуры
-  handle?: { id: string };        // Ручка
-  
-  // Технические параметры (не влияют на другие)
-  type?: string;         // Тип конструкции (обычно всегда "Распашная")
-};
+// Типы и утилиты импортируются из @/components/doors
 
+// Локальные типы (используются только в этом файле)
 type ProductLike = {
   sku_1c?: string | number | null;
   model?: string | null;
-};
-
-type CartItem = {
-  id: string;
-  style?: string;
-  model?: string;
-  finish?: string;
-  type?: string;
-  width?: number;
-  height?: number;
-  color?: string;
-  qty: number;
-  unitPrice: number;
-  handleId?: string;
-  handleName?: string; // Добавляем название ручки
-  sku_1c?: string | number | null;
-  // edge?: string;
-  // edge_note?: string;
-  hardwareKitId?: string;
-  hardwareKitName?: string; // Добавляем название комплекта фурнитуры
-  baseAtAdd: number;
 };
 
 type DomainKits = { id: string; name: string; group?: number; price_rrc?: number }[];
@@ -81,157 +40,8 @@ type DomainHandles = {
   price_group_multiplier?: number;
 }[];
 
-type HardwareKit = {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  priceGroup: string;
-  isBasic: boolean;
-};
-
-type Handle = {
-  id: string;
-  name: string;
-  group: string;
-  price: number;
-  isBasic: boolean;
-  showroom: boolean;
-  supplier?: string;
-  article?: string;
-  factoryName?: string;
-  photos?: string[];
-};
-
-type Domain =
-  | {
-      style?: string[];
-      model?: string[];
-      finish?: string[];
-      color?: string[];
-      type?: string[];
-      width?: number[];
-      height?: number[];
-      // edge?: string[];
-      kits?: DomainKits;
-      handles?: DomainHandles;
-    }
-  | null;
-
-// ===================== Утилиты =====================
-const fmtInt = (n: number): string =>
-  Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-
-const fmt2 = (n: number): string => (Math.round(n * 100) / 100).toFixed(2);
-
-const uid = (): string => Math.random().toString(36).slice(2, 9);
-
-const hasBasic = (s: Partial<BasicState>): boolean =>
-  !!(s.style && s.model && s.finish && s.color && s.width && s.height);
-
 const API: string | null =
   typeof window !== "undefined" ? ((window as any).__API_URL__ as string) : null;
-
-const slugify = (s: string): string =>
-  s
-    .toLowerCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9\-]/g, "")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-
-// Функция для сброса зависимых параметров по иерархии
-const resetDependentParams = (currentSel: Partial<BasicState>, changedParam: keyof BasicState): Partial<BasicState> => {
-  const newSel = { ...currentSel };
-  
-  switch (changedParam) {
-    case 'style':
-      // При смене стиля сбрасываем все зависимые параметры
-      newSel.model = undefined;
-      newSel.finish = undefined;
-      newSel.color = undefined;
-      newSel.width = undefined;
-      newSel.height = undefined;
-      // newSel.edge = undefined;
-      // newSel.edge_note = undefined;
-      newSel.hardware_kit = undefined;
-      newSel.handle = undefined;
-      break;
-      
-    case 'model':
-      // При смене модели сбрасываем покрытие и все зависимые
-      newSel.finish = undefined;
-      newSel.color = undefined;
-      newSel.width = undefined;
-      newSel.height = undefined;
-      // newSel.edge = undefined;
-      // newSel.edge_note = undefined;
-      newSel.hardware_kit = undefined;
-      newSel.handle = undefined;
-      break;
-      
-    case 'finish':
-      // При смене покрытия сбрасываем цвет и все зависимые
-      newSel.color = undefined;
-      newSel.width = undefined;
-      newSel.height = undefined;
-      // newSel.edge = undefined;
-      // newSel.edge_note = undefined;
-      newSel.hardware_kit = undefined;
-      newSel.handle = undefined;
-      break;
-      
-    case 'color':
-      // При смене цвета сбрасываем размеры и все зависимые
-      newSel.width = undefined;
-      newSel.height = undefined;
-      // newSel.edge = undefined;
-      // newSel.edge_note = undefined;
-      newSel.hardware_kit = undefined;
-      newSel.handle = undefined;
-      break;
-      
-    case 'width':
-    case 'height':
-      // При смене размеров НЕ сбрасываем фурнитуру - она не зависит от размеров
-      // newSel.edge = undefined;
-      // newSel.edge_note = undefined;
-      // newSel.hardware_kit = undefined;
-      // newSel.handle = undefined;
-      break;
-      
-    // case 'edge':
-    //   // При смене кромки сбрасываем фурнитуру и стоимость
-    //   newSel.edge_note = undefined;
-    //   newSel.edge_cost = undefined;
-    //   newSel.hardware_kit = undefined;
-    //   newSel.handle = undefined;
-    //   break;
-      
-    // type не влияет на другие параметры
-    // hardware_kit и handle не влияют на другие параметры
-  }
-  
-  return newSel;
-};
-
-// Функция для форматирования названия модели под карточкой (убираем префикс DomeoDoors)
-const formatModelNameForCard = (modelName: string): string => {
-  return modelName
-    .replace(/^DomeoDoors\s*/i, '') // Убираем префикс DomeoDoors с любыми пробелами после него
-    .replace(/^Domeodoors\s*/i, '') // Убираем префикс Domeodoors с любыми пробелами после него
-    .replace(/_/g, ' ') // Заменяем подчеркивания на пробелы
-    .trim(); // Убираем лишние пробелы
-};
-
-// Функция для форматирования названия модели над большим фото (убираем префикс DomeoDoors)
-const formatModelNameForPreview = (modelName: string): string => {
-  return modelName
-    .replace(/^DomeoDoors\s*/i, '') // Убираем префикс DomeoDoors с любыми пробелами после него
-    .replace(/^Domeodoors\s*/i, '') // Убираем префикс Domeodoors с любыми пробелами после него
-    .replace(/_/g, ' ') // Заменяем подчеркивания на пробелы
-    .trim(); // Убираем лишние пробелы
-};
 
 const imageCandidates = (obj: ProductLike): string[] => {
   const sku = obj?.sku_1c != null ? String(obj.sku_1c).trim() : "";
@@ -351,7 +161,7 @@ const mockData = {
 };
 
 const mockApi = {
-  async getOptions(query: URLSearchParams): Promise<{ ok: true; domain: any }> {
+  async getOptions(query: URLSearchParams): Promise<{ ok: true; domain: Domain }> {
     const q = Object.fromEntries(query.entries());
     const filtered = mockData.products.filter((p) =>
       Object.entries(q).every(
@@ -367,7 +177,7 @@ const mockApi = {
       "width",
       "height",
     ] as const;
-    const domain: any = {};
+    const domain: Partial<Domain> = {};
     for (const key of order) {
       const upstream = order.slice(0, order.indexOf(key));
       const subset = mockData.products.filter((p) =>
@@ -396,7 +206,7 @@ const mockApi = {
       if ((q as any).style || (q as any).model)
         domain[k] = Array.from(
           new Set(filtered.map((p) => (p as any)[k]).filter(Boolean))
-        ).sort((a: any, b: any) => (a > b ? 1 : a < b ? -1 : 0));
+        ).sort((a: string | number, b: string | number) => (a > b ? 1 : a < b ? -1 : 0));
     }
     domain.style = Array.from(
       new Set(((q as any).style ? filtered : mockData.products).map((p) => p.style))
@@ -881,7 +691,7 @@ export default function DoorsPage() {
   }, [showClientManager, fetchClients]);
 
   // Создание нового клиента
-  const createClient = async (clientData: any) => {
+  const createClient = async (clientData: CreateClientInput) => {
     try {
       const response = await fetch('/api/clients', {
         method: 'POST',
@@ -916,7 +726,7 @@ export default function DoorsPage() {
 
   // Клиентское кэширование для моделей с фото
   // Улучшенное кэширование моделей
-  const [modelsCache, setModelsCache] = useState<Map<string, { data: any, timestamp: number }>>(new Map());
+  const [modelsCache, setModelsCache] = useState<Map<string, { data: ModelItem[], timestamp: number }>>(new Map());
   const CACHE_TTL = 10 * 60 * 1000; // 10 минут кэш на клиенте
   
   // Состояние сворачивания блока стилей
@@ -974,8 +784,6 @@ export default function DoorsPage() {
         foundPhotos: found?.photos
       });
       
-      return found;
-      
       // Дополнительное логирование для отладки
       if (found) {
         clientLogger.debug('🔍 Детали найденной модели:', {
@@ -996,7 +804,7 @@ export default function DoorsPage() {
   const query = useMemo(() => {
     const q = new URLSearchParams();
     (["style", "model", "finish", "color", "type", "width", "height"] as const).forEach((k) => {
-      const v = (sel as any)[k];
+      const v = sel[k];
       if (v !== undefined && v !== "") q.set(k, String(v));
     });
     return q;
@@ -1010,13 +818,13 @@ export default function DoorsPage() {
         const cached = modelsCache.get('all');
         if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
           const allModels = cached.data;
-          const domain: any = {
-            style: Array.from(new Set(allModels.map((m: any) => m.style))).sort(),
-            finish: Array.from(new Set(allModels.flatMap((m: any) => m.options?.finishes || []))).sort(),
-            color: Array.from(new Set(allModels.flatMap((m: any) => m.options?.colors || []))).sort(),
-            type: Array.from(new Set(allModels.flatMap((m: any) => m.options?.types || []))).sort(),
-            width: Array.from(new Set(allModels.flatMap((m: any) => m.options?.widths || []))).sort(),
-            height: Array.from(new Set(allModels.flatMap((m: any) => m.options?.heights || []))).sort(),
+          const domain: Domain = {
+            style: Array.from(new Set(allModels.map((m: ModelItem) => m.style))).sort(),
+            finish: Array.from(new Set(allModels.flatMap((m: ModelItem) => (m as unknown as { options?: { finishes?: string[] } }).options?.finishes || []))).sort(),
+            color: Array.from(new Set(allModels.flatMap((m: ModelItem) => (m as unknown as { options?: { colors?: string[] } }).options?.colors || []))).sort(),
+            type: Array.from(new Set(allModels.flatMap((m: ModelItem) => (m as unknown as { options?: { types?: string[] } }).options?.types || []))).sort(),
+            width: Array.from(new Set(allModels.flatMap((m: ModelItem) => (m as unknown as { options?: { widths?: number[] } }).options?.widths || []))).sort(),
+            height: Array.from(new Set(allModels.flatMap((m: ModelItem) => (m as unknown as { options?: { heights?: number[] } }).options?.heights || []))).sort(),
             kits: [],
             handles: []
           };
@@ -1032,8 +840,8 @@ export default function DoorsPage() {
         
         const response = await api.getOptions(query);
         // Извлекаем domain из ответа API
-        const domain = response?.domain || response;
-        clientLogger.debug('🔍 Общие данные загружены для query:', query, 'domain:', domain);
+        const domain = (response?.domain || response) as Domain;
+        clientLogger.debug('🔍 Общие данные загружены для query:', { query: query.toString(), domain });
         // НЕ устанавливаем domain если уже выбрана модель
         if (!c && !sel.model) {
           setDomain(domain);
@@ -1041,8 +849,8 @@ export default function DoorsPage() {
         } else {
           clientLogger.debug('🔍 Пропускаем установку общего domain - выбрана модель:', sel.model);
         }
-      } catch (e: any) {
-        if (!c) setErr(e?.message ?? "Ошибка доменов");
+      } catch (e: unknown) {
+        if (!c) setErr(e instanceof Error ? e.message : "Ошибка доменов");
       }
     })();
     return () => {
@@ -1547,14 +1355,15 @@ export default function DoorsPage() {
     const cached = modelsCache.get('all');
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       const allModels = cached.data;
-      const modelData = allModels.find((m: any) => m.model === item.model);
+      const modelData = allModels.find((m: ModelItem) => m.model === item.model);
       if (modelData) {
-        const domain = {
-          finish: modelData.options?.finishes || [],
-          color: modelData.options?.colors || [],
-          type: modelData.options?.types || [],
-          width: modelData.options?.widths || [],
-          height: modelData.options?.heights || []
+        const modelWithOptions = modelData as ModelItem & { options?: { finishes?: string[]; colors?: string[]; types?: string[]; widths?: number[]; heights?: number[] } };
+        const domain: Partial<Domain> = {
+          finish: modelWithOptions.options?.finishes || [],
+          color: modelWithOptions.options?.colors || [],
+          type: modelWithOptions.options?.types || [],
+          width: modelWithOptions.options?.widths || [],
+          height: modelWithOptions.options?.heights || []
         };
         setItemDomains((m) => ({ ...m, [item.model]: domain }));
         return domain;
@@ -3077,7 +2886,18 @@ export default function DoorsPage() {
                         alert('Заполните ФИО и телефон');
                           return;
                         }
-                          const client = await createClient(newClientData);
+                          const clientData: CreateClientInput = {
+                            firstName: newClientData.firstName,
+                            lastName: newClientData.lastName,
+                            middleName: newClientData.middleName || null,
+                            phone: newClientData.phone,
+                            address: newClientData.address || '',
+                            objectId: newClientData.objectId || `object-${Date.now()}`,
+                            compilationLeadNumber: newClientData.compilationLeadNumber || null,
+                            customFields: '{}',
+                            isActive: true
+                          };
+                          const client = await createClient(clientData);
                           setSelectedClient(client.id);
                           setSelectedClientName(`${client.firstName} ${client.lastName}`);
                       setShowCreateClientForm(false);
@@ -4322,544 +4142,6 @@ function CartManager({
 }
 
 // Компонент CartItemEditor удален - редактирование теперь инлайн в CartManager
-
-function DoorCard({
-  item,
-  selected,
-  onSelect,
-}: {
-  item: { model: string; modelKey?: string; style?: string; photo?: string | null; photos?: { cover: string | null; gallery: string[] }; hasGallery?: boolean };
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Используем фото напрямую из данных модели
-    clientLogger.debug('🔍 DoorCard useEffect, item:', {
-      model: item.model,
-      modelKey: item.modelKey,
-      photo: item.photo,
-      hasPhoto: !!item.photo
-    });
-    
-    if (item.photo && typeof item.photo === 'string') {
-      clientLogger.debug('📷 item.photo:', item.photo);
-      clientLogger.debug('📷 startsWith("/uploads"):', item.photo.startsWith('/uploads'));
-      
-      // Если фото начинается с /uploads/, используем как есть
-      // Если начинается с products/ или uploads/, добавляем /api
-      let imageUrl: string;
-      if (item.photo.startsWith('/uploads/')) {
-        imageUrl = `/api${item.photo}`;
-      } else if (item.photo.startsWith('/uploads')) {
-        // Корректируем: /uploadsproducts... -> /uploads/products...
-        imageUrl = `/api/uploads/${item.photo.substring(8)}`; // убираем первые 8 символов '/uploads'
-      } else if (item.photo.startsWith('products/')) {
-        imageUrl = `/api/uploads/${item.photo}`;
-      } else if (item.photo.startsWith('uploads/')) {
-        imageUrl = `/api/${item.photo}`;
-      } else {
-        imageUrl = `/api/uploads/${item.photo}`;
-      }
-      
-      clientLogger.debug('📷 imageUrl:', imageUrl);
-      setImageSrc(imageUrl);
-      setIsLoading(false);
-    } else if (item.modelKey) {
-      // Fallback: загружаем фото через старый API используя modelKey
-      const loadPhoto = async () => {
-        try {
-          setIsLoading(true);
-          clientLogger.debug('🔄 Загружаем фото для карточки модели:', item.modelKey);
-
-          const response = await fetch(`/api/catalog/doors/photos?model=${encodeURIComponent(item.modelKey || '')}`);
-
-          if (response.ok) {
-            const data = await response.json();
-            if (data.photos && data.photos.length > 0) {
-              const photoPath = data.photos[0];
-              // Обрабатываем разные форматы путей
-              let imageUrl: string;
-              if (photoPath.startsWith('/uploads/')) {
-                imageUrl = `/api${photoPath}`;
-              } else if (photoPath.startsWith('/uploads')) {
-                imageUrl = `/api/uploads/${photoPath.substring(8)}`;
-              } else if (photoPath.startsWith('products/')) {
-                imageUrl = `/api/uploads/${photoPath}`;
-              } else if (photoPath.startsWith('uploads/')) {
-                imageUrl = `/api/${photoPath}`;
-              } else {
-                imageUrl = `/api/uploads/${photoPath}`;
-              }
-              setImageSrc(imageUrl);
-            } else {
-              setImageSrc(null);
-            }
-          } else {
-            setImageSrc(null);
-          }
-        } catch (error) {
-          clientLogger.error('❌ Ошибка загрузки фото для карточки:', error);
-          setImageSrc(null);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      loadPhoto();
-    } else {
-      // Если фото нет, показываем placeholder
-      setImageSrc(null);
-      setIsLoading(false);
-    }
-  }, [item.model, item.modelKey, item.photo]);
-
-  return (
-    <div className="flex flex-col">
-    <button
-      onClick={onSelect}
-      aria-label={`Выбрать модель ${formatModelNameForCard(item.model)}`}
-      className={[
-          "group w-full text-left bg-white overflow-hidden",
-        "hover:shadow-md transition",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ring-offset-2",
-          selected ? "shadow-md" : "",
-      ].join(" ")}
-    >
-        {/* Фото полностью заполняет карточку с правильным соотношением сторон для дверей */}
-        <div className="aspect-[16/33] w-full bg-gray-50 relative group overflow-hidden">
-          {isLoading ? (
-            <div className="absolute inset-0 animate-pulse bg-gray-200" />
-          ) : imageSrc ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={imageSrc}
-                alt={formatModelNameForCard(item.model)}
-                className="absolute inset-0 w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
-                onLoad={() => clientLogger.debug('✅ Изображение загружено для', item.model, ':', imageSrc)}
-                onError={(e) => {
-                  clientLogger.error('❌ ОШИБКА ЗАГРУЗКИ изображения:', imageSrc);
-                  clientLogger.error('❌ item.photo:', item.photo);
-                  clientLogger.error('❌ Тип imageSrc:', typeof imageSrc);
-                  clientLogger.error('❌ item:', item);
-                  setImageSrc(null);
-                }}
-              />
-              {/* Индикатор галереи */}
-              {item.hasGallery && (
-                <div className="absolute top-2 right-2 bg-white/90 text-gray-700 text-xs px-2 py-1 rounded-full font-medium shadow-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                  +{item.photos?.gallery.length || 0}
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="h-full w-full flex items-center justify-center text-gray-400">
-              <div className="text-center">
-                <div className="text-sm">Нет фото</div>
-                <div className="text-[14px] text-center whitespace-nowrap px-2" title={formatModelNameForCard(item.model)}>
-                  {formatModelNameForCard(item.model)}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-    </button>
-      {/* Название модели под карточкой */}
-      <div className="mt-2 flex justify-center">
-        <div className="text-[14px] font-medium text-gray-900 text-center whitespace-nowrap px-2" title={formatModelNameForCard(item.model)}>
-          {formatModelNameForCard(item.model)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StickyPreview({ item }: { item: { model: string; modelKey?: string; sku_1c?: any; photo?: string | null } | null }) {
-  const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    if (!item?.model) {
-      setImageSrc(null);
-      setIsLoading(false);
-      return;
-    }
-
-    // Если фото уже предзагружено в item.photo, используем его мгновенно
-    if (item.photo && typeof item.photo === 'string') {
-      // Обрабатываем разные форматы путей
-      let imageUrl: string;
-      if (item.photo.startsWith('/uploads/')) {
-        imageUrl = `/api${item.photo}`;
-      } else if (item.photo.startsWith('/uploads')) {
-        // Корректируем: /uploadsproducts... -> /uploads/products...
-        imageUrl = `/api/uploads/${item.photo.substring(8)}`;
-      } else if (item.photo.startsWith('products/')) {
-        imageUrl = `/api/uploads/${item.photo}`;
-      } else if (item.photo.startsWith('uploads/')) {
-        imageUrl = `/api/${item.photo}`;
-      } else {
-        imageUrl = `/api/uploads/${item.photo}`;
-      }
-      
-      setImageSrc(imageUrl);
-      setIsLoading(false);
-      return;
-    }
-
-    // Fallback: загружаем фото через старый API (для совместимости)
-    const loadPhoto = async () => {
-      try {
-        setIsLoading(true);
-        clientLogger.debug('🔄 Загружаем фото для превью:', item.modelKey || item.model);
-
-        const response = await fetch(`/api/catalog/doors/photos?model=${encodeURIComponent(item.modelKey || item.model)}`);
-
-          if (response.ok) {
-            const data = await response.json();
-            if (data.photos && data.photos.length > 0) {
-              const photoPath = data.photos[0];
-              // Обрабатываем разные форматы путей
-              let imageUrl: string;
-              if (photoPath.startsWith('/uploads/')) {
-                imageUrl = `/api${photoPath}`;
-              } else if (photoPath.startsWith('/uploads')) {
-                imageUrl = `/api/uploads/${photoPath.substring(8)}`;
-              } else if (photoPath.startsWith('products/')) {
-                imageUrl = `/api/uploads/${photoPath}`;
-              } else if (photoPath.startsWith('uploads/')) {
-                imageUrl = `/api/${photoPath}`;
-              } else {
-                imageUrl = `/api/uploads/${photoPath}`;
-              }
-              setImageSrc(imageUrl);
-            } else {
-              setImageSrc(null);
-            }
-          } else {
-            setImageSrc(null);
-          }
-      } catch (error) {
-        clientLogger.error('❌ Ошибка загрузки фото для превью:', error);
-        setImageSrc(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadPhoto();
-  }, [item?.model, item?.modelKey, item?.photo]);
-
-  if (!item) return null;
-  return (
-    <aside>
-      <div className="mb-4 text-xl font-semibold text-center">{formatModelNameForPreview(item.model)}</div>
-      <div className="aspect-[1/2] w-full overflow-hidden rounded-xl bg-gray-50">
-        {isLoading ? (
-          <div className="h-full w-full animate-pulse bg-gray-200" />
-        ) : imageSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={imageSrc}
-            alt={formatModelNameForCard(item.model)}
-            className="h-full w-full object-contain"
-            onError={() => {
-              clientLogger.debug('❌ Ошибка загрузки изображения для превью:', imageSrc);
-              setImageSrc(null);
-            }}
-          />
-        ) : (
-          <div className="h-full w-full flex items-center justify-center text-gray-400">
-            <div className="text-center">
-              <div className="text-sm">Нет фото</div>
-              <div className="text-xs">{formatModelNameForCard(item.model)}</div>
-            </div>
-          </div>
-        )}
-      </div>
-    </aside>
-  );
-}
-
-function Select({
-  label,
-  value,
-  onChange,
-  options,
-  allowEmpty = false,
-  disabled = false,
-  isLoading = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: string[];
-  allowEmpty?: boolean;
-  disabled?: boolean;
-  isLoading?: boolean;
-}) {
-  // Стабилизируем опции - показываем текущие даже если массив пустой
-  const stableOptions = options.length > 0 ? options : (value ? [value] : []);
-  
-  return (
-    <label className="text-sm space-y-1">
-      <div className={`text-gray-600 ${disabled ? 'opacity-50' : ''}`}>
-        {label}
-        {isLoading && <span className="ml-2 text-xs text-blue-600">⏳</span>}
-      </div>
-      <select
-        value={value}
-        onChange={(e) => onChange((e.target as HTMLSelectElement).value)}
-        disabled={disabled || isLoading}
-        className={`w-full border border-black/20 px-3 py-2 text-black ${disabled || isLoading ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
-      >
-        {allowEmpty && <option value="">—</option>}
-        {stableOptions.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function HardwareSelect({
-  label,
-  value,
-  onChange,
-  options,
-  allowEmpty = false,
-  disabled = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: { id: string; name: string; price?: number; showroom?: boolean; description?: string }[];
-  allowEmpty?: boolean;
-  disabled?: boolean;
-}) {
-  const [showDescription, setShowDescription] = useState<string | null>(null);
-  const selectedOption = options.find(opt => opt.id === value);
-
-  return (
-    <div className="text-sm space-y-1">
-      <div className={`text-gray-600 ${disabled ? 'opacity-50' : ''}`}>{label}</div>
-      
-      {/* Селект и цена в одной строке */}
-      <div className="flex items-center gap-3">
-        <select
-          value={value}
-          onChange={(e) => onChange((e.target as HTMLSelectElement).value)}
-          disabled={disabled}
-          className={`flex-1 border border-black/20 px-3 py-2 text-black ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
-        >
-          {allowEmpty && <option value="">—</option>}
-          {options.map((option) => (
-            <option key={option.id} value={option.id}>
-              {option.name.replace('Комплект фурнитуры — ', '')}
-            </option>
-          ))}
-        </select>
-        
-        {selectedOption && (
-          <div className="flex items-center gap-2">
-            {selectedOption.description && (
-              <button
-                type="button"
-                onClick={() => setShowDescription(showDescription === selectedOption.id ? null : selectedOption.id)}
-                className="text-gray-500 hover:text-gray-700 transition-colors"
-                title="Показать описание"
-              >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-              </button>
-            )}
-            <div className="text-sm font-medium text-gray-900 min-w-[80px] text-right">
-              {selectedOption.price ? `${fmtInt(selectedOption.price)} ₽` : ''}
-            </div>
-          </div>
-        )}
-      </div>
-      
-      {/* Описание комплекта */}
-      {showDescription && selectedOption && (
-        <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded text-sm text-gray-700">
-          <div className="font-medium mb-1">Описание комплекта:</div>
-          <div>{selectedOption.description}</div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function HandleSelect({
-  label,
-  value,
-  onChange,
-  handles,
-  allowEmpty = false,
-  disabled = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  handles: Record<string, Handle[]>;
-  allowEmpty?: boolean;
-  disabled?: boolean;
-}) {
-  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
-  const [showInfo, setShowInfo] = useState(false);
-  const selectedHandle = Object.values(handles).flat().find(h => h.id === value);
-
-  // Устанавливаем группу "Базовый" по умолчанию при загрузке
-  useEffect(() => {
-    if (handles['Базовый'] && handles['Базовый'].length > 0 && !selectedGroup) {
-      setSelectedGroup('Базовый');
-    }
-  }, [handles, selectedGroup]);
-
-  const handleGroupSelect = (groupName: string) => {
-    setSelectedGroup(groupName);
-    // Сбрасываем выбор ручки при смене группы
-    onChange('');
-  };
-
-  const handleHandleSelect = (handleId: string) => {
-    onChange(handleId);
-  };
-
-  const resetSelection = () => {
-    onChange('');
-    setSelectedGroup(null);
-  };
-
-  // Получаем все ручки для выбранной группы
-  const currentGroupHandles = selectedGroup ? handles[selectedGroup] || [] : [];
-  const displayPrice = selectedHandle 
-    ? selectedHandle.price 
-    : currentGroupHandles.length > 0 
-      ? currentGroupHandles[0].price 
-      : 0;
-
-  return (
-    <div className="text-sm space-y-1">
-      <div className={`text-gray-600 ${disabled ? 'opacity-50' : ''}`}>{label}</div>
-      
-      {/* Компактный выбор: группа - ручка - цена */}
-      <div className="flex items-center gap-3">
-        {/* Селект группы */}
-        <select
-          value={selectedGroup || ''}
-          onChange={(e) => handleGroupSelect(e.target.value)}
-          disabled={disabled}
-          className={`border border-black/20 px-3 py-2 text-black ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
-          style={{ minWidth: '120px' }}
-        >
-          <option value="">Группа</option>
-          {['Базовый', 'Комфорт', 'Бизнес'].map((groupName) => (
-            handles[groupName] && (
-              <option key={groupName} value={groupName}>
-                {groupName}
-              </option>
-            )
-          ))}
-        </select>
-
-        {/* Селект ручки */}
-        <select
-          value={value}
-          onChange={(e) => handleHandleSelect(e.target.value)}
-          disabled={disabled || !selectedGroup}
-          className={`flex-1 border border-black/20 px-3 py-2 text-black ${disabled || !selectedGroup ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
-        >
-          <option value="">Выберите ручку</option>
-          {currentGroupHandles.map((handle) => (
-            <option key={handle.id} value={handle.id}>
-              Ручка {handle.name} {handle.showroom ? '●' : '○'}
-            </option>
-          ))}
-        </select>
-
-        {/* Цена и информация */}
-        <div className="flex items-center gap-2">
-          {selectedHandle && (
-            <button
-              type="button"
-              onClick={() => setShowInfo(!showInfo)}
-              className="text-gray-500 hover:text-gray-700 transition-colors"
-              title="Показать информацию"
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-            </button>
-          )}
-          <div className="text-sm font-medium text-gray-900 min-w-[80px] text-right">
-            {displayPrice ? `${displayPrice} ₽` : '—'}
-          </div>
-        </div>
-      </div>
-
-      {/* Информация о ручке */}
-      {showInfo && selectedHandle && (
-        <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded text-sm text-gray-700">
-          <div className="space-y-1">
-            <div><span className="font-medium">Поставщик:</span> {selectedHandle.supplier || 'Не указан'}</div>
-            <div><span className="font-medium">Наименование:</span> {selectedHandle.factoryName || 'Не указано'}</div>
-            <div><span className="font-medium">Артикул:</span> {selectedHandle.article || 'Не указан'}</div>
-            <div><span className="font-medium">Наличие в шоуруме:</span> {selectedHandle.showroom ? 'Да' : 'Нет'}</div>
-          </div>
-        </div>
-      )}
-
-      {/* Кнопка сброса выбора */}
-      {selectedHandle && (
-        <button
-          type="button"
-          onClick={resetSelection}
-          className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
-        >
-          Выбрать другую ручку
-        </button>
-      )}
-    </div>
-  );
-}
-
-function SelectMini({
-  label,
-  value,
-  onChange,
-  options,
-  allowEmpty = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: string[];
-  allowEmpty?: boolean;
-}) {
-  return (
-    <label className="text-xs space-y-1">
-      <div className="text-gray-600">{label}</div>
-      <select
-        value={value}
-        onChange={(e) => onChange((e.target as HTMLSelectElement).value)}
-        className="w-full border border-black/20 px-2 py-1 text-xs text-black"
-      >
-        {allowEmpty && <option value="">—</option>}
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
+// Компоненты DoorCard, StickyPreview, Select, HardwareSelect, HandleSelect, SelectMini
+// теперь импортируются из @/components/doors
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 // GET /api/documents/[id]/related - Получение связанных документов
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -8,7 +9,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { searchParams } = new URL(req.url);
     const type = searchParams.get('type') || 'all';
 
-    console.log(`🔍 Получаем связанные документы для ${id}, тип: ${type}`);
+    logger.debug('Получаем связанные документы', 'documents/[id]/related', { id, type });
 
     // Сначала определяем тип текущего документа
     let currentDoc = null;
@@ -56,14 +57,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     if (!currentDoc) {
-      console.log(`❌ Документ с ID ${id} не найден`);
+      logger.warn('Документ не найден', 'documents/[id]/related', { id });
       return NextResponse.json(
         { error: 'Документ не найден' },
         { status: 404 }
       );
     }
 
-    console.log(`✅ Найден документ типа ${currentType}`);
+    logger.debug('Найден документ', 'documents/[id]/related', { id, currentType });
 
     const relatedDocs = [];
 
@@ -152,7 +153,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       );
     }
 
-    console.log(`✅ Найдено ${relatedDocs.length} связанных документов`);
+    logger.debug('Найдено связанных документов', 'documents/[id]/related', { id, currentType, relatedDocsCount: relatedDocs.length });
 
     return NextResponse.json({
       success: true,
@@ -167,7 +168,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     });
 
   } catch (error) {
-    console.error('❌ Ошибка получения связанных документов:', error);
+    logger.error('Ошибка получения связанных документов', 'documents/[id]/related', error instanceof Error ? { error: error.message, stack: error.stack, id } : { error: String(error), id });
     return NextResponse.json(
       { error: 'Ошибка при получении связанных документов' },
       { status: 500 }

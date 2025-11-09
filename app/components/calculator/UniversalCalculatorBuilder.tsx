@@ -319,7 +319,7 @@ export default function UniversalCalculatorBuilder() {
         alert('Ошибка при сохранении');
       }
     } catch (error) {
-      console.error('Ошибка сохранения:', error);
+      clientLogger.error('Ошибка сохранения:', error);
       alert('Ошибка при сохранении');
     }
   }, [config]);

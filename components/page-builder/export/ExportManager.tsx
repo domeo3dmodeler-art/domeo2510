@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { DocumentData, ExportOptions, ExportResult } from '../types';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface ExportManagerProps {
   document: DocumentData;
@@ -33,7 +34,7 @@ export function ExportManager({ document, onExport }: ExportManagerProps) {
         downloadFile(result.data, result.filename || 'export', result.mimeType);
       }
     } catch (error) {
-      console.error('Export error:', error);
+      clientLogger.error('Export error', error instanceof Error ? error : new Error(String(error)));
       setExportResult({
         success: false,
         error: 'Ошибка экспорта'

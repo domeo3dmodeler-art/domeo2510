@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, Prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 // PUT /api/applications/[id]/door-dimensions - Обновление данных дверей
 // ⚠️ DEPRECATED: Используйте PUT /api/orders/[id]/door-dimensions напрямую
@@ -44,7 +45,7 @@ export async function PUT(
     }
 
     // Формируем данные для обновления
-    const updateData: any = {};
+    const updateData: Prisma.OrderUpdateInput = {};
 
     if (door_dimensions !== undefined) {
       updateData.door_dimensions = JSON.stringify(door_dimensions);
@@ -108,7 +109,7 @@ export async function PUT(
     });
 
   } catch (error) {
-    console.error('Error updating door dimensions:', error);
+    logger.error('Error updating door dimensions', 'applications/[id]/door-dimensions', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Ошибка обновления данных дверей' },
       { status: 500 }

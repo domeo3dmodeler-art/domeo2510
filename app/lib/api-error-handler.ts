@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logger } from '@/lib/logging/logger';
 
 export interface ApiError {
   code: string;
@@ -9,7 +10,7 @@ export interface ApiError {
 
 export class ApiErrorHandler {
   static handle(error: unknown, context?: string): NextResponse {
-    console.error(`API Error${context ? ` in ${context}` : ''}:`, error);
+    logger.error(`API Error${context ? ` in ${context}` : ''}:`, error);
 
     // Prisma ошибки
     if (error && typeof error === 'object' && 'code' in error) {

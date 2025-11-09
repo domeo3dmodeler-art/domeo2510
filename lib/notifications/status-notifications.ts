@@ -1,6 +1,8 @@
 // lib/notifications/status-notifications.ts
 // Система уведомлений при изменении статусов документов
 
+import { logger } from '../logging/logger';
+
 export const STATUS_NOTIFICATIONS = {
   quote: {
     'SENT': {
@@ -88,7 +90,7 @@ export async function sendStatusNotification(
   newStatus: string,
   clientId: string
 ) {
-  console.log('📧 sendStatusNotification вызвана:', {
+  logger.debug('sendStatusNotification вызвана', 'status-notifications', {
     documentId,
     documentType,
     documentNumber,
@@ -99,29 +101,29 @@ export async function sendStatusNotification(
 
   const notificationConfig = STATUS_NOTIFICATIONS[documentType as keyof typeof STATUS_NOTIFICATIONS];
   if (!notificationConfig) {
-    console.warn('⚠️ Нет конфигурации уведомлений для типа документа:', documentType);
+    logger.warn('Нет конфигурации уведомлений для типа документа', 'status-notifications', { documentType });
     return;
   }
   
   if (!notificationConfig[newStatus as keyof typeof notificationConfig]) {
-    console.warn('⚠️ Нет конфигурации уведомлений для статуса:', { documentType, newStatus });
+    logger.warn('Нет конфигурации уведомлений для статуса', 'status-notifications', { documentType, newStatus });
     return;
   }
   
   const config = notificationConfig[newStatus as keyof typeof notificationConfig];
-  console.log('📋 Конфигурация уведомления:', config);
+  logger.debug('Конфигурация уведомления', 'status-notifications', { config, documentType, newStatus });
   
   // Импортируем настоящую функцию из lib/notifications
   const { notifyUsersByRole } = await import('@/lib/notifications');
   
   for (const recipient of config.recipients) {
-    console.log(`📤 Отправка уведомления получателю: ${recipient}`);
+    logger.debug('Отправка уведомления получателю', 'status-notifications', { recipient, documentId, documentType, newStatus });
     
     if (recipient === 'client') {
       // Клиенты не заходят в систему, пропускаем уведомление
-      console.log(`ℹ️ Уведомление клиенту ${clientId}: ${config.message} (пропущено, клиенты не заходят в систему)`);
+      logger.debug('Уведомление клиенту (пропущено, клиенты не заходят в систему)', 'status-notifications', { clientId, message: config.message });
     } else if (recipient === 'complectator') {
-      console.log('👥 Отправка уведомления всем COMPLECTATOR');
+      logger.debug('Отправка уведомления всем COMPLECTATOR', 'status-notifications', { documentId, documentType, newStatus });
       await notifyUsersByRole('COMPLECTATOR', {
         clientId: clientId || undefined,
         documentId,
@@ -130,7 +132,7 @@ export async function sendStatusNotification(
         message: `${config.message} Документ: ${documentNumber}`
       });
     } else if (recipient === 'executor') {
-      console.log('👥 Отправка уведомления всем EXECUTOR');
+      logger.debug('Отправка уведомления всем EXECUTOR', 'status-notifications', { documentId, documentType, newStatus });
       await notifyUsersByRole('EXECUTOR', {
         clientId: clientId || undefined,
         documentId,
@@ -139,7 +141,7 @@ export async function sendStatusNotification(
         message: `${config.message} Документ: ${documentNumber}`
       });
     } else if (recipient === 'manager') {
-      console.log('👥 Отправка уведомления всем MANAGER');
+      logger.debug('Отправка уведомления всем MANAGER', 'status-notifications', { documentId, documentType, newStatus });
       await notifyUsersByRole('MANAGER', {
         clientId: clientId || undefined,
         documentId,
@@ -150,5 +152,5 @@ export async function sendStatusNotification(
     }
   }
   
-  console.log('✅ sendStatusNotification завершена');
+  logger.debug('sendStatusNotification завершена', 'status-notifications', { documentId, documentType, newStatus });
 }

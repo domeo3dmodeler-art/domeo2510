@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Download, FileText, User, MapPin, Clock, Package, Upload, CheckCircle, AlertCircle, Building2, ChevronDown } from 'lucide-react';
 import { getStatusLabel, ORDER_STATUSES_COMPLECTATOR } from '@/lib/utils/document-statuses';
 import { getValidTransitions } from '@/lib/validation/status-transitions';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface OrderDetailsModalProps {
   isOpen: boolean;
@@ -92,7 +93,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
   const [newStatus, setNewStatus] = useState<string>('');
   const [changingStatus, setChangingStatus] = useState(false);
 
-  console.log('🔵 OrderDetailsModal render:', {
+  clientLogger.debug('🔵 OrderDetailsModal render:', {
     isOpen,
     orderId,
     userRole,
@@ -120,7 +121,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         onClose();
       }
     } catch (error) {
-      console.error('Error fetching order:', error);
+      clientLogger.error('Error fetching order:', error);
       toast.error('Ошибка при загрузке заказа');
       onClose();
     } finally {
@@ -141,7 +142,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         }
       }
     } catch (error) {
-      console.error('Error fetching quotes:', error);
+      clientLogger.error('Error fetching quotes:', error);
     }
   }, [orderId]);
 
@@ -170,7 +171,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
       const executorStatuses = ['NEW_PLANNED', 'UNDER_REVIEW', 'AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'COMPLETED'];
       const canManage = !executorStatuses.includes(orderStatus);
       
-      console.log('📊 getDisplayStatus for complectator:', {
+      clientLogger.debug('📊 getDisplayStatus for complectator:', {
         orderStatus,
         canManage,
         orderId: order.id,
@@ -207,7 +208,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         }
         return [];
       } catch (e) {
-        console.error('Error parsing cart_data:', e);
+        clientLogger.error('Error parsing cart_data:', e);
       }
     }
     
@@ -224,7 +225,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         }
         return [];
       } catch (e) {
-        console.error('Error parsing invoice cart_data:', e);
+        clientLogger.error('Error parsing invoice cart_data:', e);
       }
     }
     
@@ -275,7 +276,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
       filteredTransitions.push('CANCELLED');
     }
     
-    console.log('📋 getAvailableStatuses:', {
+    clientLogger.debug('📋 getAvailableStatuses:', {
       currentStatus,
       canCancel,
       allTransitions,
@@ -291,11 +292,11 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
   // Обработчик изменения статуса заказа
   const handleStatusChange = async () => {
     if (!order || !newStatus) {
-      console.error('handleStatusChange: missing order or newStatus', { order: !!order, newStatus });
+      clientLogger.error('handleStatusChange: missing order or newStatus', { order: !!order, newStatus });
       return;
     }
     
-    console.log('handleStatusChange: starting', {
+    clientLogger.debug('handleStatusChange: starting', {
       orderId: order.id,
       currentStatus: order.status,
       newStatus
@@ -313,7 +314,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         })
       });
 
-      console.log('handleStatusChange: response', {
+      clientLogger.debug('handleStatusChange: response', {
         ok: response.ok,
         status: response.status,
         statusText: response.statusText
@@ -321,7 +322,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
 
       if (response.ok) {
         const data = await response.json();
-        console.log('handleStatusChange: success', data);
+        clientLogger.debug('handleStatusChange: success', data);
         toast.success('Статус заказа успешно изменен');
         setShowStatusChangeModal(false);
         setNewStatus('');
@@ -329,11 +330,11 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         await fetchOrder();
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
-        console.error('handleStatusChange: error', errorData);
+        clientLogger.error('handleStatusChange: error', errorData);
         toast.error(`Ошибка при изменении статуса: ${errorData.error || 'Неизвестная ошибка'}`);
       }
     } catch (error) {
-      console.error('Error changing order status:', error);
+      clientLogger.error('Error changing order status:', error);
       toast.error('Ошибка при изменении статуса заказа');
     } finally {
       setChangingStatus(false);
@@ -394,7 +395,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         sum + (item.unitPrice || 0) * (item.qty || 1), 0
       );
 
-      console.log('Export Invoice Request:', {
+      clientLogger.debug('Export Invoice Request:', {
         type: 'invoice',
         format: 'pdf',
         clientId: order.client.id,
@@ -419,7 +420,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         })
       });
       
-      console.log('Export Invoice Response:', {
+      clientLogger.debug('Export Invoice Response:', {
         ok: response.ok,
         status: response.status,
         statusText: response.statusText,
@@ -429,7 +430,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
       if (response.ok) {
         const blob = await response.blob();
         
-        console.log('Export Invoice Blob:', {
+        clientLogger.debug('Export Invoice Blob:', {
           size: blob.size,
           type: blob.type
         });
@@ -453,15 +454,15 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
-          console.error('Export Invoice Error Response:', errorData);
+          clientLogger.error('Export Invoice Error Response:', errorData);
         } catch (parseError) {
           errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-          console.error('Export Invoice Error Parse:', parseError);
+          clientLogger.error('Export Invoice Error Parse:', parseError);
         }
         toast.error(`Ошибка при экспорте счета: ${errorMessage}`);
       }
     } catch (error: any) {
-      console.error('Error exporting invoice:', error);
+      clientLogger.error('Error exporting invoice:', error);
       toast.error(`Ошибка при экспорте счета: ${error.message || 'Неизвестная ошибка'}`);
     } finally {
       setExportingInvoice(false);
@@ -522,7 +523,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         sum + (item.unitPrice || 0) * (item.qty || 1), 0
       );
 
-      console.log('Export Quote Request:', {
+      clientLogger.debug('Export Quote Request:', {
         type: 'quote',
         format: 'pdf',
         clientId: order.client.id,
@@ -547,7 +548,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         })
       });
       
-      console.log('Export Quote Response:', {
+      clientLogger.debug('Export Quote Response:', {
         ok: response.ok,
         status: response.status,
         statusText: response.statusText,
@@ -557,7 +558,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
       if (response.ok) {
         const blob = await response.blob();
         
-        console.log('Export Quote Blob:', {
+        clientLogger.debug('Export Quote Blob:', {
           size: blob.size,
           type: blob.type
         });
@@ -581,15 +582,15 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
-          console.error('Export Quote Error Response:', errorData);
+          clientLogger.error('Export Quote Error Response:', errorData);
         } catch (parseError) {
           errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-          console.error('Export Quote Error Parse:', parseError);
+          clientLogger.error('Export Quote Error Parse:', parseError);
         }
         toast.error(`Ошибка при экспорте КП: ${errorMessage}`);
       }
     } catch (error: any) {
-      console.error('Error exporting quote:', error);
+      clientLogger.error('Error exporting quote:', error);
       toast.error(`Ошибка при экспорте КП: ${error.message || 'Неизвестная ошибка'}`);
     } finally {
       setExportingQuote(null);
@@ -603,7 +604,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
   const availableStatuses = getAvailableStatuses(); // Вычисляем один раз для использования в нескольких местах
 
   // Отладочная информация
-  console.log('OrderDetailsModal Debug:', {
+  clientLogger.debug('OrderDetailsModal Debug:', {
     order: order ? { id: order.id, number: order.number, status: order.status } : null,
     userRole,
     displayStatus,
@@ -618,7 +619,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
   
   // Дополнительное логирование для отладки
   if (userRole === 'complectator' && order) {
-    console.log('🔍 Complectator Status Debug:', {
+    clientLogger.debug('🔍 Complectator Status Debug:', {
       orderStatus: order.status,
       canManage: displayStatus?.canManage,
       availableStatuses,

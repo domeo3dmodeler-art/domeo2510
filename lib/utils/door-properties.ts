@@ -6,25 +6,26 @@
  */
 
 import { DOOR_PROPERTIES, TECHNICAL_PROPERTIES, type DoorPropertyKey } from '../constants/door-properties';
+import { logger } from '../logging/logger';
 
 /**
  * Парсит properties_data из базы данных
  * @param propertiesData - Строка JSON или объект с данными свойств
  * @returns Объект с распарсенными свойствами
  */
-export function parseProductProperties(propertiesData: string | object): Record<string, any> {
+export function parseProductProperties(propertiesData: string | object): Record<string, unknown> {
   if (!propertiesData) return {};
   
   if (typeof propertiesData === 'string') {
     try {
       return JSON.parse(propertiesData);
     } catch (error) {
-      console.warn('Failed to parse properties_data:', error);
+      logger.warn('Failed to parse properties_data', 'door-properties', { error: error instanceof Error ? error.message : String(error) });
       return {};
     }
   }
   
-  return propertiesData;
+  return propertiesData as Record<string, unknown>;
 }
 
 /**
@@ -33,7 +34,7 @@ export function parseProductProperties(propertiesData: string | object): Record<
  * @param key - Ключ свойства из DOOR_PROPERTIES
  * @returns Значение свойства или undefined
  */
-export function getDoorProperty(properties: Record<string, any>, key: DoorPropertyKey): any {
+export function getDoorProperty(properties: Record<string, unknown>, key: DoorPropertyKey): unknown {
   const propertyKey = DOOR_PROPERTIES[key];
   return properties[propertyKey];
 }
@@ -44,7 +45,7 @@ export function getDoorProperty(properties: Record<string, any>, key: DoorProper
  * @param key - Ключ свойства из DOOR_PROPERTIES
  * @returns Значение свойства или undefined
  */
-export function getDoorPropertyWithFallback(properties: Record<string, any>, key: DoorPropertyKey): any {
+export function getDoorPropertyWithFallback(properties: Record<string, unknown>, key: DoorPropertyKey): unknown {
   // Используем только канонические названия после миграции
   return getDoorProperty(properties, key);
 }
@@ -56,8 +57,9 @@ export function getDoorPropertyWithFallback(properties: Record<string, any>, key
  * @param properties - Объект со свойствами товара
  * @returns Название модели или undefined
  */
-export function getDoorModel(properties: Record<string, any>): string | undefined {
-  return getDoorPropertyWithFallback(properties, 'MODEL');
+export function getDoorModel(properties: Record<string, unknown>): string | undefined {
+  const value = getDoorPropertyWithFallback(properties, 'MODEL');
+  return typeof value === 'string' ? value : undefined;
 }
 
 /**
@@ -65,8 +67,9 @@ export function getDoorModel(properties: Record<string, any>): string | undefine
  * @param properties - Объект со свойствами товара
  * @returns Стиль двери или undefined
  */
-export function getDoorStyle(properties: Record<string, any>): string | undefined {
-  return getDoorPropertyWithFallback(properties, 'STYLE');
+export function getDoorStyle(properties: Record<string, unknown>): string | undefined {
+  const value = getDoorPropertyWithFallback(properties, 'STYLE');
+  return typeof value === 'string' ? value : undefined;
 }
 
 /**
@@ -74,8 +77,9 @@ export function getDoorStyle(properties: Record<string, any>): string | undefine
  * @param properties - Объект со свойствами товара
  * @returns Цвет двери или undefined
  */
-export function getDoorColor(properties: Record<string, any>): string | undefined {
-  return getDoorPropertyWithFallback(properties, 'COLOR');
+export function getDoorColor(properties: Record<string, unknown>): string | undefined {
+  const value = getDoorPropertyWithFallback(properties, 'COLOR');
+  return typeof value === 'string' ? value : undefined;
 }
 
 /**
@@ -83,8 +87,9 @@ export function getDoorColor(properties: Record<string, any>): string | undefine
  * @param properties - Объект со свойствами товара
  * @returns Тип покрытия или undefined
  */
-export function getDoorFinish(properties: Record<string, any>): string | undefined {
-  return getDoorPropertyWithFallback(properties, 'COATING_TYPE');
+export function getDoorFinish(properties: Record<string, unknown>): string | undefined {
+  const value = getDoorPropertyWithFallback(properties, 'COATING_TYPE');
+  return typeof value === 'string' ? value : undefined;
 }
 
 /**
@@ -92,8 +97,9 @@ export function getDoorFinish(properties: Record<string, any>): string | undefin
  * @param properties - Объект со свойствами товара
  * @returns Тип конструкции или undefined
  */
-export function getDoorConstructionType(properties: Record<string, any>): string | undefined {
-  return getDoorPropertyWithFallback(properties, 'CONSTRUCTION_TYPE');
+export function getDoorConstructionType(properties: Record<string, unknown>): string | undefined {
+  const value = getDoorPropertyWithFallback(properties, 'CONSTRUCTION_TYPE');
+  return typeof value === 'string' ? value : undefined;
 }
 
 /**
@@ -101,7 +107,7 @@ export function getDoorConstructionType(properties: Record<string, any>): string
  * @param properties - Объект со свойствами товара
  * @returns Ширина в мм или undefined
  */
-export function getDoorWidth(properties: Record<string, any>): number | undefined {
+export function getDoorWidth(properties: Record<string, unknown>): number | undefined {
   const width = getDoorPropertyWithFallback(properties, 'WIDTH_MM');
   return width ? Number(width) : undefined;
 }
@@ -111,7 +117,7 @@ export function getDoorWidth(properties: Record<string, any>): number | undefine
  * @param properties - Объект со свойствами товара
  * @returns Высота в мм или undefined
  */
-export function getDoorHeight(properties: Record<string, any>): number | undefined {
+export function getDoorHeight(properties: Record<string, unknown>): number | undefined {
   const height = getDoorPropertyWithFallback(properties, 'HEIGHT_MM');
   return height ? Number(height) : undefined;
 }
@@ -121,7 +127,7 @@ export function getDoorHeight(properties: Record<string, any>): number | undefin
  * @param properties - Объект со свойствами товара
  * @returns Толщина в мм или undefined
  */
-export function getDoorThickness(properties: Record<string, any>): number | undefined {
+export function getDoorThickness(properties: Record<string, unknown>): number | undefined {
   const thickness = getDoorPropertyWithFallback(properties, 'THICKNESS_MM');
   return thickness ? Number(thickness) : undefined;
 }
@@ -131,9 +137,9 @@ export function getDoorThickness(properties: Record<string, any>): number | unde
  * @param properties - Объект со свойствами товара
  * @returns Розничная цена или undefined
  */
-export function getDoorRetailPrice(properties: Record<string, any>): number | undefined {
+export function getDoorRetailPrice(properties: Record<string, unknown>): number | undefined {
   const price = getDoorPropertyWithFallback(properties, 'RETAIL_PRICE');
-  return price ? parseFloat(price) : undefined;
+  return price ? parseFloat(String(price)) : undefined;
 }
 
 /**
@@ -141,9 +147,9 @@ export function getDoorRetailPrice(properties: Record<string, any>): number | un
  * @param properties - Объект со свойствами товара
  * @returns Оптовая цена или undefined
  */
-export function getDoorWholesalePrice(properties: Record<string, any>): number | undefined {
+export function getDoorWholesalePrice(properties: Record<string, unknown>): number | undefined {
   const price = getDoorPropertyWithFallback(properties, 'WHOLESALE_PRICE');
-  return price ? parseFloat(price) : undefined;
+  return price ? parseFloat(String(price)) : undefined;
 }
 
 /**
@@ -151,8 +157,9 @@ export function getDoorWholesalePrice(properties: Record<string, any>): number |
  * @param properties - Объект со свойствами товара
  * @returns Артикул поставщика или undefined
  */
-export function getDoorSupplierArticle(properties: Record<string, any>): string | undefined {
-  return getDoorPropertyWithFallback(properties, 'SUPPLIER_ARTICLE');
+export function getDoorSupplierArticle(properties: Record<string, unknown>): string | undefined {
+  const value = getDoorPropertyWithFallback(properties, 'SUPPLIER_ARTICLE');
+  return typeof value === 'string' ? value : undefined;
 }
 
 /**
@@ -160,8 +167,9 @@ export function getDoorSupplierArticle(properties: Record<string, any>): string 
  * @param properties - Объект со свойствами товара
  * @returns Название поставщика или undefined
  */
-export function getDoorSupplier(properties: Record<string, any>): string | undefined {
-  return getDoorPropertyWithFallback(properties, 'SUPPLIER');
+export function getDoorSupplier(properties: Record<string, unknown>): string | undefined {
+  const value = getDoorPropertyWithFallback(properties, 'SUPPLIER');
+  return typeof value === 'string' ? value : undefined;
 }
 
 /**
@@ -169,8 +177,9 @@ export function getDoorSupplier(properties: Record<string, any>): string | undef
  * @param properties - Объект со свойствами товара
  * @returns Фабрика/коллекция или undefined
  */
-export function getDoorFactoryCollection(properties: Record<string, any>): string | undefined {
-  return getDoorPropertyWithFallback(properties, 'FACTORY_COLLECTION');
+export function getDoorFactoryCollection(properties: Record<string, unknown>): string | undefined {
+  const value = getDoorPropertyWithFallback(properties, 'FACTORY_COLLECTION');
+  return typeof value === 'string' ? value : undefined;
 }
 
 // ===================== Утилиты для фильтрации =====================
@@ -181,7 +190,7 @@ export function getDoorFactoryCollection(properties: Record<string, any>): strin
  * @param style - Искомый стиль
  * @returns true если соответствует
  */
-export function matchesDoorStyle(properties: Record<string, any>, style?: string): boolean {
+export function matchesDoorStyle(properties: Record<string, unknown>, style?: string): boolean {
   if (!style) return true;
   const doorStyle = getDoorStyle(properties);
   return doorStyle === style;
@@ -193,7 +202,7 @@ export function matchesDoorStyle(properties: Record<string, any>, style?: string
  * @param model - Искомая модель
  * @returns true если соответствует
  */
-export function matchesDoorModel(properties: Record<string, any>, model?: string): boolean {
+export function matchesDoorModel(properties: Record<string, unknown>, model?: string): boolean {
   if (!model) return true;
   const doorModel = getDoorModel(properties);
   return doorModel?.includes(model) || false;
@@ -205,7 +214,7 @@ export function matchesDoorModel(properties: Record<string, any>, model?: string
  * @param finish - Искомое покрытие
  * @returns true если соответствует
  */
-export function matchesDoorFinish(properties: Record<string, any>, finish?: string): boolean {
+export function matchesDoorFinish(properties: Record<string, unknown>, finish?: string): boolean {
   if (!finish) return true;
   const doorFinish = getDoorFinish(properties);
   return doorFinish === finish;
@@ -217,7 +226,7 @@ export function matchesDoorFinish(properties: Record<string, any>, finish?: stri
  * @param color - Искомый цвет
  * @returns true если соответствует
  */
-export function matchesDoorColor(properties: Record<string, any>, color?: string): boolean {
+export function matchesDoorColor(properties: Record<string, unknown>, color?: string): boolean {
   if (!color) return true;
   const doorColor = getDoorColor(properties);
   return doorColor === color;
@@ -229,7 +238,7 @@ export function matchesDoorColor(properties: Record<string, any>, color?: string
  * @param width - Искомая ширина
  * @returns true если соответствует
  */
-export function matchesDoorWidth(properties: Record<string, any>, width?: number): boolean {
+export function matchesDoorWidth(properties: Record<string, unknown>, width?: number): boolean {
   if (!width) return true;
   const doorWidth = getDoorWidth(properties);
   return doorWidth === width;
@@ -241,7 +250,7 @@ export function matchesDoorWidth(properties: Record<string, any>, width?: number
  * @param height - Искомая высота
  * @returns true если соответствует
  */
-export function matchesDoorHeight(properties: Record<string, any>, height?: number): boolean {
+export function matchesDoorHeight(properties: Record<string, unknown>, height?: number): boolean {
   if (!height) return true;
   const doorHeight = getDoorHeight(properties);
   return doorHeight === height;
@@ -253,7 +262,7 @@ export function matchesDoorHeight(properties: Record<string, any>, height?: numb
  * @param type - Искомый тип конструкции
  * @returns true если соответствует
  */
-export function matchesDoorConstructionType(properties: Record<string, any>, type?: string): boolean {
+export function matchesDoorConstructionType(properties: Record<string, unknown>, type?: string): boolean {
   if (!type) return true;
   const doorType = getDoorConstructionType(properties);
   return doorType === type;
@@ -266,8 +275,8 @@ export function matchesDoorConstructionType(properties: Record<string, any>, typ
  * @param properties - Объект со свойствами товара
  * @returns Объект с отфильтрованными свойствами
  */
-export function getExportableProperties(properties: Record<string, any>): Record<string, any> {
-  const exportable: Record<string, any> = {};
+export function getExportableProperties(properties: Record<string, unknown>): Record<string, unknown> {
+  const exportable: Record<string, unknown> = {};
   
   Object.entries(properties).forEach(([key, value]) => {
     // Исключаем технические свойства
@@ -337,7 +346,7 @@ export function getUniqueNumericPropertyValues(products: Array<{ properties_data
  * @param properties - Объект со свойствами товара
  * @returns true если все свойства присутствуют
  */
-export function hasRequiredCalculatorProperties(properties: Record<string, any>): boolean {
+export function hasRequiredCalculatorProperties(properties: Record<string, unknown>): boolean {
   return !!(
     getDoorStyle(properties) &&
     getDoorModel(properties) &&
@@ -354,7 +363,7 @@ export function hasRequiredCalculatorProperties(properties: Record<string, any>)
  * @param properties - Объект со свойствами товара
  * @returns true если базовые свойства присутствуют
  */
-export function hasBasicProperties(properties: Record<string, any>): boolean {
+export function hasBasicProperties(properties: Record<string, unknown>): boolean {
   return !!(
     getDoorModel(properties) &&
     getDoorRetailPrice(properties)

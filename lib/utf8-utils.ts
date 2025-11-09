@@ -15,7 +15,17 @@ export function encodeUTF8(str: string): string {
     // Убеждаемся, что строка правильно обработана
     return Buffer.from(str, 'utf8').toString('utf8');
   } catch (error) {
-    console.warn('Ошибка кодировки UTF-8:', error);
+    // Используем logger если доступен (серверная среда)
+    if (typeof window === 'undefined') {
+      try {
+        const { logger } = require('./logging/logger');
+        logger.warn('Ошибка кодировки UTF-8', 'utf8-utils', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+      } catch {
+        // Fallback для случаев, когда logger недоступен
+        // В production коде это не должно происходить
+      }
+    }
+    // В клиентской среде просто возвращаем исходную строку без логирования
     return str;
   }
 }
@@ -37,7 +47,17 @@ export function decodeUTF8(str: string): string {
     
     return str;
   } catch (error) {
-    console.warn('Ошибка декодирования UTF-8:', error);
+    // Используем logger если доступен (серверная среда)
+    if (typeof window === 'undefined') {
+      try {
+        const { logger } = require('./logging/logger');
+        logger.warn('Ошибка декодирования UTF-8', 'utf8-utils', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+      } catch {
+        // Fallback для случаев, когда logger недоступен
+        // В production коде это не должно происходить
+      }
+    }
+    // В клиентской среде просто возвращаем исходную строку без логирования
     return str;
   }
 }
@@ -61,7 +81,7 @@ export function processUTF8Array(arr: string[]): string[] {
 /**
  * Обрабатывает объект с правильной кодировкой
  */
-export function processUTF8Object(obj: any): any {
+export function processUTF8Object(obj: unknown): unknown {
   if (obj === null || obj === undefined) {
     return obj;
   }
@@ -75,7 +95,7 @@ export function processUTF8Object(obj: any): any {
   }
   
   if (typeof obj === 'object') {
-    const result: any = {};
+    const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
       result[encodeUTF8(key)] = processUTF8Object(value);
     }
@@ -88,7 +108,7 @@ export function processUTF8Object(obj: any): any {
 /**
  * Создает правильный JSON ответ с UTF-8 кодировкой
  */
-export function createUTF8Response(data: any, status: number = 200) {
+export function createUTF8Response(data: unknown, status: number = 200) {
   const processedData = processUTF8Object(data);
   
   return new Response(JSON.stringify(processedData), {

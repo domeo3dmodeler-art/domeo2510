@@ -5,6 +5,7 @@ import { Search, Plus, ShoppingCart, Filter, X } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { CartService } from '../../lib/cart/cart-service';
 import { CartItem } from '../../lib/cart/types';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface Product {
   id: string;
@@ -54,7 +55,7 @@ export default function ProductSelector({ onProductAdded, className = "" }: Prod
         setCategories(data.categories || []);
       }
     } catch (error) {
-      console.error('Error loading categories:', error);
+      clientLogger.error('Error loading categories:', error);
     }
   };
 
@@ -72,7 +73,7 @@ export default function ProductSelector({ onProductAdded, className = "" }: Prod
         setProducts(data.products || []);
       }
     } catch (error) {
-      console.error('Error loading products:', error);
+      clientLogger.error('Error loading products:', error);
     } finally {
       setIsLoading(false);
     }
@@ -132,7 +133,7 @@ export default function ProductSelector({ onProductAdded, className = "" }: Prod
       }
 
     } catch (error) {
-      console.error('Error adding product to cart:', error);
+      clientLogger.error('Error adding product to cart:', error);
       alert('Ошибка при добавлении товара в корзину');
     }
   };

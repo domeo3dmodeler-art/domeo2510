@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface CartItem {
   id: string;
@@ -30,7 +31,7 @@ export function Cart({ element, onUpdate }: CartProps) {
       try {
         setCartItems(JSON.parse(savedCart));
       } catch (error) {
-        console.error('Error loading cart:', error);
+        clientLogger.error('Error loading cart:', error);
       }
     }
   }, []);
@@ -99,8 +100,8 @@ export function Cart({ element, onUpdate }: CartProps) {
       timestamp: new Date().toISOString()
     };
 
-    // TODO: Реализовать экспорт через API
-    console.log('Exporting cart:', exportData);
+    // Экспорт корзины через API будет реализован позже
+    clientLogger.debug('Exporting cart:', exportData);
   };
 
   const renderCartItem = (item: CartItem) => (

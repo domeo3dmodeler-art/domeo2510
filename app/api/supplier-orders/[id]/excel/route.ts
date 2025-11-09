@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 import ExcelJS from 'exceljs';
 
 // Поиск ручки в БД по ID
 async function findHandleById(handleId: string) {
-  console.log('🔧 Ищем ручку по ID:', handleId);
+  logger.debug('Ищем ручку по ID', 'supplier-orders/excel', { handleId });
   
   const handle = await prisma.product.findFirst({
     where: {
@@ -15,10 +16,10 @@ async function findHandleById(handleId: string) {
   });
 
   if (handle) {
-    console.log('✅ Найдена ручка:', handle.sku);
+    logger.debug('Найдена ручка', 'supplier-orders/excel', { sku: handle.sku });
     return [handle];
   } else {
-    console.log('❌ Ручка не найдена в БД');
+    logger.debug('Ручка не найдена в БД', 'supplier-orders/excel', { handleId });
     return [];
   }
 }
@@ -46,8 +47,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Supplier order not found' }, { status: 404 });
     }
 
-    console.log('📦 Supplier order cart_data:', supplierOrder.cart_data);
-    console.log('📦 Supplier order ID:', supplierOrder.id);
+    logger.debug('Supplier order cart_data', 'supplier-orders/excel', { supplierOrderId: supplierOrder.id, hasCartData: !!supplierOrder.cart_data });
 
     // Получаем связанный Order и клиента через Order
     // SupplierOrder связан с Order через parent_document_id
@@ -91,7 +91,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (supplierOrder.cart_data) {
       try {
         const parsedData = JSON.parse(supplierOrder.cart_data);
-        console.log('📦 Parsed cart data:', parsedData);
+        logger.debug('Parsed cart data', 'supplier-orders/excel', { itemsCount: Array.isArray(parsedData) ? parsedData.length : parsedData.items?.length || 1 });
         
         // Проверяем, является ли это массивом товаров или объектом с items
         if (Array.isArray(parsedData)) {
@@ -104,9 +104,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           // Если это объект без items, оборачиваем в items
           cartData = { items: [parsedData] };
         }
-        console.log('📦 Final cart data:', cartData);
+        logger.debug('Final cart data', 'supplier-orders/excel', { itemsCount: cartData.items?.length || 0 });
       } catch (error) {
-        console.error('Error parsing cart_data:', error);
+        logger.error('Error parsing cart_data', 'supplier-orders/excel', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
       }
     }
 
@@ -167,7 +167,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     });
 
   } catch (error) {
-    console.error('Error generating Excel for supplier order:', error);
+    logger.error('Error generating Excel for supplier order', 'supplier-orders/excel', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Failed to generate Excel file' },
       { status: 500 }
@@ -178,12 +178,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 // Генерация Excel файла с использованием шаблона категории
 async function generateExcel(data: any): Promise<Buffer> {
   const startTime = Date.now();
-  console.log('🚀 Начинаем генерацию Excel заказа у поставщика с полными свойствами...');
+  logger.info('Начинаем генерацию Excel заказа у поставщика с полными свойствами', 'supplier-orders/excel');
 
   try {
     // Получаем шаблон для дверей
     const template = await getDoorTemplate();
-    console.log('📋 Поля шаблона:', template.exportFields.length);
+    logger.debug('Поля шаблона', 'supplier-orders/excel', { exportFieldsCount: template.exportFields.length });
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Заказ у поставщика');
@@ -288,7 +288,7 @@ async function generateExcel(data: any): Promise<Buffer> {
     
     for (let i = 0; i < data.items.length; i++) {
       const item = data.items[i];
-      console.log(`📦 Обрабатываем товар ${i + 1} из корзины:`, item.name);
+      logger.debug('Обрабатываем товар из корзины', 'supplier-orders/excel', { itemIndex: i + 1, itemName: item.name, itemType: item.type });
 
       // Ищем подходящие товары в БД
       let matchingProducts: any[] = [];
@@ -300,10 +300,10 @@ async function generateExcel(data: any): Promise<Buffer> {
         const result = await findAllProductsByConfiguration(item);
         matchingProducts = result || [];
       }
-      console.log(`🔍 Для товара "${item.name}" найдено ${matchingProducts.length} подходящих товаров в БД`);
+      logger.debug('Найдено подходящих товаров в БД', 'supplier-orders/excel', { itemName: item.name, matchingProductsCount: matchingProducts.length });
       
       if (matchingProducts.length === 0) {
-        console.log('⚠️ Не найдено подходящих товаров, создаем строку с данными из корзины');
+        logger.warn('Не найдено подходящих товаров, создаем строку с данными из корзины', 'supplier-orders/excel', { itemName: item.name });
         
         // Если не найдено товаров, создаем строку с данными из корзины
         const row = worksheet.getRow(rowIndex);
@@ -348,7 +348,7 @@ async function generateExcel(data: any): Promise<Buffer> {
         rowIndex++;
       } else {
         // Создаем одну строку корзины с объединенными ячейками для данных из БД (как в оригинале!)
-        console.log(`📝 Создаем объединенную строку для товара из корзины с ${matchingProducts.length} вариантами из БД`);
+        logger.debug('Создаем объединенную строку для товара из корзины', 'supplier-orders/excel', { itemName: item.name, variantsCount: matchingProducts.length });
         
         const row = worksheet.getRow(rowIndex);
         
@@ -385,7 +385,7 @@ async function generateExcel(data: any): Promise<Buffer> {
         
         for (let productIndex = 0; productIndex < matchingProducts.length; productIndex++) {
           const productData = matchingProducts[productIndex];
-          console.log(`📝 Заполняем поля из БД для товара ${productData.sku} (${productIndex + 1}/${matchingProducts.length})`);
+          logger.debug('Заполняем поля из БД для товара', 'supplier-orders/excel', { sku: productData.sku, productIndex: productIndex + 1, totalProducts: matchingProducts.length });
           
           const currentRow = worksheet.getRow(currentRowIndex);
           let colIndex = 6; // Начинаем с 6-й колонки (после базовых)
@@ -397,8 +397,7 @@ async function generateExcel(data: any): Promise<Buffer> {
                 : productData.properties_data;
               
               // Заполняем поля в нужном порядке
-              console.log(`🔍 Тип товара: "${item.type}", Заполняем поля для ${productData.sku}`);
-              console.log(`🔍 Проверяем item.type === 'handle': ${item.type === 'handle'}`);
+              logger.debug('Тип товара, заполняем поля', 'supplier-orders/excel', { itemType: item.type, sku: productData.sku, isHandle: item.type === 'handle' });
               dbFields.forEach(fieldName => {
                 let value = '';
                 
@@ -406,42 +405,33 @@ async function generateExcel(data: any): Promise<Buffer> {
                 if (fieldName === 'Наименование у поставщика') {
                   // Для всех товаров используем правильные поля
                   value = props['Фабрика_наименование'] || props['Наименование двери у поставщика'] || props['Наименование поставщика'] || props['Наименование'] || '';
-                  console.log(`🔍 Поле "${fieldName}" заполняем: ${value}`);
                 } else if (fieldName === 'Материал/Покрытие') {
                   // Для дверей: Материал/Покрытие, для ручек: пустое
                   if (item.type === 'handle') {
                     value = ''; // Ручки не заполняют материал
-                    console.log(`🔍 Ручка - поле "${fieldName}" оставляем пустым`);
                   } else {
                     value = props['Материал/Покрытие'] || props['Тип покрытия'] || '';
-                    console.log(`🔍 Дверь - поле "${fieldName}" заполняем: ${value}`);
                   }
                 } else if (fieldName === 'Размер 1') {
                   // Для дверей: Ширина/мм, для ручек: пустое
                   if (item.type === 'handle') {
                     value = ''; // Ручки не заполняют размеры
-                    console.log(`🔍 Ручка - поле "${fieldName}" оставляем пустым`);
                   } else {
                     value = props['Ширина/мм'] || '';
-                    console.log(`🔍 Дверь - поле "${fieldName}" заполняем: ${value}`);
                   }
                 } else if (fieldName === 'Размер 2') {
                   // Для дверей: Высота/мм, для ручек: пустое
                   if (item.type === 'handle') {
                     value = ''; // Ручки не заполняют размеры
-                    console.log(`🔍 Ручка - поле "${fieldName}" оставляем пустым`);
                   } else {
                     value = props['Высота/мм'] || '';
-                    console.log(`🔍 Дверь - поле "${fieldName}" заполняем: ${value}`);
                   }
                 } else if (fieldName === 'Размер 3') {
                   // Для дверей: Толщина/мм, для ручек: пустое
                   if (item.type === 'handle') {
                     value = ''; // Ручки не заполняют размеры
-                    console.log(`🔍 Ручка - поле "${fieldName}" оставляем пустым`);
                   } else {
                     value = props['Толщина/мм'] || '';
-                    console.log(`🔍 Дверь - поле "${fieldName}" заполняем: ${value}`);
                   }
                 } else if (fieldName === 'Цвет/Отделка') {
                   // Для всех товаров используем Цвет/Отделка
@@ -457,11 +447,9 @@ async function generateExcel(data: any): Promise<Buffer> {
                     } else {
                       value = props[fieldName] || '';
                     }
-                    console.log(`🔍 Ручка - поле "${fieldName}" заполняем: ${value}`);
                   } else {
                     // Для дверей используем стандартную логику
                     value = props[fieldName] || '';
-                    console.log(`🔍 Дверь - поле "${fieldName}" заполняем: ${value}`);
                   }
                 }
                 
@@ -478,15 +466,13 @@ async function generateExcel(data: any): Promise<Buffer> {
                   } else {
                     currentRow.getCell(colIndex).value = String(value);
                   }
-                  console.log(`✅ Записано поле "${fieldName}": ${value}`);
                 } else {
                   currentRow.getCell(colIndex).value = '';
-                  console.log(`❌ Пустое поле "${fieldName}"`);
                 }
                 colIndex++;
               });
             } catch (e) {
-              console.warn('Ошибка парсинга properties_data для товара:', e);
+              logger.warn('Ошибка парсинга properties_data для товара', 'supplier-orders/excel', { sku: productData.sku, error: e instanceof Error ? e.message : String(e) });
               // Заполняем пустыми значениями
               dbFields.forEach(() => {
                 currentRow.getCell(colIndex).value = '';
@@ -494,7 +480,7 @@ async function generateExcel(data: any): Promise<Buffer> {
               });
             }
           } else {
-            console.log('❌ Нет properties_data для товара');
+            logger.debug('Нет properties_data для товара', 'supplier-orders/excel', { sku: productData.sku });
             // Заполняем пустыми значениями
             dbFields.forEach(() => {
               currentRow.getCell(colIndex).value = '';
@@ -552,12 +538,12 @@ async function generateExcel(data: any): Promise<Buffer> {
     const buffer = await workbook.xlsx.writeBuffer() as Buffer;
     
     const endTime = Date.now();
-    console.log(`⚡ Excel заказа у поставщика сгенерирован за ${endTime - startTime}ms`);
+    logger.info('Excel заказа у поставщика сгенерирован', 'supplier-orders/excel', { duration: endTime - startTime });
     
     return buffer;
 
   } catch (error) {
-    console.error('❌ Ошибка генерации Excel заказа у поставщика:', error);
+    logger.error('Ошибка генерации Excel заказа у поставщика', 'supplier-orders/excel', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     throw error;
   }
 }
@@ -589,14 +575,13 @@ async function getDoorTemplate() {
 
 // Поиск ВСЕХ товаров в БД по точной конфигурации (как в оригинале)
 async function findAllProductsByConfiguration(item: any) {
-  console.log('🔍 Ищем ВСЕ товары по конфигурации:');
-  console.log('📦 Полный объект товара из корзины:', JSON.stringify(item, null, 2));
-  console.log('🎯 Параметры поиска:', {
+  logger.debug('Ищем ВСЕ товары по конфигурации', 'supplier-orders/excel', {
     model: item.model,
     finish: item.finish,
     color: item.color,
     width: item.width,
-    height: item.height
+    height: item.height,
+    itemType: item.type
   });
 
   // Получаем все товары категории дверей
@@ -607,7 +592,7 @@ async function findAllProductsByConfiguration(item: any) {
     select: { properties_data: true, name: true, sku: true }
   });
 
-  console.log(`📦 Найдено ${allProducts.length} товаров для поиска`);
+  logger.debug('Найдено товаров для поиска', 'supplier-orders/excel', { totalProducts: allProducts.length });
 
   const matchingProducts = [];
 
@@ -638,8 +623,7 @@ async function findAllProductsByConfiguration(item: any) {
           String(props['Размер 2']) === String(item.height);
         
         if (modelMatch && finishMatch && colorMatch && widthMatch && heightMatch) {
-          console.log('✅ Найден подходящий товар:', product.sku);
-          console.log('   Совпадения:', { modelMatch, finishMatch, colorMatch, widthMatch, heightMatch });
+          logger.debug('Найден подходящий товар', 'supplier-orders/excel', { sku: product.sku, modelMatch, finishMatch, colorMatch, widthMatch, heightMatch });
           matchingProducts.push({
             ...product,
             properties_data: props
@@ -647,7 +631,8 @@ async function findAllProductsByConfiguration(item: any) {
         } else {
           // Логируем только первые несколько несовпадений для отладки
           if (matchingProducts.length < 3) {
-            console.log('❌ Товар не подходит:', product.sku, {
+            logger.debug('Товар не подходит', 'supplier-orders/excel', {
+              sku: product.sku,
               modelMatch, finishMatch, colorMatch, widthMatch, heightMatch,
               itemModel: item.model, itemFinish: item.finish, itemColor: item.color,
               itemWidth: item.width, itemHeight: item.height,
@@ -655,19 +640,17 @@ async function findAllProductsByConfiguration(item: any) {
               dbFinish: props['Материал/Покрытие'],
               dbColor: props['Цвет/Отделка'],
               dbWidth: props['Размер 1'],
-              dbHeight: props['Размер 2'],
-              // ДОБАВЛЯЕМ ВСЕ ДОСТУПНЫЕ ПОЛЯ ДЛЯ ДИАГНОСТИКИ
-              allProps: Object.keys(props).slice(0, 10) // Показываем первые 10 ключей
+              dbHeight: props['Размер 2']
             });
           }
         }
       } catch (e) {
-        console.warn('Ошибка парсинга properties_data:', e);
+        logger.warn('Ошибка парсинга properties_data', 'supplier-orders/excel', { sku: product.sku, error: e instanceof Error ? e.message : String(e) });
       }
     }
   }
 
-  console.log(`✅ Найдено ${matchingProducts.length} подходящих товаров`);
+  logger.debug('Найдено подходящих товаров', 'supplier-orders/excel', { matchingProductsCount: matchingProducts.length });
   return matchingProducts;
 }
 

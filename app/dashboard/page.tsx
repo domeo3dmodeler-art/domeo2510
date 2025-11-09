@@ -12,6 +12,7 @@ import ManagerDashboard from '../manager/dashboard/page';
 import { Card, Button } from '../../components/ui';
 import { ClientAuthGuard } from '../../components/auth/ClientAuthGuard';
 import NotificationBell from '../../components/ui/NotificationBell';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface User {
   id: string;
@@ -32,7 +33,7 @@ export default function DashboardPage() {
 }
 
 function DashboardContent() {
-  console.log('🔄 DashboardContent - компонент рендерится');
+  clientLogger.debug('🔄 DashboardContent - компонент рендерится');
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
@@ -159,11 +160,11 @@ function DashboardContent() {
     try {
       const promises = [
         fetch('/api/admin/stats').catch(err => {
-          console.error('Error fetching admin stats:', err);
+          clientLogger.error('Error fetching admin stats:', err);
           return new Response(JSON.stringify({ error: 'Failed to fetch stats' }), { status: 500 });
         }),
         fetch('/api/users').catch(err => {
-          console.error('Error fetching users:', err);
+          clientLogger.error('Error fetching users:', err);
           return new Response(JSON.stringify({ error: 'Failed to fetch users' }), { status: 500 });
         })
       ];
@@ -173,7 +174,7 @@ function DashboardContent() {
       if (userRole === 'complectator') {
         promises.push(
           fetch('/api/complectator/stats').catch(err => {
-            console.error('Error fetching complectator stats:', err);
+            clientLogger.error('Error fetching complectator stats:', err);
             return new Response(JSON.stringify({ error: 'Failed to fetch complectator stats' }), { status: 500 });
           })
         );
@@ -186,10 +187,10 @@ function DashboardContent() {
           const statsData = await responses[0].json();
           setStats(statsData);
         } catch (err) {
-          console.error('Error parsing admin stats:', err);
+          clientLogger.error('Error parsing admin stats:', err);
         }
       } else {
-        console.warn('Admin stats endpoint returned:', responses[0].status);
+        clientLogger.warn('Admin stats endpoint returned:', responses[0].status);
       }
       
       if (responses[1].ok) {
@@ -197,10 +198,10 @@ function DashboardContent() {
           const usersData = await responses[1].json();
           setUserCount(usersData.users?.length || 0);
         } catch (err) {
-          console.error('Error parsing users data:', err);
+          clientLogger.error('Error parsing users data:', err);
         }
       } else {
-        console.warn('Users endpoint returned:', responses[1].status);
+        clientLogger.warn('Users endpoint returned:', responses[1].status);
       }
 
       // Обрабатываем статистику комплектатора
@@ -209,13 +210,13 @@ function DashboardContent() {
           const complectatorData = await responses[2].json();
           setComplectatorStats(complectatorData.stats);
         } catch (err) {
-          console.error('Error parsing complectator stats:', err);
+          clientLogger.error('Error parsing complectator stats:', err);
         }
       } else if (userRole === 'complectator') {
-        console.warn('Complectator stats endpoint returned:', responses[2]?.status);
+        clientLogger.warn('Complectator stats endpoint returned:', responses[2]?.status);
       }
     } catch (fetchStatsError) {
-      console.error('Error loading stats:', fetchStatsError);
+      clientLogger.error('Error loading stats:', fetchStatsError);
       // Не показываем ошибку пользователю, просто логируем
     }
   }, []);
@@ -223,11 +224,11 @@ function DashboardContent() {
   useEffect(() => {
     // Защита от повторных вызовов
     if (isInitializedRef.current) {
-      console.log('⏭️ DashboardContent - уже инициализирован, пропускаем');
+      clientLogger.debug('⏭️ DashboardContent - уже инициализирован, пропускаем');
       return;
     }
 
-    console.log('🔄 DashboardContent - useEffect запускается');
+    clientLogger.debug('🔄 DashboardContent - useEffect запускается');
     isInitializedRef.current = true; // Устанавливаем флаг сразу чтобы предотвратить повторные вызовы
     
     // Проверяем аутентификацию - сначала localStorage, потом cookie
@@ -245,12 +246,12 @@ function DashboardContent() {
     const userId = localStorage.getItem('userId');
 
     if (!token || !userRole || !userId) {
-      console.log('❌ DashboardContent - нет токена, редирект на логин');
+      clientLogger.debug('❌ DashboardContent - нет токена, редирект на логин');
       router.push('/login?redirect=/dashboard');
       return;
     }
 
-    console.log('✅ DashboardContent - токен найден, загружаем данные пользователя');
+    clientLogger.debug('✅ DashboardContent - токен найден, загружаем данные пользователя');
     
     // Если данных в localStorage нет, пытаемся загрузить с сервера
     const loadUserData = async () => {
@@ -279,7 +280,7 @@ function DashboardContent() {
         
         // Если токена все еще нет, используем данные из localStorage
         if (!authToken) {
-          console.warn('Токен не найден, используем данные из localStorage');
+          clientLogger.warn('Токен не найден, используем данные из localStorage');
           const userData = {
             id: userId,
             email: localStorage.getItem('userEmail') || '',
@@ -293,7 +294,7 @@ function DashboardContent() {
           return;
         }
         
-        console.log('📡 Запрос к /api/users/me:', {
+        clientLogger.debug('📡 Запрос к /api/users/me:', {
           hasToken: !!authToken,
           tokenLength: authToken?.length,
           tokenPreview: authToken ? `${authToken.substring(0, 20)}...` : 'нет'
@@ -308,7 +309,7 @@ function DashboardContent() {
           credentials: 'include' // Включаем cookie для передачи токена
         });
         
-        console.log('📡 Ответ от /api/users/me:', {
+        clientLogger.debug('📡 Ответ от /api/users/me:', {
           ok: response.ok,
           status: response.status,
           statusText: response.statusText
@@ -348,13 +349,13 @@ function DashboardContent() {
           try {
             const errorData = await response.json();
             errorMessage = errorData.error || errorMessage;
-            console.warn(`❌ API вернул ошибку ${response.status}:`, errorMessage);
+            clientLogger.warn(`❌ API вернул ошибку ${response.status}:`, errorMessage);
           } catch (e) {
-            console.warn(`❌ API вернул ошибку ${response.status}, детали недоступны`);
+            clientLogger.warn(`❌ API вернул ошибку ${response.status}, детали недоступны`);
           }
           
           // Используем данные из localStorage как fallback
-          console.warn('📦 Используем данные из localStorage');
+          clientLogger.warn('📦 Используем данные из localStorage');
           const userData = {
             id: userId,
             email: localStorage.getItem('userEmail') || '',
@@ -368,7 +369,7 @@ function DashboardContent() {
           setUser(userData);
         }
       } catch (error) {
-        console.error('Error loading user data from server:', error);
+        clientLogger.error('Error loading user data from server:', error);
         // Fallback на localStorage
         const userData = {
           id: userId,
@@ -386,15 +387,15 @@ function DashboardContent() {
 
     // Загружаем данные пользователя
     loadUserData().then(() => {
-      console.log('📊 DashboardContent - загружаем статистику');
+      clientLogger.debug('📊 DashboardContent - загружаем статистику');
       // Загружаем статистику для всех ролей асинхронно, чтобы не блокировать рендер
       fetchStats().catch((fetchError) => {
-        console.error('Error in fetchStats:', fetchError);
+        clientLogger.error('Error in fetchStats:', fetchError);
       });
       setIsLoading(false);
-      console.log('✅ DashboardContent - isLoading установлен в false');
+      clientLogger.debug('✅ DashboardContent - isLoading установлен в false');
     }).catch((error) => {
-      console.error('Error in loadUserData:', error);
+      clientLogger.error('Error in loadUserData:', error);
       setIsLoading(false);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -413,10 +414,10 @@ function DashboardContent() {
     router.push('/login');
   };
 
-  console.log('🔄 DashboardContent - проверка isLoading:', isLoading, 'user:', user ? user.role : 'null');
+  clientLogger.debug('🔄 DashboardContent - проверка isLoading:', isLoading, 'user:', user ? user.role : 'null');
   
   if (isLoading) {
-    console.log('⏳ DashboardContent - показываем загрузку');
+    clientLogger.debug('⏳ DashboardContent - показываем загрузку');
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
@@ -498,7 +499,7 @@ function DashboardContent() {
   // Для не-админов используем обычный лейаут
   // Специальный случай: роль комплектатора — показываем новый ЛК комплектатора с единой шапкой
   if (user.role === 'complectator') {
-    console.log('🎯 DashboardContent - рендер для complectator, загружаем ComplectatorDashboard');
+    clientLogger.debug('🎯 DashboardContent - рендер для complectator, загружаем ComplectatorDashboard');
     return (
       <div className="min-h-screen bg-white">
         {/* Header (унифицированный стиль) */}

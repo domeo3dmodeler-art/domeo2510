@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 type Constraint = {
   id: string;
@@ -121,7 +122,7 @@ export default function ConstraintsManagementPage() {
     if (!confirm('Вы уверены, что хотите удалить это ограничение?')) return;
 
     try {
-      console.log('Deleting constraint:', constraintId);
+      clientLogger.debug('Deleting constraint:', constraintId);
       setConstraints(prev => prev.filter(c => c.id !== constraintId));
     } catch (err: any) {
       setError(err.message);
@@ -130,7 +131,7 @@ export default function ConstraintsManagementPage() {
 
   const handleToggleStatus = async (constraintId: string) => {
     try {
-      console.log('Toggling constraint status:', constraintId);
+      clientLogger.debug('Toggling constraint status:', constraintId);
       setConstraints(prev => prev.map(c => 
         c.id === constraintId ? { ...c, isActive: !c.isActive } : c
       ));

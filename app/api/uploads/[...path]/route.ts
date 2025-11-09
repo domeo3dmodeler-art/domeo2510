@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import { logger } from '@/lib/logging/logger';
 
 export async function GET(
   request: NextRequest,
@@ -22,13 +23,11 @@ export async function GET(
     // Путь к файлу в папке public/uploads
     const fullPath = join(process.cwd(), 'public', 'uploads', filePath);
     
-    console.log(`📁 Ищем файл: ${filePath}`);
-    console.log(`📁 Полный путь: ${fullPath}`);
+    logger.debug('Ищем файл', 'uploads/[...path]', { filePath, fullPath });
     
     // Проверяем существование файла
     if (!existsSync(fullPath)) {
-      console.log(`❌ Файл не найден: ${fullPath}`);
-      console.log(`❌ Запрошенный путь: ${filePath}`);
+      logger.warn('Файл не найден', 'uploads/[...path]', { filePath, fullPath });
       return NextResponse.json(
         { error: 'File not found' },
         { status: 404 }
@@ -71,7 +70,7 @@ export async function GET(
     });
 
   } catch (error) {
-    console.error('❌ Ошибка загрузки файла:', error);
+    logger.error('Ошибка загрузки файла', 'uploads/[...path]', error instanceof Error ? { error: error.message, stack: error.stack, filePath } : { error: String(error), filePath });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

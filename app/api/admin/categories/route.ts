@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError, ConflictError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
 
 // ===================== Создание новой категории =====================
 
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const { name, slug, description, parentId } = await req.json();
 
     if (!name || !slug) {
-      return NextResponse.json(
-        { error: 'Не указано название или slug категории' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не указано название или slug категории');
     }
+
+    logger.info('Создание категории', 'admin/categories', { userId: user.userId, name, slug });
 
     // Проверяем уникальность slug
     const existingCategory = await prisma.frontendCategory.findUnique({
@@ -22,10 +25,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (existingCategory) {
-      return NextResponse.json(
-        { error: 'Категория с таким slug уже существует' },
-        { status: 400 }
-      );
+      throw new ConflictError('Категория с таким slug уже существует');
     }
 
     // Создаем категорию
@@ -40,8 +40,9 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    return NextResponse.json({
-      success: true,
+    logger.info('Категория создана', 'admin/categories', { categoryId: newCategory.id });
+
+    return apiSuccess({
       category: {
         id: newCategory.id,
         name: newCategory.name,
@@ -57,20 +58,26 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Category creation error:', error);
-    return NextResponse.json(
-      { error: 'Ошибка при создании категории' },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
+    logger.error('Category creation error', 'admin/categories', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError || error instanceof ConflictError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка при создании категории', 500);
   }
 }
 
+export const POST = withErrorHandling(
+  requireAuthAndPermission(postHandler, 'ADMIN'),
+  'admin/categories/POST'
+);
+
 // ===================== Получение списка категорий =====================
 
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
+    logger.info('Получение списка категорий', 'admin/categories', { userId: user.userId });
+
     const categories = await prisma.frontendCategory.findMany({
       orderBy: [
         { name: 'asc' }
@@ -96,18 +103,19 @@ export async function GET(req: NextRequest) {
       updatedAt: category.updated_at
     }));
 
-    return NextResponse.json({
-      success: true,
+    logger.info('Список категорий получен', 'admin/categories', { count: formattedCategories.length });
+
+    return apiSuccess({
       categories: formattedCategories
     });
 
   } catch (error) {
-    console.error('Categories fetch error:', error);
-    return NextResponse.json(
-      { error: 'Ошибка при получении категорий' },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
+    logger.error('Categories fetch error', 'admin/categories', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка при получении категорий', 500);
   }
 }
+
+export const GET = withErrorHandling(
+  requireAuthAndPermission(getHandler, 'ADMIN'),
+  'admin/categories/GET'
+);

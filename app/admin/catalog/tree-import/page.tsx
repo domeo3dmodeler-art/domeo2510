@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Card, Badge, Input } from '../../../../components/ui';
 import { Upload, Download, FileText, CheckCircle, XCircle, AlertTriangle, History, RefreshCw, TreePine } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface ImportResult {
   success: boolean;
@@ -47,7 +48,7 @@ export default function CatalogTreeImportPage() {
       const data = await response.json();
       setImportHistory(data || []);
     } catch (error) {
-      console.error('Error loading import history:', error);
+      clientLogger.error('Error loading import history:', error);
     } finally {
       setLoadingHistory(false);
     }
@@ -132,7 +133,7 @@ export default function CatalogTreeImportPage() {
         setFile(null);
       }
     } catch (error) {
-      console.error('Error importing catalog tree:', error);
+      clientLogger.error('Error importing catalog tree:', error);
       setImportResult({
         success: false,
         message: 'Ошибка при импорте дерева каталогов',

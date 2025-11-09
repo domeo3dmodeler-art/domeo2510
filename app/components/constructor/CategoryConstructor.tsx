@@ -393,7 +393,7 @@ export default function CategoryConstructor() {
       }
     };
 
-    console.log('Сохранение конфигурации:', config);
+    clientLogger.debug('Сохранение конфигурации:', config);
     // Здесь будет логика сохранения в базу данных
     alert('Конфигурация сохранена!');
   }, [blocks]);

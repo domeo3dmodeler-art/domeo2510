@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logging/logger';
 import * as XLSX from 'xlsx';
 
 // Создание тестового Excel файла
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('Error creating test file:', error);
+    logger.error('Error creating test file', 'api/test-excel', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json({ error: 'Ошибка создания тестового файла' }, { status: 500 });
   }
 }

@@ -1,29 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError, NotFoundError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
 
-const prisma = new PrismaClient();
-
-export async function PUT(
+async function putHandler(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  user: ReturnType<typeof getAuthenticatedUser>,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const categoryId = params.id;
+    const resolvedParams = await params;
+    const categoryId = resolvedParams.id;
     const { photoMapping, photoData } = await req.json();
 
-    console.log('PUT /api/admin/categories/[id]/photos - Сохранение фотографий:', {
+    logger.info('Сохранение фотографий категории', 'admin/categories/[id]/photos', { 
+      userId: user.userId,
       categoryId,
       hasPhotoMapping: !!photoMapping,
-      hasPhotoData: !!photoData,
-      photoMappingType: typeof photoMapping,
-      photoDataType: typeof photoData
+      hasPhotoData: !!photoData
     });
 
     if (!categoryId) {
-      return NextResponse.json(
-        { error: 'Не указан ID категории' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не указан ID категории');
     }
 
     // Проверяем существование категории
@@ -32,19 +33,16 @@ export async function PUT(
     });
 
     if (!existingCategory) {
-      return NextResponse.json(
-        { error: 'Категория не найдена' },
-        { status: 404 }
-      );
+      throw new NotFoundError('Категория не найдена');
     }
 
     // Подготавливаем данные для обновления
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       updated_at: new Date()
     };
 
     if (photoMapping) {
-      console.log('Сохранение упрощенного photoMapping:', {
+      logger.debug('Сохранение упрощенного photoMapping', 'admin/categories/[id]/photos', {
         mappingType: photoMapping.mappingType,
         totalFiles: photoMapping.totalFiles,
         mappedCount: photoMapping.mappedCount
@@ -59,42 +57,33 @@ export async function PUT(
         };
         
         updateData.photo_mapping = JSON.stringify(minimalMapping);
-        console.log('Упрощенный photoMapping успешно подготовлен');
+        logger.debug('Упрощенный photoMapping подготовлен', 'admin/categories/[id]/photos');
       } catch (error) {
-        console.error('Ошибка сериализации photoMapping:', error);
-        return NextResponse.json(
-          { error: 'Ошибка сериализации данных фотографий' },
-          { status: 400 }
-        );
+        logger.error('Ошибка сериализации photoMapping', 'admin/categories/[id]/photos', error instanceof Error ? { error: error.message } : { error: String(error) });
+        throw new ValidationError('Ошибка сериализации данных фотографий');
       }
     }
     
     if (photoData) {
-      console.log('Сохранение photoData:', photoData);
+      logger.debug('Сохранение photoData', 'admin/categories/[id]/photos');
       try {
         updateData.photo_data = JSON.stringify(photoData);
-        console.log('photoData успешно подготовлен');
+        logger.debug('photoData успешно подготовлен', 'admin/categories/[id]/photos');
       } catch (error) {
-        console.error('Ошибка сериализации photoData:', error);
-        return NextResponse.json(
-          { error: 'Ошибка сериализации данных фотографий' },
-          { status: 400 }
-        );
+        logger.error('Ошибка сериализации photoData', 'admin/categories/[id]/photos', error instanceof Error ? { error: error.message } : { error: String(error) });
+        throw new ValidationError('Ошибка сериализации данных фотографий');
       }
     }
 
     // Обновляем категорию
-    console.log('Обновление категории с данными фотографий:', updateData);
-    
     const updatedCategory = await prisma.frontendCategory.update({
       where: { id: categoryId },
       data: updateData
     });
     
-    console.log('Категория успешно обновлена с фотографиями:', updatedCategory.id);
+    logger.info('Категория успешно обновлена с фотографиями', 'admin/categories/[id]/photos', { categoryId });
     
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       message: 'Данные фотографий успешно сохранены',
       categoryId: updatedCategory.id,
       photoMapping: photoMapping ? {
@@ -109,12 +98,25 @@ export async function PUT(
     });
 
   } catch (error) {
-    console.error('Общая ошибка сохранения фотографий:', error);
-    return NextResponse.json(
-      { error: `Ошибка при сохранении фотографий: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}` },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
+    logger.error('Общая ошибка сохранения фотографий', 'admin/categories/[id]/photos', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError || error instanceof NotFoundError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка при сохранении фотографий', 500);
   }
+}
+
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return withErrorHandling(
+    requireAuthAndPermission(
+      async (request: NextRequest, user: ReturnType<typeof getAuthenticatedUser>) => {
+        return await putHandler(request, user, { params });
+      },
+      'ADMIN'
+    ),
+    'admin/categories/[id]/photos/PUT'
+  )(req);
 }

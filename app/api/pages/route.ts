@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, Prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
+
+interface PageElementInput {
+  type: string;
+  props?: Record<string, unknown>;
+  position?: { x: number; y: number };
+  size?: { width: number; height: number };
+  zIndex?: number;
+  parentId?: string | null;
+}
 
 // GET - получить все страницы
 export async function GET() {
@@ -28,7 +38,7 @@ export async function GET() {
       }))
     });
   } catch (error) {
-    console.error('Error fetching pages:', error);
+    logger.error('Error fetching pages', 'pages', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { success: false, error: 'Failed to fetch pages' },
       { status: 500 }
@@ -43,14 +53,14 @@ export async function POST(request: NextRequest) {
     try {
       body = await request.json();
     } catch (jsonError) {
-      console.error('JSON parsing error:', jsonError);
+      logger.error('JSON parsing error', 'pages', { error: jsonError instanceof Error ? jsonError.message : String(jsonError) });
       return NextResponse.json(
         { success: false, error: 'Invalid JSON in request body' },
         { status: 400 }
       );
     }
     
-    console.log('Received body:', JSON.stringify(body, null, 2));
+    logger.debug('Received body', 'pages', { hasTitle: !!body?.title, hasElements: !!body?.elements, elementsCount: body?.elements?.length });
     const { title, description, elements, isPublished = false } = body;
 
     if (!title) {
@@ -83,7 +93,7 @@ export async function POST(request: NextRequest) {
         url,
         isPublished,
         elements: {
-          create: elements?.map((element: any, index: number) => ({
+          create: (elements as PageElementInput[])?.map((element: PageElementInput, index: number) => ({
             type: element.type,
             props: JSON.stringify(element.props || {}),
             position: JSON.stringify(element.position || { x: 0, y: 0 }),
@@ -120,7 +130,7 @@ export async function POST(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('Error creating page:', error);
+    logger.error('Error creating page', 'pages', error instanceof Error ? { error: error.message, stack: error.stack, title: body?.title } : { error: String(error), title: body?.title });
     return NextResponse.json(
       { success: false, error: 'Failed to create page' },
       { status: 500 }

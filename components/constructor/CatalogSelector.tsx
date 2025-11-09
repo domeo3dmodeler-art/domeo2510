@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Card, Checkbox } from '../ui';
 import { ChevronDown, ChevronRight, Package, Search } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface CatalogCategory {
   id: string;
@@ -46,11 +47,11 @@ export default function CatalogSelector({
       } else if (data.categories && Array.isArray(data.categories)) {
         setCategories(data.categories);
       } else {
-        console.error('Неожиданный формат данных каталога:', data);
+        clientLogger.error('Неожиданный формат данных каталога:', data);
         setCategories([]);
       }
     } catch (error) {
-      console.error('Ошибка при загрузке категорий:', error);
+      clientLogger.error('Ошибка при загрузке категорий:', error);
       setCategories([]);
     } finally {
       setLoading(false);

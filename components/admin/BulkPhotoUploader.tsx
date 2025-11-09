@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useCallback } from 'react';
 import { Card, Button, Progress } from '../ui';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface UploadProgress {
   fileName: string;
@@ -218,7 +219,7 @@ export default function BulkPhotoUploader({
       onUploadComplete(finalResult);
       
     } catch (error) {
-      console.error('Ошибка при загрузке файлов:', error);
+      clientLogger.error('Ошибка при загрузке файлов', error instanceof Error ? error : new Error(String(error)));
       onUploadComplete({
         success: false,
         uploaded: completed,

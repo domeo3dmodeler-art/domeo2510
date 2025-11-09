@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, Card, Badge, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui';
 import { Upload, Download, FileText, CheckCircle, XCircle, AlertTriangle, History, RefreshCw, Plus } from 'lucide-react';
 import { FrontendCategory, CatalogCategory } from '@/lib/types/catalog';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface ImportResult {
   success: boolean;
@@ -59,7 +60,7 @@ export default function ConfiguratorImportPage() {
       setFrontendCategories(frontendData);
       setCatalogCategories(catalogData.categories || []);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      clientLogger.error('Error loading categories:', error);
     }
   };
 
@@ -70,7 +71,7 @@ export default function ConfiguratorImportPage() {
       const data = await response.json();
       setImportHistory(data.history || []);
     } catch (error) {
-      console.error('Error loading import history:', error);
+      clientLogger.error('Error loading import history:', error);
     } finally {
       setLoadingHistory(false);
     }
@@ -90,7 +91,7 @@ export default function ConfiguratorImportPage() {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error downloading template:', error);
+      clientLogger.error('Error downloading template:', error);
     }
   };
 
@@ -148,7 +149,7 @@ export default function ConfiguratorImportPage() {
         setFile(null);
       }
     } catch (error) {
-      console.error('Error importing products:', error);
+      clientLogger.error('Error importing products:', error);
       setImportResult({
         success: false,
         message: 'Ошибка при импорте товаров',

@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { logger } from '@/lib/logging/logger';
 
-const prisma = new PrismaClient();
-
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const { searchParams } = new URL(req.url);
     const format = searchParams.get("format") || "json";
     const limit = parseInt(searchParams.get("limit") || "50");
+
+    logger.info('Получение импортированных товаров дверей', 'admin/import/doors/products', { userId: user.userId, format, limit });
 
     // Получаем реальные данные из базы
     const products = await prisma.product.findMany({
@@ -38,6 +43,8 @@ export async function GET(req: NextRequest) {
       },
       take: limit
     });
+
+    logger.info('Импортированные товары дверей получены', 'admin/import/doors/products', { format, productsCount: products.length });
 
     if (format === "csv") {
       // Возвращаем CSV с реальными данными
@@ -89,8 +96,8 @@ export async function GET(req: NextRequest) {
 
     // Возвращаем JSON формат с реальными данными
     const summary = {
-      by_brand: {},
-      by_price_range: {},
+      by_brand: {} as Record<string, number>,
+      by_price_range: {} as Record<string, number>,
       total_value: 0
     };
 
@@ -100,7 +107,7 @@ export async function GET(req: NextRequest) {
       summary.by_brand[brand] = (summary.by_brand[brand] || 0) + 1;
       
       // Группировка по ценовому диапазону
-      const price = parseFloat(product.base_price) || 0;
+      const price = parseFloat(String(product.base_price)) || 0;
       summary.total_value += price;
       
       if (price < 10000) {
@@ -112,7 +119,7 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    return NextResponse.json({
+    return apiSuccess({
       total: products.length,
       shown: products.length,
       products: products,
@@ -121,10 +128,12 @@ export async function GET(req: NextRequest) {
       summary: summary
     });
   } catch (error) {
-    console.error('Error fetching imported products:', error);
-    return NextResponse.json(
-      { error: "Ошибка получения данных" },
-      { status: 500 }
-    );
+    logger.error('Error fetching imported products', 'admin/import/doors/products', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка получения данных', 500);
   }
 }
+
+export const GET = withErrorHandling(
+  requireAuthAndPermission(getHandler, 'ADMIN'),
+  'admin/import/doors/products/GET'
+);

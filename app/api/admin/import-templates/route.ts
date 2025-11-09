@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { fixAllEncoding, fixFieldsEncoding } from '@/lib/encoding-utils';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError, NotFoundError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
+import { fixAllEncoding } from '@/lib/encoding-utils';
 
 // ===================== Создание шаблона загрузки =====================
 
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const rawData = await req.json();
     
     // Исправляем кодировку входящих данных
@@ -24,11 +28,10 @@ export async function POST(req: NextRequest) {
     } = fixAllEncoding(rawData);
 
     if (!name || !catalog_category_id) {
-      return NextResponse.json(
-        { error: 'Не указаны обязательные поля: name, catalog_category_id' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не указаны обязательные поля: name, catalog_category_id');
     }
+
+    logger.info('Создание шаблона импорта', 'admin/import-templates', { userId: user.userId, name, catalog_category_id });
 
     // Проверяем существование категории каталога
     const catalogCategory = await prisma.catalogCategory.findUnique({ 
@@ -36,10 +39,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!catalogCategory) {
-      return NextResponse.json(
-        { error: 'Catalog категория не найдена' },
-        { status: 404 }
-      );
+      throw new NotFoundError('Catalog категория не найдена');
     }
 
     // Проверяем, существует ли уже шаблон для этой категории
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     
     if (existingTemplate) {
       // Если шаблон уже существует, НЕ обновляем его - используем существующий
-      console.log('Шаблон уже существует для catalog_category, используем существующий:', existingTemplate.id);
+      logger.info('Шаблон уже существует, используем существующий', 'admin/import-templates', { templateId: existingTemplate.id });
       importTemplate = existingTemplate;
     } else {
       // Если шаблона нет, создаем новый
@@ -69,11 +69,12 @@ export async function POST(req: NextRequest) {
           is_active: true
         }
       });
-      console.log('Создан новый шаблон:', importTemplate.id);
+      logger.info('Создан новый шаблон', 'admin/import-templates', { templateId: importTemplate.id });
     }
 
-    return NextResponse.json({
-      success: true,
+    logger.info('Шаблон импорта создан', 'admin/import-templates', { templateId: importTemplate.id });
+
+    return apiSuccess({
       template: {
         id: importTemplate.id,
         name: importTemplate.name,
@@ -93,22 +94,30 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Import template creation error:', error);
-    return NextResponse.json(
-      { error: 'Ошибка при создании шаблона загрузки' },
-      { status: 500 }
-    );
+    logger.error('Import template creation error', 'admin/import-templates', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError || error instanceof NotFoundError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка при создании шаблона загрузки', 500);
   }
 }
 
+export const POST = withErrorHandling(
+  requireAuthAndPermission(postHandler, 'ADMIN'),
+  'admin/import-templates/POST'
+);
+
 // ===================== Получение шаблонов загрузки =====================
 
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const { searchParams } = new URL(req.url);
     const catalogCategoryId = searchParams.get('catalog_category_id');
 
-    let whereClause: any = { is_active: true };
+    logger.info('Получение шаблонов импорта', 'admin/import-templates', { userId: user.userId, catalogCategoryId });
+
+    let whereClause: Record<string, unknown> = { is_active: true };
 
     if (catalogCategoryId) {
       whereClause.catalog_category_id = catalogCategoryId;
@@ -208,17 +217,20 @@ export async function GET(req: NextRequest) {
       updatedAt: template.updated_at
     }));
 
-    return NextResponse.json({
-      success: true,
+    logger.info('Шаблоны импорта получены', 'admin/import-templates', { count: formattedTemplates.length });
+
+    return apiSuccess({
       templates: formattedTemplates,
       count: formattedTemplates.length
     });
 
   } catch (error) {
-    console.error('Import templates fetch error:', error);
-    return NextResponse.json(
-      { error: 'Ошибка при получении шаблонов загрузки' },
-      { status: 500 }
-    );
+    logger.error('Import templates fetch error', 'admin/import-templates', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка при получении шаблонов загрузки', 500);
   }
 }
+
+export const GET = withErrorHandling(
+  requireAuthAndPermission(getHandler, 'ADMIN'),
+  'admin/import-templates/GET'
+);

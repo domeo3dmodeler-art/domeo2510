@@ -47,7 +47,7 @@ export function fuzzyMatch(str1: string, str2: string): boolean {
 /**
  * Находит значение свойства в объекте по имени с учетом возможных проблем с кодировкой
  */
-export function findPropertyValue(propertyName: string, data: Record<string, any>): any {
+export function findPropertyValue(propertyName: string, data: Record<string, unknown>): unknown {
   // 1. Пробуем точное совпадение
   if (data[propertyName] !== undefined) {
     return data[propertyName];
@@ -67,12 +67,22 @@ export function findPropertyValue(propertyName: string, data: Record<string, any
  * Извлекает уникальные значения свойства из массива товаров
  */
 export async function extractUniquePropertyValues(
-  products: any[],
+  products: Array<Record<string, unknown>>,
   propertyName: string
-): Promise<Array<{ value: any; label: string }>> {
-  const uniqueValues = new Set<any>();
+): Promise<Array<{ value: unknown; label: string }>> {
+  const uniqueValues = new Set<unknown>();
   
-  console.log(`Extracting values for property "${propertyName}" from ${products.length} products`);
+  // Используем logger если доступен, иначе console.log
+  const log = typeof window === 'undefined' ? (() => {
+    try {
+      const { logger } = require('./logging/logger');
+      return (msg: string, data?: Record<string, unknown>) => logger.debug(msg, 'string-utils', data);
+    } catch {
+      return console.log;
+    }
+  })() : console.log;
+  
+  log(`Extracting values for property "${propertyName}" from ${products.length} products`, { propertyName, productsCount: products.length });
   
   // Обрабатываем товары батчами для оптимизации
   const batchSize = 100;
@@ -101,12 +111,20 @@ export async function extractUniquePropertyValues(
               
               // Логируем первые 5 и каждый 100-й товар для отладки
               if (globalIndex < 5 || globalIndex % 100 === 0) {
-                console.log(`Product ${globalIndex}: property "${propertyName}" = "${valueStr}"`);
+                log(`Product ${globalIndex}: property "${propertyName}" = "${valueStr}"`, { globalIndex, propertyName, value: valueStr });
               }
             }
           }
         } catch (error) {
-          console.error(`Error parsing properties_data for product ${globalIndex}:`, error);
+          const logError = typeof window === 'undefined' ? (() => {
+            try {
+              const { logger } = require('./logging/logger');
+              return (msg: string, data?: Record<string, unknown>) => logger.error(msg, 'string-utils', data);
+            } catch {
+              return console.error;
+            }
+          })() : console.error;
+          logError(`Error parsing properties_data for product ${globalIndex}`, { error: error instanceof Error ? error.message : String(error), globalIndex, propertyName });
         }
       }
     }
@@ -115,7 +133,7 @@ export async function extractUniquePropertyValues(
     
     // Показываем прогресс каждые 500 товаров
     if (processedCount % 500 === 0 || processedCount === products.length) {
-      console.log(`Processed ${processedCount}/${products.length} products, found ${uniqueValues.size} unique values so far`);
+      log(`Processed ${processedCount}/${products.length} products, found ${uniqueValues.size} unique values so far`, { processedCount, total: products.length, uniqueValuesCount: uniqueValues.size });
     }
     
     // Даем браузеру время на обработку других задач
@@ -124,7 +142,7 @@ export async function extractUniquePropertyValues(
     }
   }
   
-  console.log(`Found ${uniqueValues.size} unique values for "${propertyName}":`, Array.from(uniqueValues));
+  log(`Found ${uniqueValues.size} unique values for "${propertyName}"`, { propertyName, uniqueValuesCount: uniqueValues.size, uniqueValues: Array.from(uniqueValues) });
   
   // Преобразуем Set в массив опций и сортируем для удобства
   return Array.from(uniqueValues)

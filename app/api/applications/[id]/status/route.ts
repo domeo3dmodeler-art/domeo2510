@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, Prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 // PUT /api/applications/[id]/status - Изменение статуса заказа
 // ⚠️ DEPRECATED: Используйте PUT /api/orders/[id]/status напрямую
@@ -50,7 +51,7 @@ export async function PUT(
 
     // Проверяем обязательность загрузки проекта при переходе в UNDER_REVIEW
     // order уже содержит project_file_url из схемы, используем проверку
-    if (status === 'UNDER_REVIEW' && !(order as any).project_file_url) {
+    if (status === 'UNDER_REVIEW' && !order.project_file_url) {
       return NextResponse.json(
         { error: 'Для перехода в статус "На проверке" требуется загрузить проект/планировку' },
         { status: 400 }
@@ -65,7 +66,7 @@ export async function PUT(
     }
 
     // Формируем данные для обновления
-    const updateData: any = {
+    const updateData: Prisma.OrderUpdateInput = {
       status: targetStatus
     };
 
@@ -92,8 +93,6 @@ export async function PUT(
       }
     });
 
-    // TODO: Логирование изменения статуса в DocumentHistory
-
     return NextResponse.json({
       success: true,
       application: updatedOrder, // Для обратной совместимости
@@ -101,7 +100,7 @@ export async function PUT(
     });
 
   } catch (error) {
-    console.error('Error updating order status:', error);
+    logger.error('Error updating order status', 'applications/[id]/status', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Ошибка изменения статуса заказа' },
       { status: 500 }

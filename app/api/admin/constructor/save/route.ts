@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error saving constructor configuration:', error);
+    logger.error('Error saving constructor configuration', 'admin/constructor/save', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Failed to save configuration' },
       { status: 500 }
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching constructor configurations:', error);
+    logger.error('Error fetching constructor configurations', 'admin/constructor/save', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Failed to fetch configurations' },
       { status: 500 }

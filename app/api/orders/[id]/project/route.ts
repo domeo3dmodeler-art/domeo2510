@@ -5,114 +5,109 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { logger } from '@/lib/logging/logger';
 import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { NotFoundError, ValidationError } from '@/lib/api/errors';
+import { requireAuth } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
 // POST /api/orders/[id]/project - Загрузка проекта/планировки
-export async function POST(
+async function postHandler(
   req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+  user: ReturnType<typeof getAuthenticatedUser>,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
   const loggingContext = getLoggingContextFromRequest(req);
-  try {
-    // Проверяем существование заказа
-    const order = await prisma.order.findUnique({
-      where: { id: params.id }
-    });
+  const { id } = await params;
 
-    if (!order) {
-      return NextResponse.json(
-        { error: 'Заказ не найден' },
-        { status: 404 }
-      );
-    }
+  // Проверяем существование заказа
+  const order = await prisma.order.findUnique({
+    where: { id }
+  });
 
-    const formData = await req.formData();
-    const file = formData.get('file') as File;
+  if (!order) {
+    throw new NotFoundError('Заказ', id);
+  }
 
-    if (!file) {
-      return NextResponse.json(
-        { error: 'Файл не предоставлен' },
-        { status: 400 }
-      );
-    }
+  const formData = await req.formData();
+  const file = formData.get('file') as File;
 
-    // Валидация типа файла
-    const allowedTypes = [
-      'application/pdf',
-      'image/jpeg',
-      'image/jpg',
-      'image/png',
-      'application/acad',
-      'application/x-dwg',
-      'application/x-dxf',
-      'image/vnd.dwg',
-      'image/x-dwg'
-    ];
+  if (!file) {
+    throw new ValidationError('Файл не предоставлен');
+  }
 
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json(
-        { error: 'Неподдерживаемый тип файла. Разрешены: PDF, JPG, PNG, DWG, DXF' },
-        { status: 400 }
-      );
-    }
+  // Валидация типа файла
+  const allowedTypes = [
+    'application/pdf',
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'application/acad',
+    'application/x-dwg',
+    'application/x-dxf',
+    'image/vnd.dwg',
+    'image/x-dwg'
+  ];
 
-    // Валидация размера файла (максимум 10MB)
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSize) {
-      return NextResponse.json(
-        { error: 'Файл слишком большой. Максимальный размер: 10MB' },
-        { status: 400 }
-      );
-    }
+  if (!allowedTypes.includes(file.type)) {
+    throw new ValidationError('Неподдерживаемый тип файла. Разрешены: PDF, JPG, PNG, DWG, DXF');
+  }
 
-    // Создаем директорию для заказов если её нет
-    const uploadsDir = join(process.cwd(), 'uploads', 'orders', params.id);
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true });
-    }
+  // Валидация размера файла (максимум 10MB)
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  if (file.size > maxSize) {
+    throw new ValidationError('Файл слишком большой. Максимальный размер: 10MB');
+  }
 
-    // Генерируем имя файла
-    const timestamp = Date.now();
-    const extension = file.name.split('.').pop();
-    const filename = `project_${timestamp}.${extension}`;
-    const filepath = join(uploadsDir, filename);
+  // Создаем директорию для заказов если её нет
+  const uploadsDir = join(process.cwd(), 'uploads', 'orders', id);
+  if (!existsSync(uploadsDir)) {
+    await mkdir(uploadsDir, { recursive: true });
+  }
 
-    // Сохраняем файл
-    const buffer = Buffer.from(await file.arrayBuffer());
-    await writeFile(filepath, buffer);
+  // Генерируем имя файла
+  const timestamp = Date.now();
+  const extension = file.name.split('.').pop();
+  const filename = `project_${timestamp}.${extension}`;
+  const filepath = join(uploadsDir, filename);
 
-    // URL файла для сохранения в БД
-    const fileUrl = `/uploads/orders/${params.id}/${filename}`;
+  // Сохраняем файл
+  const buffer = Buffer.from(await file.arrayBuffer());
+  await writeFile(filepath, buffer);
 
-    // Обновляем заказ
-    const updatedOrder = await prisma.order.update({
-      where: { id: params.id },
-      data: {
-        project_file_url: fileUrl
-      },
-      include: {
-        client: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            middleName: true
-          }
+  // URL файла для сохранения в БД
+  const fileUrl = `/uploads/orders/${id}/${filename}`;
+
+  // Обновляем заказ
+  const updatedOrder = await prisma.order.update({
+    where: { id },
+    data: {
+      project_file_url: fileUrl
+    },
+    include: {
+      client: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          middleName: true
         }
       }
-    });
+    }
+  });
 
-    return NextResponse.json({
-      success: true,
-      order: updatedOrder,
-      file_url: fileUrl
-    });
+  return apiSuccess({
+    order: updatedOrder,
+    file_url: fileUrl
+  }, 'Файл проекта загружен');
+}
 
-  } catch (error) {
-    logger.error('Error uploading project file', 'orders/[id]/project', { error, orderId: params.id }, loggingContext);
-    return NextResponse.json(
-      { error: 'Ошибка загрузки файла проекта' },
-      { status: 500 }
-    );
-  }
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  return withErrorHandling(
+    requireAuth((request, user) => postHandler(request, user, { params })),
+    'orders/[id]/project/POST'
+  )(req);
 }
 

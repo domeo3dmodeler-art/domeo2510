@@ -1,6 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 import * as XLSX from 'xlsx';
+
+interface ImportRow {
+  id?: string;
+  ID?: string;
+  name?: string;
+  Name?: string;
+  название?: string;
+  parent_id?: string;
+  parentId?: string;
+  parent_ID?: string;
+  level?: string | number;
+  Level?: string | number;
+  уровень?: string | number;
+  description?: string;
+  Description?: string;
+  описание?: string;
+  slug?: string;
+  Slug?: string;
+  isActive?: boolean;
+  active?: boolean;
+  sortOrder?: string | number;
+  sort_order?: string | number;
+  порядок?: string | number;
+  [key: string]: unknown;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Ожидаем структуру: id, name, parent_id, level, description
-    const categories = data.map((row: any) => ({
+    const categories = data.map((row: ImportRow) => ({
       id: row.id || row.ID || '',
       name: row.name || row.Name || row.название || '',
       parentId: row.parent_id || row.parentId || row.parent_ID || null,
@@ -62,7 +88,7 @@ export async function POST(request: NextRequest) {
         
         createdCategories.push(created);
       } catch (error) {
-        console.error(`Error creating category ${category.id}:`, error);
+        logger.error(`Error creating category`, 'admin/catalog/import', { categoryId: category.id, error: error instanceof Error ? error.message : String(error) });
         // Продолжаем с другими категориями
       }
     }
@@ -76,7 +102,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error importing catalog:', error);
+    logger.error('Error importing catalog', 'admin/catalog/import', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Failed to import catalog' },
       { status: 500 }
@@ -111,7 +137,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('Error fetching catalog:', error);
+    logger.error('Error fetching catalog', 'admin/catalog/import', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Failed to fetch catalog' },
       { status: 500 }

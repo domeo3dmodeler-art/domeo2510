@@ -2,323 +2,164 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { canUserEditClient, canUserDeleteClient } from '@/lib/auth/permissions';
 import { isValidInternationalPhone, normalizePhoneForStorage } from '@/lib/utils/phone';
-import jwt from 'jsonwebtoken';
 import { logger } from '@/lib/logging/logger';
 import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { NotFoundError, ValidationError, BusinessRuleError } from '@/lib/api/errors';
+import { updateClientSchema } from '@/lib/validation/client.schemas';
+import { validateRequest } from '@/lib/validation/middleware';
+import { clientRepository } from '@/lib/repositories/client.repository';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+
+// GET /api/clients/[id] - Получение клиента с документами
+async function getHandler(
+  request: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(request);
+  const { id } = await params;
+  
+  const client = await clientRepository.findById(id);
+
+  if (!client) {
+    throw new NotFoundError('Клиент', id);
+  }
+
+  // Получаем документы клиента
+  const documents = await clientRepository.getClientDocuments(id);
+
+  return apiSuccess({
+    client: {
+      ...client,
+      customFields: JSON.parse(client.customFields || '{}'),
+      quotes: documents.quotes,
+      invoices: documents.invoices,
+      orders: documents.orders
+    }
+  });
+}
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+): Promise<NextResponse> {
+  return withErrorHandling(
+    requireAuth(async (req: NextRequest, user: ReturnType<typeof getAuthenticatedUser>) => {
+      return await getHandler(req, user, { params });
+    }),
+    'clients/[id]/GET'
+  )(request);
+}
+
+// PUT /api/clients/[id] - Обновление клиента
+async function putHandler(
+  request: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
   const loggingContext = getLoggingContextFromRequest(request);
-  try {
-    const { id } = await params;
-    
-    // Оптимизированный запрос - загружаем только основные данные клиента
-    const client = await prisma.client.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        middleName: true,
-        phone: true,
-        address: true,
-        objectId: true,
-        compilationLeadNumber: true,
-        customFields: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true
-      }
-    });
+  const { id } = await params;
+  const body = await request.json();
 
-    if (!client) {
-      return NextResponse.json(
-        { error: 'Client not found' },
-        { status: 404 }
-      );
-    }
-
-    // Получаем заказы клиента (для обратной совместимости)
-    const orders = await prisma.order.findMany({
-      where: { client_id: id },
-      select: { id: true }
-    });
-
-    // Сначала получаем счета клиента, чтобы использовать их ID для поиска заказов у поставщика
-    // SupplierOrder теперь связан напрямую с Invoice через parent_document_id
-    const invoices = await prisma.invoice.findMany({
-      where: { client_id: id },
-      select: {
-        id: true,
-        number: true,
-        status: true,
-        total_amount: true,
-        created_at: true,
-        due_date: true
-      },
-      orderBy: { created_at: 'desc' },
-      take: 10
-    });
-    const invoiceIds = invoices.map(inv => inv.id);
-
-    // Загружаем остальные документы
-    const [quotes, supplierOrders] = await Promise.all([
-      prisma.quote.findMany({
-        where: { client_id: id },
-        select: {
-          id: true,
-          number: true,
-          status: true,
-          total_amount: true,
-          created_at: true
-        },
-        orderBy: { created_at: 'desc' },
-        take: 10
-      }),
-      prisma.supplierOrder.findMany({
-        where: { 
-          // Ищем заказы поставщика через связанные счета клиента
-          // SupplierOrder теперь связан напрямую с Invoice через parent_document_id
-          parent_document_id: {
-            in: invoiceIds
-          }
-        },
-        select: {
-          id: true,
-          number: true, // Номер заказа у поставщика
-          status: true,
-          created_at: true,
-          supplier_name: true,
-          order_date: true,
-          expected_date: true,
-          total_amount: true, // Общая сумма заказа у поставщика
-          parent_document_id: true,
-          cart_session_id: true
-        },
-        orderBy: { created_at: 'desc' },
-        take: 10
-      })
-    ]);
-
-    // Для каждого заказа поставщика ищем связанный счет через логику parent_document_id
-    const supplierOrdersWithInvoiceInfo = await Promise.all(
-      supplierOrders.map(async (so) => {
-        let invoiceInfo = null;
-        
-        // parent_document_id теперь напрямую указывает на Invoice
-        // (SupplierOrder → Invoice, а не SupplierOrder → Order → Invoice)
-        if (so.parent_document_id) {
-          const invoice = await prisma.invoice.findUnique({
-            where: { id: so.parent_document_id },
-            select: {
-              id: true,
-              number: true,
-              total_amount: true
-            }
-          });
-          
-          if (invoice) {
-            invoiceInfo = {
-              id: invoice.id,
-              number: invoice.number,
-              total_amount: invoice.total_amount
-            };
-          }
-        }
-        
-        // Fallback: ищем счет по cart_session_id (для совместимости со старыми данными)
-        if (!invoiceInfo && so.cart_session_id) {
-          const invoice = await prisma.invoice.findFirst({
-            where: {
-              cart_session_id: so.cart_session_id
-            },
-            select: {
-              id: true,
-              number: true,
-              total_amount: true
-            }
-          });
-          
-          if (invoice) {
-            invoiceInfo = {
-              id: invoice.id,
-              number: invoice.number,
-              total_amount: invoice.total_amount
-            };
-          }
-        }
-        
-        return {
-          ...so,
-          invoiceInfo
-        };
-      })
-    );
-
-    return NextResponse.json({
-      success: true,
-      client: {
-        ...client,
-        customFields: JSON.parse(client.customFields || '{}'),
-        quotes,
-        invoices,
-        orders,
-        supplierOrders: supplierOrdersWithInvoiceInfo
-      }
-    });
-
-  } catch (error) {
-    logger.error('Error fetching client', 'clients/[id]/GET', { error, clientId: params.id }, loggingContext);
-    return NextResponse.json(
-      { error: 'Failed to fetch client' },
-      { status: 500 }
+  // Валидация через Zod
+  const validation = validateRequest(updateClientSchema, body);
+  if (!validation.success) {
+    return apiError(
+      ApiErrorCode.VALIDATION_ERROR,
+      'Ошибка валидации данных',
+      400,
+      validation.errors
     );
   }
+
+  const validatedData = validation.data;
+
+  // Валидация телефона
+  if (validatedData.phone && !isValidInternationalPhone(validatedData.phone)) {
+    throw new ValidationError('Неверный формат телефона. Используйте международный формат (например: +7 999 123-45-67)');
+  }
+
+  // Нормализуем телефон для хранения
+  const updateData: Parameters<typeof clientRepository.update>[1] = {
+    ...validatedData,
+    phone: validatedData.phone ? normalizePhoneForStorage(validatedData.phone) : undefined,
+    customFields: validatedData.customFields ? JSON.stringify(validatedData.customFields) : undefined
+  };
+
+  const client = await clientRepository.update(id, updateData);
+
+  return apiSuccess(
+    {
+      ...client,
+      customFields: JSON.parse(client.customFields || '{}')
+    },
+    'Клиент успешно обновлен'
+  );
 }
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+): Promise<NextResponse> {
+  return withErrorHandling(
+    requireAuthAndPermission(
+      canUserEditClient,
+      async (req: NextRequest, user: ReturnType<typeof getAuthenticatedUser>) => {
+        return await putHandler(req, user, { params });
+      }
+    ),
+    'clients/[id]/PUT'
+  )(request);
+}
+
+// DELETE /api/clients/[id] - Удаление клиента
+async function deleteHandler(
+  request: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
   const loggingContext = getLoggingContextFromRequest(request);
-  try {
-    const { id } = await params;
-    const data = await request.json();
-    const { firstName, lastName, middleName, phone, address, objectId, compilationLeadNumber, customFields, isActive } = data;
+  const { id } = await params;
 
-    // Получаем пользователя из токена
-    const token = request.cookies.get('auth-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
-    }
+  // Проверяем, что у клиента нет активных документов
+  const documents = await clientRepository.getClientDocuments(id);
+  
+  const activeInvoices = documents.invoices.filter((inv: any) => inv.status !== 'CANCELLED').length;
+  const activeQuotes = documents.quotes.filter((q: any) => q.status !== 'CANCELLED').length;
+  const activeOrders = documents.orders.filter((ord: any) => ord.status !== 'CANCELLED').length;
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "your-super-secret-jwt-key-change-this-in-production-min-32-chars") as any;
-    const userRole = decoded.role;
+  const totalActiveDocuments = activeInvoices + activeQuotes + activeOrders;
 
-    // Проверяем права на редактирование клиента
-    if (!canUserEditClient(userRole)) {
-      return NextResponse.json(
-        { error: 'Недостаточно прав для редактирования клиента' },
-        { status: 403 }
-      );
-    }
-
-    // Валидация телефона
-    if (phone && !isValidInternationalPhone(phone)) {
-      return NextResponse.json(
-        { error: 'Неверный формат телефона. Используйте международный формат (например: +7 999 123-45-67)' },
-        { status: 400 }
-      );
-    }
-
-    // Нормализуем телефон для хранения
-    const normalizedPhone = phone ? normalizePhoneForStorage(phone) : phone;
-
-    const client = await prisma.client.update({
-      where: { id },
-      data: {
-        firstName,
-        lastName,
-        middleName,
-        phone: normalizedPhone,
-        address,
-        objectId,
-        compilationLeadNumber: compilationLeadNumber || null,
-        customFields: JSON.stringify(customFields || {}),
-        isActive: isActive !== undefined ? isActive : true
-      }
-    });
-
-    return NextResponse.json({
-      success: true,
-      client: {
-        ...client,
-        customFields: JSON.parse(client.customFields || '{}')
-      }
-    });
-
-  } catch (error) {
-    logger.error('Error updating client', 'clients/[id]/PUT', { error, clientId: params.id }, loggingContext);
-    return NextResponse.json(
-      { error: 'Failed to update client' },
-      { status: 500 }
+  if (totalActiveDocuments > 0) {
+    throw new BusinessRuleError(
+      `Нельзя удалить клиента с активными документами (Счетов: ${activeInvoices}, КП: ${activeQuotes}, Заказов: ${activeOrders})`
     );
   }
+
+  await prisma.client.delete({
+    where: { id }
+  });
+
+  return apiSuccess(
+    null,
+    'Клиент успешно удален'
+  );
 }
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
-  const loggingContext = getLoggingContextFromRequest(request);
-  try {
-    const { id } = await params;
-
-    // Получаем пользователя из токена
-    const token = request.cookies.get('auth-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "your-super-secret-jwt-key-change-this-in-production-min-32-chars") as any;
-    const userRole = decoded.role;
-
-    // Проверяем права на удаление клиента
-    if (!canUserDeleteClient(userRole)) {
-      return NextResponse.json(
-        { error: 'Недостаточно прав для удаления клиента' },
-        { status: 403 }
-      );
-    }
-
-    // Проверяем, что у клиента нет активных документов
-    const [activeInvoices, activeQuotes, activeOrders] = await Promise.all([
-      prisma.invoice.count({
-        where: { 
-          client_id: id,
-          status: { not: 'CANCELLED' }
-        }
-      }),
-      prisma.quote.count({
-        where: { 
-          client_id: id,
-          status: { not: 'CANCELLED' }
-        }
-      }),
-      prisma.order.count({
-        where: { 
-          client_id: id,
-          status: { not: 'CANCELLED' }
-        }
-      })
-    ]);
-
-    const totalActiveDocuments = activeInvoices + activeQuotes + activeOrders;
-
-    if (totalActiveDocuments > 0) {
-      return NextResponse.json(
-        { error: `Нельзя удалить клиента с активными документами (Счетов: ${activeInvoices}, КП: ${activeQuotes}, Заказов: ${activeOrders})` },
-        { status: 400 }
-      );
-    }
-
-    await prisma.client.delete({
-      where: { id }
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: 'Client deleted successfully'
-    });
-
-  } catch (error) {
-    logger.error('Error deleting client', 'clients/[id]/DELETE', { error, clientId: params.id }, loggingContext);
-    return NextResponse.json(
-      { error: 'Failed to delete client' },
-      { status: 500 }
-    );
-  }
+): Promise<NextResponse> {
+  return withErrorHandling(
+    requireAuthAndPermission(
+      canUserDeleteClient,
+      async (req: NextRequest, user: ReturnType<typeof getAuthenticatedUser>) => {
+        return await deleteHandler(req, user, { params });
+      }
+    ),
+    'clients/[id]/DELETE'
+  )(request);
 }
 

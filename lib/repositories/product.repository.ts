@@ -2,7 +2,7 @@
 // Репозиторий для работы с товарами
 // Оптимизирован для больших объемов данных с поддержкой поиска и фильтрации
 
-import { PrismaClient, Product, ProductImage } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { BaseRepository } from './base.repository';
 import { SearchParams } from '../types/pagination';
 import { logger } from '../monitoring/logger';
@@ -30,8 +30,8 @@ export interface CreateProductInput {
   stock_quantity?: number;
   min_order_qty?: number;
   weight?: number;
-  dimensions?: any;
-  specifications?: any;
+  dimensions?: Record<string, unknown>;
+  specifications?: Record<string, unknown>;
   tags?: string[];
   is_active?: boolean;
   is_featured?: boolean;
@@ -50,8 +50,8 @@ export interface UpdateProductInput {
   stock_quantity?: number;
   min_order_qty?: number;
   weight?: number;
-  dimensions?: any;
-  specifications?: any;
+  dimensions?: Record<string, unknown>;
+  specifications?: Record<string, unknown>;
   tags?: string[];
   is_active?: boolean;
   is_featured?: boolean;
@@ -348,11 +348,11 @@ export class ProductRepository extends BaseRepository<
           inStock,
           outOfStock,
           featured,
-          byCategory: byCategory.map(item => ({
+          byCategory: byCategory.map((item: { category_id: string; _count: { id: number } }) => ({
             category: item.category_id,
             count: item._count.id,
           })),
-          byBrand: byBrand.map(item => ({
+          byBrand: byBrand.map((item: { brand: string | null; _count: { id: number } }) => ({
             brand: item.brand || 'Unknown',
             count: item._count.id,
           })),
@@ -484,4 +484,5 @@ export class ProductRepository extends BaseRepository<
 }
 
 // Экспортируем экземпляр репозитория
-export const productRepository = new ProductRepository(new PrismaClient());
+import { prisma } from '@/lib/prisma';
+export const productRepository = new ProductRepository(prisma);

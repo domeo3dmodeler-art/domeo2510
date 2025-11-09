@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logging/logger';
 import fs from 'fs';
 import path from 'path';
 
 export async function GET(req: NextRequest) {
   try {
-    console.log('🔍 Скачивание файла экспорта прайса');
+    logger.debug('Скачивание файла экспорта прайса', 'admin/export/download-existing');
 
     // Ищем существующий файл экспорта
     const files = fs.readdirSync(process.cwd()).filter((file: string) => 
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
     const latestFile = files.sort().pop();
     const filePath = path.join(process.cwd(), latestFile!);
     
-    console.log('📁 Найден файл:', latestFile);
+    logger.debug('Найден файл', 'admin/export/download-existing', { fileName: latestFile });
 
     // Читаем содержимое файла
     const fileContent = fs.readFileSync(filePath, 'utf8');
@@ -40,9 +41,9 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Error downloading file:', error);
+    logger.error('Error downloading file', 'admin/export/download-existing', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
-      { success: false, error: `Failed to download file: ${error.message}` },
+      { success: false, error: `Failed to download file: ${error instanceof Error ? error.message : String(error)}` },
       { status: 500 }
     );
   }

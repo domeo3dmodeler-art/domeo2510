@@ -17,6 +17,7 @@ import {
   Palette,
   Sparkles
 } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface ConstructorToolbarProps {
   onToggleSmartSuggestions?: () => void;
@@ -53,10 +54,10 @@ export default function ConstructorToolbar({ onToggleSmartSuggestions, showSmart
       });
 
       if (response.ok) {
-        console.log('Конфигурация сохранена');
+        clientLogger.debug('Конфигурация сохранена');
       }
     } catch (error) {
-      console.error('Ошибка сохранения:', error);
+      clientLogger.error('Ошибка сохранения:', error);
     }
   };
 
@@ -80,7 +81,7 @@ export default function ConstructorToolbar({ onToggleSmartSuggestions, showSmart
           const config = JSON.parse(e.target?.result as string);
           loadState(config);
         } catch (error) {
-          console.error('Ошибка импорта:', error);
+          clientLogger.error('Ошибка импорта:', error);
         }
       };
       reader.readAsText(file);

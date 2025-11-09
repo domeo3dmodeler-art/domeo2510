@@ -89,7 +89,7 @@ export default function ConfiguratorCategoryDisplay({
         setProducts(productsData);
       }
     } catch (error) {
-      console.error('Error loading category links:', error);
+      clientLogger.error('Error loading category links:', error);
     } finally {
       setLoading(false);
     }
@@ -114,7 +114,7 @@ export default function ConfiguratorCategoryDisplay({
               const formula = link.formula.replace('price', product.price.toString());
               price = eval(formula);
             } catch (error) {
-              console.error('Error calculating formula:', error);
+              clientLogger.error('Error calculating formula:', error);
               price = product.price;
             }
           }
@@ -175,7 +175,7 @@ export default function ConfiguratorCategoryDisplay({
           const formula = link.formula.replace('price', product.price.toString());
           calculatedPrice = eval(formula);
         } catch (error) {
-          console.error('Error calculating formula:', error);
+          clientLogger.error('Error calculating formula:', error);
           calculatedPrice = product.price;
         }
       }

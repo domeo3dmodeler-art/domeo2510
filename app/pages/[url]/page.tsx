@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { PublishedPageViewer } from '@/components/page-builder/PublishedPageViewer';
+import { logger } from '@/lib/logging/logger';
 
 interface PageProps {
   params: {
@@ -20,7 +21,7 @@ async function getPublishedPage(url: string) {
     const data = await response.json();
     return data.success ? data.page : null;
   } catch (error) {
-    console.error('Error fetching published page:', error);
+    logger.error('Error fetching published page:', error);
     return null;
   }
 }

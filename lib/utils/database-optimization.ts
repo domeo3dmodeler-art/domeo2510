@@ -2,9 +2,8 @@
  * Утилиты для оптимизации запросов к базе данных
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 /**
  * Оптимизированный запрос для получения товаров с пагинацией
@@ -127,7 +126,7 @@ export async function getProductsByProperties(params: {
         return productProperties[key] === value;
       });
     } catch (error) {
-      console.error('Error parsing product properties:', error);
+      logger.error('Error parsing product properties', 'lib/utils/database-optimization', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
       return false;
     }
   });
@@ -385,10 +384,10 @@ export async function measureQueryPerformance<T>(
     const endTime = Date.now();
     const duration = endTime - startTime;
     
-    console.log(`⏱️ Query "${queryName}" completed in ${duration}ms`);
+    logger.info(`Query "${queryName}" completed`, 'lib/utils/database-optimization', { queryName, duration });
     
     if (duration > 1000) {
-      console.warn(`⚠️ Slow query detected: "${queryName}" took ${duration}ms`);
+      logger.warn(`Slow query detected: "${queryName}"`, 'lib/utils/database-optimization', { queryName, duration });
     }
     
     return result;
@@ -396,7 +395,7 @@ export async function measureQueryPerformance<T>(
     const endTime = Date.now();
     const duration = endTime - startTime;
     
-    console.error(`❌ Query "${queryName}" failed after ${duration}ms:`, error);
+    logger.error(`Query "${queryName}" failed`, 'lib/utils/database-optimization', { queryName, duration, error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -416,7 +415,10 @@ export async function batchProcess<T, R>(
     const batchResults = await processFn(batch);
     results.push(...batchResults);
     
-    console.log(`📦 Processed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(items.length / batchSize)}`);
+    logger.info(`Processed batch`, 'lib/utils/database-optimization', { 
+      batchNumber: Math.floor(i / batchSize) + 1, 
+      totalBatches: Math.ceil(items.length / batchSize) 
+    });
   }
   
   return results;
@@ -431,12 +433,13 @@ export async function optimizeConnections() {
     SELECT count(*) as count FROM pg_stat_activity WHERE state = 'active';
   `;
   
-  console.log(`🔗 Active connections: ${connectionCount[0].count}`);
+  const count = (connectionCount as any)[0]?.count || 0;
+  logger.info('Active connections', 'lib/utils/database-optimization', { count });
   
   // Рекомендации по оптимизации
-  if (connectionCount[0].count > 50) {
-    console.warn('⚠️ High number of active connections detected. Consider connection pooling.');
+  if (count > 50) {
+    logger.warn('High number of active connections detected', 'lib/utils/database-optimization', { count });
   }
 }
 
-export default prisma;
+// Экспорт prisma не нужен, используется глобальный экземпляр

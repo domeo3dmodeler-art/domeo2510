@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 type SeriesFormData = {
   name: string;
@@ -70,7 +71,7 @@ export default function CreateSeriesPage() {
       setError(null);
 
       // Здесь должен быть API вызов для создания серии
-      console.log('Creating series:', formData);
+      clientLogger.debug('Creating series:', formData);
       
       // Перенаправляем на страницу списка
       window.location.href = '/admin/doors/series';

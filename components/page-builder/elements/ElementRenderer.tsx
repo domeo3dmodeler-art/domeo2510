@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { BaseElement, ElementRendererProps, Size } from '../types';
+import { clientLogger } from '@/lib/logging/client-logger';
 import { SelectionOverlay } from './SelectionOverlay';
 import { shouldShowTechnicalInfo } from '../../../lib/display-mode';
 import { ProductDisplay } from './ProductDisplay';
@@ -55,7 +56,7 @@ export function ElementRenderer({
 
   // Обработчик клика для выделения
   const handleClick = (e: React.MouseEvent) => {
-    console.log('🖱️ ElementRenderer: handleClick НАЧАЛО - событие получено!', {
+    clientLogger.debug('🖱️ ElementRenderer: handleClick НАЧАЛО - событие получено!', {
       elementId: element.id,
       elementType: element.type,
       ctrlKey: e.ctrlKey,
@@ -67,21 +68,21 @@ export function ElementRenderer({
     
     e.stopPropagation();
     
-    console.log('🖱️ ElementRenderer: handleClick ПРОДОЛЖЕНИЕ - после stopPropagation', {
+    clientLogger.debug('🖱️ ElementRenderer: handleClick ПРОДОЛЖЕНИЕ - после stopPropagation', {
       elementId: element.id,
       elementType: element.type,
       ctrlKey: e.ctrlKey
     });
     
     if (e.ctrlKey) {
-      console.log('🖱️ ElementRenderer: Ctrl+click - множественное выделение');
+      clientLogger.debug('🖱️ ElementRenderer: Ctrl+click - множественное выделение');
       onMultiSelect(e);
     } else {
-      console.log('🖱️ ElementRenderer: Обычный клик - одиночное выделение');
+      clientLogger.debug('🖱️ ElementRenderer: Обычный клик - одиночное выделение');
       onSelect();
     }
     
-    console.log('🖱️ ElementRenderer: handleClick КОНЕЦ');
+    clientLogger.debug('🖱️ ElementRenderer: handleClick КОНЕЦ');
   };
 
   // Обработчик двойного клика для редактирования
@@ -656,7 +657,7 @@ export function ElementRenderer({
         );
 
       case 'propertyFilter':
-        console.log('🚨 ElementRenderer: Рендерим PropertyFilter', {
+        clientLogger.debug('🚨 ElementRenderer: Рендерим PropertyFilter', {
           elementId: element.id,
           elementProps: element.props,
           propertyName: element.props.propertyName

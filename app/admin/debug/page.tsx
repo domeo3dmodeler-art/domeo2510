@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '../../../components/ui';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 export default function DebugPage() {
   const [products, setProducts] = useState([]);
@@ -19,7 +20,7 @@ export default function DebugPage() {
       const data = await response.json();
       setCategories(data.categories || []);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      clientLogger.error('Error loading categories:', error);
     }
   };
 
@@ -67,7 +68,7 @@ export default function DebugPage() {
       
       setDebugInfo(debug);
     } catch (error) {
-      console.error('Error loading products:', error);
+      clientLogger.error('Error loading products:', error);
       setDebugInfo(`Ошибка загрузки товаров: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
@@ -113,7 +114,7 @@ export default function DebugPage() {
       setDebugInfo(debug);
       
     } catch (error) {
-      console.error('Error testing photo search:', error);
+      clientLogger.error('Error testing photo search:', error);
       setDebugInfo(debugInfo + `\nОшибка тестирования поиска: ${error.message}`);
     }
   };

@@ -1,12 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
+
+interface Document {
+  id: string;
+  documentType: 'quote' | 'invoice' | 'order' | 'supplier_order';
+  parent_document_id?: string | null;
+  [key: string]: unknown;
+}
+
+interface ChainDocument extends Document {
+  position: number;
+  level: number;
+  parentId?: string;
+  childId?: string;
+}
 
 // GET /api/documents/[id]/chain - Получение полной цепочки документов
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
 
-    console.log(`🔗 Получаем полную цепочку документов для ${id}`);
+    logger.debug('Получаем полную цепочку документов', 'documents/[id]/chain', { id });
 
     // Получаем все документы клиента для построения цепочки
     const allDocuments = await getAllClientDocuments(id);
@@ -14,7 +29,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // Строим цепочку связей
     const chain = buildDocumentChain(allDocuments, id);
 
-    console.log(`✅ Построена цепочка из ${chain.length} документов`);
+    logger.debug('Построена цепочка документов', 'documents/[id]/chain', { id, chainLength: chain.length });
 
     return NextResponse.json({
       success: true,
@@ -23,7 +38,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     });
 
   } catch (error) {
-    console.error('❌ Ошибка построения цепочки документов:', error);
+    logger.error('Ошибка построения цепочки документов', 'documents/[id]/chain', error instanceof Error ? { error: error.message, stack: error.stack, id } : { error: String(error), id });
     return NextResponse.json(
       { error: 'Ошибка при построении цепочки документов' },
       { status: 500 }
@@ -122,9 +137,9 @@ async function getAllClientDocuments(documentId: string) {
 }
 
 // Построение цепочки документов
-function buildDocumentChain(allDocuments: any[], startDocumentId: string) {
-  const chain = [];
-  const visited = new Set();
+function buildDocumentChain(allDocuments: Document[], startDocumentId: string): ChainDocument[] {
+  const chain: ChainDocument[] = [];
+  const visited = new Set<string>();
 
   // Находим стартовый документ
   const startDoc = allDocuments.find(doc => doc.id === startDocumentId);

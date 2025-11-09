@@ -3,11 +3,13 @@
  * Поддерживает любые математические операции, логику, условия
  */
 
+import { logger } from '../logging/logger';
+
 export interface Variable {
   id: string;
   name: string;
   type: 'number' | 'string' | 'boolean' | 'array' | 'object' | 'date';
-  value: any;
+  value: unknown;
   source?: 'input' | 'catalog' | 'api' | 'formula' | 'constant';
   validation?: ValidationRule[];
   dependencies?: string[];
@@ -15,9 +17,9 @@ export interface Variable {
 
 export interface ValidationRule {
   type: 'min' | 'max' | 'required' | 'regex' | 'custom';
-  value?: any;
+  value?: unknown;
   message: string;
-  customFunction?: (value: any) => boolean;
+  customFunction?: (value: unknown) => boolean;
 }
 
 export interface Formula {
@@ -40,7 +42,7 @@ export interface ConditionalRule {
 export class FormulaEngine {
   private variables: Map<string, Variable> = new Map();
   private formulas: Map<string, Formula> = new Map();
-  private cache: Map<string, any> = new Map();
+  private cache: Map<string, unknown> = new Map();
   
   // 🔧 Математические функции
   private mathFunctions = {
@@ -73,7 +75,7 @@ export class FormulaEngine {
     sum: (...args: number[]) => args.reduce((a, b) => a + b, 0),
     
     // Условные функции
-    if: (condition: boolean, trueValue: any, falseValue: any) => condition ? trueValue : falseValue,
+    if: (condition: boolean, trueValue: unknown, falseValue: unknown) => condition ? trueValue : falseValue,
     
     // Строковые функции
     concat: (...args: string[]) => args.join(''),
@@ -82,9 +84,9 @@ export class FormulaEngine {
     lower: (str: string) => str.toLowerCase(),
     
     // Функции массивов
-    count: (arr: any[]) => arr.length,
-    first: (arr: any[]) => arr[0],
-    last: (arr: any[]) => arr[arr.length - 1],
+    count: (arr: unknown[]) => arr.length,
+    first: (arr: unknown[]) => arr[0],
+    last: (arr: unknown[]) => arr[arr.length - 1],
     
     // Функции дат
     now: () => new Date(),
@@ -107,10 +109,10 @@ export class FormulaEngine {
     // Функции для работы с каталогом
     getPrice: (productId: string) => this.getCatalogValue(productId, 'price'),
     getProperty: (productId: string, property: string) => this.getCatalogValue(productId, property),
-    filterProducts: (categoryId: string, filters: any) => this.filterCatalogProducts(categoryId, filters),
+    filterProducts: (categoryId: string, filters: Record<string, unknown>) => this.filterCatalogProducts(categoryId, filters),
     
     // Пользовательские функции
-    custom: (functionName: string, ...args: any[]) => this.executeCustomFunction(functionName, args)
+    custom: (functionName: string, ...args: unknown[]) => this.executeCustomFunction(functionName, args)
   };
 
   /**
@@ -132,7 +134,7 @@ export class FormulaEngine {
   /**
    * 🔢 Установить значение переменной
    */
-  setVariable(id: string, value: any): void {
+  setVariable(id: string, value: unknown): void {
     const variable = this.variables.get(id);
     if (variable) {
       // Валидация
@@ -148,7 +150,7 @@ export class FormulaEngine {
   /**
    * 🧮 Вычислить формулу
    */
-  calculate(formulaId: string): any {
+  calculate(formulaId: string): unknown {
     const cacheKey = `formula_${formulaId}`;
     
     if (this.cache.has(cacheKey)) {
@@ -182,7 +184,7 @@ export class FormulaEngine {
       return result;
       
     } catch (error) {
-      console.error(`Ошибка вычисления формулы ${formulaId}:`, error);
+      logger.error('Ошибка вычисления формулы', 'FormulaEngine', error instanceof Error ? { error: error.message, stack: error.stack, formulaId } : { error: String(error), formulaId });
       throw error;
     }
   }
@@ -190,7 +192,7 @@ export class FormulaEngine {
   /**
    * 🔍 Вычислить выражение
    */
-  private evaluateExpression(expression: string): any {
+  private evaluateExpression(expression: string): unknown {
     // Заменяем переменные на их значения
     let processedExpression = expression;
     
@@ -217,7 +219,8 @@ export class FormulaEngine {
     return expression.replace(functionRegex, (match, functionName, args) => {
       if (this.mathFunctions[functionName as keyof typeof this.mathFunctions]) {
         const parsedArgs = this.parseArguments(args);
-        const result = (this.mathFunctions as any)[functionName](...parsedArgs);
+        const fn = this.mathFunctions[functionName as keyof typeof this.mathFunctions] as (...args: unknown[]) => unknown;
+        const result = fn(...parsedArgs);
         return JSON.stringify(result);
       }
       return match;
@@ -227,7 +230,7 @@ export class FormulaEngine {
   /**
    * 📊 Парсинг аргументов функции
    */
-  private parseArguments(argsString: string): any[] {
+  private parseArguments(argsString: string): unknown[] {
     if (!argsString.trim()) return [];
     
     const args = [];
@@ -266,7 +269,7 @@ export class FormulaEngine {
   /**
    * 🔍 Парсинг значения
    */
-  private parseValue(value: string): any {
+  private parseValue(value: string): unknown {
     // Число
     if (/^-?\d+\.?\d*$/.test(value)) {
       return parseFloat(value);
@@ -306,7 +309,7 @@ export class FormulaEngine {
   /**
    * 🛡️ Безопасное вычисление
    */
-  private safeEvaluate(expression: string): any {
+  private safeEvaluate(expression: string): unknown {
     try {
       // Проверяем на опасные операции
       const dangerousPatterns = [
@@ -327,7 +330,7 @@ export class FormulaEngine {
       // Используем Function constructor для безопасного вычисления
       return new Function(`"use strict"; return (${expression})`)();
     } catch (error) {
-      console.error('Ошибка вычисления выражения:', expression, error);
+      logger.error('Ошибка вычисления выражения', 'FormulaEngine', error instanceof Error ? { error: error.message, stack: error.stack, expression } : { error: String(error), expression });
       throw error;
     }
   }
@@ -335,7 +338,7 @@ export class FormulaEngine {
   /**
    * ✅ Валидация значения
    */
-  private validateValue(value: any, rules: ValidationRule[]): void {
+  private validateValue(value: unknown, rules: ValidationRule[]): void {
     for (const rule of rules) {
       switch (rule.type) {
         case 'required':
@@ -345,19 +348,19 @@ export class FormulaEngine {
           break;
           
         case 'min':
-          if (typeof value === 'number' && value < rule.value) {
+          if (typeof value === 'number' && typeof rule.value === 'number' && value < rule.value) {
             throw new Error(rule.message);
           }
           break;
           
         case 'max':
-          if (typeof value === 'number' && value > rule.value) {
+          if (typeof value === 'number' && typeof rule.value === 'number' && value > rule.value) {
             throw new Error(rule.message);
           }
           break;
           
         case 'regex':
-          if (typeof value === 'string' && !new RegExp(rule.value).test(value)) {
+          if (typeof value === 'string' && typeof rule.value === 'string' && !new RegExp(rule.value).test(value)) {
             throw new Error(rule.message);
           }
           break;
@@ -391,7 +394,7 @@ export class FormulaEngine {
       const { catalogDataSource } = await import('./CatalogDataSource');
       return await catalogDataSource.getProductProperty(productId, property);
     } catch (error) {
-      console.error('Ошибка получения данных из каталога:', error);
+      logger.error('Ошибка получения данных из каталога', 'FormulaEngine', error instanceof Error ? { error: error.message, stack: error.stack, productId, property } : { error: String(error), productId, property });
       return null;
     }
   }
@@ -399,12 +402,12 @@ export class FormulaEngine {
   /**
    * 🔍 Фильтровать товары каталога
    */
-  private async filterCatalogProducts(categoryId: string, filters: any): Promise<any[]> {
+  private async filterCatalogProducts(categoryId: string, filters: Record<string, unknown>): Promise<unknown[]> {
     try {
       const { catalogDataSource } = await import('./CatalogDataSource');
       return await catalogDataSource.findProducts({ categoryId, ...filters });
     } catch (error) {
-      console.error('Ошибка фильтрации товаров:', error);
+      logger.error('Ошибка фильтрации товаров', 'FormulaEngine', error instanceof Error ? { error: error.message, stack: error.stack, categoryId, filters } : { error: String(error), categoryId, filters });
       return [];
     }
   }
@@ -412,7 +415,7 @@ export class FormulaEngine {
   /**
    * 🔧 Выполнить пользовательскую функцию
    */
-  private executeCustomFunction(functionName: string, args: any[]): any {
+  private executeCustomFunction(functionName: string, args: unknown[]): unknown {
     // Здесь можно добавить пользовательские функции
     throw new Error(`Пользовательская функция ${functionName} не найдена`);
   }

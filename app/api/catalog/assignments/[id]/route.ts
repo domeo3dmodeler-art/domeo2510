@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { catalogService } from '@/lib/services/catalog.service';
 import { UpdatePropertyAssignmentDto } from '@/lib/types/catalog';
+import { logger } from '@/lib/logging/logger';
 
 // PUT /api/catalog/assignments/[id] - Обновить назначение свойства
 export async function PUT(
@@ -13,7 +14,7 @@ export async function PUT(
     const assignment = await catalogService.updatePropertyAssignment(params.id, data);
     return NextResponse.json(assignment);
   } catch (error) {
-    console.error('Error updating property assignment:', error);
+    logger.error('Error updating property assignment', 'catalog/assignments/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Failed to update property assignment' },
       { status: 500 }
@@ -30,7 +31,7 @@ export async function DELETE(
     await catalogService.removePropertyAssignment(params.id);
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting property assignment:', error);
+    logger.error('Error deleting property assignment', 'catalog/assignments/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Failed to delete property assignment' },
       { status: 500 }

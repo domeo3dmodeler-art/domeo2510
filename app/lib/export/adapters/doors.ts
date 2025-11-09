@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { ExportRow, ExportError } from '../types';
 import { PositionPriced, applyPricing } from '@/lib/doors/pricing';
 import { toFactoryRows } from '@/lib/doors/factory-map';
+import { logger } from '@/lib/logging/logger';
 
 export type DoorsKPData = {
   id: string;
@@ -142,7 +143,7 @@ export const doorsExportAdapter = {
       return kpData;
     } catch (error) {
       // В случае ошибки возвращаем заглушку для демонстрации
-      console.warn('Ошибка получения данных КП, используем заглушку:', error);
+      logger.warn('Ошибка получения данных КП, используем заглушку:', { error, kpId });
       
       const mockKPData: DoorsKPData = {
         id: kpId,

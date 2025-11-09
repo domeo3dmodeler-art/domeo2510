@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { catalogService } from '@/lib/services/catalog.service';
 import { CreateFrontendCategoryDto } from '@/lib/types/catalog';
+import { logger } from '@/lib/logging/logger';
 
 // GET /api/frontend-categories/[id] - Получить категорию фронта по ID
 export async function GET(
@@ -19,7 +20,7 @@ export async function GET(
 
     return NextResponse.json(category);
   } catch (error) {
-    console.error('Error fetching frontend category:', error);
+    logger.error('Error fetching frontend category', 'frontend-categories/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Failed to fetch frontend category' },
       { status: 500 }
@@ -64,7 +65,7 @@ export async function PUT(
     const category = await catalogService.updateFrontendCategory(params.id, data);
     return NextResponse.json(category);
   } catch (error) {
-    console.error('Error updating frontend category:', error);
+    logger.error('Error updating frontend category', 'frontend-categories/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Failed to update frontend category' },
       { status: 500 }
@@ -81,7 +82,7 @@ export async function DELETE(
     await catalogService.deleteFrontendCategory(params.id);
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting frontend category:', error);
+    logger.error('Error deleting frontend category', 'frontend-categories/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     
     if (error instanceof Error) {
       return NextResponse.json(

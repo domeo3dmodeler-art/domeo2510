@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Button } from '../../../components/ui';
 import EnhancedCartSidebar from '../cart/EnhancedCartSidebar';
 import { ShoppingCart } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface DocumentWorkflowIntegrationProps {
   selectedClientId?: string;
@@ -55,8 +56,8 @@ export default function DocumentWorkflowIntegration({
             
             <Button
               onClick={() => {
-                // TODO: Открыть конфигуратор дверей
-                console.log('Open door configurator');
+                // Функция открытия конфигуратора дверей будет реализована позже
+                clientLogger.debug('Open door configurator');
               }}
               variant="outline"
               size="sm"

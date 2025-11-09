@@ -1,78 +1,78 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
+import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { NotFoundError, ValidationError } from '@/lib/api/errors';
+import { requireAuth } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
 // ===================== Экспорт конфигурации =====================
 
-export async function POST(req: NextRequest) {
-  try {
-    const { type, configData, categoryId } = await req.json();
+async function postHandler(
+  req: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(req);
+  const { type, configData, categoryId } = await req.json();
 
-    if (!type || !configData) {
-      return NextResponse.json(
-        { error: 'Не указан тип экспорта или данные конфигурации' },
-        { status: 400 }
-      );
-    }
-
-    // Получаем информацию о категории
-    const category = await prisma.category.findUnique({
-      where: { id: categoryId },
-      include: {
-        products: true
-      }
-    });
-
-    if (!category) {
-      return NextResponse.json(
-        { error: 'Категория не найдена' },
-        { status: 404 }
-      );
-    }
-
-    let result;
-
-    switch (type) {
-      case 'kp':
-        result = await generateKP(configData, category);
-        break;
-      case 'invoice':
-        result = await generateInvoice(configData, category);
-        break;
-      case 'order':
-        result = await generateOrder(configData, category);
-        break;
-      case 'pdf':
-        result = await generatePDF(configData, category);
-        break;
-      case 'excel':
-        result = await generateExcel(configData, category);
-        break;
-      default:
-        return NextResponse.json(
-          { error: 'Неподдерживаемый тип экспорта' },
-          { status: 400 }
-        );
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: result,
-      filename: result.filename,
-      downloadUrl: result.downloadUrl
-    });
-
-  } catch (error) {
-    console.error('Export error:', error);
-    return NextResponse.json(
-      { error: 'Ошибка при экспорте' },
-      { status: 500 }
+  if (!type || !configData) {
+    return apiError(
+      ApiErrorCode.VALIDATION_ERROR,
+      'Не указан тип экспорта или данные конфигурации',
+      400
     );
-  } finally {
-    await prisma.$disconnect();
   }
+
+  // Получаем информацию о категории
+  const category = await prisma.category.findUnique({
+    where: { id: categoryId },
+    include: {
+      products: true
+    }
+  });
+
+  if (!category) {
+    throw new NotFoundError('Категория', categoryId || 'не указана');
+  }
+
+  let result;
+
+  switch (type) {
+    case 'kp':
+      result = await generateKP(configData, category);
+      break;
+    case 'invoice':
+      result = await generateInvoice(configData, category);
+      break;
+    case 'order':
+      result = await generateOrder(configData, category);
+      break;
+    case 'pdf':
+      result = await generatePDF(configData, category);
+      break;
+    case 'excel':
+      result = await generateExcel(configData, category);
+      break;
+    default:
+      return apiError(
+        ApiErrorCode.VALIDATION_ERROR,
+        'Неподдерживаемый тип экспорта',
+        400
+      );
+  }
+
+  return apiSuccess({
+    data: result,
+    filename: result.filename,
+    downloadUrl: result.downloadUrl
+  });
 }
+
+export const POST = withErrorHandling(
+  requireAuth(postHandler),
+  'export/POST'
+);
 
 // ===================== Генерация КП =====================
 

@@ -86,7 +86,7 @@ export default function ModernConstructor() {
           ...prev, 
           isPreviewMode: !prev.isPreviewMode 
         }))}
-        onSave={() => console.log('Save:', state.blocks)}
+        onSave={() => clientLogger.debug('Save:', state.blocks)}
         blocksCount={state.blocks.length}
       />
 

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BaseElement } from '../types';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface Product {
   id: string;
@@ -66,7 +67,7 @@ export function FilteredProducts({ element, onUpdate, filters = {} }: FilteredPr
         }
       } catch (e: any) {
         setError(e.message || 'Ошибка загрузки товаров');
-        console.error('Ошибка загрузки товаров:', e);
+        clientLogger.error('Ошибка загрузки товаров:', e);
       } finally {
         setLoading(false);
       }

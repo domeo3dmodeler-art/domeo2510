@@ -17,6 +17,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import SimplifiedImportDialog from '../../../../components/import/SimplifiedImportDialog';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface CatalogCategory {
   id: string;
@@ -61,7 +62,7 @@ export default function SimplifiedCatalogImportPage() {
         setCatalogCategories(data.categories || []);
       }
     } catch (error) {
-      console.error('Error loading catalog categories:', error);
+      clientLogger.error('Error loading catalog categories:', error);
     } finally {
       setLoading(false);
     }

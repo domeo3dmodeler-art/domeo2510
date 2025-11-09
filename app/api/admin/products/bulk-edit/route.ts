@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { apiErrorHandler } from '@/lib/api-error-handler';
-import { apiValidator } from '@/lib/api-validator';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError, NotFoundError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
 
 interface BulkUpdateRequest {
   updates: Array<{
@@ -18,22 +19,17 @@ interface BulkUpdateRequest {
   }>;
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(request);
     const body: BulkUpdateRequest = await request.json();
-    
-    // Валидация данных
-    apiValidator.validateBulkEdit(body);
     const { updates } = body;
 
     if (!updates || !Array.isArray(updates) || updates.length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Не предоставлены данные для обновления' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не предоставлены данные для обновления');
     }
 
-    console.log(`🔄 Начинаем массовое обновление ${updates.length} товаров`);
+    logger.info('Массовое обновление товаров', 'admin/products/bulk-edit', { userId: user.userId, updatesCount: updates.length });
 
     const results = [];
     const errors = [];
@@ -76,18 +72,21 @@ export async function POST(request: NextRequest) {
           updated: true
         });
 
-        console.log(`✅ Обновлен товар: ${updatedProduct.sku} - ${updatedProduct.name}`);
+        logger.debug('Товар обновлен', 'admin/products/bulk-edit', { productId: updatedProduct.id, sku: updatedProduct.sku });
 
       } catch (error) {
-        console.error(`❌ Ошибка обновления товара ${update.id}:`, error);
+        logger.error(`Ошибка обновления товара ${update.id}`, 'admin/products/bulk-edit', error instanceof Error ? { error: error.message } : { error: String(error) });
         errors.push(`Товар ${update.id}: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
       }
     }
 
-    console.log(`🎉 Массовое обновление завершено: ${results.length} успешно, ${errors.length} ошибок`);
+    logger.info('Массовое обновление завершено', 'admin/products/bulk-edit', { 
+      userId: user.userId,
+      updated: results.length, 
+      errors: errors.length 
+    });
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       updated: results.length,
       errors: errors.length,
       results,
@@ -95,23 +94,44 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    return apiErrorHandler.handle(error, 'bulk-edit');
-  } finally {
-    await prisma.$disconnect();
+    logger.error('Error in bulk edit', 'admin/products/bulk-edit', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка массового обновления товаров', 500);
   }
 }
 
+export const POST = withErrorHandling(
+  requireAuthAndPermission(postHandler, 'ADMIN'),
+  'admin/products/bulk-edit/POST'
+);
+
 // GET endpoint для получения информации о товарах для массового редактирования
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(request);
     const { searchParams } = new URL(request.url);
     const categoryId = searchParams.get('categoryId');
     const limitParam = searchParams.get('limit');
     const offsetParam = searchParams.get('offset');
     
-    // Валидация параметров
-    apiValidator.validateId(categoryId!, 'categoryId');
-    const { limit, offset } = apiValidator.validatePagination(limitParam, offsetParam);
+    if (!categoryId) {
+      throw new ValidationError('categoryId обязателен');
+    }
+
+    const limit = limitParam ? parseInt(limitParam) : 50;
+    const offset = offsetParam ? parseInt(offsetParam) : 0;
+
+    if (isNaN(limit) || limit < 1 || limit > 1000) {
+      throw new ValidationError('limit должен быть числом от 1 до 1000');
+    }
+
+    if (isNaN(offset) || offset < 0) {
+      throw new ValidationError('offset должен быть неотрицательным числом');
+    }
+
+    logger.info('Получение товаров для массового редактирования', 'admin/products/bulk-edit', { userId: user.userId, categoryId, limit, offset });
 
 
     const products = await prisma.product.findMany({
@@ -134,8 +154,9 @@ export async function GET(request: NextRequest) {
       where: { catalog_category_id: categoryId }
     });
 
-    return NextResponse.json({
-      success: true,
+    logger.info('Товары для массового редактирования получены', 'admin/products/bulk-edit', { categoryId, productsCount: products.length, total });
+
+    return apiSuccess({
       products,
       total,
       limit,
@@ -143,8 +164,15 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    return apiErrorHandler.handle(error, 'bulk-edit-get');
-  } finally {
-    await prisma.$disconnect();
+    logger.error('Error in bulk edit GET', 'admin/products/bulk-edit', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка получения товаров для массового редактирования', 500);
   }
 }
+
+export const GET = withErrorHandling(
+  requireAuthAndPermission(getHandler, 'ADMIN'),
+  'admin/products/bulk-edit/GET'
+);

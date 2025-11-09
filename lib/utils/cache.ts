@@ -2,6 +2,8 @@
  * Утилиты для кэширования часто используемых данных
  */
 
+import { logger } from '../logging/logger';
+
 interface CacheItem<T> {
   data: T;
   timestamp: number;
@@ -9,7 +11,7 @@ interface CacheItem<T> {
 }
 
 class MemoryCache {
-  private cache = new Map<string, CacheItem<any>>();
+  private cache = new Map<string, CacheItem<unknown>>();
 
   set<T>(key: string, data: T, ttlMs: number = 5 * 60 * 1000): void {
     this.cache.set(key, {
@@ -32,7 +34,7 @@ class MemoryCache {
       return null;
     }
 
-    return item.data;
+    return item.data as T;
   }
 
   has(key: string): boolean {
@@ -78,7 +80,7 @@ export const cache = new MemoryCache();
 /**
  * Декоратор для кэширования результатов функций
  */
-export function cached<T extends (...args: any[]) => any>(
+export function cached<T extends (...args: unknown[]) => unknown>(
   fn: T,
   keyGenerator: (...args: Parameters<T>) => string,
   ttlMs: number = 5 * 60 * 1000
@@ -89,12 +91,12 @@ export function cached<T extends (...args: any[]) => any>(
     // Проверяем кэш
     const cached = cache.get(key);
     if (cached !== null) {
-      console.log(`🎯 Cache hit for key: ${key}`);
+      logger.debug('Cache hit for key', 'cache-utils', { key });
       return cached;
     }
 
     // Выполняем функцию и кэшируем результат
-    console.log(`💾 Cache miss for key: ${key}, executing function`);
+    logger.debug('Cache miss for key, executing function', 'cache-utils', { key });
     const result = fn(...args);
     
     // Если результат - Promise, кэшируем после выполнения
@@ -121,12 +123,12 @@ export async function cachedPrismaQuery<T>(
   // Проверяем кэш
   const cached = cache.get<T>(key);
   if (cached !== null) {
-    console.log(`🎯 Cache hit for Prisma query: ${key}`);
+    logger.debug('Cache hit for Prisma query', 'cache-utils', { key });
     return cached;
   }
 
   // Выполняем запрос и кэшируем результат
-  console.log(`💾 Cache miss for Prisma query: ${key}, executing query`);
+  logger.debug('Cache miss for Prisma query, executing query', 'cache-utils', { key });
   const result = await queryFn();
   cache.set(key, result, ttlMs);
   
@@ -180,7 +182,7 @@ export function clearCacheByPattern(pattern: string): number {
     }
   }
   
-  console.log(`🧹 Cleared ${cleared} cache entries matching pattern: ${pattern}`);
+  logger.info('Cleared cache entries matching pattern', 'cache-utils', { cleared, pattern });
   return cleared;
 }
 
@@ -211,7 +213,7 @@ export function invalidateCacheOnChange(entityType: string): void {
  */
 export function logCacheStats(): void {
   const stats = cache.getStats();
-  console.log('📊 Cache Statistics:', {
+  logger.debug('Cache Statistics', 'cache-utils', {
     size: stats.size,
     keys: stats.keys.slice(0, 10), // Показываем первые 10 ключей
     totalKeys: stats.keys.length
@@ -219,7 +221,7 @@ export function logCacheStats(): void {
 }
 
 export function warmupCache(): void {
-  console.log('🔥 Warming up cache...');
+  logger.info('Warming up cache', 'cache-utils');
   // Здесь можно добавить предзагрузку часто используемых данных
-  console.log('✅ Cache warmup completed');
+  logger.info('Cache warmup completed', 'cache-utils');
 }

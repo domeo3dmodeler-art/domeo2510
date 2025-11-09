@@ -34,7 +34,7 @@ export default function CategoryBuilder({
         setCurrentStep('builder');
       }
     } catch (error) {
-      console.error('Error creating category:', error);
+      clientLogger.error('Error creating category:', error);
     }
   };
 
@@ -60,7 +60,7 @@ export default function CategoryBuilder({
         }, 2000);
       }
     } catch (error) {
-      console.error('Error saving template:', error);
+      clientLogger.error('Error saving template:', error);
     }
   };
 

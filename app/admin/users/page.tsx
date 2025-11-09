@@ -5,6 +5,7 @@ import Link from 'next/link';
 import AdminLayout from '../../../components/layout/AdminLayout';
 import { Card, Button, DataTable, Pagination, useFormValidation, ErrorMessage } from '../../../components/ui';
 import { ClientAuthGuard } from '../../../components/auth/ClientAuthGuard';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface User {
   id: string;
@@ -65,11 +66,11 @@ function AdminUsersPageContent() {
       if (data.success) {
         setUsers(data.users);
       } else {
-        console.error('Ошибка загрузки пользователей:', data.error);
+        clientLogger.error('Ошибка загрузки пользователей:', data.error);
         setUsers(demoUsers);
       }
     } catch (error) {
-      console.error('Ошибка загрузки пользователей:', error);
+      clientLogger.error('Ошибка загрузки пользователей:', error);
       setUsers(demoUsers);
     } finally {
       setIsLoading(false);

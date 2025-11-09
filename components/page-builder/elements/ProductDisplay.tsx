@@ -5,6 +5,7 @@ import { BaseElement } from '../types';
 import { extractUniquePropertyValues } from '@/lib/string-utils';
 import { shouldShowFilters } from '@/lib/display-mode';
 import { FiltersPlaceholder } from './PlaceholderContent';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface Product {
   id: string;
@@ -18,7 +19,7 @@ interface Product {
     is_primary: boolean;
     sort_order: number;
   }>;
-  properties_data: Record<string, any>;
+  properties_data: Record<string, unknown>;
   catalog_category_id: string;
   sku: string;
 }
@@ -32,8 +33,8 @@ export function ProductDisplay({ element, onUpdate }: ProductDisplayProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [propertyFilters, setPropertyFilters] = useState<Record<string, any>>({});
-  const [availableProperties, setAvailableProperties] = useState<any[]>([]);
+  const [propertyFilters, setPropertyFilters] = useState<Record<string, unknown>>({});
+  const [availableProperties, setAvailableProperties] = useState<Array<{ id: string; name: string; options?: Array<{ value: unknown; label: string }>; [key: string]: unknown }>>([]);
 
   // Получение настроек отображения для свойства
   const getPropertyDisplaySettings = (propertyId: string) => {
@@ -57,7 +58,7 @@ export function ProductDisplay({ element, onUpdate }: ProductDisplayProps) {
         
         if (propertiesResponse.ok) {
           const propertiesData = await propertiesResponse.json();
-          const filteredProperties = propertiesData.properties?.filter((prop: any) => 
+          const filteredProperties = propertiesData.properties?.filter((prop: { id: string; name: string; [key: string]: unknown }) => 
             element.props.selectedPropertyIds.includes(prop.id)
           ) || [];
           
@@ -71,9 +72,9 @@ export function ProductDisplay({ element, onUpdate }: ProductDisplayProps) {
             
             // Извлекаем уникальные значения для каждого свойства
             const propertiesWithOptions = await Promise.all(
-              filteredProperties.map(async (property: any) => {
+              filteredProperties.map(async (property: { id: string; name: string; [key: string]: unknown }) => {
                 const options = await extractUniquePropertyValues(products, property.name);
-                console.log(`Property "${property.name}": found ${options.length} unique values:`, options.map(o => o.value));
+                clientLogger.debug(`Property "${property.name}": found ${options.length} unique values:`, options.map(o => o.value));
                 
                 return {
                   ...property,
@@ -88,7 +89,7 @@ export function ProductDisplay({ element, onUpdate }: ProductDisplayProps) {
           }
         }
       } catch (error) {
-        console.error('Error loading properties:', error);
+        clientLogger.error('Error loading properties:', error);
       }
     };
 
@@ -116,7 +117,7 @@ export function ProductDisplay({ element, onUpdate }: ProductDisplayProps) {
           setProducts(data.products || []);
         }
       } catch (error) {
-        console.error('Error loading products:', error);
+        clientLogger.error('Error loading products:', error);
       } finally {
         setLoading(false);
       }
@@ -145,8 +146,8 @@ export function ProductDisplay({ element, onUpdate }: ProductDisplayProps) {
   };
 
   const handleAddToCart = (product: Product) => {
-    // TODO: Реализовать добавление в корзину
-    console.log('Adding to cart:', product);
+    // Добавление в корзину будет реализовано позже
+    clientLogger.debug('Adding to cart:', product);
   };
 
   const renderProductCard = (product: Product) => (

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 /**
  * API endpoint для удаления всех документов из БД
@@ -10,7 +11,7 @@ import { prisma } from '@/lib/prisma';
  */
 export async function DELETE(req: NextRequest) {
   try {
-    console.log('🚨 Начинаем удаление всех документов из БД...');
+    logger.warn('Начинаем удаление всех документов из БД', 'admin/delete-all-documents');
     
     // Подсчитываем количество документов перед удалением
     const ordersCount = await prisma.order.count();
@@ -18,34 +19,35 @@ export async function DELETE(req: NextRequest) {
     const quotesCount = await prisma.quote.count();
     const supplierOrdersCount = await prisma.supplierOrder.count();
     
-    console.log(`📊 Найдено документов:`);
-    console.log(`  - Заказов (Order): ${ordersCount}`);
-    console.log(`  - Счетов (Invoice): ${invoicesCount}`);
-    console.log(`  - КП (Quote): ${quotesCount}`);
-    console.log(`  - Заказов у поставщика (SupplierOrder): ${supplierOrdersCount}`);
+    logger.info('Найдено документов', 'admin/delete-all-documents', {
+      ordersCount,
+      invoicesCount,
+      quotesCount,
+      supplierOrdersCount
+    });
     
     // Удаляем в правильном порядке (сначала зависимые, потом основные)
     // 1. SupplierOrder (зависит от Invoice и Order)
-    console.log('\n🗑️ Удаляем заказы у поставщика...');
+    logger.info('Удаляем заказы у поставщика', 'admin/delete-all-documents');
     const deletedSupplierOrders = await prisma.supplierOrder.deleteMany({});
-    console.log(`✅ Удалено заказов у поставщика: ${deletedSupplierOrders.count}`);
+    logger.info('Удалено заказов у поставщика', 'admin/delete-all-documents', { count: deletedSupplierOrders.count });
     
     // 2. Quote (зависит от Order)
-    console.log('\n🗑️ Удаляем КП...');
+    logger.info('Удаляем КП', 'admin/delete-all-documents');
     const deletedQuotes = await prisma.quote.deleteMany({});
-    console.log(`✅ Удалено КП: ${deletedQuotes.count}`);
+    logger.info('Удалено КП', 'admin/delete-all-documents', { count: deletedQuotes.count });
     
     // 3. Invoice (зависит от Order)
-    console.log('\n🗑️ Удаляем счета...');
+    logger.info('Удаляем счета', 'admin/delete-all-documents');
     const deletedInvoices = await prisma.invoice.deleteMany({});
-    console.log(`✅ Удалено счетов: ${deletedInvoices.count}`);
+    logger.info('Удалено счетов', 'admin/delete-all-documents', { count: deletedInvoices.count });
     
     // 4. Order (основная сущность)
-    console.log('\n🗑️ Удаляем заказы...');
+    logger.info('Удаляем заказы', 'admin/delete-all-documents');
     const deletedOrders = await prisma.order.deleteMany({});
-    console.log(`✅ Удалено заказов: ${deletedOrders.count}`);
+    logger.info('Удалено заказов', 'admin/delete-all-documents', { count: deletedOrders.count });
     
-    console.log('\n✅ Все документы успешно удалены из БД!');
+    logger.info('Все документы успешно удалены из БД', 'admin/delete-all-documents');
     
     // Проверяем что все удалено
     const finalOrdersCount = await prisma.order.count();
@@ -75,7 +77,7 @@ export async function DELETE(req: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('❌ Ошибка при удалении документов:', error);
+    logger.error('Ошибка при удалении документов', 'admin/delete-all-documents', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Ошибка при удалении документов', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }

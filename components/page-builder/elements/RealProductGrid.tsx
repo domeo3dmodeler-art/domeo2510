@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface Product {
   id: string;
@@ -56,7 +57,7 @@ export function RealProductGrid({
           throw new Error('Неверный формат данных от API');
         }
       } catch (err) {
-        console.error('Error fetching products:', err);
+        clientLogger.error('Error fetching products:', err);
         setError(err instanceof Error ? err.message : 'Ошибка загрузки товаров');
       } finally {
         setLoading(false);

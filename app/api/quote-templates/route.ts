@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { quoteTemplateService } from '@/lib/templates/quote-templates';
+import { logger } from '@/lib/logging/logger';
 
 // GET /api/quote-templates - Получить все шаблоны
 export async function GET(req: NextRequest) {
@@ -24,8 +25,8 @@ export async function GET(req: NextRequest) {
       stats: quoteTemplateService.getTemplateStats()
     });
 
-  } catch (error: any) {
-    console.error('Error fetching quote templates:', error);
+  } catch (error: unknown) {
+    logger.error('Error fetching quote templates', 'quote-templates', error instanceof Error ? { error: error.message, stack: error.stack, category } : { error: String(error), category });
     return NextResponse.json(
       { error: 'Ошибка при получении шаблонов КП' },
       { status: 500 }
@@ -58,8 +59,8 @@ export async function POST(req: NextRequest) {
       template
     }, { status: 201 });
 
-  } catch (error: any) {
-    console.error('Error creating quote template:', error);
+  } catch (error: unknown) {
+    logger.error('Error creating quote template', 'quote-templates', error instanceof Error ? { error: error.message, stack: error.stack, name: body?.name } : { error: String(error), name: body?.name });
     return NextResponse.json(
       { error: 'Ошибка при создании шаблона КП' },
       { status: 500 }

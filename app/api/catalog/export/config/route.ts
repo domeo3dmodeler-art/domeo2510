@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exportService } from '@/lib/services/export.service';
+import { logger } from '@/lib/logging/logger';
 
 // POST /api/catalog/export/config - Сохранить настройки экспорта
 export async function POST(request: NextRequest) {
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
 
   } catch (error) {
-    console.error('Error saving export config:', error);
+    logger.error('Error saving export config', 'catalog/export/config', error instanceof Error ? { error: error.message, stack: error.stack, catalogCategoryId, exportType } : { error: String(error), catalogCategoryId, exportType });
     return NextResponse.json(
       { error: 'Ошибка при сохранении настроек экспорта' },
       { status: 500 }
@@ -67,7 +68,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
 
   } catch (error) {
-    console.error('Error deleting export config:', error);
+    logger.error('Error deleting export config', 'catalog/export/config', error instanceof Error ? { error: error.message, stack: error.stack, catalogCategoryId, exportType } : { error: String(error), catalogCategoryId, exportType });
     return NextResponse.json(
       { error: 'Ошибка при удалении настроек экспорта' },
       { status: 500 }

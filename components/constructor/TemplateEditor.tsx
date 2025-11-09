@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, Card, Input, Select, Checkbox, Textarea, Badge } from '../ui';
 import { Plus, Trash2, Save, Download, Upload, AlertCircle, CheckCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface TemplateField {
   id: string;
@@ -222,7 +223,7 @@ export default function TemplateEditor({
         setErrors([error.error || 'Ошибка при сохранении шаблона']);
       }
     } catch (error) {
-      console.error('Error saving template:', error);
+      clientLogger.error('Error saving template:', error);
       setErrors(['Ошибка при сохранении шаблона']);
     } finally {
       setSaving(false);
@@ -266,7 +267,7 @@ export default function TemplateEditor({
       link.click();
       document.body.removeChild(link);
     } catch (error) {
-      console.error('Ошибка при создании шаблона:', error);
+      clientLogger.error('Ошибка при создании шаблона:', error);
       setErrors(['Ошибка при создании файла шаблона']);
     }
   };

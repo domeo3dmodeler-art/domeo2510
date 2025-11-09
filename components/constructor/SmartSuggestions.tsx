@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Card } from '@/components/ui';
 import { useConstructor } from './ConstructorContext';
 import { Sparkles, Lightbulb, Target, Zap } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface SmartSuggestion {
   id: string;
@@ -33,7 +34,7 @@ export default function SmartSuggestions({ categoryId, categoryName }: SmartSugg
       const aiSuggestions = await analyzeCategoryAndGenerateSuggestions(categoryId, categoryName, elements);
       setSuggestions(aiSuggestions);
     } catch (error) {
-      console.error('Error generating suggestions:', error);
+      clientLogger.error('Error generating suggestions:', error);
     } finally {
       setLoading(false);
     }

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Database, TrendingUp, RefreshCw, Trash2, Settings, BarChart3, AlertTriangle, CheckCircle } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface PerformanceStats {
   slowQueries: Array<{
@@ -64,7 +65,7 @@ export default function DatabaseOptimizationPanel() {
         setRecommendations(data.recommendations);
       }
     } catch (err) {
-      console.error('Ошибка при загрузке рекомендаций:', err);
+      clientLogger.error('Ошибка при загрузке рекомендаций:', err);
     }
   };
 

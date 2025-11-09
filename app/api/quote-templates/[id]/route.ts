@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { quoteTemplateService } from '@/lib/templates/quote-templates';
+import { logger } from '@/lib/logging/logger';
 
 // GET /api/quote-templates/[id] - Получить шаблон по ID
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -21,8 +22,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       template
     });
 
-  } catch (error: any) {
-    console.error('Error fetching quote template:', error);
+  } catch (error: unknown) {
+    logger.error('Error fetching quote template', 'quote-templates/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Ошибка при получении шаблона КП' },
       { status: 500 }
@@ -49,8 +50,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       template: updatedTemplate
     });
 
-  } catch (error: any) {
-    console.error('Error updating quote template:', error);
+  } catch (error: unknown) {
+    logger.error('Error updating quote template', 'quote-templates/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Ошибка при обновлении шаблона КП' },
       { status: 500 }
@@ -75,8 +76,8 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       message: 'Шаблон успешно удален'
     });
 
-  } catch (error: any) {
-    console.error('Error deleting quote template:', error);
+  } catch (error: unknown) {
+    logger.error('Error deleting quote template', 'quote-templates/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Ошибка при удалении шаблона КП' },
       { status: 500 }

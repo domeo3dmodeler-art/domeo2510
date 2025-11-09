@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logger } from '@/lib/logging/logger';
 
 export async function GET() {
   try {
@@ -14,7 +15,7 @@ export async function GET() {
       page: testPageData
     });
   } catch (error) {
-    console.error('Error loading test page:', error);
+    logger.error('Error loading test page', 'pages/test-connections', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { success: false, error: 'Failed to load test page' },
       { status: 500 }

@@ -71,7 +71,7 @@ export const ProductElementRenderer: React.FC<ProductElementRendererProps> = ({
       const data = await response.json();
       setCategories(data.categories || []);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      clientLogger.error('Error loading categories:', error);
     }
   }, []);
 
@@ -95,7 +95,7 @@ export const ProductElementRenderer: React.FC<ProductElementRendererProps> = ({
       const data = await response.json();
       setProducts(data.products || []);
     } catch (error) {
-      console.error('Error loading products:', error);
+      clientLogger.error('Error loading products:', error);
     } finally {
       setLoading(false);
     }

@@ -5,6 +5,7 @@ import { useDrag } from 'react-dnd';
 import { Trash2, Move, RotateCcw, RotateCw } from 'lucide-react';
 import { Button } from '../ui';
 import ProductCatalogBlock from './ProductCatalogBlock';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface ProfessionalBlockProps {
   block: any;
@@ -254,10 +255,10 @@ const ProfessionalBlock: React.FC<ProfessionalBlockProps> = ({
             }}
             isPreview={true}
             onProductSelect={(product) => {
-              console.log('Product selected:', product);
+              clientLogger.debug('Product selected:', product);
             }}
             onProductAddToCart={(product) => {
-              console.log('Product added to cart:', product);
+              clientLogger.debug('Product added to cart:', product);
             }}
           />
         </div>

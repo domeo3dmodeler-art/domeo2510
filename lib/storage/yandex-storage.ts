@@ -7,6 +7,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'crypto';
 import path from 'path';
 import sharp from 'sharp';
+import { logger } from '../logging/logger';
 
 // Конфигурация Yandex Object Storage
 const s3Client = new S3Client({
@@ -102,7 +103,7 @@ export class YandexStorageService {
         mimeType: contentType,
       };
     } catch (error) {
-      console.error('Error uploading file to Yandex Storage:', error);
+      logger.error('Error uploading file to Yandex Storage', 'yandex-storage', error instanceof Error ? { error: error.message, stack: error.stack, originalName, fileType } : { error: String(error), originalName, fileType });
       throw new Error('Failed to upload file');
     }
   }
@@ -189,7 +190,7 @@ export class YandexStorageService {
 
       return result;
     } catch (error) {
-      console.error('Error processing and uploading image:', error);
+      logger.error('Error processing and uploading image', 'yandex-storage', error instanceof Error ? { error: error.message, stack: error.stack, originalName, fileType } : { error: String(error), originalName, fileType });
       throw new Error('Failed to process and upload image');
     }
   }
@@ -206,7 +207,7 @@ export class YandexStorageService {
 
       await s3Client.send(command);
     } catch (error) {
-      console.error('Error deleting file from Yandex Storage:', error);
+      logger.error('Error deleting file from Yandex Storage', 'yandex-storage', error instanceof Error ? { error: error.message, stack: error.stack, filename } : { error: String(error), filename });
       throw new Error('Failed to delete file');
     }
   }
@@ -223,7 +224,7 @@ export class YandexStorageService {
 
       return await getSignedUrl(s3Client, command, { expiresIn });
     } catch (error) {
-      console.error('Error generating signed URL:', error);
+      logger.error('Error generating signed URL', 'yandex-storage', error instanceof Error ? { error: error.message, stack: error.stack, filename, expiresIn } : { error: String(error), filename, expiresIn });
       throw new Error('Failed to generate signed URL');
     }
   }
@@ -290,7 +291,7 @@ export class YandexStorageService {
   async cleanupTempFiles(olderThanHours: number = 24): Promise<void> {
     // Эта функция требует дополнительной реализации с использованием ListObjects
     // Для простоты пока оставляем заглушку
-    console.log(`Cleanup temp files older than ${olderThanHours} hours`);
+    logger.info('Cleanup temp files', 'yandex-storage', { olderThanHours });
   }
 }
 

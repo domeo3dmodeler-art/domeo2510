@@ -156,7 +156,7 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
       }
     } catch (err) {
       setError('Ошибка загрузки товаров');
-      console.error('Error loading products:', err);
+      clientLogger.error('Error loading products:', err);
     } finally {
       setLoading(false);
     }
@@ -427,8 +427,7 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
               <select 
                 value={block.propertyDisplayMode || 'chips'}
                 onChange={(e) => {
-                  // TODO: Обновить displayMode через коллбек
-                  console.log('Change display mode to:', e.target.value);
+                  clientLogger.debug('Change display mode to:', e.target.value);
                 }}
                 className="px-3 py-1 text-xs border border-gray-300 rounded-md bg-white"
               >

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 export interface ToastProps {
   id: string;
@@ -158,15 +159,15 @@ export function useToast() {
 export const toastUtils = {
   success: (message: string, title?: string) => {
     // Будет использоваться через контекст
-    console.log('Success:', title, message);
+    clientLogger.debug('Success:', title, message);
   },
   error: (message: string, title?: string) => {
-    console.log('Error:', title, message);
+    clientLogger.debug('Error:', title, message);
   },
   warning: (message: string, title?: string) => {
-    console.log('Warning:', title, message);
+    clientLogger.debug('Warning:', title, message);
   },
   info: (message: string, title?: string) => {
-    console.log('Info:', title, message);
+    clientLogger.debug('Info:', title, message);
   }
 };

@@ -1,7 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 import * as XLSX from 'xlsx';
-
-const prisma = new PrismaClient();
 
 export interface SimpleImportResult {
   success: boolean;
@@ -34,7 +33,7 @@ export class SimpleImportService {
   ): Promise<SimpleImportResult> {
     
     try {
-      console.log('🚀 Начинаем простой импорт без маппинга');
+      logger.info('Начинаем простой импорт без маппинга', 'lib/services/simple-import.service');
       
       // Читаем Excel файл
       const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
@@ -56,8 +55,7 @@ export class SimpleImportService {
       const headers = jsonData[0] as string[];
       const rows = jsonData.slice(1) as any[][];
       
-      console.log('📊 Заголовки файла:', headers);
-      console.log('📊 Количество строк:', rows.length);
+      logger.info('Заголовки файла получены', 'lib/services/simple-import.service', { headers, rowsCount: rows.length });
       
       // Получаем шаблон категории
       const template = await prisma.importTemplate.findUnique({
@@ -79,9 +77,7 @@ export class SimpleImportService {
       const calculatorFields = JSON.parse(template.calculator_fields || '[]');
       const exportFields = JSON.parse(template.export_fields || '[]');
       
-      console.log('📋 Обязательные поля:', requiredFields);
-      console.log('📋 Поля калькулятора:', calculatorFields);
-      console.log('📋 Поля экспорта:', exportFields);
+      logger.debug('Поля шаблона', 'lib/services/simple-import.service', { requiredFields, calculatorFields, exportFields });
       
       // Проверяем соответствие заголовков шаблону
       const missingRequiredFields = requiredFields.filter((field: string) => 
@@ -109,7 +105,7 @@ export class SimpleImportService {
       );
       
       if (extraFields.length > 0) {
-        console.log('⚠️ Найдены лишние поля:', extraFields);
+        logger.warn('Найдены лишние поля', 'lib/services/simple-import.service', { extraFields });
       }
       
       const result: SimpleImportResult = {
@@ -215,15 +211,15 @@ export class SimpleImportService {
         } catch (error) {
           const errorMsg = `Строка ${rowIndex + 2}: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`;
           result.errors.push(errorMsg);
-          console.error(errorMsg, error);
+          logger.error(`Ошибка обработки строки ${rowIndex + 2}`, 'lib/services/simple-import.service', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
         }
       }
       
-      console.log('✅ Простой импорт завершен:', result);
+      logger.info('Простой импорт завершен', 'lib/services/simple-import.service', { result });
       return result;
       
     } catch (error) {
-      console.error('❌ Ошибка простого импорта:', error);
+      logger.error('Ошибка простого импорта', 'lib/services/simple-import.service', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
       return {
         success: false,
         imported: 0,

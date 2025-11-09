@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import { logger } from '@/lib/logging/logger';
 
 // POST /api/applications/[id]/files - Загрузка оптовых счетов и техзаданий
 // ⚠️ DEPRECATED: Используйте POST /api/orders/[id]/files напрямую
@@ -164,7 +165,7 @@ export async function POST(
     });
 
   } catch (error) {
-    console.error('Error uploading files:', error);
+    logger.error('Error uploading files', 'applications/[id]/files', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Ошибка загрузки файлов' },
       { status: 500 }

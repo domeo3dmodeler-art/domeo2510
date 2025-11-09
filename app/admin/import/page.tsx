@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 type Category = { 
   id: string; 
@@ -48,10 +49,10 @@ export default function UniversalImportPage() {
 
   const fetchCategories = useCallback(async () => {
     try {
-      console.log('Fetching categories...');
+      clientLogger.debug('Fetching categories...');
       const response = await fetch('/api/categories');
       const data = await response.json();
-      console.log('Categories fetched:', data);
+      clientLogger.debug('Categories fetched:', data);
       
       setCategories(data.categories || []);
       
@@ -62,19 +63,19 @@ export default function UniversalImportPage() {
         if (categoryParam) {
           // Ищем категорию по параметру из URL
           categoryToSelect = data.categories.find((cat: Category) => cat.id === categoryParam);
-          console.log('Category from URL param:', categoryParam, 'found:', categoryToSelect);
+          clientLogger.debug('Category from URL param:', categoryParam, 'found:', categoryToSelect);
         }
         
         if (!categoryToSelect) {
           // Если не найдена по параметру, выбираем первую
           categoryToSelect = data.categories[0];
-          console.log('Auto-selecting first category:', categoryToSelect);
+          clientLogger.debug('Auto-selecting first category:', categoryToSelect);
         }
         
         setSelectedCategory(categoryToSelect);
       }
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      clientLogger.error('Error fetching categories:', error);
     }
   }, [categoryParam]);
 
@@ -85,12 +86,12 @@ export default function UniversalImportPage() {
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (!selectedFile) {
-      console.log('No file selected');
+      clientLogger.debug('No file selected');
       return;
     }
 
-    console.log('=== FILE UPLOAD START ===');
-    console.log('File selected:', {
+    clientLogger.debug('=== FILE UPLOAD START ===');
+    clientLogger.debug('File selected:', {
       name: selectedFile.name,
       size: selectedFile.size,
       type: selectedFile.type,
@@ -103,7 +104,7 @@ export default function UniversalImportPage() {
     try {
       // Проверяем, что категория выбрана
       if (!selectedCategory) {
-        console.error('No category selected');
+        clientLogger.error('No category selected');
         alert('Сначала выберите категорию');
         setFile(null);
         setLoading(false);
@@ -116,20 +117,20 @@ export default function UniversalImportPage() {
       formData.append('category', selectedCategory.id);
       formData.append('mode', 'headers'); // Режим только заголовки
       
-      console.log('FormData prepared:', {
+      clientLogger.debug('FormData prepared:', {
         file: selectedFile.name,
         category: selectedCategory.id,
         mode: 'headers'
       });
       
-      console.log('Sending request to:', '/api/admin/import/universal');
+      clientLogger.debug('Sending request to:', '/api/admin/import/universal');
       
       const response = await fetch('/api/admin/import/universal', {
         method: 'POST',
         body: formData
       });
       
-      console.log('Response received:', {
+      clientLogger.debug('Response received:', {
         status: response.status,
         statusText: response.statusText,
         ok: response.ok,
@@ -137,24 +138,24 @@ export default function UniversalImportPage() {
       });
       
       const data = await response.json();
-      console.log('Response data:', data);
+      clientLogger.debug('Response data:', data);
       
       if (response.ok && data.headers) {
-        console.log('SUCCESS: Headers received:', data.headers);
+        clientLogger.debug('SUCCESS: Headers received:', data.headers);
         setFileHeaders(data.headers);
         setShowManager(true);
       } else {
-        console.error('ERROR: Failed to get headers:', data);
+        clientLogger.error('ERROR: Failed to get headers:', data);
         alert(`Ошибка чтения файла: ${data.error || 'Неизвестная ошибка'}`);
         setFile(null);
       }
     } catch (error) {
-      console.error('EXCEPTION: Error reading file:', error);
+      clientLogger.error('EXCEPTION: Error reading file:', error);
       alert('Ошибка при чтении файла: ' + error);
       setFile(null);
     } finally {
       setLoading(false);
-      console.log('=== FILE UPLOAD END ===');
+      clientLogger.debug('=== FILE UPLOAD END ===');
     }
   };
 
@@ -199,12 +200,12 @@ export default function UniversalImportPage() {
 
   const getAvailableFields = () => {
     if (!selectedCategory) return [];
-    console.log('getAvailableFields - selectedCategory:', selectedCategory);
-    console.log('getAvailableFields - fileHeaders:', fileHeaders);
-    console.log('getAvailableFields - selectedCategory.properties:', selectedCategory.properties);
+    clientLogger.debug('getAvailableFields - selectedCategory:', selectedCategory);
+    clientLogger.debug('getAvailableFields - fileHeaders:', fileHeaders);
+    clientLogger.debug('getAvailableFields - selectedCategory.properties:', selectedCategory.properties);
     
     const availableFields = selectedCategory.properties.filter(field => fileHeaders.includes(field.key));
-    console.log('getAvailableFields - availableFields:', availableFields);
+    clientLogger.debug('getAvailableFields - availableFields:', availableFields);
     return availableFields;
   };
 

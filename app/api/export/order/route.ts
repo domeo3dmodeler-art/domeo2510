@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ExportPayload, ExportResponse, ExportError } from '@/lib/export/types';
 import { getExportAdapter } from '@/lib/export/registry';
 import { buildExportXLSX, getExportFilename, getExportMimeType } from '@/lib/export/services/xlsx';
+import { logger } from '@/lib/logging/logger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -89,8 +90,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
-  } catch (error: any) {
-    console.error('Export error:', error);
+  } catch (error: unknown) {
+    logger.error('Export error', 'export/order', error instanceof Error ? { error: error.message, stack: error.stack, kpId: body?.kpId, format: body?.format } : { error: String(error), kpId: body?.kpId, format: body?.format });
     
     return NextResponse.json(
       { 
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function validateExportPayload(payload: any): { valid: boolean; error?: ExportError } {
+function validateExportPayload(payload: unknown): { valid: boolean; error?: ExportError } {
   if (!payload || typeof payload !== 'object') {
     return {
       valid: false,

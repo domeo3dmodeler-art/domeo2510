@@ -1,71 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import * as XLSX from 'xlsx';
 import { validateDocumentFile } from '@/lib/validation/file-validation';
 import { fixAllEncoding, fixFieldsEncoding } from '@/lib/encoding-utils';
-import { apiErrorHandler } from '@/lib/api-error-handler';
+import { logger } from '@/lib/logging/logger';
+import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
+import { apiSuccess, apiError, withErrorHandling } from '@/lib/api/response';
+import { ValidationError, NotFoundError } from '@/lib/api/errors';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 import { apiValidator } from '@/lib/api-validator';
-
-const prisma = new PrismaClient();
 
 // ===================== УНИФИЦИРОВАННЫЙ ИМПОРТ =====================
 
-export async function POST(req: NextRequest) {
-  console.log('🚀 === НАЧАЛО УНИФИЦИРОВАННОГО ИМПОРТА ===');
-  console.log('📅 Время:', new Date().toISOString());
+async function postHandler(
+  req: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(req);
   
-  try {
-    const formData = await req.formData();
-    const file = formData.get("file") as File;
-    const categoryId = formData.get("category") as string;
-    const mode = formData.get("mode") as string || 'preview'; // 'preview' или 'import'
-    const templateId = formData.get("templateId") as string;
+  logger.info('Начало унифицированного импорта', 'admin/import/unified/POST', {}, loggingContext);
+  
+  const formData = await req.formData();
+  const file = formData.get("file") as File;
+  const categoryId = formData.get("category") as string;
+  const mode = formData.get("mode") as string || 'preview'; // 'preview' или 'import'
+  const templateId = formData.get("templateId") as string;
 
-    console.log('📦 Получены параметры:', {
-      hasFile: !!file,
-      fileName: file?.name,
-      fileSize: file?.size,
-      categoryId,
-      mode,
-      templateId: templateId || 'auto'
-    });
+  logger.debug('Получены параметры импорта', 'admin/import/unified/POST', {
+    hasFile: !!file,
+    fileName: file?.name,
+    fileSize: file?.size,
+    categoryId,
+    mode,
+    templateId: templateId || 'auto'
+  }, loggingContext);
 
-    // Валидация входных данных
-    if (!file) {
-      console.error('❌ Файл не предоставлен');
-      return NextResponse.json({ error: "Файл не предоставлен" }, { status: 400 });
-    }
+  // Валидация входных данных
+  if (!file) {
+    throw new ValidationError('Файл не предоставлен');
+  }
 
-    if (!categoryId) {
-      console.error('❌ Категория не указана');
-      return NextResponse.json({ error: "Категория не указана" }, { status: 400 });
-    }
+  if (!categoryId) {
+    throw new ValidationError('Категория не указана');
+  }
 
-    // Валидация файла
-    const validation = validateDocumentFile(file);
-    if (!validation.isValid) {
-      console.error('❌ Валидация файла не пройдена:', {
-        filename: file.name,
-        size: file.size,
-        type: file.type,
-        error: validation.error
-      });
-      return NextResponse.json({ 
-        error: validation.error,
-        details: {
-          filename: file.name,
-          size: file.size,
-          type: file.type
-        }
-      }, { status: 400 });
-    }
-
-    console.log('🔍 Унифицированный импорт:', {
+  // Валидация файла
+  const validation = validateDocumentFile(file);
+  if (!validation.isValid) {
+    throw new ValidationError(validation.error || 'Неверный формат файла', {
       filename: file.name,
-      categoryId,
-      mode,
-      templateId: templateId || 'auto'
+      size: file.size,
+      type: file.type
     });
+  }
+
+  logger.debug('Унифицированный импорт', 'admin/import/unified/POST', {
+    filename: file.name,
+    categoryId,
+    mode,
+    templateId: templateId || 'auto'
+  }, loggingContext);
 
     // Получаем шаблон
     let template;
@@ -83,31 +78,25 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (!template) {
-      console.error('❌ Шаблон не найден для категории:', categoryId);
-      
-      // Проверяем, существует ли категория
-      const category = await prisma.catalogCategory.findUnique({
-        where: { id: categoryId },
-        select: { name: true }
-      });
+  if (!template) {
+    logger.warn('Шаблон не найден для категории', 'admin/import/unified/POST', { categoryId }, loggingContext);
+    
+    // Проверяем, существует ли категория
+    const category = await prisma.catalogCategory.findUnique({
+      where: { id: categoryId },
+      select: { name: true }
+    });
 
-      const errorMessage = category 
-        ? `Шаблон не найден для категории "${category.name}". Создайте шаблон для этой категории перед импортом.`
-        : `Категория с ID "${categoryId}" не найдена.`;
+    const errorMessage = category 
+      ? `Шаблон не найден для категории "${category.name}". Создайте шаблон для этой категории перед импортом.`
+      : `Категория с ID "${categoryId}" не найдена.`;
 
-      return NextResponse.json(
-        { 
-          error: errorMessage,
-          details: {
-            categoryId,
-            categoryName: category?.name || null,
-            message: "Создайте шаблон импорта для этой категории через раздел 'Шаблоны' в интерфейсе импорта."
-          }
-        },
-        { status: 400 }
-      );
-    }
+    throw new NotFoundError(errorMessage, {
+      categoryId,
+      categoryName: category?.name || null,
+      message: "Создайте шаблон импорта для этой категории через раздел 'Шаблоны' в интерфейсе импорта."
+    });
+  }
 
     // Парсим поля шаблона с исправлением кодировки
     let requiredFields = JSON.parse(template.required_fields || '[]');
@@ -121,12 +110,12 @@ export async function POST(req: NextRequest) {
     exportFields = fixFieldsEncoding(exportFields);
     templateConfig = fixAllEncoding(templateConfig);
 
-    console.log('📋 Используем шаблон:', {
-      name: template.name,
-      requiredFields: requiredFields.length,
-      calculatorFields: calculatorFields.length,
-      exportFields: exportFields.length
-    });
+  logger.debug('Используем шаблон', 'admin/import/unified/POST', {
+    name: template.name,
+    requiredFields: requiredFields.length,
+    calculatorFields: calculatorFields.length,
+    exportFields: exportFields.length
+  }, loggingContext);
 
     // Читаем файл
     const buffer = await file.arrayBuffer();
@@ -135,60 +124,56 @@ export async function POST(req: NextRequest) {
     const worksheet = workbook.Sheets[sheetName];
     const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-    if (rawData.length < 2) {
-      return NextResponse.json(
-        { error: "Файл должен содержать заголовки и хотя бы одну строку данных" },
-        { status: 400 }
-      );
-    }
+  if (rawData.length < 2) {
+    throw new ValidationError('Файл должен содержать заголовки и хотя бы одну строку данных');
+  }
 
     const headers = rawData[0] as string[];
     const rows = rawData.slice(1) as any[][];
 
-    console.log('📊 Данные файла:', {
-      headers: headers.length,
-      rows: rows.length,
-      sampleHeaders: headers.slice(0, 5)
-    });
+  logger.debug('Данные файла', 'admin/import/unified/POST', {
+    headers: headers.length,
+    rows: rows.length,
+    sampleHeaders: headers.slice(0, 5)
+  }, loggingContext);
 
-    // Исправляем кодировку заголовков
-    const fixedHeaders = fixFieldsEncoding(headers);
-    
-    console.log('🔧 Заголовки после исправления кодировки:', fixedHeaders);
+  // Исправляем кодировку заголовков
+  const fixedHeaders = fixFieldsEncoding(headers);
+  
+  logger.debug('Заголовки после исправления кодировки', 'admin/import/unified/POST', {
+    fixedHeaders
+  }, loggingContext);
 
     // Валидируем заголовки - проверяем точное совпадение с шаблоном
     const availableRequiredFields = requiredFields.filter(field => fixedHeaders.includes(field));
     const missingFields = requiredFields.filter(field => !fixedHeaders.includes(field));
     
-    console.log('📋 Анализ полей:', {
-      requiredFields: requiredFields.length,
-      availableRequiredFields: availableRequiredFields.length,
-      missingFields: missingFields.length,
-      availableFields: fixedHeaders
-    });
+  logger.debug('Анализ полей', 'admin/import/unified/POST', {
+    requiredFields: requiredFields.length,
+    availableRequiredFields: availableRequiredFields.length,
+    missingFields: missingFields.length,
+    availableFields: fixedHeaders
+  }, loggingContext);
 
     // Проверяем наличие SKU внутреннее - это минимальное требование для обновления товаров
     const hasInternalSku = fixedHeaders.includes('SKU внутреннее');
     
-    // Если нет ни одного обязательного поля из шаблона И нет SKU внутреннее - ошибка
-    if (availableRequiredFields.length === 0 && !hasInternalSku) {
-      return NextResponse.json({
-        error: "Файл не соответствует шаблону категории",
-        details: {
-          category: template.catalog_category?.name || 'Неизвестная категория',
-          missingFields: missingFields,
-          availableFields: fixedHeaders,
-          templateRequiredFields: requiredFields,
-          suggestion: "Файл должен содержать хотя бы 'SKU внутреннее' для обновления товаров, или все обязательные поля из шаблона. Скачайте актуальный шаблон для этой категории и используйте его структуру."
-        },
-        message: `Отсутствуют обязательные поля. Файл должен содержать хотя бы 'SKU внутреннее' для обновления товаров, или все обязательные поля из шаблона: ${missingFields.slice(0, 5).join(', ')}.`
-      }, { status: 400 });
-    }
-    
-    // Если нет обязательных полей, но есть SKU внутреннее - это режим обновления цен/свойств
-    if (availableRequiredFields.length === 0 && hasInternalSku) {
-      console.log('ℹ️ Режим обновления: найдено только SKU внутреннее, разрешаем импорт для обновления цен/свойств');
-    }
+  // Если нет ни одного обязательного поля из шаблона И нет SKU внутреннее - ошибка
+  if (availableRequiredFields.length === 0 && !hasInternalSku) {
+    throw new ValidationError('Файл не соответствует шаблону категории', {
+      category: template.catalog_category?.name || 'Неизвестная категория',
+      missingFields: missingFields,
+      availableFields: fixedHeaders,
+      templateRequiredFields: requiredFields,
+      suggestion: "Файл должен содержать хотя бы 'SKU внутреннее' для обновления товаров, или все обязательные поля из шаблона. Скачайте актуальный шаблон для этой категории и используйте его структуру.",
+      message: `Отсутствуют обязательные поля. Файл должен содержать хотя бы 'SKU внутреннее' для обновления товаров, или все обязательные поля из шаблона: ${missingFields.slice(0, 5).join(', ')}.`
+    });
+  }
+  
+  // Если нет обязательных полей, но есть SKU внутреннее - это режим обновления цен/свойств
+  if (availableRequiredFields.length === 0 && hasInternalSku) {
+    logger.debug('Режим обновления: найдено только SKU внутреннее', 'admin/import/unified/POST', {}, loggingContext);
+  }
 
     // Обрабатываем данные
     const products = [];
@@ -227,10 +212,12 @@ export async function POST(req: NextRequest) {
 
         // Логирование для диагностики (только для первых 3 строк)
         if (i < 3) {
-          console.log(`📋 Строка ${i + 2}: Обработано полей из шаблона: ${Object.keys(properties).length}`);
-          console.log(`  Поля из шаблона (${requiredFields.length}):`, requiredFields);
-          console.log(`  Поля найдены в файле (${Object.keys(properties).length}):`, Object.keys(properties));
-          console.log(`  Все поля в файле (${fixedHeaders.length}):`, fixedHeaders);
+          logger.debug(`Обработка строки ${i + 2}`, 'admin/import/unified/POST', {
+            processedFields: Object.keys(properties).length,
+            requiredFieldsCount: requiredFields.length,
+            foundFields: Object.keys(properties),
+            allFileFields: fixedHeaders
+          }, loggingContext);
         }
 
         // Исправляем кодировку свойств
@@ -345,7 +332,10 @@ export async function POST(req: NextRequest) {
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
-        console.error(`❌ Ошибка обработки строки ${i + 2}:`, errorMessage);
+        logger.warn(`Ошибка обработки строки ${i + 2}`, 'admin/import/unified/POST', {
+          error: errorMessage,
+          rowNumber: i + 2
+        }, loggingContext);
         errors.push({
           row: i + 2,
           error: errorMessage,
@@ -354,24 +344,11 @@ export async function POST(req: NextRequest) {
       }
     }
     
-    console.log(`\n📊 Результат обработки файла:`);
-    console.log(`  Успешно обработано товаров: ${products.length}`);
-    console.log(`  Ошибок валидации: ${errors.length}`);
-    
-    if (errors.length > 0 && errors.length <= 10) {
-      console.log(`  Примеры ошибок:`, errors.slice(0, 5));
-    }
-
-    console.log('📦 Обработано товаров:', {
-      total: products.length,
-      errors: errors.length,
-      sampleProducts: products.slice(0, 3).map(p => ({
-        sku: p.sku,
-        name: p.name,
-        propertiesCount: Object.keys(p.properties_data).length,
-        properties: Object.keys(p.properties_data)
-      }))
-    });
+    logger.info('Результат обработки файла', 'admin/import/unified/POST', {
+      processedProducts: products.length,
+      validationErrors: errors.length,
+      sampleErrors: errors.slice(0, 5)
+    }, loggingContext);
 
     // Если режим preview, возвращаем предварительный просмотр
     if (mode === 'preview') {
@@ -428,8 +405,7 @@ export async function POST(req: NextRequest) {
         check.existingCategoryId !== categoryId
       );
       
-      return NextResponse.json({
-        success: true,
+      return apiSuccess({
         mode: 'preview',
         template: {
           name: template.name,
@@ -470,8 +446,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Режим импорта - сохраняем в базу
-    console.log(`\n🚀 === РЕЖИМ ИМПОРТА (${mode}) ===`);
-    console.log(`📦 Товаров к обработке: ${products.length}`);
+    logger.info('Режим импорта', 'admin/import/unified/POST', {
+      mode,
+      productsToProcess: products.length
+    }, loggingContext);
     
     let importedCount = 0;
     let updatedCount = 0;
@@ -479,7 +457,9 @@ export async function POST(req: NextRequest) {
     let errorCount = 0;
 
     for (const product of products) {
-      console.log(`\n📦 Обработка товара ${importedCount + 1}/${products.length}: SKU="${product.sku}"`);
+      logger.debug(`Обработка товара ${importedCount + 1}/${products.length}`, 'admin/import/unified/POST', {
+        sku: product.sku
+      }, loggingContext);
       try {
         // Проверяем существование товара по SKU внутреннему во всей БД (не только в категории)
         // SKU должен быть уникальным во всей БД товаров
@@ -502,14 +482,22 @@ export async function POST(req: NextRequest) {
           const existingCategoryName = existingProduct.catalog_category?.name || 'Неизвестная категория';
           const errorMessage = `SKU "${product.sku}" (товар "${existingProduct.name}") уже существует в категории "${existingCategoryName}" (ID: ${existingProduct.catalog_category_id}). Импорт товаров из других категорий запрещен. Удалите или измените SKU в файле.`;
           
-          console.error(`❌ ${errorMessage}`);
+          logger.error('SKU найден в другой категории', 'admin/import/unified/POST', {
+            sku: product.sku,
+            existingCategoryId: existingProduct.catalog_category_id,
+            existingCategoryName,
+            targetCategoryId: categoryId
+          }, loggingContext);
           throw new Error(errorMessage);
         }
 
         if (existingProduct) {
           // Обновляем существующий товар - только заполненные поля
-          console.log(`  🔄 Товар найден в БД: ID=${existingProduct.id}, категория=${existingProduct.catalog_category_id}`);
-          console.log(`  📝 Текущее название: "${existingProduct.name}"`);
+          logger.debug('Товар найден в БД', 'admin/import/unified/POST', {
+            productId: existingProduct.id,
+            categoryId: existingProduct.catalog_category_id,
+            currentName: existingProduct.name
+          }, loggingContext);
           
           const updateData: any = {
             updated_at: new Date()
@@ -519,10 +507,15 @@ export async function POST(req: NextRequest) {
           // Если название не указано в файле - оставляем существующее название из БД
           if (product.name && product.name !== 'Без названия') {
             updateData.name = product.name;
-            console.log(`  📝 Обновление названия: "${existingProduct.name}" → "${product.name}"`);
+            logger.debug('Обновление названия', 'admin/import/unified/POST', {
+              oldName: existingProduct.name,
+              newName: product.name
+            }, loggingContext);
           } else {
             // Название не указано в файле - оставляем существующее из БД
-            console.log(`  ⏭️ Название не указано в файле - оставляем существующее: "${existingProduct.name}"`);
+            logger.debug('Название не указано в файле - оставляем существующее', 'admin/import/unified/POST', {
+              existingName: existingProduct.name
+            }, loggingContext);
           }
 
           // Обновляем только заполненные свойства
@@ -531,11 +524,14 @@ export async function POST(req: NextRequest) {
               JSON.parse(existingProduct.properties_data) : 
               existingProduct.properties_data) : {};
 
-          console.log(`  📊 Существующие поля в БД (${Object.keys(existingProperties).length}):`, Object.keys(existingProperties));
+          logger.debug('Существующие поля в БД', 'admin/import/unified/POST', {
+            existingFieldsCount: Object.keys(existingProperties).length,
+            existingFields: Object.keys(existingProperties),
+            fileFieldsCount: Object.keys(product.properties_data).length,
+            fileFields: Object.keys(product.properties_data)
+          }, loggingContext);
 
           const newProperties = { ...existingProperties };
-          
-          console.log(`  📊 Поля из файла (${Object.keys(product.properties_data).length}):`, Object.keys(product.properties_data));
           
           // Обновляем только те поля, которые не пустые в файле
           // Исправляем кодировку полей перед обновлением
@@ -548,28 +544,30 @@ export async function POST(req: NextRequest) {
               const oldValue = newProperties[fixedKey];
               newProperties[fixedKey] = value;
               updatedFieldsCount++;
-              console.log(`  ✅ Обновление поля "${fixedKey}": "${oldValue}" → "${value}"`);
-            } else {
-              console.log(`  ⏭️ Пропуск пустого поля "${fixedKey}"`);
             }
           });
 
-          console.log(`  📈 Обновлено полей: ${updatedFieldsCount}`);
+          logger.debug('Обновление полей товара', 'admin/import/unified/POST', {
+            updatedFieldsCount
+          }, loggingContext);
 
           updateData.properties_data = JSON.stringify(newProperties);
           updateData.specifications = JSON.stringify(newProperties);
 
-          console.log(`  💾 Выполняем UPDATE в БД...`);
           const updateResult = await prisma.product.update({
             where: { id: existingProduct.id },
             data: updateData
           });
 
-          console.log(`  ✅ Товар успешно обновлен в БД. ID=${updateResult.id}`);
+          logger.debug('Товар успешно обновлен в БД', 'admin/import/unified/POST', {
+            productId: updateResult.id
+          }, loggingContext);
           updatedCount++;
         } else {
           // Создаем новый товар - все обязательные поля должны быть заполнены
-          console.log(`  ➕ Товар не найден в БД - создаем новый товар`);
+          logger.debug('Товар не найден в БД - создаем новый товар', 'admin/import/unified/POST', {
+            sku: product.sku
+          }, loggingContext);
           
           // Исправляем кодировку полей перед сохранением
           const fixedProperties = fixFieldsEncoding(Object.keys(product.properties_data)).reduce((acc, fixedKey, index) => {
@@ -578,7 +576,10 @@ export async function POST(req: NextRequest) {
             return acc;
           }, {} as Record<string, any>);
           
-          console.log(`  📊 Поля для создания (${Object.keys(fixedProperties).length}):`, Object.keys(fixedProperties));
+          logger.debug('Поля для создания', 'admin/import/unified/POST', {
+            fieldsCount: Object.keys(fixedProperties).length,
+            fields: Object.keys(fixedProperties)
+          }, loggingContext);
           
           try {
             const newProduct = await prisma.product.create({
@@ -594,34 +595,49 @@ export async function POST(req: NextRequest) {
               }
             });
 
-            console.log(`  ✅ Новый товар создан. ID=${newProduct.id}, SKU=${newProduct.sku}`);
+            logger.debug('Новый товар создан', 'admin/import/unified/POST', {
+              productId: newProduct.id,
+              sku: newProduct.sku
+            }, loggingContext);
             createdCount++;
           } catch (createError: any) {
             // Обрабатываем ошибку уникальности SKU
             if (createError.code === 'P2002' && createError.meta?.target?.includes('sku')) {
-              console.error(`❌ SKU "${product.sku}" уже существует в БД (конфликт уникальности)`);
+              logger.error('SKU уже существует в БД', 'admin/import/unified/POST', {
+                sku: product.sku,
+                error: createError
+              }, loggingContext);
               throw new Error(`SKU "${product.sku}" уже существует в базе данных. SKU должны быть уникальными во всей БД товаров.`);
             }
-            console.error(`❌ Ошибка при создании товара:`, createError);
+            logger.error('Ошибка при создании товара', 'admin/import/unified/POST', {
+              sku: product.sku,
+              error: createError
+            }, loggingContext);
             throw createError; // Пробрасываем другие ошибки
           }
         }
 
         importedCount++;
-        console.log(`  ✅ Товар обработан (${importedCount}/${products.length})`);
+        logger.debug('Товар обработан', 'admin/import/unified/POST', {
+          importedCount,
+          total: products.length
+        }, loggingContext);
 
       } catch (error) {
-        console.error(`❌ Ошибка импорта товара ${product.sku}:`, error);
-        console.error(`  Детали ошибки:`, error instanceof Error ? error.message : String(error));
+        logger.error('Ошибка импорта товара', 'admin/import/unified/POST', {
+          sku: product.sku,
+          error: error instanceof Error ? error.message : String(error)
+        }, loggingContext);
         errorCount++;
       }
     }
     
-    console.log(`\n📊 === ИТОГИ ИМПОРТА ===`);
-    console.log(`  Всего обработано: ${importedCount}`);
-    console.log(`  Обновлено: ${updatedCount}`);
-    console.log(`  Создано: ${createdCount}`);
-    console.log(`  Ошибок: ${errorCount}`);
+    logger.info('Итоги импорта', 'admin/import/unified/POST', {
+      imported: importedCount,
+      updated: updatedCount,
+      created: createdCount,
+      errors: errorCount
+    }, loggingContext);
 
     // Сохраняем историю импорта
     await prisma.importHistory.create({
@@ -642,27 +658,15 @@ export async function POST(req: NextRequest) {
       }
     });
 
-           console.log('✅ Импорт завершен:', {
-             imported: importedCount,
-             created: createdCount,
-             updated: updatedCount,
-             errors: errorCount,
-             validationErrors: errors.length
-           });
-           
-           // Дополнительное логирование для диагностики
-           if (updatedCount > 0) {
-             console.log(`📊 Обновлено товаров: ${updatedCount}`);
-           }
-           if (createdCount > 0) {
-             console.log(`➕ Создано товаров: ${createdCount}`);
-           }
-           if (errorCount > 0) {
-             console.log(`❌ Ошибок при импорте: ${errorCount}`);
-           }
+    logger.info('Импорт завершен', 'admin/import/unified/POST', {
+      imported: importedCount,
+      created: createdCount,
+      updated: updatedCount,
+      errors: errorCount,
+      validationErrors: errors.length
+    }, loggingContext);
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       mode: 'import',
       imported: importedCount,
       created: createdCount,
@@ -672,9 +676,9 @@ export async function POST(req: NextRequest) {
       template: template.name,
       filename: file.name
     });
-
-  } catch (error) {
-    console.error('Ошибка унифицированного импорта:', error);
-    return apiErrorHandler.handle(error, 'unified-import');
-  }
 }
+
+export const POST = withErrorHandling(
+  requireAuthAndPermission(postHandler, 'ADMIN'),
+  'admin/import/unified/POST'
+);

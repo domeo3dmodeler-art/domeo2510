@@ -1,18 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError, NotFoundError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
 import * as XLSX from 'xlsx';
-import { fixFieldsEncoding, fixAllEncoding } from '@/lib/encoding-utils';
+import { fixFieldsEncoding } from '@/lib/encoding-utils';
 
-const prisma = new PrismaClient();
-
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const { searchParams } = new URL(req.url);
     const catalogCategoryId = searchParams.get('catalogCategoryId');
 
     if (!catalogCategoryId) {
-      return NextResponse.json({ success: false, error: 'catalogCategoryId is required' }, { status: 400 });
+      throw new ValidationError('catalogCategoryId is required');
     }
+
+    logger.info('Скачивание шаблона импорта', 'admin/templates/download', { userId: user.userId, catalogCategoryId });
 
     // Получаем шаблон для категории
     const template = await prisma.importTemplate.findUnique({
@@ -25,8 +31,10 @@ export async function GET(req: NextRequest) {
     });
 
     if (!template) {
-      return NextResponse.json({ success: false, error: 'Template not found for this category' }, { status: 404 });
+      throw new NotFoundError('Template not found for this category');
     }
+
+    logger.info('Шаблон найден', 'admin/templates/download', { templateId: template.id, categoryName: template.catalog_category?.name });
 
     // Парсим поля шаблона с исправлением кодировки
     let requiredFields = JSON.parse(template.required_fields || '[]');
@@ -184,22 +192,29 @@ export async function GET(req: NextRequest) {
     const safeCategoryName = categoryName.replace(/[^a-zA-Z0-9]/g, '_'); // Заменяем все не-ASCII символы на подчеркивания
     const fileName = `template_${safeCategoryName}_${new Date().toISOString().split('T')[0]}.xlsx`;
     
-           return new NextResponse(buffer, {
-             headers: {
-               'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-               'Content-Disposition': `attachment; filename="${fileName}"`,
-               'Content-Length': buffer.length.toString(),
-               'Cache-Control': 'no-cache, no-store, must-revalidate',
-               'Pragma': 'no-cache',
-               'Expires': '0'
-             },
-           });
+    logger.info('Шаблон Excel создан', 'admin/templates/download', { fileName, categoryName: template.catalog_category?.name });
+    
+    return new NextResponse(buffer, {
+      headers: {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename="${fileName}"`,
+        'Content-Length': buffer.length.toString(),
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      },
+    });
 
   } catch (error) {
-    console.error('Error generating template:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to generate template' },
-      { status: 500 }
-    );
+    logger.error('Error generating template', 'admin/templates/download', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError || error instanceof NotFoundError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Failed to generate template', 500);
   }
 }
+
+export const GET = withErrorHandling(
+  requireAuthAndPermission(getHandler, 'ADMIN'),
+  'admin/templates/download/GET'
+);

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Eye, Download, FileText, ExternalLink } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface DocumentContentProps {
   document: any;
@@ -34,7 +35,7 @@ export function DocumentContent({ document }: DocumentContentProps) {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (error) {
-      console.error('Ошибка при скачивании:', error);
+      clientLogger.error('Ошибка при скачивании:', error);
       alert('Ошибка при скачивании документа');
     } finally {
       setIsLoading(false);

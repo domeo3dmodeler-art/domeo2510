@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logging/logger';
 
 // Mock данные для демонстрации
 const mockCategories = {
@@ -71,7 +72,7 @@ export async function GET(
 
     return NextResponse.json(category);
   } catch (error) {
-    console.error('Error fetching category:', error);
+    logger.error('Error fetching category', 'categories/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: categoryId } : { error: String(error), id: categoryId });
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 });
   }
 }
@@ -85,7 +86,7 @@ export async function PUT(
     const data = await request.json();
 
     // В реальном приложении здесь будет обновление в базе данных
-    console.log('Updating category:', categoryId, data);
+    logger.debug('Updating category', 'categories/[id]', { categoryId, hasData: !!data });
 
     // Обновляем mock данные
     if (mockCategories[categoryId as keyof typeof mockCategories]) {
@@ -97,7 +98,7 @@ export async function PUT(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error updating category:', error);
+    logger.error('Error updating category', 'categories/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: categoryId } : { error: String(error), id: categoryId });
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 });
   }
 }

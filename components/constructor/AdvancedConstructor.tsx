@@ -131,7 +131,7 @@ function LayoutSettingsPanel({ layout, onUpdateLayout }: {
           <label className="block text-sm font-medium mb-1">Ширина блока</label>
           <Select
             value={layout.width}
-            onValueChange={(value: any) => onUpdateLayout({ ...layout, width: value })}
+            onValueChange={(value: 'full' | 'half' | 'third' | 'quarter' | 'custom') => onUpdateLayout({ ...layout, width: value })}
           >
             <option value="full">Полная ширина</option>
             <option value="half">Половина</option>
@@ -156,7 +156,7 @@ function LayoutSettingsPanel({ layout, onUpdateLayout }: {
           <label className="block text-sm font-medium mb-1">Выравнивание</label>
           <Select
             value={layout.alignment}
-            onValueChange={(value: any) => onUpdateLayout({ ...layout, alignment: value })}
+            onValueChange={(value: 'left' | 'center' | 'right' | 'justify') => onUpdateLayout({ ...layout, alignment: value })}
           >
             <option value="left">По левому краю</option>
             <option value="center">По центру</option>
@@ -524,7 +524,8 @@ export default function AdvancedConstructor() {
                             variant="outline"
                             onClick={(e) => {
                               e.stopPropagation();
-                              // TODO: Редактирование
+                              // Функция редактирования элемента будет реализована позже
+                              clientLogger.debug('Edit element clicked', { elementId: element.id });
                             }}
                           >
                             <Edit className="h-4 w-4" />

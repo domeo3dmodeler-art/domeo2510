@@ -1,109 +1,136 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
+import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { NotFoundError } from '@/lib/api/errors';
+import { requireAuth } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
 // GET /api/catalog/templates/[id] - Получить шаблон по ID
-export async function GET(
+async function getHandler(
   request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const template = await prisma.importTemplate.findUnique({
-      where: { id: params.id },
-      include: {
-        catalog_category: {
-          select: {
-            id: true,
-            name: true,
-            level: true,
-            path: true
-          }
+  user: ReturnType<typeof getAuthenticatedUser>,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(request);
+  const { id } = await params;
+  
+  const template = await prisma.importTemplate.findUnique({
+    where: { id },
+    include: {
+      catalog_category: {
+        select: {
+          id: true,
+          name: true,
+          level: true,
+          path: true
         }
       }
-    });
-
-    if (!template) {
-      return NextResponse.json(
-        { success: false, message: 'Шаблон не найден' },
-        { status: 404 }
-      );
     }
+  });
 
-    return NextResponse.json({
-      success: true,
-      template
-    });
-  } catch (error) {
-    console.error('Error fetching template:', error);
-    return NextResponse.json(
-      { success: false, message: 'Ошибка при получении шаблона' },
-      { status: 500 }
-    );
+  if (!template) {
+    throw new NotFoundError('Шаблон', id);
   }
+
+  return apiSuccess({ template });
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  return withErrorHandling(
+    requireAuth((req, user) => getHandler(req, user, { params })),
+    'catalog/templates/[id]/GET'
+  )(request);
 }
 
 // PUT /api/catalog/templates/[id] - Обновить шаблон
-export async function PUT(
+async function putHandler(
   request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const body = await request.json();
-    const { name, required_fields, calculator_fields, export_fields } = body;
+  user: ReturnType<typeof getAuthenticatedUser>,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(request);
+  const { id } = await params;
+  const body = await request.json();
+  const { name, required_fields, calculator_fields, export_fields } = body;
 
-    const template = await prisma.importTemplate.update({
-      where: { id: params.id },
-      data: {
-        name,
-        required_fields: JSON.stringify(required_fields || []),
-        calculator_fields: JSON.stringify(calculator_fields || []),
-        export_fields: JSON.stringify(export_fields || [])
-      },
-      include: {
-        catalog_category: {
-          select: {
-            id: true,
-            name: true,
-            level: true,
-            path: true
-          }
+  // Проверяем существование шаблона
+  const existingTemplate = await prisma.importTemplate.findUnique({
+    where: { id }
+  });
+
+  if (!existingTemplate) {
+    throw new NotFoundError('Шаблон', id);
+  }
+
+  const template = await prisma.importTemplate.update({
+    where: { id },
+    data: {
+      name,
+      required_fields: JSON.stringify(required_fields || []),
+      calculator_fields: JSON.stringify(calculator_fields || []),
+      export_fields: JSON.stringify(export_fields || [])
+    },
+    include: {
+      catalog_category: {
+        select: {
+          id: true,
+          name: true,
+          level: true,
+          path: true
         }
       }
-    });
+    }
+  });
 
-    return NextResponse.json({
-      success: true,
-      template
-    });
-  } catch (error) {
-    console.error('Error updating template:', error);
-    return NextResponse.json(
-      { success: false, message: 'Ошибка при обновлении шаблона' },
-      { status: 500 }
-    );
-  }
+  return apiSuccess({ template }, 'Шаблон обновлен');
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  return withErrorHandling(
+    requireAuth((req, user) => putHandler(req, user, { params })),
+    'catalog/templates/[id]/PUT'
+  )(request);
 }
 
 // DELETE /api/catalog/templates/[id] - Удалить шаблон
+async function deleteHandler(
+  request: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(request);
+  const { id } = await params;
+
+  // Проверяем существование шаблона
+  const existingTemplate = await prisma.importTemplate.findUnique({
+    where: { id }
+  });
+
+  if (!existingTemplate) {
+    throw new NotFoundError('Шаблон', id);
+  }
+
+  await prisma.importTemplate.delete({
+    where: { id }
+  });
+
+  return apiSuccess({ message: 'Шаблон удален' }, 'Шаблон удален');
+}
+
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    await prisma.importTemplate.delete({
-      where: { id: params.id }
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: 'Шаблон удален'
-    });
-  } catch (error) {
-    console.error('Error deleting template:', error);
-    return NextResponse.json(
-      { success: false, message: 'Ошибка при удалении шаблона' },
-      { status: 500 }
-    );
-  }
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  return withErrorHandling(
+    requireAuth((req, user) => deleteHandler(req, user, { params })),
+    'catalog/templates/[id]/DELETE'
+  )(request);
 }

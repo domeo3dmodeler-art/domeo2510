@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, Card, Badge, Input, Dialog, DialogContent, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Checkbox } from '../../../../components/ui';
 import { Plus, Search, Edit, Trash2, Link, Eye, Settings } from 'lucide-react';
 import { FrontendCategory, CreateFrontendCategoryDto, CatalogCategory } from '@/lib/types/catalog';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 export default function FrontendCategoriesPage() {
   const [categories, setCategories] = useState<FrontendCategory[]>([]);
@@ -32,7 +33,7 @@ export default function FrontendCategoriesPage() {
       setCategories(categoriesData);
       setCatalogCategories(catalogData.categories || []);
     } catch (error) {
-      console.error('Error loading data:', error);
+      clientLogger.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
@@ -51,7 +52,7 @@ export default function FrontendCategoriesPage() {
         setCreateDialogOpen(false);
       }
     } catch (error) {
-      console.error('Error creating category:', error);
+      clientLogger.error('Error creating category:', error);
     }
   };
 
@@ -71,7 +72,7 @@ export default function FrontendCategoriesPage() {
         setCategoryToEdit(null);
       }
     } catch (error) {
-      console.error('Error updating category:', error);
+      clientLogger.error('Error updating category:', error);
     }
   };
 
@@ -87,7 +88,7 @@ export default function FrontendCategoriesPage() {
         await loadData();
       }
     } catch (error) {
-      console.error('Error deleting category:', error);
+      clientLogger.error('Error deleting category:', error);
     }
   };
 

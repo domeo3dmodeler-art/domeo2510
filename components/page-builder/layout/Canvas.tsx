@@ -8,6 +8,7 @@ import { Rulers } from './Rulers';
 // import { ConnectionLine } from '../elements/ConnectionLine'; // Временно отключен
 import { ConnectionEditor } from '../elements/ConnectionEditor';
 import { ConnectionContextMenu } from '../elements/ConnectionContextMenu';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 export function Canvas({
   page,
@@ -150,7 +151,7 @@ export function Canvas({
     
     try {
       const data = JSON.parse(e.dataTransfer.getData('application/json'));
-      console.log('🎯 Canvas: Drop data received:', data);
+      clientLogger.debug('🎯 Canvas: Drop data received:', data);
       
       if (data.type === 'component') {
         const rect = canvasRef.current?.getBoundingClientRect();
@@ -168,11 +169,11 @@ export function Canvas({
         const snappedX = Math.max(0, Math.round(scaledX / gridSize) * gridSize);
         const snappedY = Math.max(0, Math.round(scaledY / gridSize) * gridSize);
         
-        console.log('🎯 Canvas: Adding element at position:', { x: snappedX, y: snappedY });
+        clientLogger.debug('🎯 Canvas: Adding element at position:', { x: snappedX, y: snappedY });
         onAddElement(data.elementType, { x: snappedX, y: snappedY });
       }
     } catch (error) {
-      console.error('Error handling drop:', error);
+      clientLogger.error('Error handling drop:', error);
     }
   }, [zoom, onAddElement]);
 
@@ -311,7 +312,7 @@ export function Canvas({
                     ? selectedElementIds.filter(id => id !== element.id)
                     : [...selectedElementIds, element.id];
                   
-                  console.log('🖱️ Canvas: onMultiSelect вызван', {
+                  clientLogger.debug('🖱️ Canvas: onMultiSelect вызван', {
                     elementId: element.id,
                     currentSelection: selectedElementIds,
                     newSelection,
@@ -324,21 +325,21 @@ export function Canvas({
                   
                   // Показываем контекстное меню, если выбрано 2 или более элементов
                   if (newSelection.length >= 2) {
-                    console.log('🖱️ Canvas: Показываем ConnectionContextMenu');
+                    clientLogger.debug('🖱️ Canvas: Показываем ConnectionContextMenu');
                     const rect = canvasRef.current?.getBoundingClientRect();
                     if (rect) {
                       const position = {
                         x: e.clientX - rect.left, // Позиция относительно canvas
                         y: e.clientY - rect.top
                       };
-                      console.log('🖱️ Canvas: Позиция меню:', position);
+                      clientLogger.debug('🖱️ Canvas: Позиция меню:', position);
                       setConnectionMenuPosition(position);
                       setShowConnectionMenu(true);
                     } else {
-                      console.log('🖱️ Canvas: Ошибка - не найден rect для canvas');
+                      clientLogger.debug('🖱️ Canvas: Ошибка - не найден rect для canvas');
                     }
                   } else {
-                    console.log('🖱️ Canvas: Скрываем ConnectionContextMenu');
+                    clientLogger.debug('🖱️ Canvas: Скрываем ConnectionContextMenu');
                     setShowConnectionMenu(false);
                   }
                 }}

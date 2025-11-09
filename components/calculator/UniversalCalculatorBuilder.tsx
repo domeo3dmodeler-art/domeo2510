@@ -18,6 +18,7 @@ import {
   MousePointer,
   Zap
 } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 // 🧮 Типы элементов калькулятора
 export type CalculatorElementType = 
@@ -80,7 +81,7 @@ export interface CalculatorElement {
     step?: number;
     
     // Для select/radio
-    options?: Array<{ value: any; label: string }>;
+    options?: Array<{ value: string | number | boolean; label: string }>;
     
     // Для формул
     formula?: string;
@@ -94,7 +95,7 @@ export interface CalculatorElement {
     // Для источников данных
     dataSource?: {
       type: 'catalog' | 'api' | 'file';
-      config: any;
+      config: Record<string, unknown>;
     };
     
     // Для таблиц и графиков
@@ -122,7 +123,7 @@ export interface CalculatorConfig {
     id: string;
     name: string;
     type: string;
-    defaultValue: any;
+    defaultValue: string | number | boolean | null;
   }>;
   formulas: Array<{
     id: string;
@@ -319,7 +320,7 @@ export default function UniversalCalculatorBuilder() {
         alert('Ошибка при сохранении');
       }
     } catch (error) {
-      console.error('Ошибка сохранения:', error);
+      clientLogger.error('Ошибка сохранения:', error);
       alert('Ошибка при сохранении');
     }
   }, [config]);

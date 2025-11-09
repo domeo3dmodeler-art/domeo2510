@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bell, ChevronDown, FileText, CreditCard, Package } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import DocumentQuickViewModal from '@/components/documents/DocumentQuickViewModal';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface Notification {
   id: string;
@@ -59,7 +60,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
         setUnreadCount(data.notifications?.filter((n: Notification) => !n.is_read).length || 0);
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      clientLogger.error('Error fetching notifications:', error);
     } finally {
       setLoading(false);
     }
@@ -89,7 +90,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
       );
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      clientLogger.error('Error marking notification as read:', error);
     }
   };
 

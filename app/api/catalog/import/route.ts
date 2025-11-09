@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { catalogImportService } from '@/lib/services/catalog-import.service';
+import { logger } from '@/lib/logging/logger';
 
 // POST /api/catalog/import - Импорт каталога из Excel
 export async function POST(request: NextRequest) {
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
 
   } catch (error) {
-    console.error('Error importing catalog:', error);
+    logger.error('Error importing catalog', 'catalog/import', error instanceof Error ? { error: error.message, stack: error.stack, fileName: file.name } : { error: String(error), fileName: file.name });
     return NextResponse.json(
       { 
         error: 'Ошибка при импорте каталога',
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
     );
 
   } catch (error) {
-    console.error('Error getting history:', error);
+    logger.error('Error getting history', 'catalog/import', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Ошибка при получении истории' },
       { status: 500 }

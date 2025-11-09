@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ExcelGenerator } from '../../../../lib/documents/excel-generator';
+import { logger } from '../../../../lib/logging/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Ошибка генерации шаблона:', error);
+    logger.error('Ошибка генерации шаблона', 'documents/templates', error instanceof Error ? { error: error.message, stack: error.stack, templateType } : { error: String(error), templateType });
     return NextResponse.json(
       { error: 'Ошибка генерации шаблона' },
       { status: 500 }

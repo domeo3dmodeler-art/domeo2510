@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { simpleImportService } from '../../../../lib/services/simple-import.service';
+import { logger } from '../../../../lib/logging/logger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,9 +23,7 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    console.log('📁 Получен файл для простого импорта:', file.name);
-    console.log('📁 Категория:', catalogCategoryId);
-    console.log('📁 Обновлять существующие:', updateExisting);
+    logger.info('Получен файл для простого импорта', 'admin/simple-import', { fileName: file.name, catalogCategoryId, updateExisting });
     
     // Конвертируем файл в Buffer
     const fileBuffer = Buffer.from(await file.arrayBuffer());
@@ -40,7 +39,7 @@ export async function POST(req: NextRequest) {
       }
     );
     
-    console.log('✅ Результат простого импорта:', result);
+    logger.info('Результат простого импорта', 'admin/simple-import', { result });
     
     return NextResponse.json({
       success: result.success,
@@ -54,7 +53,7 @@ export async function POST(req: NextRequest) {
     });
     
   } catch (error) {
-    console.error('❌ Ошибка API простого импорта:', error);
+    logger.error('Ошибка API простого импорта', 'admin/simple-import', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { 
         success: false, 
@@ -97,7 +96,7 @@ export async function GET(req: NextRequest) {
     );
     
   } catch (error) {
-    console.error('❌ Ошибка API простого импорта (GET):', error);
+    logger.error('Ошибка API простого импорта (GET)', 'admin/simple-import', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { 
         success: false, 

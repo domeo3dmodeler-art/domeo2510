@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Button, Card, Input, Select, Checkbox, Alert, LoadingSpinner } from '@/components/ui';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface Category {
   id: string;
@@ -80,7 +81,7 @@ export default function CategoryEditorPage() {
         });
       }
     } catch (error) {
-      console.error('Error fetching category:', error);
+      clientLogger.error('Error fetching category:', error);
     } finally {
       setLoading(false);
     }
@@ -92,7 +93,7 @@ export default function CategoryEditorPage() {
       const data = await response.json();
       setPhotos(data.photos || []);
     } catch (error) {
-      console.error('Error fetching photos:', error);
+      clientLogger.error('Error fetching photos:', error);
     }
   }, [categoryId]);
 
@@ -119,7 +120,7 @@ export default function CategoryEditorPage() {
         alert('Ошибка при сохранении категории');
       }
     } catch (error) {
-      console.error('Error saving category:', error);
+      clientLogger.error('Error saving category:', error);
       alert('Ошибка при сохранении категории');
     } finally {
       setSaving(false);
@@ -135,14 +136,14 @@ export default function CategoryEditorPage() {
       });
       
       if (response.ok) {
-        console.log('Category updated successfully');
+        clientLogger.debug('Category updated successfully');
         return true;
       } else {
-        console.error('Error updating category');
+        clientLogger.error('Error updating category');
         return false;
       }
     } catch (error) {
-      console.error('Error updating category:', error);
+      clientLogger.error('Error updating category:', error);
       return false;
     }
   };
@@ -183,7 +184,7 @@ export default function CategoryEditorPage() {
         alert('Ошибка при загрузке фото');
       }
     } catch (error) {
-      console.error('Error uploading photos:', error);
+      clientLogger.error('Error uploading photos:', error);
       alert('Ошибка при загрузке фото');
     } finally {
       setUploadingPhotos(false);
@@ -205,7 +206,7 @@ export default function CategoryEditorPage() {
         alert('Ошибка при удалении фото');
       }
     } catch (error) {
-      console.error('Error deleting photo:', error);
+      clientLogger.error('Error deleting photo:', error);
       alert('Ошибка при удалении фото');
     }
   };
@@ -230,7 +231,7 @@ export default function CategoryEditorPage() {
       formData.append('category', categoryId);
       formData.append('mode', 'headers');
 
-      console.log('Processing price file:', {
+      clientLogger.debug('Processing price file:', {
         fileName: priceFile.name,
         fileSize: priceFile.size,
         categoryId: categoryId
@@ -243,7 +244,7 @@ export default function CategoryEditorPage() {
 
       const data = await response.json();
       
-      console.log('Price file processing response:', data);
+      clientLogger.debug('Price file processing response:', data);
       
       if (data.ok) {
         setPriceHeaders(data.headers || []);
@@ -264,7 +265,7 @@ export default function CategoryEditorPage() {
         alert('Ошибка при чтении файла: ' + data.error);
       }
     } catch (error) {
-      console.error('Error processing price file:', error);
+      clientLogger.error('Error processing price file:', error);
       alert('Ошибка при обработке файла прайса: ' + error);
     }
   };
@@ -289,7 +290,7 @@ export default function CategoryEditorPage() {
       };
       formData.append('mapping', JSON.stringify(mappingConfig));
 
-      console.log('Importing price file:', {
+      clientLogger.debug('Importing price file:', {
         fileName: priceFile.name,
         fileSize: priceFile.size,
         categoryId: categoryId,
@@ -303,7 +304,7 @@ export default function CategoryEditorPage() {
 
       const data = await response.json();
       
-      console.log('Price import response:', data);
+      clientLogger.debug('Price import response:', data);
       
       if (data.ok) {
         // Показываем отчет об импорте
@@ -328,7 +329,7 @@ export default function CategoryEditorPage() {
         alert('Ошибка при импорте прайса: ' + data.error);
       }
     } catch (error) {
-      console.error('Error importing price:', error);
+      clientLogger.error('Error importing price:', error);
       alert('Ошибка при импорте прайса: ' + error);
     }
   };

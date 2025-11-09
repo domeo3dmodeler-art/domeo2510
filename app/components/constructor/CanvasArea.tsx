@@ -40,7 +40,7 @@ export default function CanvasArea() {
         });
       }
     } catch (error) {
-      console.error('Error handling drop:', error);
+      clientLogger.error('Error handling drop:', error);
     }
   };
 

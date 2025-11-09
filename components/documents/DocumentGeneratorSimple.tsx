@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '../ui';
 import { FileText, Download, Eye, Edit3, Loader2 } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface DocumentGeneratorProps {
   className?: string;
@@ -90,7 +91,7 @@ export default function DocumentGeneratorSimple({ className = "" }: DocumentGene
       document.body.removeChild(a);
       
     } catch (error) {
-      console.error('Ошибка генерации:', error);
+      clientLogger.error('Ошибка генерации:', error);
       alert('Ошибка при генерации документа');
     } finally {
       setIsGenerating(false);

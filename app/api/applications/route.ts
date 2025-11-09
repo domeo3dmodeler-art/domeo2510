@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, Prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 // Генерация номера заказа в формате "Заказ-XXX"
 async function generateOrderNumber(): Promise<string> {
@@ -136,7 +137,7 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error creating application:', error);
+    logger.error('Error creating application', 'applications', error instanceof Error ? { error: error.message, stack: error.stack, clientId } : { error: String(error), clientId });
     return NextResponse.json(
       { error: 'Ошибка создания заявки' },
       { status: 500 }
@@ -155,7 +156,7 @@ export async function GET(req: NextRequest) {
     const client_id = searchParams.get('client_id');
 
     // Строим фильтр
-    const where: any = {};
+    const where: Prisma.OrderWhereInput = {};
 
     // Базовые фильтры (AND)
     if (status) {
@@ -267,7 +268,7 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching orders:', error);
+    logger.error('Error fetching orders', 'applications', error instanceof Error ? { error: error.message, stack: error.stack, status, executor_id, client_id } : { error: String(error), status, executor_id, client_id });
     return NextResponse.json(
       { error: 'Ошибка получения заказов' },
       { status: 500 }

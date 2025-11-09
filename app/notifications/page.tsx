@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface Notification {
   id: string;
@@ -31,11 +32,11 @@ export default function NotificationsPage() {
         const data = await response.json();
         setNotifications(data.notifications || []);
       } else {
-        console.error('Failed to load notifications');
+        clientLogger.error('Failed to load notifications');
         setNotifications([]);
       }
     } catch (error) {
-      console.error('Error loading notifications:', error);
+      clientLogger.error('Error loading notifications:', error);
       setNotifications([]);
     } finally {
       setIsLoading(false);

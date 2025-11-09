@@ -11,6 +11,7 @@ import { Card, Button } from '../../../../components/ui';
 import CategoryInfoForm from '../../../../components/category-builder/CategoryInfoForm';
 import DataUpload from '../../../../components/category-builder/DataUpload';
 import ProfessionalPreview from '../../../../components/constructor/ProfessionalPreview';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 // Динамический импорт PageBuilder с отключением SSR
 const PageBuilder = dynamicImport(
@@ -78,7 +79,7 @@ export default function CategoryBuilderPage() {
         window.location.href = '/admin/categories';
       }
     } catch (error) {
-      console.error('Error loading category:', error);
+      clientLogger.error('Error loading category:', error);
       alert('Ошибка при загрузке категории');
     } finally {
       setLoading(false);
@@ -139,7 +140,7 @@ export default function CategoryBuilderPage() {
         alert('Ошибка при сохранении информации о категории');
       }
     } catch (error) {
-      console.error('Error saving category info:', error);
+      clientLogger.error('Error saving category info:', error);
       alert('Ошибка при сохранении информации о категории');
     }
   };
@@ -192,22 +193,22 @@ export default function CategoryBuilderPage() {
 
   // Функции экспорта
   const handleExport = (format: 'pdf' | 'xlsx' | 'csv') => {
-    console.log(`Экспорт в формате ${format}:`, cartItems);
+    clientLogger.debug(`Экспорт в формате ${format}:`, cartItems);
     alert(`Экспорт в формате ${format.toUpperCase()} выполнен!`);
   };
 
   const handleCreateQuote = () => {
-    console.log('Создание КП:', cartItems);
+    clientLogger.debug('Создание КП:', cartItems);
     alert('Коммерческое предложение создано!');
   };
 
   const handleCreateInvoice = () => {
-    console.log('Создание счета:', cartItems);
+    clientLogger.debug('Создание счета:', cartItems);
     alert('Счет создан!');
   };
 
   const handleCreateFactoryOrder = () => {
-    console.log('Создание заказа на фабрику:', cartItems);
+    clientLogger.debug('Создание заказа на фабрику:', cartItems);
     alert('Заказ на фабрику создан!');
   };
 

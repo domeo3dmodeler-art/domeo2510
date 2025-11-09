@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { FormulaEngine, Variable, Formula } from '@/lib/calculator/FormulaEngine';
 import { Calculator, AlertCircle, CheckCircle, Loader } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface CalculatorRuntimeProps {
   config: any; // Конфигурация калькулятора
@@ -72,7 +73,7 @@ export default function CalculatorRuntime({
       });
 
     } catch (error) {
-      console.error('Ошибка инициализации калькулятора:', error);
+      clientLogger.error('Ошибка инициализации калькулятора:', error);
     }
   }, [config, formulaEngine]);
 
@@ -95,7 +96,7 @@ export default function CalculatorRuntime({
       recalculate();
       
     } catch (error) {
-      console.error('Ошибка обновления значения:', error);
+      clientLogger.error('Ошибка обновления значения:', error);
       setErrors(prev => ({ 
         ...prev, 
         [elementId]: error instanceof Error ? error.message : 'Ошибка валидации'
@@ -116,7 +117,7 @@ export default function CalculatorRuntime({
           const result = formulaEngine.calculate(formula.id);
           newResults[formula.id] = result;
         } catch (error) {
-          console.error(`Ошибка вычисления формулы ${formula.id}:`, error);
+          clientLogger.error(`Ошибка вычисления формулы ${formula.id}:`, error);
           newResults[formula.id] = 'Ошибка';
         }
       }
@@ -128,7 +129,7 @@ export default function CalculatorRuntime({
             const result = formulaEngine.calculate(element.id);
             newResults[element.id] = result;
           } catch (error) {
-            console.error(`Ошибка вычисления элемента ${element.id}:`, error);
+            clientLogger.error(`Ошибка вычисления элемента ${element.id}:`, error);
             newResults[element.id] = 'Ошибка';
           }
         }
@@ -142,7 +143,7 @@ export default function CalculatorRuntime({
       }
       
     } catch (error) {
-      console.error('Ошибка пересчета:', error);
+      clientLogger.error('Ошибка пересчета:', error);
     } finally {
       setIsCalculating(false);
     }
@@ -330,7 +331,7 @@ export default function CalculatorRuntime({
                     values, results, updateValue
                   );
                 } catch (error) {
-                  console.error('Ошибка выполнения действия кнопки:', error);
+                  clientLogger.error('Ошибка выполнения действия кнопки:', error);
                 }
               }
             }}

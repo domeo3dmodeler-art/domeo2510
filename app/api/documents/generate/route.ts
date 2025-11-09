@@ -1,14 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
 import ExcelJS from 'exceljs';
 import { findExistingDocument } from '@/lib/export/puppeteer-generator';
+import { logger } from '@/lib/logging/logger';
+import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { NotFoundError } from '@/lib/api/errors';
+import { requireAuth } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
-const prisma = new PrismaClient();
+interface ClientData {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  address: string;
+}
+
+interface DocumentItem {
+  sku?: string;
+  name: string;
+  unitPrice: number;
+  quantity: number;
+  total: number;
+  properties_data?: string | Record<string, unknown>;
+  handleId?: string;
+  description?: string;
+  model?: string;
+  finish?: string;
+  color?: string;
+  width?: number;
+  height?: number;
+  hardwareKitId?: string;
+  hardwareKitName?: string;
+  style?: string;
+}
+
+interface DocumentData {
+  type: 'quote' | 'invoice';
+  client: ClientData;
+  documentNumber: string;
+  items: DocumentItem[];
+  totalAmount: number;
+}
 
 // Функция для генерации PDF документа
-async function generatePDF(data: any): Promise<Buffer> {
+async function generatePDF(data: DocumentData): Promise<Buffer> {
   const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || await chromium.executablePath();
   const browser = await puppeteer.launch({
     args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox'],
@@ -106,7 +144,7 @@ async function generatePDF(data: any): Promise<Buffer> {
           </tr>
         </thead>
         <tbody>
-          ${data.items.map((item: any, index: number) => `
+          ${data.items.map((item: DocumentItem, index: number) => `
             <tr>
               <td class="number">${index + 1}</td>
               <td class="sku">${item.sku || 'N/A'}</td>
@@ -149,7 +187,7 @@ async function generatePDF(data: any): Promise<Buffer> {
 }
 
 // Функция для генерации Excel документа заказа
-async function generateExcel(data: any): Promise<Buffer> {
+async function generateExcel(data: DocumentData): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Заказ');
 
@@ -177,8 +215,9 @@ async function generateExcel(data: any): Promise<Buffer> {
   const allProperties = new Set<string>();
   
   // Сначала собираем все свойства из всех товаров
-  data.items.forEach((item: any, index: number) => {
-    console.log(`🔍 Товар ${index + 1}:`, {
+  data.items.forEach((item: DocumentItem, index: number) => {
+    logger.debug('Товар', 'documents/generate', {
+      itemIndex: index + 1,
       sku: item.sku,
       name: item.name,
       hasProperties: !!item.properties_data
@@ -189,7 +228,8 @@ async function generateExcel(data: any): Promise<Buffer> {
         const props = typeof item.properties_data === 'string' 
           ? JSON.parse(item.properties_data) 
           : item.properties_data;
-        console.log('📊 Свойства товара:', {
+        logger.debug('Свойства товара', 'documents/generate', {
+          itemIndex: index + 1,
           totalCount: Object.keys(props).length,
           properties: Object.keys(props).slice(0, 20) // Первые 20 свойств
         });
@@ -207,7 +247,7 @@ async function generateExcel(data: any): Promise<Buffer> {
           }
         });
       } catch (e) {
-        console.warn('Failed to parse properties_data:', e);
+        logger.warn('Failed to parse properties_data', 'documents/generate', { itemIndex: index + 1, error: e instanceof Error ? e.message : String(e) });
       }
     } else {
     }
@@ -233,7 +273,7 @@ async function generateExcel(data: any): Promise<Buffer> {
 
   // Данные товаров
   let rowIndex = 11;
-  data.items.forEach((item: any, index: number) => {
+  data.items.forEach((item: DocumentItem, index: number) => {
     const row = worksheet.getRow(rowIndex);
     
     // Базовые поля
@@ -268,7 +308,7 @@ async function generateExcel(data: any): Promise<Buffer> {
           colIndex++;
         });
       } catch (e) {
-        console.warn('Failed to parse properties_data for item:', e);
+        logger.warn('Failed to parse properties_data for item', 'documents/generate', { itemIndex: index + 1, error: e instanceof Error ? e.message : String(e) });
         // Заполняем пустыми значениями
         propertyHeaders.forEach(() => {
           row.getCell(colIndex).value = '';
@@ -320,7 +360,7 @@ async function generateExcel(data: any): Promise<Buffer> {
 }
 
 // Функция для извлечения SKU поставщика из свойств товара
-function extractSupplierSku(propertiesData: any): string {
+function extractSupplierSku(propertiesData: string | Record<string, unknown> | undefined): string {
   if (!propertiesData) return 'N/A';
   
   try {
@@ -336,13 +376,13 @@ function extractSupplierSku(propertiesData: any): string {
            props['SKU'] || 
            'N/A';
   } catch (error) {
-    console.warn('Failed to parse properties_data for SKU extraction:', error);
+    logger.warn('Failed to parse properties_data for SKU extraction', 'documents/generate', { error: error instanceof Error ? error.message : String(error) });
     return 'N/A';
   }
 }
 
 // Функция для формирования наименования товара
-function buildProductName(item: any): string {
+function buildProductName(item: DocumentItem): string {
   if (item.handleId) {
     // Для ручек - простое название из description
     return item.description || 'Ручка';
@@ -365,32 +405,35 @@ function buildProductName(item: any): string {
   return parts.join(' ');
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { type, clientId, items, totalAmount } = body;
-    
-    console.log('📄 Генерация документа:', {
-      type, 
-      clientId, 
-      itemsCount: items.length, 
-      totalAmount,
-      sampleItem: items[0] ? {
-        model: items[0].model,
-        finish: items[0].finish,
-        color: items[0].color,
-        style: items[0].style
-      } : null
-    });
+async function postHandler(
+  request: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(request);
+  const body = await request.json();
+  const { type, clientId, items, totalAmount } = body;
+  
+  logger.info('Генерация документа', 'documents/generate', {
+    type, 
+    clientId, 
+    itemsCount: items.length, 
+    totalAmount,
+    sampleItem: items[0] ? {
+      model: items[0].model,
+      finish: items[0].finish,
+      color: items[0].color,
+      style: items[0].style
+    } : null
+  }, loggingContext);
 
-    // Получаем данные клиента
-    const client = await prisma.client.findUnique({
-      where: { id: clientId }
-    });
+  // Получаем данные клиента
+  const client = await prisma.client.findUnique({
+    where: { id: clientId }
+  });
 
-    if (!client) {
-      return NextResponse.json({ error: 'Клиент не найден' }, { status: 404 });
-    }
+  if (!client) {
+    throw new NotFoundError('Клиент', clientId);
+  }
 
     // Генерируем cart_session_id для группировки документов
     const cartHash = Buffer.from(JSON.stringify({
@@ -440,7 +483,7 @@ export async function POST(request: NextRequest) {
             number: documentNumber,
             cart_session_id: cartSessionId,
             client_id: clientId,
-            created_by: 'system', // TODO: Получить из токена
+            created_by: user.userId || 'system', // Используем userId из токена
             status: 'DRAFT',
             subtotal: totalAmount,
             total_amount: totalAmount,
@@ -545,7 +588,7 @@ export async function POST(request: NextRequest) {
             number: documentNumber,
             cart_session_id: cartSessionId,
             client_id: clientId,
-            created_by: 'system', // TODO: Получить из токена
+            created_by: user.userId || 'system', // Используем userId из токена
             status: 'DRAFT',
             subtotal: totalAmount,
             total_amount: totalAmount,
@@ -650,7 +693,7 @@ export async function POST(request: NextRequest) {
             number: documentNumber,
             cart_session_id: cartSessionId,
             client_id: clientId,
-            created_by: 'system', // TODO: Получить из токена
+            created_by: user.userId || 'system', // Используем userId из токена
             status: 'PENDING',
             subtotal: totalAmount,
             total_amount: totalAmount,
@@ -699,7 +742,8 @@ export async function POST(request: NextRequest) {
         
         // Если не нашли по SKU, ищем по точной конфигурации
         if (!productData) {
-          console.log('🔍 Поиск по конфигурации:', {
+          logger.debug('Поиск по конфигурации', 'documents/generate', {
+            itemIndex: i,
             style: item.style,
             model: item.model,
             finish: item.finish,
@@ -741,7 +785,8 @@ export async function POST(request: NextRequest) {
                 
                 // Логируем первые несколько товаров для отладки
                 if (allProducts.indexOf(product) < 3) {
-                  console.log('🔍 Товар из БД:', {
+                  logger.debug('Товар из БД', 'documents/generate', {
+                    itemIndex: i,
                     style: props['Domeo_Стиль Web'],
                     model: props['Domeo_Название модели для Web'],
                     finish: props['Тип покрытия'],
@@ -754,7 +799,8 @@ export async function POST(request: NextRequest) {
                 
                 if (styleMatch && modelMatch && finishMatch && colorMatch && widthMatch && heightMatch) {
                   productData = product;
-                  console.log('✅ Найден товар по конфигурации:', {
+                  logger.debug('Найден товар по конфигурации', 'documents/generate', {
+                    itemIndex: i,
                     sku: product.sku,
                     name: product.name,
                     propertiesCount: Object.keys(props).length,
@@ -763,7 +809,7 @@ export async function POST(request: NextRequest) {
                   break;
                 }
               } catch (e) {
-                console.warn('Failed to parse properties_data:', e);
+                logger.warn('Failed to parse properties_data', 'documents/generate', { itemIndex: i, error: e instanceof Error ? e.message : String(e) });
               }
             }
           }
@@ -784,7 +830,8 @@ export async function POST(request: NextRequest) {
                   
                   if (styleMatch && modelMatch) {
                     productData = product;
-                    console.log('✅ Найден товар по стилю и модели:', {
+                    logger.debug('Найден товар по стилю и модели', 'documents/generate', {
+                      itemIndex: i,
                       sku: product.sku,
                       name: product.name,
                       style: props['Domeo_Стиль Web'],
@@ -794,7 +841,7 @@ export async function POST(request: NextRequest) {
                     break;
                   }
                 } catch (e) {
-                  console.warn('Failed to parse properties_data:', e);
+                  logger.warn('Failed to parse properties_data', 'documents/generate', { itemIndex: i, error: e instanceof Error ? e.message : String(e) });
                 }
               }
             }
@@ -803,7 +850,8 @@ export async function POST(request: NextRequest) {
               // Последний fallback: берем первый товар
               if (allProducts.length > 0) {
                 productData = allProducts[0];
-                console.log('⚠️ Fallback: используем первый товар:', {
+                logger.warn('Fallback: используем первый товар', 'documents/generate', {
+                  itemIndex: i,
                   sku: productData.sku,
                   name: productData.name
                 });
@@ -854,10 +902,15 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ error: 'Неизвестный тип документа' }, { status: 400 });
-
-  } catch (error) {
-    console.error('Error generating document:', error);
-    return NextResponse.json({ error: 'Ошибка при создании документа' }, { status: 500 });
+    return apiError(
+      ApiErrorCode.VALIDATION_ERROR,
+      'Неизвестный тип документа',
+      400
+    );
   }
 }
+
+export const POST = withErrorHandling(
+  requireAuth(postHandler),
+  'documents/generate/POST'
+);

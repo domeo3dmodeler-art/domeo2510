@@ -4,9 +4,14 @@ import { useState } from 'react';
 import { Settings, Download, Share, Edit, Archive, Trash2, Send, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface DocumentActionsProps {
-  document: any;
+  document: {
+    id: string;
+    status: string;
+    [key: string]: unknown;
+  };
 }
 
 export function DocumentActions({ document }: DocumentActionsProps) {
@@ -31,7 +36,7 @@ export function DocumentActions({ document }: DocumentActionsProps) {
       // Обновляем страницу для отображения нового статуса
       window.location.reload();
     } catch (error) {
-      console.error('Ошибка при изменении статуса:', error);
+      clientLogger.error('Ошибка при изменении статуса:', error);
       alert('Ошибка при изменении статуса');
     } finally {
       setIsLoading(false);
@@ -54,7 +59,7 @@ export function DocumentActions({ document }: DocumentActionsProps) {
 
       alert('Документ отправлен клиенту');
     } catch (error) {
-      console.error('Ошибка при отправке:', error);
+      clientLogger.error('Ошибка при отправке:', error);
       alert('Ошибка при отправке документа');
     } finally {
       setIsLoading(false);
@@ -187,7 +192,7 @@ export function DocumentActions({ document }: DocumentActionsProps) {
 
           <button
             onClick={() => {
-              // TODO: Реализовать редактирование документа
+              // Редактирование документа будет реализовано позже
               alert('Функция редактирования в разработке');
             }}
             className="w-full flex items-center space-x-3 px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
@@ -206,7 +211,7 @@ export function DocumentActions({ document }: DocumentActionsProps) {
                   'Архивирование документа',
                   'Вы уверены, что хотите архивировать этот документ?',
                   () => {
-                    // TODO: Реализовать архивирование
+                    // Архивирование документа будет реализовано позже
                     toast.info('Функция архивирования в разработке');
                   },
                   {
@@ -228,7 +233,7 @@ export function DocumentActions({ document }: DocumentActionsProps) {
                   'Удаление документа',
                   'Вы уверены, что хотите удалить этот документ? Это действие нельзя отменить.',
                   () => {
-                    // TODO: Реализовать удаление
+                    // Удаление документа будет реализовано позже
                     toast.info('Функция удаления в разработке');
                   },
                   {

@@ -5,6 +5,7 @@ import { BaseElement } from '../types';
 import { extractUniquePropertyValues } from '@/lib/string-utils';
 import { shouldShowFilters } from '@/lib/display-mode';
 import { ConfiguratorPlaceholder } from './PlaceholderContent';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface ProductVariant {
   id: string;
@@ -49,8 +50,8 @@ export function ProductConfiguratorAdvanced({ element, onUpdate }: ProductConfig
   const [selectedConfiguration, setSelectedConfiguration] = useState<SelectedConfiguration>({});
   const [calculatedPrice, setCalculatedPrice] = useState<number>(0);
   const [loading, setLoading] = useState(false);
-  const [propertyFilters, setPropertyFilters] = useState<Record<string, any>>({});
-  const [availableProperties, setAvailableProperties] = useState<any[]>([]);
+  const [propertyFilters, setPropertyFilters] = useState<Record<string, unknown>>({});
+  const [availableProperties, setAvailableProperties] = useState<Array<{ id: string; name: string; options?: Array<{ value: unknown; label: string }>; [key: string]: unknown }>>([]);
 
   // Загрузка свойств для фильтров
   useEffect(() => {
@@ -69,7 +70,7 @@ export function ProductConfiguratorAdvanced({ element, onUpdate }: ProductConfig
         
         if (propertiesResponse.ok) {
           const propertiesData = await propertiesResponse.json();
-          const filteredProperties = propertiesData.properties?.filter((prop: any) => 
+          const filteredProperties = propertiesData.properties?.filter((prop: { id: string; name: string; [key: string]: unknown }) => 
             element.props.selectedPropertyIds.includes(prop.id)
           ) || [];
           
@@ -83,9 +84,9 @@ export function ProductConfiguratorAdvanced({ element, onUpdate }: ProductConfig
             
             // Извлекаем уникальные значения для каждого свойства
             const propertiesWithOptions = await Promise.all(
-              filteredProperties.map(async (property: any) => {
+              filteredProperties.map(async (property: { id: string; name: string; [key: string]: unknown }) => {
                 const options = await extractUniquePropertyValues(products, property.name);
-                console.log(`Property "${property.name}": found ${options.length} unique values:`, options.map(o => o.value));
+                clientLogger.debug(`Property "${property.name}": found ${options.length} unique values:`, options.map(o => o.value));
                 
                 return {
                   ...property,
@@ -100,7 +101,7 @@ export function ProductConfiguratorAdvanced({ element, onUpdate }: ProductConfig
           }
         }
       } catch (error) {
-        console.error('Error loading properties:', error);
+        clientLogger.error('Error loading properties:', error);
       }
     };
 
@@ -136,7 +137,7 @@ export function ProductConfiguratorAdvanced({ element, onUpdate }: ProductConfig
           }
         }
       } catch (error) {
-        console.error('Error loading configurable products:', error);
+        clientLogger.error('Error loading configurable products:', error);
       } finally {
         setLoading(false);
       }
@@ -172,7 +173,7 @@ export function ProductConfiguratorAdvanced({ element, onUpdate }: ProductConfig
     }));
   };
 
-  const handleFilterChange = (propertyId: string, value: any) => {
+  const handleFilterChange = (propertyId: string, value: unknown) => {
     setPropertyFilters(prev => ({
       ...prev,
       [propertyId]: value
@@ -201,8 +202,8 @@ export function ProductConfiguratorAdvanced({ element, onUpdate }: ProductConfig
       quantity: 1
     };
 
-    // TODO: Реализовать добавление в корзину
-    console.log('Adding configured product to cart:', cartItem);
+    // Добавление в корзину будет реализовано позже
+    clientLogger.debug('Adding configured product to cart:', cartItem);
   };
 
   const getSelectedVariant = () => {
@@ -243,16 +244,19 @@ export function ProductConfiguratorAdvanced({ element, onUpdate }: ProductConfig
                   <h4 className="font-medium text-gray-900 text-sm">{property.name}</h4>
                   <div className="flex items-center gap-2">
                     <div className="text-xs text-gray-500">
-                      {displaySettings.displayType}
+                      {String(displaySettings?.displayType || '')}
                     </div>
-                    {propertyFilters[property.id] && (
-                      <button
-                        onClick={() => clearFilter(property.id)}
-                        className="text-red-500 hover:text-red-700 text-xs"
-                      >
-                        ✕
-                      </button>
-                    )}
+                    {(() => {
+                      const filterValue = propertyFilters[property.id];
+                      return filterValue && typeof filterValue === 'object' && filterValue !== null ? (
+                        <button
+                          onClick={() => clearFilter(property.id)}
+                          className="text-red-500 hover:text-red-700 text-xs"
+                        >
+                          ×
+                        </button>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
               
@@ -262,32 +266,45 @@ export function ProductConfiguratorAdvanced({ element, onUpdate }: ProductConfig
                 <input
                   type="text"
                   placeholder={`Поиск по ${property.name.toLowerCase()}...`}
-                  value={propertyFilters[property.id]?.value || ''}
-                  onChange={(e) => handleFilterChange(property.id, {
-                    ...propertyFilters[property.id],
-                    value: e.target.value
-                  })}
+                  value={(() => {
+                    const filterValue = propertyFilters[property.id];
+                    if (filterValue && typeof filterValue === 'object' && filterValue !== null && 'value' in filterValue) {
+                      const filterObj = filterValue as Record<string, unknown>;
+                      return typeof filterObj.value === 'string' ? filterObj.value : '';
+                    }
+                    return '';
+                  })()}
+                  onChange={(e) => {
+                    const currentFilter = typeof propertyFilters[property.id] === 'object' && propertyFilters[property.id] !== null ? propertyFilters[property.id] as Record<string, unknown> : {};
+                    handleFilterChange(property.id, {
+                      ...currentFilter,
+                      value: e.target.value
+                    });
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               )}
               
               {displaySettings.displayType === 'chips' && (
                 <div className="space-y-2">
-                  {property.options?.length > 0 ? (
+                  {property.options && property.options.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
-                      {property.options.map((option: any) => (
-                        <label key={option.value} className="flex items-center cursor-pointer">
+                      {property.options.map((option: { value: unknown; label: string; [key: string]: unknown }) => {
+                        const optionValue = String(option.value);
+                        const currentFilter = typeof propertyFilters[property.id] === 'object' && propertyFilters[property.id] !== null ? propertyFilters[property.id] as Record<string, unknown> : {};
+                        const selectedChips = Array.isArray(currentFilter.selectedChips) ? currentFilter.selectedChips as unknown[] : [];
+                        return (
+                        <label key={optionValue} className="flex items-center cursor-pointer">
                           <input
                             type="checkbox"
-                            checked={(propertyFilters[property.id]?.selectedChips || []).includes(option.value)}
+                            checked={selectedChips.some(chip => String(chip) === optionValue)}
                             onChange={(e) => {
-                              const currentChips = propertyFilters[property.id]?.selectedChips || [];
                               const newChips = e.target.checked
-                                ? [...currentChips, option.value]
-                                : currentChips.filter((chip: string) => chip !== option.value);
+                                ? [...selectedChips, option.value]
+                                : selectedChips.filter((chip: unknown) => String(chip) !== optionValue);
                               
                               handleFilterChange(property.id, {
-                                ...propertyFilters[property.id],
+                                ...currentFilter,
                                 selectedChips: newChips,
                                 value: newChips.length > 0 ? newChips : undefined
                               });
@@ -298,7 +315,8 @@ export function ProductConfiguratorAdvanced({ element, onUpdate }: ProductConfig
                             {option.label}
                           </span>
                         </label>
-                      ))}
+                      );
+                      })}
                     </div>
                   ) : (
                     <div className="text-xs text-gray-500 italic">
@@ -310,19 +328,32 @@ export function ProductConfiguratorAdvanced({ element, onUpdate }: ProductConfig
               
               {displaySettings.displayType === 'dropdown' && (
                 <select
-                  value={propertyFilters[property.id]?.value || ''}
-                  onChange={(e) => handleFilterChange(property.id, {
-                    ...propertyFilters[property.id],
-                    value: e.target.value
-                  })}
+                  value={(() => {
+                    const filterValue = propertyFilters[property.id];
+                    if (filterValue && typeof filterValue === 'object' && filterValue !== null && 'value' in filterValue) {
+                      const filterObj = filterValue as Record<string, unknown>;
+                      return typeof filterObj.value === 'string' ? filterObj.value : '';
+                    }
+                    return '';
+                  })()}
+                  onChange={(e) => {
+                    const currentFilter = typeof propertyFilters[property.id] === 'object' && propertyFilters[property.id] !== null ? propertyFilters[property.id] as Record<string, unknown> : {};
+                    handleFilterChange(property.id, {
+                      ...currentFilter,
+                      value: e.target.value
+                    });
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Все варианты</option>
-                  {property.options?.map((option: any) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
+                  {property.options?.map((option: { value: unknown; label: string; [key: string]: unknown }) => {
+                    const optionValue = String(option.value);
+                    return (
+                      <option key={optionValue} value={optionValue}>
+                        {option.label}
+                      </option>
+                    );
+                  })}
                 </select>
               )}
               
@@ -331,23 +362,45 @@ export function ProductConfiguratorAdvanced({ element, onUpdate }: ProductConfig
                   <input
                     type="number"
                     placeholder="От"
-                    value={propertyFilters[property.id]?.min || ''}
-                    onChange={(e) => handleFilterChange(property.id, {
-                      ...propertyFilters[property.id],
-                      min: e.target.value ? Number(e.target.value) : undefined,
-                      value: { min: e.target.value ? Number(e.target.value) : undefined, max: propertyFilters[property.id]?.max }
-                    })}
+                    value={(() => {
+                      const filterValue = propertyFilters[property.id];
+                      if (filterValue && typeof filterValue === 'object' && filterValue !== null && 'min' in filterValue) {
+                        const filterObj = filterValue as Record<string, unknown>;
+                        return typeof filterObj.min === 'number' ? String(filterObj.min) : '';
+                      }
+                      return '';
+                    })()}
+                    onChange={(e) => {
+                      const currentFilter = typeof propertyFilters[property.id] === 'object' && propertyFilters[property.id] !== null ? propertyFilters[property.id] as Record<string, unknown> : {};
+                      const currentMax = typeof currentFilter.max === 'number' ? currentFilter.max : undefined;
+                      handleFilterChange(property.id, {
+                        ...currentFilter,
+                        min: e.target.value ? Number(e.target.value) : undefined,
+                        value: { min: e.target.value ? Number(e.target.value) : undefined, max: currentMax }
+                      });
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                   <input
                     type="number"
                     placeholder="До"
-                    value={propertyFilters[property.id]?.max || ''}
-                    onChange={(e) => handleFilterChange(property.id, {
-                      ...propertyFilters[property.id],
-                      max: e.target.value ? Number(e.target.value) : undefined,
-                      value: { min: propertyFilters[property.id]?.min, max: e.target.value ? Number(e.target.value) : undefined }
-                    })}
+                    value={(() => {
+                      const filterValue = propertyFilters[property.id];
+                      if (filterValue && typeof filterValue === 'object' && filterValue !== null && 'max' in filterValue) {
+                        const filterObj = filterValue as Record<string, unknown>;
+                        return typeof filterObj.max === 'number' ? String(filterObj.max) : '';
+                      }
+                      return '';
+                    })()}
+                    onChange={(e) => {
+                      const currentFilter = typeof propertyFilters[property.id] === 'object' && propertyFilters[property.id] !== null ? propertyFilters[property.id] as Record<string, unknown> : {};
+                      const currentMin = typeof currentFilter.min === 'number' ? currentFilter.min : undefined;
+                      handleFilterChange(property.id, {
+                        ...currentFilter,
+                        max: e.target.value ? Number(e.target.value) : undefined,
+                        value: { min: currentMin, max: e.target.value ? Number(e.target.value) : undefined }
+                      });
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
@@ -355,43 +408,53 @@ export function ProductConfiguratorAdvanced({ element, onUpdate }: ProductConfig
 
               {displaySettings.displayType === 'radio' && (
                 <div className="space-y-2">
-                  {property.options?.slice(0, 4).map((option: any) => (
-                    <label key={option.value} className="flex items-center">
-                      <input
-                        type="radio"
-                        name={property.id}
-                        value={option.value}
-                        checked={propertyFilters[property.id]?.value === option.value}
-                        onChange={(e) => handleFilterChange(property.id, {
-                          ...propertyFilters[property.id],
-                          value: e.target.value
-                        })}
-                        className="mr-2"
-                      />
-                      <span className="text-sm">{option.label}</span>
-                    </label>
-                  ))}
+                  {property.options?.slice(0, 4).map((option: { value: unknown; label: string; [key: string]: unknown }) => {
+                    const optionValue = String(option.value);
+                    const currentFilter = typeof propertyFilters[property.id] === 'object' && propertyFilters[property.id] !== null ? propertyFilters[property.id] as Record<string, unknown> : {};
+                    const currentValue = typeof currentFilter.value === 'string' ? currentFilter.value : '';
+                    return (
+                      <label key={optionValue} className="flex items-center">
+                        <input
+                          type="radio"
+                          name={property.id}
+                          value={optionValue}
+                          checked={currentValue === optionValue}
+                          onChange={(e) => handleFilterChange(property.id, {
+                            ...currentFilter,
+                            value: e.target.value
+                          })}
+                          className="mr-2"
+                        />
+                        <span className="text-sm">{option.label}</span>
+                      </label>
+                    );
+                  })}
                 </div>
               )}
 
               {displaySettings.displayType === 'color' && (
                 <div className="flex flex-wrap gap-2">
-                  {property.options?.slice(0, 8).map((option: any) => (
-                    <button
-                      key={option.value}
-                      onClick={() => handleFilterChange(property.id, {
-                        ...propertyFilters[property.id],
-                        value: option.value
-                      })}
-                      className={`w-8 h-8 rounded border-2 ${
-                        propertyFilters[property.id]?.value === option.value
-                          ? 'border-gray-800'
-                          : 'border-gray-300'
-                      }`}
-                      style={{ backgroundColor: option.color || option.value }}
-                      title={option.label}
-                    />
-                  ))}
+                  {property.options?.slice(0, 8).map((option: { value: unknown; label: string; color?: string; [key: string]: unknown }) => {
+                    const optionValue = String(option.value);
+                    const currentFilter = typeof propertyFilters[property.id] === 'object' && propertyFilters[property.id] !== null ? propertyFilters[property.id] as Record<string, unknown> : {};
+                    const currentValue = String(currentFilter.value || '');
+                    return (
+                      <button
+                        key={optionValue}
+                        onClick={() => handleFilterChange(property.id, {
+                          ...currentFilter,
+                          value: option.value
+                        })}
+                        className={`w-8 h-8 rounded border-2 ${
+                          currentValue === optionValue
+                            ? 'border-gray-800'
+                            : 'border-gray-300'
+                        }`}
+                        style={{ backgroundColor: typeof option.color === 'string' ? option.color : optionValue }}
+                        title={option.label}
+                      />
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -405,22 +468,27 @@ export function ProductConfiguratorAdvanced({ element, onUpdate }: ProductConfig
             <div className="flex flex-wrap gap-2">
               {Object.entries(propertyFilters).map(([propertyId, filterData]) => {
                 const property = availableProperties.find(p => p.id === propertyId);
-                if (!property || !filterData?.value) return null;
+                if (!property || !filterData || typeof filterData !== 'object') return null;
+                
+                const filterDataObj = filterData as Record<string, unknown>;
+                if (!filterDataObj.value) return null;
                 
                 let displayValue = '';
                 let filterChips: string[] = [];
                 
-                if (filterData.displayType === 'chips' && Array.isArray(filterData.value)) {
+                if (filterDataObj.displayType === 'chips' && Array.isArray(filterDataObj.value)) {
                   // Для плашек показываем каждую выбранную плашку отдельно
-                  filterChips = filterData.value.map((chipValue: string) => {
-                    const option = property.options?.find((opt: any) => opt.value === chipValue);
-                    return option ? option.label : chipValue;
+                  filterChips = filterDataObj.value.map((chipValue: unknown) => {
+                    const chipValueStr = String(chipValue);
+                    const option = property.options?.find((opt: { value: unknown; label: string; [key: string]: unknown }) => String(opt.value) === chipValueStr);
+                    return option ? option.label : chipValueStr;
                   });
-                } else if (filterData.displayType === 'range' && typeof filterData.value === 'object') {
-                  displayValue = `${filterData.value.min || '0'} - ${filterData.value.max || '∞'}`;
-                } else if (typeof filterData.value === 'string') {
-                  const option = property.options?.find((opt: any) => opt.value === filterData.value);
-                  displayValue = option ? option.label : filterData.value;
+                } else if (filterDataObj.displayType === 'range' && typeof filterDataObj.value === 'object' && filterDataObj.value !== null) {
+                  const rangeValue = filterDataObj.value as { min?: number; max?: number };
+                  displayValue = `${rangeValue.min || '0'} - ${rangeValue.max || '∞'}`;
+                } else if (typeof filterDataObj.value === 'string') {
+                  const option = property.options?.find((opt: { value: unknown; label: string; [key: string]: unknown }) => String(opt.value) === filterDataObj.value);
+                  displayValue = option ? option.label : filterDataObj.value;
                 }
                 
                 // Показываем плашки отдельно
@@ -433,13 +501,14 @@ export function ProductConfiguratorAdvanced({ element, onUpdate }: ProductConfig
                       {property.name}: {chip}
                       <button
                         onClick={() => {
-                          const currentChips = filterData.selectedChips || [];
-                          const newChips = currentChips.filter((c: string) => c !== filterData.value[index]);
+                          const currentChips = Array.isArray(filterDataObj.selectedChips) ? filterDataObj.selectedChips as unknown[] : [];
+                          const valueArray = Array.isArray(filterDataObj.value) ? filterDataObj.value as unknown[] : [];
+                          const newChips = currentChips.filter((c: unknown) => String(c) !== String(valueArray[index]));
                           if (newChips.length === 0) {
                             clearFilter(propertyId);
                           } else {
                             handleFilterChange(propertyId, {
-                              ...filterData,
+                              ...filterDataObj,
                               selectedChips: newChips,
                               value: newChips
                             });

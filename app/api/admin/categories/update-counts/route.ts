@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { logger } from '@/lib/logging/logger';
 
-const prisma = new PrismaClient();
-
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
-    console.log('=== ОБНОВЛЕНИЕ СЧЕТЧИКОВ ТОВАРОВ ===');
+    const user = await getAuthenticatedUser(request);
+    logger.info('Обновление счетчиков товаров', 'admin/categories/update-counts', { userId: user.userId });
     
     // Получаем все категории
     const categories = await prisma.catalogCategory.findMany({
@@ -17,7 +20,7 @@ export async function POST(request: NextRequest) {
       ]
     });
 
-    console.log(`Найдено ${categories.length} категорий для обновления счетчиков`);
+    logger.info(`Найдено ${categories.length} категорий для обновления счетчиков`, 'admin/categories/update-counts');
 
     // Подсчитываем товары для каждой категории
     const updatedCounts = await Promise.all(
@@ -42,19 +45,20 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    console.log('Счетчики обновлены:', updatedCounts);
+    logger.info('Счетчики обновлены', 'admin/categories/update-counts', { updatedCount: updatedCounts.length });
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       message: `Обновлено ${updatedCounts.length} счетчиков`,
       counts: updatedCounts
     });
 
   } catch (error) {
-    console.error('Error updating product counts:', error);
-    return NextResponse.json(
-      { error: 'Failed to update product counts' },
-      { status: 500 }
-    );
+    logger.error('Error updating product counts', 'admin/categories/update-counts', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Failed to update product counts', 500);
   }
 }
+
+export const POST = withErrorHandling(
+  requireAuthAndPermission(postHandler, 'ADMIN'),
+  'admin/categories/update-counts/POST'
+);

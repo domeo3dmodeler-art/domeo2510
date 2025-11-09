@@ -71,7 +71,7 @@ export default function AnalyticsDashboard() {
         setData(result.data);
       }
     } catch (error) {
-      console.error('Ошибка загрузки аналитики:', error);
+      clientLogger.error('Ошибка загрузки аналитики:', error);
     } finally {
       setLoading(false);
     }
@@ -99,7 +99,7 @@ export default function AnalyticsDashboard() {
         document.body.removeChild(a);
       }
     } catch (error) {
-      console.error('Ошибка экспорта:', error);
+      clientLogger.error('Ошибка экспорта:', error);
     }
   };
 

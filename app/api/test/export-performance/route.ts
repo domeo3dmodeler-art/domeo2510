@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import puppeteer from 'puppeteer';
 import ExcelJS from 'exceljs';
+import { logger } from '@/lib/logging/logger';
 
 // POST /api/test/export-performance - Тест производительности экспорта
 export async function POST(request: NextRequest) {
@@ -8,7 +9,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { itemCount = 5, format = 'pdf' } = body;
 
-    console.log(`🧪 Тестируем производительность экспорта ${itemCount} позиций в формате ${format}`);
+    logger.info('Тестируем производительность экспорта', 'test/export-performance', { itemCount, format });
 
     const startTime = Date.now();
 
@@ -113,7 +114,7 @@ export async function POST(request: NextRequest) {
       const endTime = Date.now();
       const duration = endTime - startTime;
 
-      console.log(`⚡ PDF сгенерирован за ${duration}ms`);
+      logger.info('PDF сгенерирован', 'test/export-performance', { itemCount, format, duration, itemsPerSecond: Math.round((itemCount / duration) * 1000) });
 
       return NextResponse.json({
         success: true,
@@ -153,7 +154,7 @@ export async function POST(request: NextRequest) {
       const endTime = Date.now();
       const duration = endTime - startTime;
 
-      console.log(`⚡ Excel сгенерирован за ${duration}ms`);
+      logger.info('Excel сгенерирован', 'test/export-performance', { itemCount, format, duration, itemsPerSecond: Math.round((itemCount / duration) * 1000) });
 
       return NextResponse.json({
         success: true,
@@ -174,7 +175,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Performance test error:', error);
+    logger.error('Performance test error', 'test/export-performance', error instanceof Error ? { error: error.message, stack: error.stack, itemCount, format } : { error: String(error), itemCount, format });
     return NextResponse.json(
       { error: 'Ошибка тестирования производительности' },
       { status: 500 }

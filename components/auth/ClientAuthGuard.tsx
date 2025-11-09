@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface ClientAuthGuardProps {
   children: React.ReactNode;
@@ -39,7 +40,7 @@ export function ClientAuthGuard({ children }: ClientAuthGuardProps) {
         }
         
         // Диагностика localStorage
-        console.log('🔍 ClientAuthGuard - localStorage check:', {
+        clientLogger.debug('🔍 ClientAuthGuard - localStorage check:', {
           token: token ? token.substring(0, 20) + '...' : 'Нет токена',
           userId: localStorage.getItem('userId') || 'Нет userId',
           userRole: localStorage.getItem('userRole') || 'Нет userRole',
@@ -49,14 +50,14 @@ export function ClientAuthGuard({ children }: ClientAuthGuardProps) {
         
         // Проверяем только токен - это достаточно для авторизации
         if (token) {
-          console.log('✅ ClientAuthGuard - авторизация успешна по токену');
+          clientLogger.debug('✅ ClientAuthGuard - авторизация успешна по токену');
           
           // Если нет userId или userRole в localStorage, пытаемся загрузить их с сервера
           const userId = localStorage.getItem('userId');
           const userRole = localStorage.getItem('userRole');
           
           if (!userId || !userRole) {
-            console.log('📥 ClientAuthGuard - загружаем данные пользователя с сервера...');
+            clientLogger.debug('📥 ClientAuthGuard - загружаем данные пользователя с сервера...');
             fetch('/api/users/me', {
               headers: {
                 'Authorization': `Bearer ${token}`
@@ -77,11 +78,11 @@ export function ClientAuthGuard({ children }: ClientAuthGuardProps) {
                   localStorage.setItem('userFirstName', data.user.firstName || '');
                   localStorage.setItem('userLastName', data.user.lastName || '');
                   localStorage.setItem('userMiddleName', data.user.middleName || '');
-                  console.log('✅ ClientAuthGuard - данные пользователя загружены');
+                  clientLogger.debug('✅ ClientAuthGuard - данные пользователя загружены');
                 }
               })
               .catch(err => {
-                console.error('❌ ClientAuthGuard - ошибка загрузки данных пользователя:', err);
+                clientLogger.error('❌ ClientAuthGuard - ошибка загрузки данных пользователя:', err);
               });
           }
           
@@ -90,22 +91,22 @@ export function ClientAuthGuard({ children }: ClientAuthGuardProps) {
             setIsAuthenticated((prev) => {
               // Предотвращаем повторные установки
               if (prev === true) {
-                console.log('⏭️ ClientAuthGuard - уже авторизован, пропускаем');
+                clientLogger.debug('⏭️ ClientAuthGuard - уже авторизован, пропускаем');
                 return prev;
               }
-              console.log('🔄 ClientAuthGuard - обновление состояния, prev:', prev, '-> true');
+              clientLogger.debug('🔄 ClientAuthGuard - обновление состояния, prev:', prev, '-> true');
               return true;
             });
           }
         } else {
-          console.log('❌ ClientAuthGuard - токен не найден, редирект на логин');
+          clientLogger.debug('❌ ClientAuthGuard - токен не найден, редирект на логин');
           if (isMounted) {
             setIsAuthenticated(false);
             router.push('/login');
           }
         }
       } catch (authError) {
-        console.error('❌ ClientAuthGuard - ошибка при проверке авторизации:', authError);
+        clientLogger.error('❌ ClientAuthGuard - ошибка при проверке авторизации:', authError);
         if (isMounted) {
           setIsAuthenticated(false);
           router.push('/login');
@@ -135,11 +136,11 @@ export function ClientAuthGuard({ children }: ClientAuthGuardProps) {
 
   // Если не авторизован, не показываем ничего (редирект уже произошел)
   if (!isAuthenticated) {
-    console.log('❌ ClientAuthGuard - рендер: не авторизован');
+    clientLogger.debug('❌ ClientAuthGuard - рендер: не авторизован');
     return null;
   }
 
   // Если авторизован, показываем содержимое
-  console.log('✅ ClientAuthGuard - рендер: авторизован, показываем содержимое');
+  clientLogger.debug('✅ ClientAuthGuard - рендер: авторизован, показываем содержимое');
   return <>{children}</>;
 }

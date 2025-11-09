@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 // POST /api/documents/[id]/send - Отправка документа клиенту
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -86,10 +87,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       });
     }
 
-    // TODO: Реализовать отправку email
-    // await sendDocumentEmail(document.client.email, document);
-
-
     return NextResponse.json({
       success: true,
       message: 'Документ отправлен клиенту',
@@ -97,7 +94,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
 
   } catch (error) {
-    console.error('❌ Ошибка отправки документа:', error);
+    logger.error('Ошибка отправки документа', 'documents/[id]/send', error instanceof Error ? { error: error.message, stack: error.stack, id } : { error: String(error), id });
     return NextResponse.json(
       { error: 'Ошибка при отправке документа' },
       { status: 500 }

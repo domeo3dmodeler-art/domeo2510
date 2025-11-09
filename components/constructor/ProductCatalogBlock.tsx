@@ -18,6 +18,7 @@ import {
   Eye,
   Settings
 } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface Product {
   id: string;
@@ -34,7 +35,7 @@ interface Product {
   weight?: number;
   dimensions?: string;
   specifications?: string;
-  properties: { [key: string]: any };
+  properties: { [key: string]: unknown };
   tags: string[];
   is_active: boolean;
   is_featured: boolean;
@@ -80,7 +81,7 @@ interface ProductCatalogBlockProps {
     imageSize?: 'small' | 'medium' | 'large';
     columns?: number;
     // Фильтры
-    filters?: { [key: string]: any };
+    filters?: { [key: string]: unknown };
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
     // Поля для отображения
@@ -116,8 +117,8 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
     hasNext: false,
     hasPrev: false
   });
-  const [availableFilters, setAvailableFilters] = useState<any[]>([]);
-  const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>(block.filters || {});
+  const [availableFilters, setAvailableFilters] = useState<Array<{ key: string; values: Array<{ value: string; label: string }> }>>([]);
+  const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: unknown }>(block.filters || {});
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState(block.sortBy || 'name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(block.sortOrder || 'asc');
@@ -156,7 +157,7 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
       }
     } catch (err) {
       setError('Ошибка загрузки товаров');
-      console.error('Error loading products:', err);
+      clientLogger.error('Error loading products:', err);
     } finally {
       setLoading(false);
     }
@@ -173,7 +174,7 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
     loadProducts(1, appliedFilters, value);
   };
 
-  const handleFilterChange = (propertyKey: string, value: any) => {
+  const handleFilterChange = (propertyKey: string, value: unknown) => {
     const newFilters = { ...appliedFilters };
     if (value === null || value === undefined || value === '') {
       delete newFilters[propertyKey];
@@ -427,8 +428,8 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
               <select 
                 value={block.propertyDisplayMode || 'chips'}
                 onChange={(e) => {
-                  // TODO: Обновить displayMode через коллбек
-                  console.log('Change display mode to:', e.target.value);
+                  // Обновление displayMode через коллбек будет реализовано позже
+                  clientLogger.debug('Change display mode to:', { value: e.target.value });
                 }}
                 className="px-3 py-1 text-xs border border-gray-300 rounded-md bg-white"
               >
@@ -454,8 +455,8 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
           <div className="p-6 bg-white border-b border-gray-100">
             <PropertyValueSelector
               propertyKey={block.focusedProperty}
-              values={availableFilters.find(f => f.key === block.focusedProperty)?.values || []}
-              selectedValue={appliedFilters[block.focusedProperty!] || undefined}
+              values={availableFilters.find(f => f.key === block.focusedProperty)?.values.map(v => v.value) || []}
+              selectedValue={typeof appliedFilters[block.focusedProperty!] === 'string' ? appliedFilters[block.focusedProperty!] as string : undefined}
               displayMode={block.propertyDisplayMode || 'chips'}
               onValueChange={(value) => handleFilterChange(block.focusedProperty!, value)}
               productsCount={pagination.total}
@@ -478,7 +479,7 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
               <div className="space-y-4">
                 <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <h4 className="text-sm font-medium text-blue-900 mb-1">
-                    Товары со {block.focusedProperty?.toLowerCase()} «{appliedFilters[block.focusedProperty!]}»
+                    Товары со {block.focusedProperty?.toLowerCase()} «{typeof appliedFilters[block.focusedProperty!] === 'string' ? appliedFilters[block.focusedProperty!] as string : String(appliedFilters[block.focusedProperty!] || '')}»
                   </h4>
                   <p className="text-xs text-blue-700">{products.length} из {pagination.total} товаров</p>
                 </div>
@@ -502,7 +503,7 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
                           <h5 className="font-medium text-gray-900 truncate">{product.name}</h5>
                           <p className="text-xs text-gray-500 mb-2">{product.sku}</p>
                           <div className="text-sm bg-gray-100 px-2 py-1 rounded">
-                            <strong>{block.focusedProperty}:</strong> {product.properties[block.focusedProperty!]}
+                            <strong>{block.focusedProperty}:</strong> {typeof product.properties[block.focusedProperty!] === 'string' ? product.properties[block.focusedProperty!] as string : String(product.properties[block.focusedProperty!] || '')}
                           </div>
                         </div>
                       </div>
@@ -581,7 +582,7 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
             {/* Переключатель режима отображения */}
             <div className="flex border border-gray-300 rounded-md">
               <Button
-                variant={displayMode === 'cards' ? 'default' : 'ghost'}
+                variant={displayMode === 'cards' ? 'primary' : 'ghost'}
                 size="sm"
                 onClick={() => setDisplayMode('cards')}
                 className="rounded-r-none"
@@ -589,7 +590,7 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
                 <Grid className="w-4 h-4" />
               </Button>
               <Button
-                variant={displayMode === 'list' ? 'default' : 'ghost'}
+                variant={displayMode === 'list' ? 'primary' : 'ghost'}
                 size="sm"
                 onClick={() => setDisplayMode('list')}
                 className="rounded-none border-x-0"
@@ -597,7 +598,7 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
                 <List className="w-4 h-4" />
               </Button>
               <Button
-                variant={displayMode === 'table' ? 'default' : 'ghost'}
+                variant={displayMode === 'table' ? 'primary' : 'ghost'}
                 size="sm"
                 onClick={() => setDisplayMode('table')}
                 className="rounded-l-none"
@@ -657,11 +658,11 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
                 <div key={filter.key} className="flex items-center space-x-2">
                   <label className="text-sm text-gray-600">{filter.key}:</label>
                   <Select
-                    value={appliedFilters[filter.key] || ''}
+                    value={typeof appliedFilters[filter.key] === 'string' ? appliedFilters[filter.key] as string : ''}
                     onChange={(e) => handleFilterChange(filter.key, e.target.value || null)}
                     options={[
                       { value: '', label: 'Все' },
-                      ...filter.values.map((value: string) => ({ value, label: value }))
+                      ...filter.values.map((valueObj: { value: string; label: string }) => ({ value: valueObj.value, label: valueObj.label }))
                     ]}
                     className="min-w-32"
                   />
@@ -747,7 +748,7 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
                   return (
                     <Button
                       key={pageNum}
-                      variant={pageNum === pagination.page ? 'default' : 'outline'}
+                      variant={pageNum === pagination.page ? 'primary' : 'outline'}
                       size="sm"
                       onClick={() => handlePageChange(pageNum)}
                       className="w-8 h-8 p-0"

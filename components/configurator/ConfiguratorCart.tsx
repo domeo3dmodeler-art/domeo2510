@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Badge, Select } from '../ui';
 import { ShoppingCart, Plus, Minus, Trash2, Package, Settings, Calculator, FileText, User } from 'lucide-react';
 import ExportToClient from '../cart/ExportToClient';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface ConfiguratorCategory {
   id: string;
@@ -197,7 +198,7 @@ export default function ConfiguratorCart({
         setExportSettings(data.settings || []);
       }
     } catch (error) {
-      console.error('Error loading export settings:', error);
+      clientLogger.error('Error loading export settings', error instanceof Error ? error : new Error(String(error)));
     }
   }, [configuratorCategoryId]);
 

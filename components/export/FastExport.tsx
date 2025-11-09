@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Progress } from '@/components/ui/Progress';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface FastExportProps {
   cartItems: any[];
@@ -95,7 +96,7 @@ export function FastExport({
       }, 1000);
 
     } catch (error) {
-      console.error('Export error:', error);
+      clientLogger.error('Export error:', error);
       alert('Ошибка при экспорте документа');
       setIsExporting(false);
       setExportProgress(0);

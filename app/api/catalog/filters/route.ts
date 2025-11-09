@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/prisma';
+import { logger } from '../../../../lib/logging/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
             }
           });
         } catch (error) {
-          console.warn(`Error parsing properties for product ${product.id}:`, error);
+          logger.warn('Error parsing properties for product', 'catalog/filters', { productId: product.id, error: error instanceof Error ? error.message : String(error) });
         }
       }
     });
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching filters:', error);
+    logger.error('Error fetching filters', 'catalog/filters', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

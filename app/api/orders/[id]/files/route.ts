@@ -5,164 +5,156 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { logger } from '@/lib/logging/logger';
 import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { NotFoundError, ValidationError } from '@/lib/api/errors';
+import { requireAuth } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
 // POST /api/orders/[id]/files - Загрузка оптовых счетов и техзаданий
-export async function POST(
+async function postHandler(
   req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+  user: ReturnType<typeof getAuthenticatedUser>,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
   const loggingContext = getLoggingContextFromRequest(req);
-  try {
-    // Проверяем существование заказа
-    const order = await prisma.order.findUnique({
-      where: { id: params.id }
-    });
+  const { id } = await params;
 
-    if (!order) {
-      return NextResponse.json(
-        { error: 'Заказ не найден' },
-        { status: 404 }
-      );
+  // Проверяем существование заказа
+  const order = await prisma.order.findUnique({
+    where: { id }
+  });
+
+  if (!order) {
+    throw new NotFoundError('Заказ', id);
+  }
+
+  const formData = await req.formData();
+  const wholesaleInvoices = formData.getAll('wholesale_invoices') as File[];
+  const technicalSpecs = formData.getAll('technical_specs') as File[];
+
+  // Валидация типов файлов
+  const allowedInvoiceTypes = [
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // XLSX
+    'application/vnd.ms-excel', // XLS
+    'application/excel'
+  ];
+
+  const allowedTechSpecTypes = ['application/pdf'];
+
+  const uploadedFiles: {
+    wholesale_invoices: string[];
+    technical_specs: string[];
+  } = {
+    wholesale_invoices: [],
+    technical_specs: []
+  };
+
+  // Создаем директорию для заказов если её нет
+  const uploadsDir = join(process.cwd(), 'uploads', 'orders', id);
+  if (!existsSync(uploadsDir)) {
+    await mkdir(uploadsDir, { recursive: true });
+  }
+
+  // Загрузка оптовых счетов
+  for (const file of wholesaleInvoices) {
+    if (file.size === 0) continue;
+
+    if (!allowedInvoiceTypes.includes(file.type)) {
+      throw new ValidationError(`Неподдерживаемый тип файла для оптового счета: ${file.name}. Разрешены: PDF, Excel`);
     }
 
-    const formData = await req.formData();
-    const wholesaleInvoices = formData.getAll('wholesale_invoices') as File[];
-    const technicalSpecs = formData.getAll('technical_specs') as File[];
-
-    // Валидация типов файлов
-    const allowedInvoiceTypes = [
-      'application/pdf',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // XLSX
-      'application/vnd.ms-excel', // XLS
-      'application/excel'
-    ];
-
-    const allowedTechSpecTypes = ['application/pdf'];
-
-    const uploadedFiles: {
-      wholesale_invoices: string[];
-      technical_specs: string[];
-    } = {
-      wholesale_invoices: [],
-      technical_specs: []
-    };
-
-    // Создаем директорию для заказов если её нет
-    const uploadsDir = join(process.cwd(), 'uploads', 'orders', params.id);
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true });
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new ValidationError(`Файл ${file.name} слишком большой. Максимальный размер: 10MB`);
     }
 
-    // Загрузка оптовых счетов
-    for (const file of wholesaleInvoices) {
-      if (file.size === 0) continue;
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 10000);
+    const extension = file.name.split('.').pop();
+    const filename = `wholesale_invoice_${timestamp}_${random}.${extension}`;
+    const filepath = join(uploadsDir, filename);
 
-      if (!allowedInvoiceTypes.includes(file.type)) {
-        return NextResponse.json(
-          { error: `Неподдерживаемый тип файла для оптового счета: ${file.name}. Разрешены: PDF, Excel` },
-          { status: 400 }
-        );
-      }
+    const buffer = Buffer.from(await file.arrayBuffer());
+    await writeFile(filepath, buffer);
 
-      const maxSize = 10 * 1024 * 1024;
-      if (file.size > maxSize) {
-        return NextResponse.json(
-          { error: `Файл ${file.name} слишком большой. Максимальный размер: 10MB` },
-          { status: 400 }
-        );
-      }
+    const fileUrl = `/uploads/orders/${id}/${filename}`;
+    uploadedFiles.wholesale_invoices.push(fileUrl);
+  }
 
-      const timestamp = Date.now();
-      const random = Math.floor(Math.random() * 10000);
-      const extension = file.name.split('.').pop();
-      const filename = `wholesale_invoice_${timestamp}_${random}.${extension}`;
-      const filepath = join(uploadsDir, filename);
+  // Загрузка техзаданий
+  for (const file of technicalSpecs) {
+    if (file.size === 0) continue;
 
-      const buffer = Buffer.from(await file.arrayBuffer());
-      await writeFile(filepath, buffer);
-
-      const fileUrl = `/uploads/orders/${params.id}/${filename}`;
-      uploadedFiles.wholesale_invoices.push(fileUrl);
+    if (!allowedTechSpecTypes.includes(file.type)) {
+      throw new ValidationError(`Неподдерживаемый тип файла для техзадания: ${file.name}. Разрешен только PDF`);
     }
 
-    // Загрузка техзаданий
-    for (const file of technicalSpecs) {
-      if (file.size === 0) continue;
-
-      if (!allowedTechSpecTypes.includes(file.type)) {
-        return NextResponse.json(
-          { error: `Неподдерживаемый тип файла для техзадания: ${file.name}. Разрешен только PDF` },
-          { status: 400 }
-        );
-      }
-
-      const maxSize = 10 * 1024 * 1024;
-      if (file.size > maxSize) {
-        return NextResponse.json(
-          { error: `Файл ${file.name} слишком большой. Максимальный размер: 10MB` },
-          { status: 400 }
-        );
-      }
-
-      const timestamp = Date.now();
-      const random = Math.floor(Math.random() * 10000);
-      const extension = file.name.split('.').pop();
-      const filename = `tech_spec_${timestamp}_${random}.${extension}`;
-      const filepath = join(uploadsDir, filename);
-
-      const buffer = Buffer.from(await file.arrayBuffer());
-      await writeFile(filepath, buffer);
-
-      const fileUrl = `/uploads/orders/${params.id}/${filename}`;
-      uploadedFiles.technical_specs.push(fileUrl);
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new ValidationError(`Файл ${file.name} слишком большой. Максимальный размер: 10MB`);
     }
 
-    // Получаем существующие файлы
-    const existingWholesaleInvoices = order.wholesale_invoices 
-      ? JSON.parse(order.wholesale_invoices) 
-      : [];
-    const existingTechnicalSpecs = order.technical_specs 
-      ? JSON.parse(order.technical_specs) 
-      : [];
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 10000);
+    const extension = file.name.split('.').pop();
+    const filename = `tech_spec_${timestamp}_${random}.${extension}`;
+    const filepath = join(uploadsDir, filename);
 
-    // Объединяем с новыми файлами
-    const allWholesaleInvoices = [...existingWholesaleInvoices, ...uploadedFiles.wholesale_invoices];
-    const allTechnicalSpecs = [...existingTechnicalSpecs, ...uploadedFiles.technical_specs];
+    const buffer = Buffer.from(await file.arrayBuffer());
+    await writeFile(filepath, buffer);
 
-    // Обновляем заказ
-    const updatedOrder = await prisma.order.update({
-      where: { id: params.id },
-      data: {
-        wholesale_invoices: JSON.stringify(allWholesaleInvoices),
-        technical_specs: JSON.stringify(allTechnicalSpecs)
-      },
-      include: {
-        client: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            middleName: true
-          }
+    const fileUrl = `/uploads/orders/${id}/${filename}`;
+    uploadedFiles.technical_specs.push(fileUrl);
+  }
+
+  // Получаем существующие файлы
+  const existingWholesaleInvoices = order.wholesale_invoices 
+    ? JSON.parse(order.wholesale_invoices) 
+    : [];
+  const existingTechnicalSpecs = order.technical_specs 
+    ? JSON.parse(order.technical_specs) 
+    : [];
+
+  // Объединяем с новыми файлами
+  const allWholesaleInvoices = [...existingWholesaleInvoices, ...uploadedFiles.wholesale_invoices];
+  const allTechnicalSpecs = [...existingTechnicalSpecs, ...uploadedFiles.technical_specs];
+
+  // Обновляем заказ
+  const updatedOrder = await prisma.order.update({
+    where: { id },
+    data: {
+      wholesale_invoices: JSON.stringify(allWholesaleInvoices),
+      technical_specs: JSON.stringify(allTechnicalSpecs)
+    },
+    include: {
+      client: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          middleName: true
         }
       }
-    });
+    }
+  });
 
-    return NextResponse.json({
-      success: true,
-      order: updatedOrder,
-      files: {
-        wholesale_invoices: allWholesaleInvoices,
-        technical_specs: allTechnicalSpecs
-      }
-    });
+  return apiSuccess({
+    order: updatedOrder,
+    files: {
+      wholesale_invoices: allWholesaleInvoices,
+      technical_specs: allTechnicalSpecs
+    }
+  }, 'Файлы загружены');
+}
 
-  } catch (error) {
-    logger.error('Error uploading files', 'orders/[id]/files', { error, orderId: params.id }, loggingContext);
-    return NextResponse.json(
-      { error: 'Ошибка загрузки файлов' },
-      { status: 500 }
-    );
-  }
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  return withErrorHandling(
+    requireAuth((request, user) => postHandler(request, user, { params })),
+    'orders/[id]/files/POST'
+  )(req);
 }
 

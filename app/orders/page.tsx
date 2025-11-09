@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { Card, Button } from '../../components/ui';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface Order {
   id: string;
@@ -39,11 +40,11 @@ export default function OrdersPage() {
         const data = await response.json();
         setOrders(data.orders || []);
       } else {
-        console.error('Failed to load orders');
+        clientLogger.error('Failed to load orders');
         setOrders([]);
       }
     } catch (error) {
-      console.error('Error loading orders:', error);
+      clientLogger.error('Error loading orders:', error);
       setOrders([]);
     } finally {
       setIsLoading(false);

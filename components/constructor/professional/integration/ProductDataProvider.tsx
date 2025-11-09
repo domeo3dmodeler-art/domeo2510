@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { CatalogCategory, ProductProperty, Product, CatalogData } from './CatalogIntegration';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface ProductDataContextType {
   // Данные
@@ -103,7 +104,7 @@ export const ProductDataProvider: React.FC<ProductDataProviderProps> = ({ childr
     try {
       await loadCategoryProducts(categoryId);
     } catch (err) {
-      console.error('Error selecting category:', err);
+      clientLogger.error('Error selecting category:', err);
     }
   };
 
@@ -116,7 +117,7 @@ export const ProductDataProvider: React.FC<ProductDataProviderProps> = ({ childr
         await loadCategoryProducts(selectedCategory.id);
       }
     } catch (err) {
-      console.error('Error refreshing data:', err);
+      clientLogger.error('Error refreshing data:', err);
     } finally {
       setLoading(false);
     }
@@ -137,7 +138,7 @@ export const ProductDataProvider: React.FC<ProductDataProviderProps> = ({ childr
       const data = await response.json();
       return data.success ? data.data.products || [] : [];
     } catch (err) {
-      console.error('Error searching products:', err);
+      clientLogger.error('Error searching products:', err);
       return [];
     }
   };

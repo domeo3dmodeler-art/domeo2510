@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Product, ProductProperty, CatalogCategory } from '../types';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface ProductConfiguratorProps {
   categoryIds: string[];
@@ -70,7 +71,7 @@ export function ProductConfigurator({
       }
 
     } catch (error) {
-      console.error('Error loading configurator data:', error);
+      clientLogger.error('Error loading configurator data:', error);
       setError('Ошибка загрузки данных конфигуратора');
     } finally {
       setLoading(false);

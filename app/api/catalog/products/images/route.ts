@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../../lib/prisma';
+import { logger } from '../../../../../lib/logging/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log(`Loading product images for property "${propertyName}" = "${propertyValue}" from categories: ${categoryIds.join(', ')}`);
+    logger.debug('Loading product images for property', 'catalog/products/images', { propertyName, propertyValue, categoryIds });
 
     // Загружаем товары с изображениями
     const products = await prisma.product.findMany({
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    console.log(`Found ${products.length} products`);
+    logger.debug('Found products', 'catalog/products/images', { productsCount: products.length, categoryIds });
 
     // Фильтруем товары по значению свойства
     const filteredProducts = products.filter(product => {
@@ -62,12 +63,12 @@ export async function GET(request: NextRequest) {
         
         return props[propertyName] === propertyValue;
       } catch (error) {
-        console.warn(`Error parsing properties for product ${product.id}:`, error);
+        logger.warn('Error parsing properties for product', 'catalog/products/images', { productId: product.id, error: error instanceof Error ? error.message : String(error) });
         return false;
       }
     });
 
-    console.log(`Found ${filteredProducts.length} products matching property value`);
+    logger.debug('Found products matching property value', 'catalog/products/images', { filteredProductsCount: filteredProducts.length, propertyName, propertyValue });
 
     // Собираем изображения
     const images = filteredProducts
@@ -88,7 +89,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error loading product images:', error);
+    logger.error('Error loading product images', 'catalog/products/images', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { success: false, message: 'Ошибка при загрузке изображений товаров' },
       { status: 500 }

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button } from '../ui';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, Package2 } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface CatalogCategory {
   id: string;
@@ -36,7 +37,7 @@ export default function CatalogCategorySelector({
       setLoading(true);
       const response = await fetch('/api/catalog/categories');
       const data = await response.json();
-      console.log('Загружены категории каталога:', data);
+      clientLogger.debug('Загружены категории каталога:', data);
       
       // Обрабатываем разные форматы ответа
       let categoriesData = [];
@@ -45,7 +46,7 @@ export default function CatalogCategorySelector({
       } else if (data.categories && Array.isArray(data.categories)) {
         categoriesData = data.categories;
       } else {
-        console.warn('Неожиданный формат данных каталога:', data);
+        clientLogger.warn('Неожиданный формат данных каталога:', data);
       }
       
       setCategories(categoriesData);
@@ -63,7 +64,7 @@ export default function CatalogCategorySelector({
       };
       autoExpand(data.categories || []);
     } catch (error) {
-      console.error('Error loading catalog categories:', error);
+      clientLogger.error('Error loading catalog categories:', error);
       setCategories([]);
     } finally {
       setLoading(false);

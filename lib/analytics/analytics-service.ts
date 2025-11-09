@@ -1,6 +1,8 @@
 // lib/analytics/analytics-service.ts
 // Сервис для аналитики системы
 
+import { logger } from '../logging/logger';
+
 export interface AnalyticsData {
   totalUsers: number;
   totalProducts: number;
@@ -75,7 +77,7 @@ export class AnalyticsService {
 
       return mockData;
     } catch (error) {
-      console.error('Ошибка получения аналитики:', error);
+      logger.error('Ошибка получения аналитики', 'analytics-service', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
       throw error;
     }
   }

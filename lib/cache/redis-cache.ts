@@ -3,6 +3,7 @@
 // Оптимизирована для работы с большими объемами данных товаров
 
 import Redis from 'ioredis';
+import { logger } from '../logging/logger';
 
 // Конфигурация Redis
 const redisConfig = {
@@ -22,12 +23,12 @@ const redisConfig = {
 const redis = new Redis(redisConfig);
 
 // Обработка ошибок подключения
-redis.on('error', (error) => {
-  console.error('Redis connection error:', error);
+redis.on('error', (error: Error) => {
+  logger.error('Redis connection error', 'redis-cache', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
 });
 
 redis.on('connect', () => {
-  console.log('Redis connected successfully');
+  logger.info('Redis connected successfully', 'redis-cache');
 });
 
 // Типы для кэширования
@@ -87,7 +88,7 @@ export class RedisCacheService {
       
       return true;
     } catch (error) {
-      console.error('Redis set error:', error);
+      logger.error('Redis set error', 'redis-cache', error instanceof Error ? { error: error.message, stack: error.stack, key } : { error: String(error), key });
       return false;
     }
   }
@@ -105,7 +106,7 @@ export class RedisCacheService {
 
       return JSON.parse(value) as T;
     } catch (error) {
-      console.error('Redis get error:', error);
+      logger.error('Redis get error', 'redis-cache', error instanceof Error ? { error: error.message, stack: error.stack, key } : { error: String(error), key });
       return null;
     }
   }
@@ -118,7 +119,7 @@ export class RedisCacheService {
       const result = await redis.del(key);
       return result > 0;
     } catch (error) {
-      console.error('Redis delete error:', error);
+      logger.error('Redis delete error', 'redis-cache', error instanceof Error ? { error: error.message, stack: error.stack, key } : { error: String(error), key });
       return false;
     }
   }
@@ -145,7 +146,7 @@ export class RedisCacheService {
       
       return deletedCount;
     } catch (error) {
-      console.error('Redis deleteByTag error:', error);
+      logger.error('Redis deleteByTag error', 'redis-cache', error instanceof Error ? { error: error.message, stack: error.stack, tag } : { error: String(error), tag });
       return 0;
     }
   }
@@ -158,7 +159,7 @@ export class RedisCacheService {
       const result = await redis.exists(key);
       return result === 1;
     } catch (error) {
-      console.error('Redis exists error:', error);
+      logger.error('Redis exists error', 'redis-cache', error instanceof Error ? { error: error.message, stack: error.stack, key } : { error: String(error), key });
       return false;
     }
   }
@@ -171,7 +172,7 @@ export class RedisCacheService {
       const result = await redis.expire(key, ttl);
       return result === 1;
     } catch (error) {
-      console.error('Redis expire error:', error);
+      logger.error('Redis expire error', 'redis-cache', error instanceof Error ? { error: error.message, stack: error.stack, key, ttl } : { error: String(error), key, ttl });
       return false;
     }
   }
@@ -183,7 +184,7 @@ export class RedisCacheService {
     try {
       return await redis.ttl(key);
     } catch (error) {
-      console.error('Redis ttl error:', error);
+      logger.error('Redis ttl error', 'redis-cache', error instanceof Error ? { error: error.message, stack: error.stack, key } : { error: String(error), key });
       return -1;
     }
   }
@@ -195,7 +196,7 @@ export class RedisCacheService {
     try {
       return await redis.incrby(key, value);
     } catch (error) {
-      console.error('Redis increment error:', error);
+      logger.error('Redis increment error', 'redis-cache', error instanceof Error ? { error: error.message, stack: error.stack, key, value } : { error: String(error), key, value });
       return 0;
     }
   }
@@ -223,7 +224,7 @@ export class RedisCacheService {
       
       return value;
     } catch (error) {
-      console.error('Redis getOrSet error:', error);
+      logger.error('Redis getOrSet error', 'redis-cache', error instanceof Error ? { error: error.message, stack: error.stack, key } : { error: String(error), key });
       // В случае ошибки кэша, возвращаем результат фабрики
       return await factory();
     }
@@ -248,7 +249,7 @@ export class RedisCacheService {
       await redis.flushall();
       return true;
     } catch (error) {
-      console.error('Redis flushAll error:', error);
+      logger.error('Redis flushAll error', 'redis-cache', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
       return false;
     }
   }
@@ -265,7 +266,11 @@ export class RedisCacheService {
       const info = await redis.info();
       const lines = info.split('\r\n');
       
-      const stats: any = {
+      const stats: {
+        memory: string;
+        keyspace: Record<string, string>;
+        connectedClients: number;
+      } = {
         memory: '',
         keyspace: {},
         connectedClients: 0,
@@ -273,18 +278,23 @@ export class RedisCacheService {
 
       for (const line of lines) {
         if (line.startsWith('used_memory_human:')) {
-          stats.memory = line.split(':')[1];
+          stats.memory = line.split(':')[1] || '';
         } else if (line.startsWith('db')) {
           const [db, info] = line.split(':');
-          stats.keyspace[db] = info;
+          if (db && info) {
+            stats.keyspace[db] = info;
+          }
         } else if (line.startsWith('connected_clients:')) {
-          stats.connectedClients = parseInt(line.split(':')[1]);
+          const clients = line.split(':')[1];
+          if (clients) {
+            stats.connectedClients = parseInt(clients) || 0;
+          }
         }
       }
 
       return stats;
     } catch (error) {
-      console.error('Redis getStats error:', error);
+      logger.error('Redis getStats error', 'redis-cache', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
       return {
         memory: '0B',
         keyspace: {},
@@ -300,7 +310,7 @@ export class RedisCacheService {
     try {
       await redis.quit();
     } catch (error) {
-      console.error('Redis disconnect error:', error);
+      logger.error('Redis disconnect error', 'redis-cache', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     }
   }
 }
@@ -363,7 +373,7 @@ export class CacheUtils {
       
       return await redis.del(...keys);
     } catch (error) {
-      console.error('Cache invalidation error:', error);
+      logger.error('Cache invalidation error', 'redis-cache', error instanceof Error ? { error: error.message, stack: error.stack, pattern } : { error: String(error), pattern });
       return 0;
     }
   }

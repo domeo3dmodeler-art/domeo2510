@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 // GET /api/documents/[id]/siblings - Получение документов из той же корзины
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
 
-    console.log(`🔍 Получаем документы из той же корзины для ${id}`);
+    logger.debug('Получаем документы из той же корзины', 'documents/[id]/siblings', { id });
 
     // Сначала определяем тип текущего документа и находим его cart_session_id
     let currentDoc = null;
@@ -59,7 +60,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     if (!currentDoc) {
-      console.log(`❌ Документ с ID ${id} не найден`);
+      logger.warn('Документ не найден', 'documents/[id]/siblings', { id });
       return NextResponse.json(
         { error: 'Документ не найден' },
         { status: 404 }
@@ -67,7 +68,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     if (!cartSessionId) {
-      console.log(`❌ У документа ${id} нет cart_session_id`);
+      logger.debug('У документа нет cart_session_id', 'documents/[id]/siblings', { id });
       return NextResponse.json({
         success: true,
         documents: [],
@@ -75,7 +76,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       });
     }
 
-    console.log(`✅ Найден документ типа ${currentType} с cart_session_id: ${cartSessionId}`);
+    logger.debug('Найден документ с cart_session_id', 'documents/[id]/siblings', { id, currentType, cartSessionId });
 
     // Ищем все документы с тем же cart_session_id
     const [quotes, invoices, orders, supplierOrders] = await Promise.all([
@@ -111,7 +112,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // Убираем текущий документ из списка
     const filteredSiblings = siblings.filter(doc => doc.id !== id);
 
-    console.log(`✅ Найдено ${filteredSiblings.length} документов из той же корзины`);
+    logger.debug('Найдено документов из той же корзины', 'documents/[id]/siblings', { id, siblingsCount: filteredSiblings.length, cartSessionId });
 
     return NextResponse.json({
       success: true,
@@ -130,7 +131,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     });
 
   } catch (error) {
-    console.error('❌ Ошибка получения документов из корзины:', error);
+    logger.error('Ошибка получения документов из корзины', 'documents/[id]/siblings', error instanceof Error ? { error: error.message, stack: error.stack, id } : { error: String(error), id });
     return NextResponse.json(
       { error: 'Ошибка при получении документов из корзины' },
       { status: 500 }

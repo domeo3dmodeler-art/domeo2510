@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { NoCodeComponentRenderer } from '../../../../../components/nocode/NoCodeComponents';
 import { Card, Button } from '../../../../../components/ui';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface PageTemplate {
   id: string;
@@ -48,10 +49,10 @@ export default function CategoryConfiguratorPage() {
         setTemplate(result.template);
         setCategory(result.category);
       } else {
-        console.error('Error fetching template:', result.error);
+        clientLogger.error('Error fetching template:', result.error);
       }
     } catch (error) {
-      console.error('Error fetching template:', error);
+      clientLogger.error('Error fetching template:', error);
     } finally {
       setLoading(false);
     }

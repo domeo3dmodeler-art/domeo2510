@@ -1,19 +1,20 @@
 import { NextResponse } from 'next/server';
+import { logger } from './logging/logger';
 
 export interface ApiError {
   code: string;
   message: string;
-  details?: any;
+  details?: Record<string, unknown> | unknown[];
   statusCode: number;
 }
 
 export class ApiErrorHandler {
   static handle(error: unknown, context?: string): NextResponse {
-    console.error(`API Error${context ? ` in ${context}` : ''}:`, error);
+    logger.error('API Error', 'api-error-handler', error instanceof Error ? { error: error.message, stack: error.stack, context } : { error: String(error), context });
 
     // Prisma ошибки
     if (error && typeof error === 'object' && 'code' in error) {
-      const prismaError = error as any;
+      const prismaError = error as { code?: string; meta?: Record<string, unknown> };
       
       switch (prismaError.code) {
         case 'P2002':
@@ -90,7 +91,7 @@ export class ApiErrorHandler {
     );
   }
 
-  static validateRequired(params: Record<string, any>, required: string[]): void {
+  static validateRequired(params: Record<string, unknown>, required: string[]): void {
     const missing = required.filter(param => !params[param]);
     
     if (missing.length > 0) {
@@ -98,7 +99,7 @@ export class ApiErrorHandler {
     }
   }
 
-  static validateType(value: any, expectedType: string, paramName: string): void {
+  static validateType(value: unknown, expectedType: string, paramName: string): void {
     if (typeof value !== expectedType) {
       throw new Error(`Параметр '${paramName}' должен быть типа ${expectedType}, получен ${typeof value}`);
     }

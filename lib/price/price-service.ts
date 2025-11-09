@@ -1,6 +1,8 @@
 // lib/price/price-service.ts
 // Унифицированный сервис для расчета цен
 
+import { logger } from '../logging/logger';
+
 export interface PriceCalculationRequest {
   style: string;
   model: string;
@@ -44,12 +46,12 @@ export class PriceService {
     // Проверяем кэш
     const cached = this.cache.get(cacheKey);
     if (cached) {
-      console.log('✅ Используем кэшированную цену:', cached);
+      logger.debug('Используем кэшированную цену', 'price-service', { cacheKey, total: cached.total });
       return cached;
     }
 
     try {
-      console.log('🔄 Расчет цены через API:', request);
+      logger.debug('Расчет цены через API', 'price-service', { request });
       
       const response = await fetch('/api/price/doors', {
         method: 'POST',
@@ -80,18 +82,18 @@ export class PriceService {
         this.cache.delete(cacheKey);
       }, this.cacheTimeout);
 
-      console.log('✅ Цена рассчитана:', result);
+      logger.debug('Цена рассчитана', 'price-service', { total: result.total, sku_1c: result.sku_1c });
       return result;
 
     } catch (error) {
-      console.error('❌ Ошибка расчета цены:', error);
+      logger.error('Ошибка расчета цены', 'price-service', error instanceof Error ? { error: error.message, stack: error.stack, request } : { error: String(error), request });
       throw error;
     }
   }
 
   // Локальный расчет цены (fallback)
   calculatePriceLocal(request: PriceCalculationRequest): PriceCalculationResponse {
-    console.log('🔄 Локальный расчет цены:', request);
+    logger.debug('Локальный расчет цены', 'price-service', { request });
     
     // Базовые цены по стилям
     const stylePrices: Record<string, number> = {
@@ -132,7 +134,7 @@ export class PriceService {
       }
     };
 
-    console.log('✅ Локальная цена рассчитана:', result);
+    logger.debug('Локальная цена рассчитана', 'price-service', { total: result.total, request });
     return result;
   }
 
@@ -141,7 +143,7 @@ export class PriceService {
     try {
       return await this.calculatePrice(request);
     } catch (error) {
-      console.warn('⚠️ API недоступен, используем локальный расчет:', error);
+      logger.warn('API недоступен, используем локальный расчет', 'price-service', error instanceof Error ? { error: error.message, stack: error.stack, request } : { error: String(error), request });
       return this.calculatePriceLocal(request);
     }
   }
@@ -149,7 +151,7 @@ export class PriceService {
   // Очистка кэша
   clearCache(): void {
     this.cache.clear();
-    console.log('🧹 Кэш цен очищен');
+    logger.info('Кэш цен очищен', 'price-service');
   }
 
   // Генерация ключа кэша

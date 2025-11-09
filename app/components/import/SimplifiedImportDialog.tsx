@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Progress } from '../ui/progress';
 import { Badge } from '../ui/Badge';
 import { Upload, FileText, CheckCircle, XCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface SimplifiedImportDialogProps {
   open: boolean;
@@ -130,7 +131,7 @@ export default function SimplifiedImportDialog({
         setError(result.error || 'Ошибка при импорте файла');
       }
     } catch (error) {
-      console.error('Import error:', error);
+      clientLogger.error('Import error:', error);
       setError('Ошибка при импорте файла');
     } finally {
       setIsImporting(false);

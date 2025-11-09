@@ -46,11 +46,11 @@ export default function CatalogSelector({
       } else if (data.categories && Array.isArray(data.categories)) {
         setCategories(data.categories);
       } else {
-        console.error('Неожиданный формат данных каталога:', data);
+        clientLogger.error('Неожиданный формат данных каталога:', data);
         setCategories([]);
       }
     } catch (error) {
-      console.error('Ошибка при загрузке категорий:', error);
+      clientLogger.error('Ошибка при загрузке категорий:', error);
       setCategories([]);
     } finally {
       setLoading(false);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 // PUT /api/documents/[id]/comments/[commentId] - Редактировать комментарий
 export async function PUT(
@@ -52,7 +53,7 @@ export async function PUT(
 
     return NextResponse.json({ comment: updatedComment });
   } catch (error) {
-    console.error('Error updating comment:', error);
+    logger.error('Error updating comment', 'documents/[id]/comments/[commentId]', error instanceof Error ? { error: error.message, stack: error.stack, id, commentId } : { error: String(error), id, commentId });
     return NextResponse.json(
       { error: 'Failed to update comment' },
       { status: 500 }
@@ -88,7 +89,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting comment:', error);
+    logger.error('Error deleting comment', 'documents/[id]/comments/[commentId]', error instanceof Error ? { error: error.message, stack: error.stack, id, commentId } : { error: String(error), id, commentId });
     return NextResponse.json(
       { error: 'Failed to delete comment' },
       { status: 500 }

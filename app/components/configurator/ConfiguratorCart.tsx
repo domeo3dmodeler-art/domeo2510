@@ -182,7 +182,7 @@ export default function ConfiguratorCart({
         setExportSettings(data.settings || []);
       }
     } catch (error) {
-      console.error('Error loading export settings:', error);
+      clientLogger.error('Error loading export settings:', error);
     }
   }, [configuratorCategoryId]);
 

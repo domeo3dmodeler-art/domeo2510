@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BaseElement } from '../types';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface Product {
   id: string;
@@ -56,7 +57,7 @@ export function ProductGrid({ element, onUpdate }: ProductGridProps) {
         setProducts(data.products || []);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
-        console.error('Error loading products:', err);
+        clientLogger.error('Error loading products:', err);
       } finally {
         setLoading(false);
       }

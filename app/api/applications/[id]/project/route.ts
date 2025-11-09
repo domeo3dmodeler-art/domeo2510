@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import { logger } from '@/lib/logging/logger';
 
 // POST /api/applications/[id]/project - Загрузка проекта/планировки
 // ⚠️ DEPRECATED: Используйте POST /api/orders/[id]/project напрямую
@@ -108,7 +109,7 @@ export async function POST(
     });
 
   } catch (error) {
-    console.error('Error uploading project file:', error);
+    logger.error('Error uploading project file', 'applications/[id]/project', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Ошибка загрузки файла проекта' },
       { status: 500 }

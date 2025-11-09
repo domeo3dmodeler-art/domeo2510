@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface Category {
   id: string;
@@ -98,21 +99,21 @@ export function SimplifiedPropertyFilterPanel({ element, onUpdateElement }: Simp
   // Загрузка опций свойства
   useEffect(() => {
     const loadPropertyOptions = async () => {
-      console.log('🔧 SimplifiedPropertyFilterPanel: Проверяем условия для загрузки опций:', {
+      clientLogger.debug('🔧 SimplifiedPropertyFilterPanel: Проверяем условия для загрузки опций:', {
         propertyName: element.props.propertyName,
         categoryIds: element.props.categoryIds,
         categoryIdsLength: element.props.categoryIds?.length
       });
 
       if (!element.props.propertyName || !element.props.categoryIds || element.props.categoryIds.length === 0) {
-        console.log('🔧 SimplifiedPropertyFilterPanel: Условия не выполнены, очищаем опции');
+        clientLogger.debug('🔧 SimplifiedPropertyFilterPanel: Условия не выполнены, очищаем опции');
         setPropertyOptions([]);
         return;
       }
 
       setLoading(true);
       try {
-        console.log('🔧 SimplifiedPropertyFilterPanel: Загружаем опции свойства:', {
+        clientLogger.debug('🔧 SimplifiedPropertyFilterPanel: Загружаем опции свойства:', {
           propertyName: element.props.propertyName,
           categoryIds: element.props.categoryIds
         });
@@ -130,14 +131,14 @@ export function SimplifiedPropertyFilterPanel({ element, onUpdateElement }: Simp
 
         if (response.ok) {
           const data = await response.json();
-          console.log('🔧 SimplifiedPropertyFilterPanel: Опции свойства загружены:', data);
+          clientLogger.debug('🔧 SimplifiedPropertyFilterPanel: Опции свойства загружены:', data);
           setPropertyOptions(data.values || []);
         } else {
-          console.error('🔧 SimplifiedPropertyFilterPanel: Ошибка загрузки опций свойства:', response.status);
+          clientLogger.error('🔧 SimplifiedPropertyFilterPanel: Ошибка загрузки опций свойства:', response.status);
           setPropertyOptions([]);
         }
       } catch (error) {
-        console.error('🔧 SimplifiedPropertyFilterPanel: Ошибка загрузки опций свойства:', error);
+        clientLogger.error('🔧 SimplifiedPropertyFilterPanel: Ошибка загрузки опций свойства:', error);
         setPropertyOptions([]);
       } finally {
         setLoading(false);
@@ -152,22 +153,22 @@ export function SimplifiedPropertyFilterPanel({ element, onUpdateElement }: Simp
     const loadCategories = async () => {
       setLoading(true);
       try {
-        console.log('🌳 SimplifiedPropertyFilterPanel: Загружаем дерево категорий...');
+        clientLogger.debug('🌳 SimplifiedPropertyFilterPanel: Загружаем дерево категорий...');
         const response = await fetch('/api/catalog/categories');
-        console.log('🌳 SimplifiedPropertyFilterPanel: Ответ API:', response.status, response.ok);
+        clientLogger.debug('🌳 SimplifiedPropertyFilterPanel: Ответ API:', response.status, response.ok);
         
         if (response.ok) {
           const data = await response.json();
-          console.log('🌳 SimplifiedPropertyFilterPanel: Данные API:', data);
-          console.log('🌳 SimplifiedPropertyFilterPanel: Категории:', data.categories);
-          console.log('🌳 SimplifiedPropertyFilterPanel: Количество категорий:', data.categories?.length || 0);
+          clientLogger.debug('🌳 SimplifiedPropertyFilterPanel: Данные API:', data);
+          clientLogger.debug('🌳 SimplifiedPropertyFilterPanel: Категории:', data.categories);
+          clientLogger.debug('🌳 SimplifiedPropertyFilterPanel: Количество категорий:', data.categories?.length || 0);
           
           setCategories(data.categories || []);
         } else {
-          console.error('🌳 SimplifiedPropertyFilterPanel: Ошибка API:', response.status, response.statusText);
+          clientLogger.error('🌳 SimplifiedPropertyFilterPanel: Ошибка API:', response.status, response.statusText);
         }
       } catch (error) {
-        console.error('🌳 SimplifiedPropertyFilterPanel: Ошибка загрузки категорий:', error);
+        clientLogger.error('🌳 SimplifiedPropertyFilterPanel: Ошибка загрузки категорий:', error);
       } finally {
         setLoading(false);
       }
@@ -228,7 +229,7 @@ export function SimplifiedPropertyFilterPanel({ element, onUpdateElement }: Simp
           setProperties(data.properties || []);
         }
       } catch (error) {
-        console.error('Ошибка загрузки свойств:', error);
+        clientLogger.error('Ошибка загрузки свойств:', error);
       } finally {
         setLoading(false);
       }
@@ -270,7 +271,7 @@ export function SimplifiedPropertyFilterPanel({ element, onUpdateElement }: Simp
 
   const handleDisplaySettingsChange = (settings: Partial<DisplaySettings>) => {
     const newSettings = { ...displaySettings, ...settings };
-    console.log('🔧 SimplifiedPropertyFilterPanel: Обновляем настройки отображения:', {
+    clientLogger.debug('🔧 SimplifiedPropertyFilterPanel: Обновляем настройки отображения:', {
       oldSettings: displaySettings,
       newSettings: newSettings,
       changedSettings: settings
@@ -303,7 +304,7 @@ export function SimplifiedPropertyFilterPanel({ element, onUpdateElement }: Simp
 
   // Функция для рекурсивного рендеринга дерева категорий
   const renderCategoryTree = (categories: Category[], level: number = 0) => {
-    console.log('🌳 SimplifiedPropertyFilterPanel: renderCategoryTree вызван', {
+    clientLogger.debug('🌳 SimplifiedPropertyFilterPanel: renderCategoryTree вызван', {
       categoriesCount: categories.length,
       level,
       categories: categories.map(c => ({ 

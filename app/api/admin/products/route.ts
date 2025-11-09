@@ -1,26 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { logger } from '@/lib/logging/logger';
 
-const prisma = new PrismaClient();
+interface ImportedProduct {
+  id: string;
+  category: string;
+  imported_at: string;
+  [key: string]: unknown;
+}
 
 // Простое хранилище в памяти для демонстрации
 // В реальном приложении это будет база данных
-let importedProducts: any[] = [];
+let importedProducts: ImportedProduct[] = [];
 
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const { searchParams } = new URL(req.url);
     const category = searchParams.get('category');
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    console.log('=== PRODUCTS API CALL ===');
-    console.log('Category:', category);
-    console.log('Limit:', limit);
-    console.log('Offset:', offset);
+    logger.info('Получение товаров', 'admin/products', { userId: user.userId, category, limit, offset });
 
     // Получаем товары из базы данных
-    let whereClause = {};
+    let whereClause: Record<string, unknown> = {};
     if (category && category !== 'all') {
       whereClause = { catalog_category_id: category };
     }
@@ -36,9 +43,6 @@ export async function GET(req: NextRequest) {
         where: whereClause
       })
     ]);
-
-    console.log('Products from database:', products.length);
-    console.log('Total products in database:', total);
 
     // Преобразуем товары в формат для фронтенда
     const formattedProducts = products.map(product => ({
@@ -56,7 +60,9 @@ export async function GET(req: NextRequest) {
       category: product.catalog_category_id
     }));
 
-    return NextResponse.json({
+    logger.info('Товары получены', 'admin/products', { productsCount: products.length, total });
+
+    return apiSuccess({
       products: formattedProducts,
       total: total,
       category: category || 'all',
@@ -67,27 +73,26 @@ export async function GET(req: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('Error fetching products:', error);
-    return NextResponse.json(
-      { error: "Ошибка получения товаров" },
-      { status: 500 }
-    );
+    logger.error('Error fetching products', 'admin/products', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка получения товаров', 500);
   }
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withErrorHandling(
+  requireAuthAndPermission(getHandler, 'ADMIN'),
+  'admin/products/GET'
+);
+
+async function postHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const { products, category } = await req.json();
     
-    console.log('=== SAVING PRODUCTS TO DATABASE ===');
-    console.log('Products count:', products.length);
-    console.log('Category:', category);
-    console.log('First product sample:', products[0]);
-    console.log('All products structure:', products.slice(0, 3));
+    logger.info('Сохранение товаров в базу данных', 'admin/products', { userId: user.userId, productsCount: products?.length, category });
     
     if (!products || products.length === 0) {
-      return NextResponse.json({ 
-        success: true, 
+      logger.info('Нет товаров для сохранения', 'admin/products', { userId: user.userId });
+      return apiSuccess({ 
         imported: 0,
         message: 'Нет товаров для сохранения'
       });
@@ -115,21 +120,33 @@ export async function POST(req: NextRequest) {
         });
         
         savedProducts.push(savedProduct);
-        console.log('Product saved:', savedProduct.id, savedProduct.name);
+        logger.debug('Товар сохранен', 'admin/products', { productId: savedProduct.id, productName: savedProduct.name });
         
       } catch (productError) {
-        console.error('Error saving product:', {
+        logger.error('Error saving product', 'admin/products', {
           product: product,
-          error: productError,
-          errorMessage: productError instanceof Error ? productError.message : 'Unknown error',
-          errorCode: (productError as any)?.code
+          error: productError instanceof Error ? productError.message : String(productError),
+          errorCode: productError && typeof productError === 'object' && 'code' in productError ? String(productError.code) : undefined
         });
         // Продолжаем с остальными товарами
       }
     }
     
     // Также добавляем в память для совместимости
-    const productsWithIds = products.map((product: any, index: number) => ({
+    interface ProductInput {
+      sku?: string;
+      name?: string;
+      price?: string | number;
+      base_price?: string | number;
+      stock?: string | number;
+      stock_quantity?: string | number;
+      brand?: string;
+      model?: string;
+      description?: string;
+      specifications?: Record<string, unknown>;
+      [key: string]: unknown;
+    }
+    const productsWithIds = products.map((product: ProductInput, index: number) => ({
       ...product,
       id: `product_${Date.now()}_${index}`,
       category: category || 'unknown',
@@ -138,12 +155,13 @@ export async function POST(req: NextRequest) {
     
     importedProducts.push(...productsWithIds);
     
-    console.log('=== PRODUCTS SAVED SUCCESSFULLY ===');
-    console.log('Saved to database:', savedProducts.length);
-    console.log('Total in memory:', importedProducts.length);
+    logger.info('Товары успешно сохранены', 'admin/products', { 
+      userId: user.userId,
+      savedToDatabase: savedProducts.length,
+      totalInMemory: importedProducts.length
+    });
     
-    return NextResponse.json({ 
-      success: true, 
+    return apiSuccess({ 
       imported: savedProducts.length,
       total: importedProducts.length,
       database_saved: savedProducts.length,
@@ -151,10 +169,12 @@ export async function POST(req: NextRequest) {
     });
     
   } catch (error) {
-    console.error('Error importing products:', error);
-    return NextResponse.json(
-      { error: "Ошибка импорта товаров: " + (error instanceof Error ? error.message : 'Неизвестная ошибка') },
-      { status: 500 }
-    );
+    logger.error('Error importing products', 'admin/products', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка импорта товаров', 500);
   }
 }
+
+export const POST = withErrorHandling(
+  requireAuthAndPermission(postHandler, 'ADMIN'),
+  'admin/products/POST'
+);

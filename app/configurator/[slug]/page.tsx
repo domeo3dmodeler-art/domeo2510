@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import ConfiguratorMain from '../../../components/configurator/ConfiguratorMain';
 import { useAuth } from '../../../hooks/useAuth';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface ConfiguratorCategory {
   id: string;
@@ -40,7 +41,7 @@ export default function ConfiguratorPage() {
         setError('Конфигуратор не найден');
       }
     } catch (error) {
-      console.error('Error loading configurator category:', error);
+      clientLogger.error('Error loading configurator category:', error);
       setError('Ошибка загрузки конфигуратора');
     } finally {
       setLoading(false);

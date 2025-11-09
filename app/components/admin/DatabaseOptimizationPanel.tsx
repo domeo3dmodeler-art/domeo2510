@@ -64,7 +64,7 @@ export default function DatabaseOptimizationPanel() {
         setRecommendations(data.recommendations);
       }
     } catch (err) {
-      console.error('Ошибка при загрузке рекомендаций:', err);
+      clientLogger.error('Ошибка при загрузке рекомендаций:', err);
     }
   };
 

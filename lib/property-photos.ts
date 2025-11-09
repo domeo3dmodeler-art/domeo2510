@@ -1,6 +1,5 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 export interface PropertyPhotoInfo {
   id: string;
@@ -56,7 +55,7 @@ export async function getPropertyPhotos(
 
     return filteredPhotos;
   } catch (error) {
-    console.error('Ошибка получения фото свойства:', error);
+    logger.error('Ошибка получения фото свойства', 'lib/property-photos', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return [];
   }
 }
@@ -188,7 +187,7 @@ export async function upsertPropertyPhoto(
 
     return photo;
   } catch (error) {
-    console.error('Ошибка добавления фото свойства:', error);
+    logger.error('Ошибка добавления фото свойства', 'lib/property-photos', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return null;
   }
 }
@@ -219,7 +218,7 @@ export async function deletePropertyPhotos(
 
     return result.count;
   } catch (error) {
-    console.error('Ошибка удаления фото свойства:', error);
+    logger.error('Ошибка удаления фото свойства', 'lib/property-photos', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return 0;
   }
 }
@@ -245,7 +244,7 @@ export async function getPropertyValuesWithPhotos(
 
     return photos.map(photo => photo.propertyValue);
   } catch (error) {
-    console.error('Ошибка получения значений свойства с фото:', error);
+    logger.error('Ошибка получения значений свойства с фото', 'lib/property-photos', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return [];
   }
 }
@@ -279,7 +278,7 @@ export async function getCategoryPhotosStats(categoryId: string) {
       }))
     };
   } catch (error) {
-    console.error('Ошибка получения статистики фото:', error);
+    logger.error('Ошибка получения статистики фото', 'lib/property-photos', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return {
       totalPhotos: 0,
       byProperty: []

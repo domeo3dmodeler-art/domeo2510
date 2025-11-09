@@ -1,4 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logging/logger';
+
+interface PageElementInput {
+  id?: string;
+  type: string;
+  props?: Record<string, unknown>;
+  position?: { x: number; y: number };
+  size?: { width: number; height: number };
+  zIndex?: number;
+  parentId?: string | null;
+}
 
 // Простой API для создания страниц без Prisma
 export async function POST(request: NextRequest) {
@@ -7,7 +18,7 @@ export async function POST(request: NextRequest) {
     try {
       body = await request.json();
     } catch (jsonError) {
-      console.error('JSON parsing error:', jsonError);
+      logger.error('JSON parsing error', 'pages/simple-create', { error: jsonError instanceof Error ? jsonError.message : String(jsonError) });
       return NextResponse.json(
         { success: false, error: 'Invalid JSON in request body' },
         { status: 400 }
@@ -44,7 +55,7 @@ export async function POST(request: NextRequest) {
       description: description || '',
       url,
       isPublished,
-      elements: elements.map((element: any, index: number) => ({
+      elements: (elements as PageElementInput[]).map((element: PageElementInput, index: number) => ({
         id: element.id || `element-${index}`,
         type: element.type,
         props: element.props || {},
@@ -57,7 +68,7 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date().toISOString()
     };
 
-    console.log('Created page:', JSON.stringify(page, null, 2));
+    logger.debug('Created page', 'pages/simple-create', { pageId: page.id, title: page.title, elementsCount: page.elements.length });
 
     return NextResponse.json({
       success: true,
@@ -66,7 +77,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error creating page:', error);
+    logger.error('Error creating page', 'pages/simple-create', error instanceof Error ? { error: error.message, stack: error.stack, title: body?.title } : { error: String(error), title: body?.title });
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -107,7 +118,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('Error fetching pages:', error);
+    logger.error('Error fetching pages', 'pages/simple-create', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

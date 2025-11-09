@@ -86,7 +86,7 @@ export const PriceCalculatorRenderer: React.FC<PriceCalculatorRendererProps> = (
         setSelectedProduct(data.products[0]);
       }
     } catch (error) {
-      console.error('Error loading products:', error);
+      clientLogger.error('Error loading products:', error);
     } finally {
       setLoading(false);
     }

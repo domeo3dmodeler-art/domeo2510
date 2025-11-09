@@ -1,5 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
+
+interface ProductWithProperties {
+  id: string;
+  sku: string;
+  name: string;
+  properties_data: string | Record<string, unknown> | null;
+  images: Array<{
+    url: string;
+    alt_text: string | null;
+  }>;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,7 +33,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log(`Loading property values with counts and images for "${propertyName}" from categories: ${categoryIds.join(', ')}`);
+    logger.debug('Loading property values with counts and images', 'catalog/properties/values-with-data', { propertyName, categoryIds });
 
     // Загружаем все товары из указанных категорий
     const products = await prisma.product.findMany({
@@ -48,12 +60,12 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    console.log(`Found ${products.length} products to analyze`);
+    logger.debug('Found products to analyze', 'catalog/properties/values-with-data', { productsCount: products.length, categoryIds });
 
     // Группируем товары по значениям свойства
     const valueGroups: { [key: string]: { count: number, image: string | null } } = {};
     
-    products.forEach((product: any) => {
+    products.forEach((product: ProductWithProperties) => {
       if (product.properties_data) {
         try {
           const props = typeof product.properties_data === 'string' 
@@ -76,12 +88,12 @@ export async function GET(request: NextRequest) {
             }
           }
         } catch (error) {
-          console.warn(`Error parsing properties for product ${product.id}:`, error);
+          logger.warn('Error parsing properties for product', 'catalog/properties/values-with-data', { productId: product.id, error: error instanceof Error ? error.message : String(error) });
         }
       }
     });
 
-    console.log(`Found ${Object.keys(valueGroups).length} unique values`);
+    logger.debug('Found unique values', 'catalog/properties/values-with-data', { uniqueValuesCount: Object.keys(valueGroups).length, propertyName });
 
     return NextResponse.json({
       success: true,
@@ -90,7 +102,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error loading property values with counts and images:', error);
+    logger.error('Error loading property values with counts and images', 'catalog/properties/values-with-data', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { success: false, message: 'Ошибка при загрузке значений свойства с количеством и изображениями' },
       { status: 500 }

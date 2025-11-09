@@ -8,9 +8,10 @@ import { PropertyDisplaySettings } from './PropertyDisplaySettings';
 import { CatalogSelector } from '../elements/CatalogSelector';
 import { SimplifiedPropertyFilterPanel } from './SimplifiedPropertyFilterPanel';
 import { extractUniquePropertyValues } from '@/lib/string-utils';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }: PropertiesPanelProps) {
-  console.log('🚨 PropertiesPanel: Рендер!', {
+  clientLogger.debug('🚨 PropertiesPanel: Рендер!', {
     elementType: element?.type,
     elementId: element?.id,
     elementProps: element?.props
@@ -34,7 +35,7 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
           setCategories(data.categories || []);
         }
       } catch (error) {
-        console.error('Error loading categories:', error);
+        clientLogger.error('Error loading categories:', error);
       } finally {
         setLoadingCategories(false);
       }
@@ -46,16 +47,16 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
   // Загрузка свойств для выбранных категорий
   useEffect(() => {
     const loadProperties = async () => {
-      console.log('PropertiesPanel: Загрузка свойств для категорий:', element?.props?.categoryIds);
+      clientLogger.debug('PropertiesPanel: Загрузка свойств для категорий:', element?.props?.categoryIds);
       
       if (!element?.props?.categoryIds?.length) {
-        console.log('PropertiesPanel: Нет категорий, очищаем свойства');
+        clientLogger.debug('PropertiesPanel: Нет категорий, очищаем свойства');
         setAvailableProperties([]);
         return;
       }
 
       try {
-        console.log('PropertiesPanel: Запрос к API /api/catalog/properties');
+        clientLogger.debug('PropertiesPanel: Запрос к API /api/catalog/properties');
         const response = await fetch('/api/catalog/properties', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -65,7 +66,7 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
         if (response.ok) {
           const propertiesData = await response.json();
           const properties = propertiesData.properties || [];
-          console.log('PropertiesPanel: Загружены свойства:', properties.map(p => ({ id: p.id, name: p.name })));
+          clientLogger.debug('PropertiesPanel: Загружены свойства:', properties.map(p => ({ id: p.id, name: p.name })));
           
           // Используем оптимизированный API для получения уникальных значений
           setLoadingProducts(true);
@@ -74,11 +75,11 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
           try {
             // ИСПРАВЛЕНИЕ: Не загружаем данные для всех свойств сразу
             // PropertyFilter будет загружать данные для конкретного выбранного свойства
-            console.log('PropertiesPanel: Пропускаем загрузку данных для всех свойств - PropertyFilter загрузит данные для выбранного свойства');
+            clientLogger.debug('PropertiesPanel: Пропускаем загрузку данных для всех свойств - PropertyFilter загрузит данные для выбранного свойства');
             
             // Преобразуем результат в формат, ожидаемый компонентом (без данных)
             const propertiesWithOptions = properties.map((property: any) => {
-              console.log(`Property "${property.name}": без загруженных значений (PropertyFilter загрузит)`);
+              clientLogger.debug(`Property "${property.name}": без загруженных значений (PropertyFilter загрузит)`);
               
               return {
                 ...property,
@@ -87,18 +88,18 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
             });
             
             setAvailableProperties(propertiesWithOptions);
-            console.log('PropertiesPanel: Установлены доступные свойства:', propertiesWithOptions.map(p => ({ id: p.id, name: p.name })));
+            clientLogger.debug('PropertiesPanel: Установлены доступные свойства:', propertiesWithOptions.map(p => ({ id: p.id, name: p.name })));
             setLoadingProgress({ current: 100, total: 100 });
           } catch (error: any) {
-            console.error('PropertiesPanel: Ошибка загрузки уникальных значений:', error);
+            clientLogger.error('PropertiesPanel: Ошибка загрузки уникальных значений:', error);
             setAvailableProperties(properties);
-            console.log('PropertiesPanel: Установлены свойства без уникальных значений:', properties.map(p => ({ id: p.id, name: p.name })));
+            clientLogger.debug('PropertiesPanel: Установлены свойства без уникальных значений:', properties.map(p => ({ id: p.id, name: p.name })));
           } finally {
             setLoadingProducts(false);
           }
         }
       } catch (error) {
-        console.error('Error loading properties:', error);
+        clientLogger.error('Error loading properties:', error);
         setAvailableProperties([]);
       }
     };
@@ -110,7 +111,7 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
   const handleElementPropChange = (key: string, value: any) => {
     if (!element) return;
 
-    console.log('🚨 PropertiesPanel: handleElementPropChange вызван!', {
+    clientLogger.debug('🚨 PropertiesPanel: handleElementPropChange вызван!', {
       elementId: element.id,
       key,
       value,
@@ -127,11 +128,11 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
       const selectedProperty = availableProperties.find(p => p.id === value[0]);
       if (selectedProperty) {
         newProps.propertyName = selectedProperty.name;
-        console.log('🚨 PropertiesPanel: Устанавливаем propertyName:', selectedProperty.name);
+        clientLogger.debug('🚨 PropertiesPanel: Устанавливаем propertyName:', selectedProperty.name);
       }
     }
 
-    console.log('🚨 PropertiesPanel: Создаем обновление!', {
+    clientLogger.debug('🚨 PropertiesPanel: Создаем обновление!', {
       elementId: element.id,
       key,
       value,
@@ -143,7 +144,7 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
       props: newProps
     });
 
-    console.log('🚨 PropertiesPanel: onUpdateElement вызван!', {
+    clientLogger.debug('🚨 PropertiesPanel: onUpdateElement вызван!', {
       elementId: element.id,
       updates: { props: newProps }
     });
@@ -214,7 +215,7 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
 
     switch (element.type) {
       case 'propertyFilter':
-        console.log('🚨 PropertiesPanel: Рендерим propertyFilter с упрощенной панелью!', {
+        clientLogger.debug('🚨 PropertiesPanel: Рендерим propertyFilter с упрощенной панелью!', {
           elementType: element.type,
           elementId: element.id,
           elementProps: element.props,

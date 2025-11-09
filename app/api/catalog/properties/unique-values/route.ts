@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../../lib/prisma';
 import { uniqueValuesCache } from '../../../../../lib/cache/unique-values-cache';
+import { logger } from '../../../../../lib/logging/logger';
+
+interface ProductWithProperties {
+  id: string;
+  properties_data: string | Record<string, unknown> | null;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,12 +31,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log(`Loading unique values for properties: ${propertyNames.join(', ')} from categories: ${categoryIds.join(', ')}`);
+    logger.debug('Loading unique values for properties (GET)', 'catalog/properties/unique-values', { propertyNames, categoryIds });
 
     // Проверяем кэш
     const cachedData = uniqueValuesCache.get(categoryIds, propertyNames);
     if (cachedData) {
-      console.log('Returning cached unique values');
+      logger.debug('Returning cached unique values (GET)', 'catalog/properties/unique-values', { propertyNames, categoryIds });
       return NextResponse.json({
         success: true,
         uniqueValues: cachedData,
@@ -50,7 +56,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    console.log(`Found ${products.length} products to analyze`);
+    logger.debug('Found products to analyze', 'catalog/properties/unique-values', { productsCount: products.length });
 
     // Извлекаем уникальные значения для каждого свойства
     const results: Record<string, string[]> = {};
@@ -58,7 +64,7 @@ export async function GET(request: NextRequest) {
     for (const propertyName of propertyNames) {
       const uniqueValues = new Set<string>();
       
-      products.forEach((product: any) => {
+      products.forEach((product: ProductWithProperties) => {
         if (product.properties_data) {
           try {
             const propsData = typeof product.properties_data === 'string' 
@@ -86,7 +92,7 @@ export async function GET(request: NextRequest) {
               }
             }
           } catch (error) {
-            console.error('Error parsing properties_data:', error);
+            logger.error('Error parsing properties_data', 'catalog/properties/unique-values', { productId: product.id, error: error instanceof Error ? error.message : String(error) });
           }
         }
       });
@@ -94,7 +100,7 @@ export async function GET(request: NextRequest) {
       results[propertyName] = Array.from(uniqueValues).sort();
     }
 
-    console.log('Unique values extracted:', Object.keys(results).map(key => `${key}: ${results[key].length} values`));
+    logger.debug('Unique values extracted', 'catalog/properties/unique-values', { results: Object.keys(results).map(key => `${key}: ${results[key].length} values`) });
 
     // Сохраняем в кэш
     uniqueValuesCache.set(categoryIds, propertyNames, results);
@@ -106,7 +112,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error extracting unique property values:', error);
+    logger.error('Error extracting unique property values', 'catalog/properties/unique-values', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { success: false, message: 'Ошибка при извлечении уникальных значений свойств' },
       { status: 500 }
@@ -132,12 +138,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`Loading unique values for properties: ${propertyNames.join(', ')} from categories: ${categoryIds.join(', ')}`);
+    logger.debug('Loading unique values for properties (POST)', 'catalog/properties/unique-values', { propertyNames, categoryIds });
 
     // Проверяем кэш
     const cachedData = uniqueValuesCache.get(categoryIds, propertyNames);
     if (cachedData) {
-      console.log('Returning cached unique values');
+      logger.debug('Returning cached unique values (POST)', 'catalog/properties/unique-values', { propertyNames, categoryIds });
       return NextResponse.json({
         success: true,
         uniqueValues: cachedData,
@@ -159,7 +165,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log(`Found ${products.length} products for categories: ${categoryIds.join(', ')}`);
+    logger.debug('Found products for categories', 'catalog/properties/unique-values', { productsCount: products.length, categoryIds });
 
     // Извлекаем уникальные значения для каждого свойства
     const results: Record<string, string[]> = {};
@@ -181,13 +187,13 @@ export async function POST(request: NextRequest) {
               }
             }
           } catch (parseError) {
-            console.warn(`Error parsing properties for product:`, parseError);
+            logger.warn('Error parsing properties for product', 'catalog/properties/unique-values', { productId: product.id, error: parseError instanceof Error ? parseError.message : String(parseError) });
           }
         }
       }
       
       results[propertyName] = Array.from(uniqueValues).sort();
-      console.log(`Property "${propertyName}": found ${results[propertyName].length} unique values`);
+      logger.debug('Property unique values found', 'catalog/properties/unique-values', { propertyName, valuesCount: results[propertyName].length });
     }
 
     // Кэшируем результаты
@@ -200,7 +206,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error extracting unique property values:', error);
+    logger.error('Error extracting unique property values (POST)', 'catalog/properties/unique-values', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { success: false, message: 'Ошибка при извлечении уникальных значений свойств' },
       { status: 500 }

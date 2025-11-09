@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, Prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 // GET /api/applications/[id] - Получение заказа по ID
 // ⚠️ DEPRECATED: Используйте GET /api/orders/[id] напрямую
@@ -108,7 +109,7 @@ export async function GET(
     });
 
   } catch (error) {
-    console.error('Error fetching order:', error);
+    logger.error('Error fetching order', 'applications/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Ошибка получения заказа' },
       { status: 500 }
@@ -180,7 +181,7 @@ export async function PUT(
     }
 
     // Формируем данные для обновления
-    const updateData: any = {};
+    const updateData: Prisma.OrderUpdateInput = {};
 
     if (status !== undefined) updateData.status = status;
     if (project_file_url !== undefined) updateData.project_file_url = project_file_url;
@@ -220,7 +221,7 @@ export async function PUT(
     });
 
   } catch (error) {
-    console.error('Error updating order:', error);
+    logger.error('Error updating order', 'applications/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Ошибка обновления заказа' },
       { status: 500 }
@@ -257,7 +258,7 @@ export async function DELETE(
     });
 
   } catch (error) {
-    console.error('Error deleting order:', error);
+    logger.error('Error deleting order', 'applications/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Ошибка удаления заказа' },
       { status: 500 }

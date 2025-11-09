@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { catalogService } from '@/lib/services/catalog.service';
 import { UpdateCatalogCategoryDto } from '@/lib/types/catalog';
+import { logger } from '@/lib/logging/logger';
 
 // GET /api/catalog/categories/[id] - Получить категорию по ID
 export async function GET(
@@ -19,7 +20,7 @@ export async function GET(
 
     return NextResponse.json(category);
   } catch (error) {
-    console.error('Error fetching catalog category:', error);
+    logger.error('Error fetching catalog category', 'catalog/categories/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Failed to fetch catalog category' },
       { status: 500 }
@@ -46,7 +47,7 @@ export async function PUT(
     const category = await catalogService.updateCategory(params.id, data);
     return NextResponse.json(category);
   } catch (error) {
-    console.error('Error updating catalog category:', error);
+    logger.error('Error updating catalog category', 'catalog/categories/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     return NextResponse.json(
       { error: 'Failed to update catalog category' },
       { status: 500 }
@@ -63,7 +64,7 @@ export async function DELETE(
     await catalogService.deleteCategory(params.id);
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting catalog category:', error);
+    logger.error('Error deleting catalog category', 'catalog/categories/[id]', error instanceof Error ? { error: error.message, stack: error.stack, id: params.id } : { error: String(error), id: params.id });
     
     if (error instanceof Error) {
       return NextResponse.json(

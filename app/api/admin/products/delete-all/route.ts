@@ -1,32 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
 
-const prisma = new PrismaClient();
-
-export async function DELETE(req: NextRequest) {
+async function deleteHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const { searchParams } = new URL(req.url);
     const categoryId = searchParams.get('categoryId');
 
     if (!categoryId) {
-      return NextResponse.json(
-        { error: 'ID категории обязателен' },
-        { status: 400 }
-      );
+      throw new ValidationError('ID категории обязателен');
     }
 
-    console.log('Удаление всех товаров категории:', categoryId);
+    logger.info('Удаление всех товаров категории', 'admin/products/delete-all', { userId: user.userId, categoryId });
 
     // Подсчитываем количество товаров до удаления
     const countBefore = await prisma.product.count({
       where: { catalog_category_id: categoryId }
     });
 
-    console.log(`Найдено товаров для удаления: ${countBefore}`);
+    logger.info(`Найдено товаров для удаления: ${countBefore}`, 'admin/products/delete-all', { categoryId, countBefore });
 
     if (countBefore === 0) {
-      return NextResponse.json({
-        success: true,
+      logger.info('В категории нет товаров для удаления', 'admin/products/delete-all', { categoryId });
+      return apiSuccess({
         deleted: 0,
         message: 'В категории нет товаров для удаления'
       });
@@ -37,7 +38,7 @@ export async function DELETE(req: NextRequest) {
       where: { catalog_category_id: categoryId }
     });
 
-    console.log(`Удалено товаров: ${deleteResult.count}`);
+    logger.info(`Удалено товаров: ${deleteResult.count}`, 'admin/products/delete-all', { categoryId, deletedCount: deleteResult.count });
 
     // Обновляем счетчик товаров в категории
     await prisma.catalogCategory.update({
@@ -45,7 +46,7 @@ export async function DELETE(req: NextRequest) {
       data: { products_count: 0 }
     });
 
-    console.log(`Обновлен счетчик товаров для категории ${categoryId}: 0`);
+    logger.info(`Обновлен счетчик товаров для категории ${categoryId}: 0`, 'admin/products/delete-all', { categoryId });
 
     // Обновляем счетчики всех родительских категорий
     try {
@@ -79,7 +80,7 @@ export async function DELETE(req: NextRequest) {
               data: { products_count: totalProducts }
             });
 
-            console.log(`Обновлен счетчик родительской категории ${parentId}: ${totalProducts}`);
+            logger.debug(`Обновлен счетчик родительской категории ${parentId}: ${totalProducts}`, 'admin/products/delete-all', { parentId, totalProducts });
 
             // Если есть еще родитель, продолжаем рекурсивно
             if (parentCategory.parent_id) {
@@ -91,23 +92,26 @@ export async function DELETE(req: NextRequest) {
         await updateParentCounts(category.parent_id);
       }
     } catch (updateError) {
-      console.error('Ошибка при обновлении счетчиков родительских категорий:', updateError);
+      logger.error('Ошибка при обновлении счетчиков родительских категорий', 'admin/products/delete-all', updateError instanceof Error ? { error: updateError.message, stack: updateError.stack } : { error: String(updateError) });
     }
 
-    return NextResponse.json({
-      success: true,
+    logger.info('Товары успешно удалены', 'admin/products/delete-all', { categoryId, deletedCount: deleteResult.count });
+
+    return apiSuccess({
       deleted: deleteResult.count,
       message: `Успешно удалено ${deleteResult.count} товаров`
     });
 
   } catch (error) {
-    console.error('Ошибка при удалении товаров:', error);
-    return NextResponse.json(
-      { 
-        error: 'Ошибка при удалении товаров',
-        details: error instanceof Error ? error.message : 'Неизвестная ошибка'
-      },
-      { status: 500 }
-    );
+    logger.error('Ошибка при удалении товаров', 'admin/products/delete-all', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка при удалении товаров', 500);
   }
 }
+
+export const DELETE = withErrorHandling(
+  requireAuthAndPermission(deleteHandler, 'ADMIN'),
+  'admin/products/delete-all/DELETE'
+);

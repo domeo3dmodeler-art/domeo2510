@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AnalyticsService } from '../../../lib/analytics/analytics-service';
+import { logger } from '../../../lib/logging/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Ошибка получения аналитики:', error);
+    logger.error('Ошибка получения аналитики', 'analytics', error instanceof Error ? { error: error.message, stack: error.stack, type } : { error: String(error), type });
     return NextResponse.json(
       { error: 'Ошибка получения аналитики' },
       { status: 500 }
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Ошибка экспорта аналитики:', error);
+    logger.error('Ошибка экспорта аналитики', 'analytics', error instanceof Error ? { error: error.message, stack: error.stack, type } : { error: String(error), type });
     return NextResponse.json(
       { error: 'Ошибка экспорта аналитики' },
       { status: 500 }

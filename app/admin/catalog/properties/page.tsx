@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Badge, Input, Dialog, DialogContent, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui';
 import { Plus, Search, Edit, Trash2, CheckCircle, XCircle, AlertCircle, FileText, Download, ChevronRight, ChevronDown, Folder, FolderOpen } from 'lucide-react';
 import { ProductProperty, PropertyType, CreateProductPropertyDto } from '@/lib/types/catalog';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 export default function PropertiesPage() {
   const [properties, setProperties] = useState<ProductProperty[]>([]);
@@ -37,7 +38,7 @@ export default function PropertiesPage() {
         setCategories(categoriesData.categories || []);
       }
     } catch (error) {
-      console.error('Error loading data:', error);
+      clientLogger.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
@@ -59,7 +60,7 @@ export default function PropertiesPage() {
       }
 
       const url = `/api/catalog/properties?${params.toString()}`;
-      console.log('Loading properties from:', url);
+      clientLogger.debug('Loading properties from:', url);
       
       const response = await fetch(url);
       if (!response.ok) {
@@ -68,7 +69,7 @@ export default function PropertiesPage() {
       const data = await response.json();
       setProperties(data.properties || []);
     } catch (error) {
-      console.error('Error loading properties:', error);
+      clientLogger.error('Error loading properties:', error);
     } finally {
       setLoading(false);
     }
@@ -204,7 +205,7 @@ export default function PropertiesPage() {
         alert(`Ошибка создания свойства: ${result.error || 'Неизвестная ошибка'}`);
       }
     } catch (error) {
-      console.error('Error creating property:', error);
+      clientLogger.error('Error creating property:', error);
       alert('Ошибка при создании свойства');
     }
   };
@@ -230,7 +231,7 @@ export default function PropertiesPage() {
         alert(`Ошибка обновления свойства: ${result.error || 'Неизвестная ошибка'}`);
       }
     } catch (error) {
-      console.error('Error updating property:', error);
+      clientLogger.error('Error updating property:', error);
       alert('Ошибка при обновлении свойства');
     }
   };
@@ -252,7 +253,7 @@ export default function PropertiesPage() {
         alert(`Ошибка удаления свойства: ${result.error || 'Неизвестная ошибка'}`);
       }
     } catch (error) {
-      console.error('Error deleting property:', error);
+      clientLogger.error('Error deleting property:', error);
       alert('Ошибка при удалении свойства');
     }
   };

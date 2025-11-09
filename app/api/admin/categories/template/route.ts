@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError, NotFoundError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
 
 // ===================== Сохранение шаблона конфигуратора =====================
 
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const { categoryId, template } = await req.json();
 
     if (!categoryId || !template) {
-      return NextResponse.json(
-        { error: 'Не указан ID категории или шаблон' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не указан ID категории или шаблон');
     }
+
+    logger.info('Сохранение шаблона конфигуратора', 'admin/categories/template', { userId: user.userId, categoryId });
 
     // Обновляем категорию с шаблоном конфигуратора
     const updatedCategory = await prisma.frontendCategory.update({
@@ -25,46 +28,47 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    return NextResponse.json({
-      success: true,
+    logger.info('Шаблон конфигуратора сохранен', 'admin/categories/template', { categoryId });
+
+    return apiSuccess({
       category: updatedCategory,
       message: 'Шаблон конфигуратора сохранен'
     });
 
   } catch (error) {
-    console.error('Template save error:', error);
-    return NextResponse.json(
-      { error: 'Ошибка при сохранении шаблона' },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
+    logger.error('Template save error', 'admin/categories/template', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка при сохранении шаблона', 500);
   }
 }
 
+export const POST = withErrorHandling(
+  requireAuthAndPermission(postHandler, 'ADMIN'),
+  'admin/categories/template/POST'
+);
+
 // ===================== Получение шаблона конфигуратора =====================
 
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const { searchParams } = new URL(req.url);
     const categoryId = searchParams.get('categoryId');
 
     if (!categoryId) {
-      return NextResponse.json(
-        { error: 'Не указан ID категории' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не указан ID категории');
     }
+
+    logger.info('Получение шаблона конфигуратора', 'admin/categories/template', { userId: user.userId, categoryId });
 
     const category = await prisma.frontendCategory.findUnique({
       where: { id: categoryId }
     });
 
     if (!category) {
-      return NextResponse.json(
-        { error: 'Категория не найдена' },
-        { status: 404 }
-      );
+      throw new NotFoundError('Категория не найдена');
     }
 
     let template = null;
@@ -73,12 +77,13 @@ export async function GET(req: NextRequest) {
       try {
         template = JSON.parse(category.display_config);
       } catch (error) {
-        console.error('Error parsing template:', error);
+        logger.error('Error parsing template', 'admin/categories/template', error instanceof Error ? { error: error.message } : { error: String(error) });
       }
     }
 
-    return NextResponse.json({
-      success: true,
+    logger.info('Шаблон конфигуратора получен', 'admin/categories/template', { categoryId });
+
+    return apiSuccess({
       template,
       category: {
         id: category.id,
@@ -89,12 +94,15 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Template fetch error:', error);
-    return NextResponse.json(
-      { error: 'Ошибка при получении шаблона' },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
+    logger.error('Template fetch error', 'admin/categories/template', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError || error instanceof NotFoundError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка при получении шаблона', 500);
   }
 }
+
+export const GET = withErrorHandling(
+  requireAuthAndPermission(getHandler, 'ADMIN'),
+  'admin/categories/template/GET'
+);

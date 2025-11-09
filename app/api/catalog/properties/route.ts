@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '../../../../lib/prisma';
+import { prisma, Prisma } from '../../../../lib/prisma';
+import { logger } from '../../../../lib/logging/logger';
 
 // GET /api/catalog/properties - Получить все свойства
 export async function GET(request: NextRequest) {
@@ -9,7 +10,7 @@ export async function GET(request: NextRequest) {
     const showAll = searchParams.get('showAll') === 'true';
 
     // Формируем условия для фильтрации
-    let whereCondition: any = {};
+    const whereCondition: Prisma.ProductPropertyWhereInput = {};
     
     if (!showAll) {
       // По умолчанию показываем только активные свойства
@@ -79,7 +80,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching properties:', error);
+    logger.error('Error fetching properties', 'catalog/properties', error instanceof Error ? { error: error.message, stack: error.stack, categoryId } : { error: String(error), categoryId });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -156,7 +157,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error creating property:', error);
+    logger.error('Error creating property', 'catalog/properties', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

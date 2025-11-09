@@ -32,7 +32,7 @@ export const ProductFilterPropertiesPanel: React.FC<ProductFilterPropertiesPanel
       const data = await response.json();
       setCategories(data.categories || []);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      clientLogger.error('Error loading categories:', error);
     }
   };
 

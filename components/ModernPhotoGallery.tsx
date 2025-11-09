@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface PhotoStructure {
   cover: string | null;
@@ -107,7 +108,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
               className="max-h-full max-w-full object-contain transition-all duration-300 hover:scale-105 cursor-pointer"
               onClick={toggleZoom}
               onError={() => {
-                console.log('❌ Ошибка загрузки изображения:', allPhotos[currentIndex]);
+                clientLogger.debug('❌ Ошибка загрузки изображения:', allPhotos[currentIndex]);
               }}
             />
           ) : (
@@ -179,7 +180,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
                     alt={`Миниатюра ${index + 1}`}
                     className="w-full h-full object-cover"
                     onError={() => {
-                      console.log('❌ Ошибка загрузки миниатюры:', photo);
+                      clientLogger.debug('❌ Ошибка загрузки миниатюры:', photo);
                     }}
                   />
                 </button>
@@ -262,7 +263,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
                           alt={`Миниатюра ${index + 1}`}
                           className="w-full h-full object-cover"
                           onError={() => {
-                            console.log('❌ Ошибка загрузки миниатюры:', photo);
+                            clientLogger.debug('❌ Ошибка загрузки миниатюры:', photo);
                           }}
                         />
                       </button>

@@ -6,6 +6,7 @@ import CategoryInfoForm from '../../../../components/category-builder/CategoryIn
 import DataUpload from '../../../../components/category-builder/DataUpload';
 import CategoryBuilder from '../../../../components/category-builder/CategoryBuilder';
 import PreviewModule from '../../../../components/category-builder/PreviewModule';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 type BuilderStep = 'info' | 'upload' | 'design' | 'preview' | 'generate';
 
@@ -76,22 +77,22 @@ export default function CreateConfiguratorCategoryPage() {
 
   // Функции экспорта
   const handleExport = (format: 'pdf' | 'xlsx' | 'csv') => {
-    console.log(`Экспорт в формате ${format}:`, cartItems);
+    clientLogger.debug(`Экспорт в формате ${format}:`, cartItems);
     alert(`Экспорт в формате ${format.toUpperCase()} выполнен!`);
   };
 
   const handleCreateQuote = () => {
-    console.log('Создание КП:', cartItems);
+    clientLogger.debug('Создание КП:', cartItems);
     alert('Коммерческое предложение создано!');
   };
 
   const handleCreateInvoice = () => {
-    console.log('Создание счета:', cartItems);
+    clientLogger.debug('Создание счета:', cartItems);
     alert('Счет создан!');
   };
 
   const handleCreateFactoryOrder = () => {
-    console.log('Создание заказа на фабрику:', cartItems);
+    clientLogger.debug('Создание заказа на фабрику:', cartItems);
     alert('Заказ на фабрику создан!');
   };
 

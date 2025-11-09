@@ -1,6 +1,7 @@
 // Унифицированный сервис для пересчета цены товаров в корзине
 
 import { CartItem } from '@/types/cart';
+import { logger } from '@/lib/logging/logger';
 
 export interface PriceCalculationResult {
   success: boolean;
@@ -43,7 +44,7 @@ class PriceRecalculationService {
     if (useCache && this.cache.has(cacheKey)) {
       const cached = this.cache.get(cacheKey)!;
       if (Date.now() - cached.timestamp < this.CACHE_TTL) {
-        console.log('💾 Используем кэшированный результат:', cacheKey);
+        logger.debug('Используем кэшированный результат', 'price-recalculation-service', { cacheKey });
         return cached;
       } else {
         this.cache.delete(cacheKey);
@@ -76,7 +77,7 @@ class PriceRecalculationService {
       return priceResult;
 
     } catch (error) {
-      console.error('❌ Ошибка пересчета цены:', error);
+      logger.error('Ошибка пересчета цены', 'price-recalculation-service', error instanceof Error ? { error: error.message, stack: error.stack, itemSku: item.sku } : { error: String(error), itemSku: item.sku });
       return {
         success: false,
         error: this.getErrorMessage(error)
@@ -141,7 +142,7 @@ class PriceRecalculationService {
       return { success: true };
 
     } catch (error) {
-      console.error('❌ Ошибка валидации комбинации:', error);
+      logger.error('Ошибка валидации комбинации', 'price-recalculation-service', error instanceof Error ? { error: error.message, stack: error.stack, itemSku: item.sku } : { error: String(error), itemSku: item.sku });
       return {
         success: false,
         error: 'Ошибка проверки доступности параметров'
@@ -260,7 +261,7 @@ class PriceRecalculationService {
    */
   clearCache(): void {
     this.cache.clear();
-    console.log('🗑️ Кэш цен очищен');
+    logger.info('Кэш цен очищен', 'price-recalculation-service');
   }
 
   /**

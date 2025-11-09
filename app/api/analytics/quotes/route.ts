@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { quoteAnalyticsService, AnalyticsFilters } from '@/lib/analytics/quote-analytics';
+import { logger } from '@/lib/logging/logger';
 
 // GET /api/analytics/quotes - Получить аналитику КП
 export async function GET(req: NextRequest) {
@@ -70,8 +71,8 @@ export async function GET(req: NextRequest) {
       generatedAt: new Date().toISOString()
     });
 
-  } catch (error: any) {
-    console.error('Error fetching quote analytics:', error);
+  } catch (error: unknown) {
+    logger.error('Error fetching quote analytics', 'analytics/quotes', error instanceof Error ? { error: error.message, stack: error.stack, type, filters } : { error: String(error), type, filters });
     return NextResponse.json(
       { error: 'Ошибка при получении аналитики КП' },
       { status: 500 }

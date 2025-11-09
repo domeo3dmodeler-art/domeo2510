@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { requireAuth } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError, NotFoundError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
 
-const prisma = new PrismaClient();
-
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
+    logger.info('Получение доступных параметров', 'available-params', { userId: user.userId });
     // Простой GET endpoint для тестирования
     const products = await prisma.product.findMany({
       where: {
@@ -26,7 +31,7 @@ export async function GET(req: NextRequest) {
       heights: new Set<number>()
     };
 
-    products.forEach(product => {
+    products.forEach((product: { properties_data: unknown }) => {
       const props = product.properties_data ? 
         (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
       
@@ -44,8 +49,14 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    return NextResponse.json({
-      success: true,
+    logger.info('Доступные параметры получены', 'available-params', { 
+      finishes: Array.from(availableParams.finishes).length,
+      colors: Array.from(availableParams.colors).length,
+      widths: Array.from(availableParams.widths).length,
+      heights: Array.from(availableParams.heights).length
+    });
+
+    return apiSuccess({
       params: {
         finishes: Array.from(availableParams.finishes).sort(),
         colors: Array.from(availableParams.colors).sort(),
@@ -54,34 +65,26 @@ export async function GET(req: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('❌ Error in GET /api/available-params:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch available parameters', details: error.message },
-      { status: 500 }
-    );
+    logger.error('Error in GET /api/available-params', 'available-params', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Failed to fetch available parameters', 500);
   }
 }
 
-export async function POST(req: NextRequest) {
-  console.log('🔍 POST /api/available-params called');
+export const GET = withErrorHandling(
+  requireAuth(getHandler),
+  'available-params/GET'
+);
+
+async function postHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const body = await req.json();
-    console.log('📥 Request body:', body);
-    console.log('📥 Raw style:', JSON.stringify(body.style));
-    console.log('📥 Raw model:', JSON.stringify(body.model));
+    logger.debug('Request body', 'available-params', { body });
     const { style, model, color } = body;
     
     if (!style || !model) {
-      console.log('❌ Missing style or model:', { style, model });
-      return NextResponse.json(
-        { error: 'Style and model are required' },
-        { 
-          status: 400,
-          headers: {
-            'Content-Type': 'application/json; charset=utf-8'
-          }
-        }
-      );
+      logger.warn('Missing style or model', 'available-params', { style, model });
+      throw new ValidationError('Style and model are required');
     }
 
     // Получаем все товары и фильтруем на клиенте
@@ -94,10 +97,10 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    console.log('📦 Total products loaded:', products.length);
+    logger.debug('Total products loaded', 'available-params', { count: products.length });
 
     // Фильтруем по стилю, модели и цвету (если указан) на клиенте
-    const filteredProducts = products.filter(product => {
+    const filteredProducts = products.filter((product: { properties_data: unknown }) => {
       try {
         const props = product.properties_data ? 
           (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
@@ -105,37 +108,18 @@ export async function POST(req: NextRequest) {
         const modelMatch = props?.['Domeo_Название модели для Web']?.includes(model);
         const colorMatch = !color || props?.['Domeo_Цвет'] === color; // Если цвет не указан, пропускаем проверку
         
-        // Логируем только первые несколько товаров для отладки
-        if (Math.random() < 0.01) { // 1% вероятность логирования
-          console.log('🔍 Product check:', {
-            style: props?.['Domeo_Стиль Web'],
-            model: props?.['Domeo_Название модели для Web'],
-            color: props?.['Domeo_Цвет'],
-            styleMatch,
-            modelMatch,
-            colorMatch,
-            requestedStyle: style,
-            requestedModel: model,
-            requestedColor: color
-          });
-        }
         return styleMatch && modelMatch && colorMatch;
       } catch (error) {
-        console.error('❌ Error parsing product properties:', error);
+        logger.error('Error parsing product properties', 'available-params', error instanceof Error ? { error: error.message } : { error: String(error) });
         return false;
       }
     });
 
-    console.log('📦 Filtered products:', filteredProducts.length);
+    logger.debug('Filtered products', 'available-params', { count: filteredProducts.length });
 
     if (filteredProducts.length === 0) {
-      console.log('❌ No products found for style:', style, 'model:', model);
-      return NextResponse.json({ error: 'No products found' }, { 
-        status: 404,
-        headers: {
-          'Content-Type': 'application/json; charset=utf-8'
-        }
-      });
+      logger.warn('No products found', 'available-params', { style, model });
+      throw new NotFoundError('No products found');
     }
 
     // Извлекаем уникальные значения для каждого параметра
@@ -147,7 +131,7 @@ export async function POST(req: NextRequest) {
       hardwareKits: new Set<string>()
     };
 
-    filteredProducts.forEach(product => {
+    filteredProducts.forEach((product: { properties_data: unknown }) => {
       const props = product.properties_data ? 
         (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
       
@@ -180,15 +164,10 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    console.log('🔧 Hardware kits found:', hardwareKits.length);
-    console.log('🔧 First few kits:', hardwareKits.slice(0, 3).map(kit => ({
-      id: kit.id,
-      name: kit.name,
-      props: kit.properties_data ? (typeof kit.properties_data === 'string' ? JSON.parse(kit.properties_data) : kit.properties_data) : {}
-    })));
+    logger.debug('Hardware kits found', 'available-params', { count: hardwareKits.length });
 
     const hardwareKitOptions: Array<{id: string, name: string}> = [];
-    hardwareKits.forEach(kit => {
+    hardwareKits.forEach((kit: { id: string; name: string; properties_data: unknown }) => {
       const props = kit.properties_data ? 
         (typeof kit.properties_data === 'string' ? JSON.parse(kit.properties_data) : kit.properties_data) : {};
       
@@ -202,8 +181,6 @@ export async function POST(req: NextRequest) {
         });
       }
     });
-
-    console.log('🔧 Hardware kit options:', hardwareKitOptions.length, hardwareKitOptions);
 
     // Получаем доступные ручки
     const handles = await prisma.product.findMany({
@@ -221,7 +198,7 @@ export async function POST(req: NextRequest) {
     });
 
     const handleOptions: Array<{id: string, name: string, group: string}> = [];
-    handles.forEach(handle => {
+    handles.forEach((handle: { id: string; name: string; properties_data: unknown }) => {
       const props = handle.properties_data ? 
         (typeof handle.properties_data === 'string' ? JSON.parse(handle.properties_data) : handle.properties_data) : {};
       if (props?.['Domeo_наименование ручки_1С'] || props?.['Domeo_наименование для Web']) {
@@ -233,7 +210,7 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    console.log('✅ Available params:', {
+    logger.info('Available params retrieved', 'available-params', {
       finishes: Array.from(availableParams.finishes).length,
       colors: Array.from(availableParams.colors).length,
       widths: Array.from(availableParams.widths).length,
@@ -259,16 +236,15 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Error fetching available parameters:', error);
-    console.error('❌ Error stack:', error.stack);
-    return NextResponse.json(
-      { error: 'Failed to fetch available parameters', details: error.message },
-      { 
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json; charset=utf-8'
-        }
-      }
-    );
+    logger.error('Error fetching available parameters', 'available-params', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError || error instanceof NotFoundError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Failed to fetch available parameters', 500);
   }
 }
+
+export const POST = withErrorHandling(
+  requireAuth(postHandler),
+  'available-params/POST'
+);

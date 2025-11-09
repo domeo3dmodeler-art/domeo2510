@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
+import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
+import { apiSuccess, apiError, withErrorHandling } from '@/lib/api/response';
+import { ValidationError } from '@/lib/api/errors';
+import { requireAuth } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
 // Оптимизированный кэш для фотографий
 const photosCache = new Map<string, { photos: string[], timestamp: number }>();
@@ -11,34 +15,33 @@ const CACHE_TTL = 10 * 60 * 1000; // 10 минут
 const modelsCache = new Map<string, { model: string, photos: string[], timestamp: number }>();
 const MODELS_CACHE_TTL = 30 * 60 * 1000; // 30 минут
 
-export async function GET(req: NextRequest) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const model = searchParams.get('model');
-    const style = searchParams.get('style');
+async function getHandler(
+  req: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(req);
+  const { searchParams } = new URL(req.url);
+  const model = searchParams.get('model');
+  const style = searchParams.get('style');
 
-    if (!model) {
-      return NextResponse.json(
-        { error: "Не указана модель" },
-        { status: 400 }
-      );
-    }
+  if (!model) {
+    throw new ValidationError('Не указана модель');
+  }
 
-    // Проверяем кэш фотографий
-    const cacheKey = `${model}_${style || 'all'}`;
-    const cached = photosCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      return NextResponse.json({
-        ok: true,
-        model,
-        style,
-        photos: cached.photos,
-        count: cached.photos.length,
-        cached: true
-      });
-    }
+  // Проверяем кэш фотографий
+  const cacheKey = `${model}_${style || 'all'}`;
+  const cached = photosCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return apiSuccess({
+      model,
+      style,
+      photos: cached.photos,
+      count: cached.photos.length,
+      cached: true
+    });
+  }
 
-    console.log('🔍 API photos-optimized - поиск фотографий для модели:', model);
+  logger.debug('API photos-optimized - поиск фотографий для модели', 'catalog/doors/photos-optimized/GET', { model, style }, loggingContext);
 
     // Сначала проверяем кэш моделей
     let photos: string[] = [];
@@ -48,7 +51,10 @@ export async function GET(req: NextRequest) {
       if (Date.now() - cachedData.timestamp < MODELS_CACHE_TTL) {
         if (cachedModel === model || cachedModel.includes(model)) {
           photos = cachedData.photos;
-          console.log(`✅ Найдено в кэше моделей: ${cachedModel} с ${photos.length} фотографиями`);
+          logger.debug('Найдено в кэше моделей', 'catalog/doors/photos-optimized/GET', {
+            cachedModel,
+            photosCount: photos.length
+          }, loggingContext);
           break;
         }
       }
@@ -56,7 +62,7 @@ export async function GET(req: NextRequest) {
 
     // Если не найдено в кэше, ищем в БД
     if (photos.length === 0) {
-      console.log('📦 API photos-optimized - поиск в БД');
+      logger.debug('API photos-optimized - поиск в БД', 'catalog/doors/photos-optimized/GET', {}, loggingContext);
       
       // Оптимизированный запрос: ищем только товары с фотографиями
       const products = await prisma.product.findMany({
@@ -81,7 +87,7 @@ export async function GET(req: NextRequest) {
         }
       });
 
-      console.log(`📦 Найдено ${products.length} товаров с фотографиями`);
+      logger.debug('Найдено товаров с фотографиями', 'catalog/doors/photos-optimized/GET', { productsCount: products.length }, loggingContext);
 
       // Обрабатываем товары
       const seenArticles = new Set<string>();
@@ -98,7 +104,11 @@ export async function GET(req: NextRequest) {
 
           // Точное совпадение модели
           if (productModel === model && productPhotos.length > 0) {
-            console.log(`✅ Найдена модель ${model} с артикулом ${productArticle} и ${productPhotos.length} фотографиями`);
+            logger.debug('Найдена модель с фотографиями', 'catalog/doors/photos-optimized/GET', {
+              model,
+              article: productArticle,
+              photosCount: productPhotos.length
+            }, loggingContext);
 
             if (productArticle && !seenArticles.has(productArticle)) {
               seenArticles.add(productArticle);
@@ -107,7 +117,7 @@ export async function GET(req: NextRequest) {
             break;
           }
         } catch (error) {
-          console.warn(`Ошибка обработки товара ${product.sku}:`, error);
+          logger.warn('Ошибка обработки товара', 'catalog/doors/photos-optimized/GET', { sku: product.sku, error }, loggingContext);
         }
       }
 
@@ -125,7 +135,11 @@ export async function GET(req: NextRequest) {
 
             // Частичное совпадение
             if (productModel && productModel.includes(model) && productPhotos.length > 0) {
-              console.log(`✅ Найдена модель ${model} (частичное совпадение) с артикулом ${productArticle}`);
+              logger.debug('Найдена модель (частичное совпадение) с фотографиями', 'catalog/doors/photos-optimized/GET', {
+                model,
+                article: productArticle,
+                photosCount: productPhotos.length
+              }, loggingContext);
 
               if (productArticle && !seenArticles.has(productArticle)) {
                 seenArticles.add(productArticle);
@@ -134,7 +148,7 @@ export async function GET(req: NextRequest) {
               break;
             }
           } catch (error) {
-            console.warn(`Ошибка обработки товара ${product.sku}:`, error);
+            logger.warn('Ошибка обработки товара', 'catalog/doors/photos-optimized/GET', { sku: product.sku, error }, loggingContext);
           }
         }
       }
@@ -155,20 +169,16 @@ export async function GET(req: NextRequest) {
       timestamp: Date.now()
     });
 
-    return NextResponse.json({
-      ok: true,
+    return apiSuccess({
       model,
       style,
       photos,
       count: photos.length,
       cached: false
     });
-
-  } catch (error) {
-    console.error('❌ API photos-optimized - ОШИБКА:', error);
-    return NextResponse.json(
-      { error: "Ошибка получения фотографий", details: (error as Error).message },
-      { status: 500 }
-    );
-  }
 }
+
+export const GET = withErrorHandling(
+  requireAuth(getHandler),
+  'catalog/doors/photos-optimized/GET'
+);

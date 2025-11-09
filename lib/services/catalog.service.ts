@@ -1,4 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 import {
   CatalogCategory,
   ProductProperty,
@@ -17,10 +18,11 @@ import {
   CreateFrontendCategoryDto,
   CatalogTreeResponse,
   PropertyModerationResponse,
-  CategoryWithPropertiesResponse
+  CategoryWithPropertiesResponse,
+  ExportFieldConfig,
+  ExportDisplayConfig,
+  FrontendDisplayConfig
 } from '../types/catalog';
-
-const prisma = new PrismaClient();
 
 export class CatalogService {
   // ===========================================
@@ -39,7 +41,7 @@ export class CatalogService {
 
     // Подсчитываем товары для каждой категории (прямые + из всех подкатегорий)
     const categoriesWithCounts = await Promise.all(
-      categories.map(async (category) => {
+      categories.map(async (category: CatalogCategory) => {
         // Считаем прямые товары в категории
         const directProductsCount = await prisma.product.count({
           where: {
@@ -57,7 +59,7 @@ export class CatalogService {
             select: { id: true }
           });
           
-          let allIds = subcategories.map(sub => sub.id);
+          let allIds = subcategories.map((sub: { id: string }) => sub.id);
           
           // Рекурсивно получаем ID всех вложенных подкатегорий
           for (const sub of subcategories) {
@@ -93,36 +95,37 @@ export class CatalogService {
     );
 
     // Строим иерархическое дерево
-    const categoryMap = new Map<string, any>();
-    const rootCategories: any[] = [];
+    type CategoryNode = CatalogCategory & { subcategories: CategoryNode[] };
+    const categoryMap = new Map<string, CategoryNode>();
+    const rootCategories: CategoryNode[] = [];
 
     // Сначала создаем карту всех категорий
-    categoriesWithCounts.forEach(category => {
+    categoriesWithCounts.forEach((category: CatalogCategory & { products_count?: number; direct_products_count?: number; subcategory_products_count?: number }) => {
       categoryMap.set(category.id, {
         ...category,
         subcategories: []
-      });
+      } as CategoryNode);
     });
 
     // Затем строим иерархию
-    categoriesWithCounts.forEach(category => {
+    categoriesWithCounts.forEach((category: CatalogCategory & { products_count?: number; direct_products_count?: number; subcategory_products_count?: number }) => {
       const categoryNode = categoryMap.get(category.id);
       
-      if (category.parent_id) {
+      if (categoryNode && category.parent_id) {
         const parent = categoryMap.get(category.parent_id);
         if (parent) {
           parent.subcategories.push(categoryNode);
         }
-      } else {
+      } else if (categoryNode) {
         rootCategories.push(categoryNode);
       }
     });
 
     // Функция для суммирования товаров в подкатегориях
-    const calculateTotalProducts = (category: any): number => {
-      let total = category.direct_products_count || 0; // Только прямые товары
+    const calculateTotalProducts = (category: CategoryNode): number => {
+      let total = (category as CategoryNode & { direct_products_count?: number }).direct_products_count || 0; // Только прямые товары
       if (category.subcategories && category.subcategories.length > 0) {
-        category.subcategories.forEach((subcategory: any) => {
+        category.subcategories.forEach((subcategory: CategoryNode) => {
           total += calculateTotalProducts(subcategory);
         });
       }
@@ -130,7 +133,7 @@ export class CatalogService {
     };
 
     // Обновляем счетчики товаров с учетом подкатегорий
-    const updateCategoryCounts = (category: any) => {
+    const updateCategoryCounts = (category: CategoryNode) => {
       if (category.subcategories && category.subcategories.length > 0) {
         category.subcategories.forEach(updateCategoryCounts);
         // Общее количество = прямые товары + товары из всех подкатегорий
@@ -279,8 +282,8 @@ export class CatalogService {
       }
     });
 
-    const pendingCount = properties.filter(p => 
-      p.category_assignments.length === 0
+    const pendingCount = properties.filter((p: ProductProperty & { category_assignments?: unknown[] }) => 
+      !p.category_assignments || p.category_assignments.length === 0
     ).length;
 
     return {
@@ -390,11 +393,11 @@ export class CatalogService {
       orderBy: { created_at: 'desc' }
     });
 
-    return templates.map(template => ({
+    return templates.map((template: ImportTemplate & { required_fields: string; calculator_fields: string; export_fields: string }) => ({
       ...template,
-      required_fields: JSON.parse(template.required_fields),
-      calculator_fields: JSON.parse(template.calculator_fields),
-      export_fields: JSON.parse(template.export_fields)
+      required_fields: JSON.parse(template.required_fields) as string[],
+      calculator_fields: JSON.parse(template.calculator_fields) as string[],
+      export_fields: JSON.parse(template.export_fields) as string[]
     }));
   }
 
@@ -418,10 +421,10 @@ export class CatalogService {
       orderBy: { export_type: 'asc' }
     });
 
-    return settings.map(setting => ({
+    return settings.map((setting: ExportSetting & { fields_config: string; display_config: string }) => ({
       ...setting,
-      fields_config: JSON.parse(setting.fields_config),
-      display_config: JSON.parse(setting.display_config)
+      fields_config: JSON.parse(setting.fields_config) as ExportFieldConfig[],
+      display_config: JSON.parse(setting.display_config) as ExportDisplayConfig
     }));
   }
 
@@ -435,10 +438,10 @@ export class CatalogService {
       orderBy: { name: 'asc' }
     });
 
-    return categories.map(category => ({
+    return categories.map((category: FrontendCategory & { catalog_category_ids: string; display_config: string }) => ({
       ...category,
-      catalog_category_ids: JSON.parse(category.catalog_category_ids),
-      display_config: JSON.parse(category.display_config)
+      catalog_category_ids: JSON.parse(category.catalog_category_ids) as string[],
+      display_config: JSON.parse(category.display_config) as FrontendDisplayConfig
     }));
   }
 
@@ -487,7 +490,7 @@ export class CatalogService {
   }
 
   async updateFrontendCategory(id: string, data: Partial<CreateFrontendCategoryDto>): Promise<FrontendCategory> {
-    const updateData: any = { ...data };
+    const updateData: Record<string, unknown> = { ...data };
     
     if (data.catalog_category_ids) {
       updateData.catalog_category_ids = JSON.stringify(data.catalog_category_ids);
@@ -535,7 +538,7 @@ export class CatalogService {
       sku: string;
       name: string;
       catalog_category_id: string;
-      properties_data: Record<string, any>;
+      properties_data: Record<string, unknown>;
       base_price: number;
       currency: string;
       stock_quantity: number;
@@ -600,7 +603,7 @@ export class CatalogService {
       prisma.product.count({ where })
     ]);
 
-    const processedProducts = products.map(product => ({
+    const processedProducts = products.map((product: { properties_data: string; [key: string]: unknown }) => ({
       ...product,
       properties_data: JSON.parse(product.properties_data)
     }));
@@ -741,7 +744,7 @@ export class CatalogService {
     created_at: Date;
     updated_at: Date;
   }> {
-    const updateData: any = { ...data };
+    const updateData: Record<string, unknown> = { ...data };
     
     if (data.properties_data) {
       updateData.properties_data = JSON.stringify(data.properties_data);

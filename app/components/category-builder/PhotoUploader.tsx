@@ -44,7 +44,7 @@ export default function PhotoUploader({
     try {
       const mappedPhotos: Record<string, string> = {};
       
-      console.log('Начинаем обработку фото:', {
+      clientLogger.debug('Начинаем обработку фото:', {
         photoFilesCount: mapping.photoFiles.length,
         priceListDataCount: priceListData.length,
         mappingType: mapping.mappingType,
@@ -89,15 +89,15 @@ export default function PhotoUploader({
                   
                   mappedPhotos[sku] = photoUrl;
                   matchedCount++;
-                  console.log(`Связано фото: ${matchingPhoto.name} -> ${sku} (URL переиспользован: ${photoUrlCache.has(matchingPhoto)})`);
+                  clientLogger.debug(`Связано фото: ${matchingPhoto.name} -> ${sku} (URL переиспользован: ${photoUrlCache.has(matchingPhoto)})`);
                 } else {
-                  console.log(`Не найдено фото для артикула: ${sku}`);
+                  clientLogger.debug(`Не найдено фото для артикула: ${sku}`);
                 }
               }
             });
             
-            console.log(`Обработано товаров: ${processedCount}, найдено совпадений: ${matchedCount}`);
-            console.log(`Уникальных фото использовано: ${photoUrlCache.size}`);
+            clientLogger.debug(`Обработано товаров: ${processedCount}, найдено совпадений: ${matchedCount}`);
+            clientLogger.debug(`Уникальных фото использовано: ${photoUrlCache.size}`);
             
             // Показываем статистику по фото
             const photoUsageStats = new Map<string, number>();
@@ -106,9 +106,9 @@ export default function PhotoUploader({
               photoUsageStats.set(photoUrl, count + 1);
             });
             
-            console.log('Статистика использования фото:');
+            clientLogger.debug('Статистика использования фото:');
             photoUsageStats.forEach((count, photoUrl) => {
-              console.log(`  ${photoUrl}: используется в ${count} товарах`);
+              clientLogger.debug(`  ${photoUrl}: используется в ${count} товарах`);
             });
           }
           break;
@@ -139,13 +139,13 @@ export default function PhotoUploader({
       
       setMapping(prev => ({ ...prev, mappedPhotos }));
       
-      console.log('Обработка завершена. Связано фото:', Object.keys(mappedPhotos).length);
+      clientLogger.debug('Обработка завершена. Связано фото:', Object.keys(mappedPhotos).length);
       
       // Имитация обработки
       await new Promise(resolve => setTimeout(resolve, 1000));
       
     } catch (error) {
-      console.error('Error processing photos:', error);
+      clientLogger.error('Error processing photos:', error);
     } finally {
       setIsProcessing(false);
     }

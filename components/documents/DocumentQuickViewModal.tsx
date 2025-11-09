@@ -6,6 +6,7 @@ import HistoryModal from '@/components/ui/HistoryModal';
 import CommentsModal from '@/components/ui/CommentsModal';
 import { toast } from 'sonner';
 import { Download, FileText, User, MapPin, Clock, X } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface DocumentQuickViewModalProps {
   isOpen: boolean;
@@ -122,7 +123,7 @@ export function DocumentQuickViewModal({ isOpen, onClose, documentId }: Document
         toast.success(`Документ ${format === 'pdf' ? 'PDF' : format === 'excel' ? 'Excel' : 'CSV'} скачан успешно`);
       }
     } catch (error) {
-      console.error('Ошибка скачивания:', error);
+      clientLogger.error('Ошибка скачивания:', error);
       toast.error(error instanceof Error ? error.message : 'Ошибка при скачивании документа');
     } finally {
       setIsDownloadingInvoice(false);
@@ -177,11 +178,11 @@ export function DocumentQuickViewModal({ isOpen, onClose, documentId }: Document
       }
 
       // Создаем заказ у поставщика через API (как в ЛК Исполнителя)
-      console.log('📦 Document data:', documentData);
-      console.log('📦 Document:', documentInfo);
-      console.log('📦 Cart data:', documentInfo.cart_data);
-      console.log('📦 Document keys:', Object.keys(documentInfo));
-      console.log('📦 Document items:', documentInfo.items);
+      clientLogger.debug('📦 Document data:', documentData);
+      clientLogger.debug('📦 Document:', documentInfo);
+      clientLogger.debug('📦 Cart data:', documentInfo.cart_data);
+      clientLogger.debug('📦 Document keys:', Object.keys(documentInfo));
+      clientLogger.debug('📦 Document items:', documentInfo.items);
       
       // Получаем данные корзины из исходного документа
       let cartData = { items: [] };
@@ -190,24 +191,24 @@ export function DocumentQuickViewModal({ isOpen, onClose, documentId }: Document
       if (documentInfo.cart_data) {
         try {
           cartData = JSON.parse(documentInfo.cart_data);
-          console.log('✅ Parsed cart data from document:', cartData);
+          clientLogger.debug('✅ Parsed cart data from document:', cartData);
         } catch (e) {
-          console.error('❌ Error parsing cart_data:', e);
+          clientLogger.error('❌ Error parsing cart_data:', e);
         }
       }
       
       // Если cart_data пустой, пытаемся получить данные из items документа
       if (!cartData.items || cartData.items.length === 0) {
-        console.log('📦 Trying to get items from document:', documentInfo);
+        clientLogger.debug('📦 Trying to get items from document:', documentInfo);
         if (documentInfo.items && Array.isArray(documentInfo.items)) {
           cartData = { items: documentInfo.items };
-          console.log('✅ Using document.items as cart data:', cartData);
+          clientLogger.debug('✅ Using document.items as cart data:', cartData);
         }
       }
       
       // Если все еще пусто, получаем данные из связанного заказа
       if (!cartData.items || cartData.items.length === 0) {
-        console.log('📦 Trying to get cart data from related order...');
+        clientLogger.debug('📦 Trying to get cart data from related order...');
         try {
           const token = localStorage.getItem('token');
           const orderResponse = await fetch(`/api/orders/${orderId}`, {
@@ -218,23 +219,23 @@ export function DocumentQuickViewModal({ isOpen, onClose, documentId }: Document
           });
           if (orderResponse.ok) {
             const orderData = await orderResponse.json();
-            console.log('📦 Order data:', orderData);
+            clientLogger.debug('📦 Order data:', orderData);
             
             if (orderData.order && orderData.order.cart_data) {
               const orderCartData = JSON.parse(orderData.order.cart_data);
               cartData = orderCartData;
-              console.log('✅ Using order cart data:', cartData);
+              clientLogger.debug('✅ Using order cart data:', cartData);
             }
           } else {
-            console.warn('⚠️ Order API error:', orderResponse.status, orderResponse.statusText, '- продолжаем без данных заказа');
+            clientLogger.warn('⚠️ Order API error:', orderResponse.status, orderResponse.statusText, '- продолжаем без данных заказа');
           }
         } catch (e) {
-          console.warn('⚠️ Error getting order cart data:', e, '- продолжаем без данных заказа');
+          clientLogger.warn('⚠️ Error getting order cart data:', e, '- продолжаем без данных заказа');
         }
       }
       
-      console.log('📦 Final cart data for supplier order:', cartData);
-      console.log('📦 Final cart data items count:', cartData.items ? cartData.items.length : 0);
+      clientLogger.debug('📦 Final cart data for supplier order:', cartData);
+      clientLogger.debug('📦 Final cart data items count:', cartData.items ? cartData.items.length : 0);
       
       const response = await fetch(`${window.location.origin}/api/supplier-orders`, {
         method: 'POST',
@@ -257,21 +258,21 @@ export function DocumentQuickViewModal({ isOpen, onClose, documentId }: Document
       }
 
       const result = await response.json();
-      console.log('✅ Supplier Order created:', result);
+      clientLogger.debug('✅ Supplier Order created:', result);
 
       // Проверяем, что заказ был создан успешно
       if (!result.supplierOrder || !result.supplierOrder.id) {
         throw new Error('Заказ поставщику не был создан или не содержит ID');
       }
 
-      console.log('📥 Скачиваем Excel для заказа:', result.supplierOrder.id);
+      clientLogger.debug('📥 Скачиваем Excel для заказа:', result.supplierOrder.id);
 
       // Скачиваем Excel файл (как в ЛК Исполнителя)
       const excelResponse = await fetch(`/api/supplier-orders/${result.supplierOrder.id}/excel`);
 
       if (!excelResponse.ok) {
         const errorText = await excelResponse.text();
-        console.error('Excel download error:', errorText);
+        clientLogger.error('Excel download error:', errorText);
         
         // Показываем пользователю более информативное сообщение
         toast.error(`Не удалось скачать Excel файл. Заказ создан с ID: ${result.supplierOrder.id}`);
@@ -291,7 +292,7 @@ export function DocumentQuickViewModal({ isOpen, onClose, documentId }: Document
       
       toast.success('Excel файл успешно скачан');
     } catch (error) {
-      console.error('Ошибка скачивания заказа поставщику:', error);
+      clientLogger.error('Ошибка скачивания заказа поставщику:', error);
       toast.error(error instanceof Error ? error.message : 'Ошибка при скачивании заказа поставщику');
     } finally {
       setIsDownloadingOrder(false);
@@ -315,7 +316,7 @@ export function DocumentQuickViewModal({ isOpen, onClose, documentId }: Document
         onClose();
       }
     } catch (error) {
-      console.error('Ошибка загрузки документа:', error);
+      clientLogger.error('Ошибка загрузки документа:', error);
       toast.error('Ошибка при загрузке документа');
       onClose();
     } finally {

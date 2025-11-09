@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { logger } from '@/lib/logging/logger';
 
-const prisma = new PrismaClient();
-
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
-    console.log('=== STATS API CALL ===');
+    const user = await getAuthenticatedUser(req);
+    logger.info('Получение статистики', 'admin/stats', { userId: user.userId });
     
     // Получаем реальные данные из БД
     const categories = await prisma.catalogCategory.findMany({
@@ -64,21 +67,27 @@ export async function GET(req: NextRequest) {
       total: totalStats
     };
     
-    console.log('Active categories:', activeCategories);
-    console.log('Total stats:', totalStats);
+    logger.info('Статистика получена', 'admin/stats', { 
+      totalCategories: totalStats.totalCategories,
+      totalProducts: totalStats.totalProducts,
+      totalImports: totalStats.totalImports
+    });
     
-    return NextResponse.json(result);
+    return apiSuccess(result);
   } catch (error) {
-    console.error('Error fetching stats:', error);
-    return NextResponse.json(
-      { error: "Ошибка получения статистики" },
-      { status: 500 }
-    );
+    logger.error('Error fetching stats', 'admin/stats', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка получения статистики', 500);
   }
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withErrorHandling(
+  requireAuthAndPermission(getHandler, 'ADMIN'),
+  'admin/stats/GET'
+);
+
+async function postHandler(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const { imported, filename, category } = await req.json();
     
     // Создаем запись в истории импортов
@@ -93,15 +102,17 @@ export async function POST(req: NextRequest) {
         }
       });
       
-      console.log(`Created import history record for category ${category}`);
+      logger.info('Создана запись истории импорта', 'admin/stats', { userId: user.userId, category, imported });
     }
     
-    return NextResponse.json({ success: true });
+    return apiSuccess({ success: true });
   } catch (error) {
-    console.error('Error updating stats:', error);
-    return NextResponse.json(
-      { error: "Ошибка обновления статистики" },
-      { status: 500 }
-    );
+    logger.error('Error updating stats', 'admin/stats', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка обновления статистики', 500);
   }
 }
+
+export const POST = withErrorHandling(
+  requireAuthAndPermission(postHandler, 'ADMIN'),
+  'admin/stats/POST'
+);

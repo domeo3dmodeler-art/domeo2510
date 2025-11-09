@@ -1,6 +1,8 @@
 // Система канонических шаблонов импорта для DOMEO
 // Каждый шаблон создается при первом импорте в категорию
 
+import { logger } from '@/lib/logging/logger';
+
 export interface CanonicalTemplateField {
   canonicalName: string;        // Каноническое название (например, "supplier_sku")
   displayName: string;          // Отображаемое название (например, "Артикул поставщика")
@@ -73,9 +75,7 @@ export class CanonicalImportService {
       const headers = jsonData[0] as string[];
       const rows = jsonData.slice(1) as any[][];
       
-      console.log('📊 Создание шаблона из Excel:');
-      console.log('Заголовки:', headers);
-      console.log('Количество строк:', rows.length);
+      logger.info('Создание шаблона из Excel', 'canonical-import-service', { catalogCategoryId, headers, rowsCount: rows.length });
       
       // Анализируем каждую колонку
       const fieldAnalysis = headers.map((header, index) => {
@@ -106,7 +106,7 @@ export class CanonicalImportService {
         };
       });
       
-      console.log('🔍 Анализ полей:', fieldAnalysis);
+      logger.debug('Анализ полей', 'canonical-import-service', { catalogCategoryId, fieldAnalysis });
       
       // Создаем канонические поля
       const canonicalFields: CanonicalTemplateField[] = fieldAnalysis.map((analysis, index) => {
@@ -137,7 +137,7 @@ export class CanonicalImportService {
         createdBy: userId
       };
       
-      console.log('✅ Создан канонический шаблон:', template);
+      logger.info('Создан канонический шаблон', 'canonical-import-service', { catalogCategoryId, templateId: template.id, fieldsCount: template.fields.length });
       
       return {
         template,
@@ -150,7 +150,7 @@ export class CanonicalImportService {
       };
       
     } catch (error) {
-      console.error('❌ Ошибка при создании шаблона:', error);
+      logger.error('Ошибка при создании шаблона', 'canonical-import-service', error instanceof Error ? { error: error.message, stack: error.stack, catalogCategoryId } : { error: String(error), catalogCategoryId });
       throw error;
     }
   }
@@ -187,9 +187,7 @@ export class CanonicalImportService {
       const headers = jsonData[0] as string[];
       const rows = jsonData.slice(1) as any[][];
       
-      console.log('📊 Импорт по шаблону:');
-      console.log('Заголовки файла:', headers);
-      console.log('Поля шаблона:', template.fields.map(f => f.displayName));
+      logger.info('Импорт по шаблону', 'canonical-import-service', { templateId: template.id, catalogCategoryId: template.catalogCategoryId, headers, templateFields: template.fields.map(f => f.displayName) });
       
       // Проверяем соответствие заголовков шаблону
       const validationResult = this.validateHeadersAgainstTemplate(headers, template);
@@ -207,7 +205,7 @@ export class CanonicalImportService {
       // Создаем маппинг колонок на поля шаблона
       const columnMapping = this.createColumnMapping(headers, template);
       
-      console.log('🔗 Маппинг колонок:', columnMapping);
+      logger.debug('Маппинг колонок', 'canonical-import-service', { templateId: template.id, columnMapping });
       
       // Находим поле для поиска товаров (обычно SKU)
       const searchField = template.fields.find(f => f.isUnique);
@@ -258,7 +256,7 @@ export class CanonicalImportService {
           }
           
           const searchValueStr = searchValue.toString().trim();
-          console.log(`\n🔍 Обработка товара: ${searchValueStr}`);
+          logger.debug('Обработка товара', 'canonical-import-service', { templateId: template.id, searchValue: searchValueStr, rowIndex: rowIndex + 2 });
           
           // Собираем данные товара по шаблону
           const productData: Record<string, any> = {};
@@ -317,7 +315,7 @@ export class CanonicalImportService {
               errors: updateResult.errors
             });
             
-            console.log(`✅ Товар ${searchValueStr} обновлен`);
+            logger.debug('Товар обновлен', 'canonical-import-service', { templateId: template.id, searchValue: searchValueStr });
             
           } else if (updateMode !== 'replace') {
             // Создаем новый товар
@@ -334,7 +332,7 @@ export class CanonicalImportService {
               errors: createResult.errors
             });
             
-            console.log(`✅ Товар ${searchValueStr} создан`);
+            logger.debug('Товар создан', 'canonical-import-service', { templateId: template.id, searchValue: searchValueStr });
             
           } else {
             results.warnings.push(`Строка ${rowIndex + 2}: Товар "${searchValueStr}" не найден (режим замены)`);
@@ -343,20 +341,16 @@ export class CanonicalImportService {
         } catch (error) {
           const errorMsg = `Ошибка при обработке строки ${rowIndex + 2}: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`;
           results.errors.push(errorMsg);
-          console.error(errorMsg);
+          logger.error('Ошибка при обработке строки', 'canonical-import-service', error instanceof Error ? { error: error.message, stack: error.stack, templateId: template.id, rowIndex: rowIndex + 2 } : { error: String(error), templateId: template.id, rowIndex: rowIndex + 2 });
         }
       }
       
-      console.log(`\n📊 ИТОГИ ИМПОРТА:`);
-      console.log(`✅ Создано товаров: ${results.imported}`);
-      console.log(`🔄 Обновлено товаров: ${results.updated}`);
-      console.log(`❌ Ошибок: ${results.errors.length}`);
-      console.log(`⚠️ Предупреждений: ${results.warnings.length}`);
+      logger.info('Итоги импорта', 'canonical-import-service', { templateId: template.id, imported: results.imported, updated: results.updated, errorsCount: results.errors.length, warningsCount: results.warnings.length });
       
       return results;
       
     } catch (error) {
-      console.error('❌ Критическая ошибка при импорте:', error);
+      logger.error('Критическая ошибка при импорте', 'canonical-import-service', error instanceof Error ? { error: error.message, stack: error.stack, templateId: template?.id } : { error: String(error), templateId: template?.id });
       return {
         success: false,
         imported: 0,

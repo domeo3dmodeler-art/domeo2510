@@ -1,5 +1,68 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
+
+interface DocumentNode {
+  id: string;
+  number: string;
+  type: string;
+  status: string;
+  total: number | null;
+  date: Date;
+  children: DocumentNode[];
+  supplier?: string;
+}
+
+interface ClientDocuments {
+  quotes: Array<{
+    id: string;
+    number: string;
+    status: string;
+    total_amount: number | null;
+    created_at: Date;
+    orders: Array<{
+      id: string;
+      number: string;
+      status: string;
+      total_amount: number | null;
+      created_at: Date;
+      invoices: Array<{
+        id: string;
+        number: string;
+        status: string;
+        total_amount: number | null;
+        created_at: Date;
+      }>;
+      supplier_orders: Array<{
+        id: string;
+        status: string;
+        supplier_name: string | null;
+        created_at: Date;
+      }>;
+    }>;
+    invoices: Array<{
+      id: string;
+      number: string;
+      status: string;
+      total_amount: number | null;
+      created_at: Date;
+    }>;
+  }>;
+  orders: Array<{
+    id: string;
+    number: string;
+    status: string;
+    total_amount: number | null;
+    created_at: Date;
+  }>;
+  invoices: Array<{
+    id: string;
+    number: string;
+    status: string;
+    total_amount: number | null;
+    created_at: Date;
+  }>;
+}
 
 // API для получения связанных документов
 export async function GET(req: NextRequest) {
@@ -107,7 +170,7 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Error fetching related documents:', error);
+    logger.error('Error fetching related documents', 'documents/related', error instanceof Error ? { error: error.message, stack: error.stack, documentType, documentId } : { error: String(error), documentType, documentId });
     return NextResponse.json({ error: 'Ошибка при получении связанных документов' }, { status: 500 });
   }
 }
@@ -180,14 +243,19 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Error fetching client document tree:', error);
+    logger.error('Error fetching client document tree', 'documents/related', error instanceof Error ? { error: error.message, stack: error.stack, clientId } : { error: String(error), clientId });
     return NextResponse.json({ error: 'Ошибка при получении дерева документов клиента' }, { status: 500 });
   }
 }
 
 // Функция для построения дерева документов
-function buildDocumentTree(clientDocuments: any) {
-  const tree = {
+function buildDocumentTree(clientDocuments: ClientDocuments) {
+  const tree: {
+    quotes: DocumentNode[];
+    orders: DocumentNode[];
+    invoices: DocumentNode[];
+    supplierOrders: DocumentNode[];
+  } = {
     quotes: [],
     orders: [],
     invoices: [],
@@ -195,7 +263,7 @@ function buildDocumentTree(clientDocuments: any) {
   };
 
   // Обрабатываем КП
-  clientDocuments.quotes.forEach((quote: any) => {
+  clientDocuments.quotes.forEach((quote) => {
     const quoteNode = {
       id: quote.id,
       number: quote.number,
@@ -207,7 +275,7 @@ function buildDocumentTree(clientDocuments: any) {
     };
 
     // Добавляем связанные заказы
-    quote.orders.forEach((order: any) => {
+    quote.orders.forEach((order) => {
       const orderNode = {
         id: order.id,
         number: order.number,
@@ -219,7 +287,7 @@ function buildDocumentTree(clientDocuments: any) {
       };
 
       // Добавляем связанные счета
-      order.invoices.forEach((invoice: any) => {
+      order.invoices.forEach((invoice) => {
         orderNode.children.push({
           id: invoice.id,
           number: invoice.number,
@@ -232,7 +300,7 @@ function buildDocumentTree(clientDocuments: any) {
       });
 
       // Добавляем заказы у поставщика
-      order.supplier_orders.forEach((supplierOrder: any) => {
+      order.supplier_orders.forEach((supplierOrder) => {
         orderNode.children.push({
           id: supplierOrder.id,
           number: supplierOrder.id.slice(-6),
@@ -248,7 +316,7 @@ function buildDocumentTree(clientDocuments: any) {
     });
 
     // Добавляем прямые счета из КП
-    quote.invoices.forEach((invoice: any) => {
+    quote.invoices.forEach((invoice) => {
       quoteNode.children.push({
         id: invoice.id,
         number: invoice.number,

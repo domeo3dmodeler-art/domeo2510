@@ -18,6 +18,7 @@ import {
   CartStats
 } from './types';
 import { priceService, PriceCalculationRequest } from '../price/price-service';
+import { logger } from '../logging/logger';
 
 export class CartService {
   private static instance: CartService;
@@ -87,7 +88,7 @@ export class CartService {
       try {
         listener(this.cart);
       } catch (error) {
-        console.error('Error in cart listener:', error);
+        logger.error('Error in cart listener', 'cart-service', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
       }
     });
   }
@@ -98,7 +99,7 @@ export class CartService {
       try {
         listener(event);
       } catch (error) {
-        console.error('Error in cart event listener:', error);
+        logger.error('Error in cart event listener', 'cart-service', error instanceof Error ? { error: error.message, stack: error.stack, eventType: event.type } : { error: String(error), eventType: event.type });
       }
     });
   }
@@ -179,7 +180,8 @@ export class CartService {
       return currentValue !== newValue;
     });
 
-    console.log('🔍 CartService change detection:', {
+    logger.debug('CartService change detection', 'cart-service', {
+      itemId,
       updates,
       currentItem: {
         hardwareKitId: cartItem.hardwareKitId,
@@ -193,7 +195,7 @@ export class CartService {
 
     // Если нет реальных изменений, возвращаем текущий товар
     if (!hasRealChanges) {
-      console.log('⏭️ No real changes detected in CartService, skipping update');
+      logger.debug('No real changes detected in CartService, skipping update', 'cart-service', { itemId });
       return cartItem;
     }
 
@@ -209,9 +211,9 @@ export class CartService {
     // Если изменились параметры двери (включая комплект фурнитуры), пересчитываем цену через API
     if (updatedItem.categoryId === 'doors' && 
         (updates.hardwareKitId !== undefined || updates.metadata)) {
-      console.log('🔄 Обнаружено изменение параметров двери, запускаем пересчет цены через API');
+      logger.debug('Обнаружено изменение параметров двери, запускаем пересчет цены через API', 'cart-service', { itemId, categoryId: updatedItem.categoryId });
       this.recalculateItemPrice(itemId).catch(error => {
-        console.error('❌ Ошибка пересчета цены:', error);
+        logger.error('Ошибка пересчета цены', 'cart-service', error instanceof Error ? { error: error.message, stack: error.stack, itemId } : { error: String(error), itemId });
         // Fallback к локальному расчету
         this.calculateItemPrices(updatedItem);
         this.calculateCartTotals();
@@ -494,10 +496,11 @@ export class CartService {
           hardware_kit: item.hardwareKitId ? { id: item.hardwareKitId } : undefined
         };
 
-        console.log('🔄 Пересчет цены товара через унифицированный сервис:', requestData);
+        logger.debug('Пересчет цены товара через унифицированный сервис', 'cart-service', { itemId, requestData });
 
         const priceResult = await priceService.calculatePriceUniversal(requestData);
         const newPrice = priceResult.total;
+        const oldPrice = item.basePrice;
         
         // Обновляем базовую цену товара
         item.basePrice = newPrice;
@@ -506,7 +509,7 @@ export class CartService {
         this.calculateItemPrices(item);
         this.calculateCartTotals();
         
-        console.log('✅ Цена товара обновлена:', { itemId, oldPrice: item.basePrice, newPrice });
+        logger.debug('Цена товара обновлена', 'cart-service', { itemId, oldPrice, newPrice });
         
         // Создаем событие
         const event: CartEvent = {
@@ -524,7 +527,7 @@ export class CartService {
         this.notifyListeners();
         
       } catch (error) {
-        console.error('❌ Ошибка пересчета цены товара:', error);
+        logger.error('Ошибка пересчета цены товара', 'cart-service', error instanceof Error ? { error: error.message, stack: error.stack, itemId } : { error: String(error), itemId });
         throw error;
       }
     } else {
@@ -647,7 +650,7 @@ export class CartService {
           };
           this.notifyListeners();
         } catch (error) {
-          console.error('Error loading cart from storage:', error);
+          logger.error('Error loading cart from storage', 'cart-service', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
         }
       }
     }

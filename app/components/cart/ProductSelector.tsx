@@ -43,7 +43,7 @@ export default function ProductSelector({ onProductAdded, className = "" }: Prod
         setCategories(data.categories || []);
       }
     } catch (error) {
-      console.error('Error loading categories:', error);
+      clientLogger.error('Error loading categories:', error);
     }
   }, []);
 
@@ -61,7 +61,7 @@ export default function ProductSelector({ onProductAdded, className = "" }: Prod
         setProducts(data.products || []);
       }
     } catch (error) {
-      console.error('Error loading products:', error);
+      clientLogger.error('Error loading products:', error);
     } finally {
       setIsLoading(false);
     }
@@ -132,7 +132,7 @@ export default function ProductSelector({ onProductAdded, className = "" }: Prod
       }
 
     } catch (error) {
-      console.error('Error adding product to cart:', error);
+      clientLogger.error('Error adding product to cart:', error);
       alert('Ошибка при добавлении товара в корзину');
     }
   };

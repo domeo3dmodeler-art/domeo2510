@@ -63,7 +63,7 @@ export function CatalogSelector({
           autoExpand(data.categories || []);
         }
       } catch (error) {
-        console.error('Error loading catalog tree:', error);
+        clientLogger.error('Error loading catalog tree:', error);
       } finally {
         setLoading(false);
       }
@@ -91,7 +91,7 @@ export function CatalogSelector({
           setProperties(data.properties || []);
         }
       } catch (error) {
-        console.error('Error loading properties:', error);
+        clientLogger.error('Error loading properties:', error);
       } finally {
         setLoading(false);
       }

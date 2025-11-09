@@ -13,6 +13,7 @@ import {
   ArrowRight,
   Link
 } from 'lucide-react';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface SimpleDocument {
   id: string;
@@ -105,7 +106,7 @@ export default function SimpleDocumentList({ clientId, onDocumentSelect, onCreat
         setDocuments(allDocuments);
       }
     } catch (error) {
-      console.error('Error fetching documents:', error);
+      clientLogger.error('Error fetching documents:', error);
     } finally {
       setLoading(false);
     }
@@ -244,7 +245,9 @@ export default function SimpleDocumentList({ clientId, onDocumentSelect, onCreat
                 </button>
                 
                 <button
-                  onClick={() => {/* TODO: Download */}}
+                  onClick={() => {
+                    clientLogger.debug('Download document clicked');
+                  }}
                   className="p-1 hover:bg-gray-200 rounded"
                   title="Скачать"
                 >

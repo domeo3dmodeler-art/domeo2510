@@ -524,7 +524,8 @@ export default function AdvancedConstructor() {
                             variant="outline"
                             onClick={(e) => {
                               e.stopPropagation();
-                              // TODO: Редактирование
+                              // Функция редактирования элемента будет реализована позже
+                              clientLogger.debug('Edit element clicked', { elementId: element.id });
                             }}
                           >
                             <Edit className="h-4 w-4" />

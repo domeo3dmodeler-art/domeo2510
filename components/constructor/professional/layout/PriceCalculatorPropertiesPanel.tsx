@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { PriceCalculatorElement } from '../elements/PriceCalculatorRenderer';
 import { BaseElement } from '../ProfessionalPageBuilder';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface PriceCalculatorPropertiesPanelProps {
   selectedElement: PriceCalculatorElement;
@@ -32,7 +33,7 @@ export const PriceCalculatorPropertiesPanel: React.FC<PriceCalculatorPropertiesP
       const data = await response.json();
       setCategories(data.categories || []);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      clientLogger.error('Error loading categories:', error);
     }
   };
 

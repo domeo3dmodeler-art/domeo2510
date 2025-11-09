@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Select, Input, Alert } from '@/components/ui';
 import { ShoppingCart, Package, Settings, Calculator } from 'lucide-react';
 import DiscountManager from '../cart/DiscountManager';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface DoorProduct {
   id: string;
@@ -152,7 +153,7 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
       }
 
     } catch (err) {
-      console.error('Error loading data:', err);
+      clientLogger.error('Error loading data:', err);
       setError('Ошибка загрузки данных. Проверьте подключение к серверу.');
     } finally {
       setLoading(false);
@@ -233,7 +234,7 @@ export default function DoorsConfigurator({ categoryId = 'doors' }: DoorsConfigu
         return priceData.total || 0;
       }
     } catch (error) {
-      console.error('Error calculating price:', error);
+      clientLogger.error('Error calculating price:', error);
     }
     
     // Fallback к локальному расчету

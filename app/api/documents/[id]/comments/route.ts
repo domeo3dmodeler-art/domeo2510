@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 // GET /api/documents/[id]/comments - Получить комментарии документа
 export async function GET(
@@ -27,7 +28,7 @@ export async function GET(
 
     return NextResponse.json({ comments });
   } catch (error) {
-    console.error('Error fetching comments:', error);
+    logger.error('Error fetching comments', 'documents/[id]/comments', error instanceof Error ? { error: error.message, stack: error.stack, id } : { error: String(error), id });
     return NextResponse.json(
       { error: 'Failed to fetch comments' },
       { status: 500 }
@@ -45,15 +46,14 @@ export async function POST(
     const body = await request.json();
     const { text, user_id } = body;
 
-    console.log('🔍 POST /api/documents/[id]/comments:', {
+    logger.debug('POST /api/documents/[id]/comments', 'documents/[id]/comments', {
       documentId: id,
-      body,
-      text,
-      user_id
+      hasText: !!text,
+      hasUserId: !!user_id
     });
 
     if (!text || !user_id) {
-      console.log('❌ Missing required fields:', { text: !!text, user_id: !!user_id });
+      logger.warn('Missing required fields', 'documents/[id]/comments', { documentId: id, hasText: !!text, hasUserId: !!user_id });
       return NextResponse.json(
         { error: 'Text and user_id are required' },
         { status: 400 }
@@ -111,7 +111,7 @@ export async function POST(
 
     return NextResponse.json({ comment });
   } catch (error) {
-    console.error('Error creating comment:', error);
+    logger.error('Error creating comment', 'documents/[id]/comments', error instanceof Error ? { error: error.message, stack: error.stack, id } : { error: String(error), id });
     return NextResponse.json(
       { error: 'Failed to create comment' },
       { status: 500 }

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logging/logger';
 
 // GET /api/documents/[id]/children - Получение дочерних документов
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
 
-    console.log(`🔍 Получаем дочерние документы для ${id}`);
+    logger.debug('Получаем дочерние документы', 'documents/[id]/children', { id });
 
     const children = [];
 
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       ...supplierOrders.map(doc => ({ ...doc, documentType: 'supplier_order' }))
     );
 
-    console.log(`✅ Найдено ${children.length} дочерних документов`);
+    logger.debug('Найдено дочерних документов', 'documents/[id]/children', { id, childrenCount: children.length });
 
     return NextResponse.json({
       success: true,
@@ -55,7 +56,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     });
 
   } catch (error) {
-    console.error('❌ Ошибка получения дочерних документов:', error);
+    logger.error('Ошибка получения дочерних документов', 'documents/[id]/children', error instanceof Error ? { error: error.message, stack: error.stack, id } : { error: String(error), id });
     return NextResponse.json(
       { error: 'Ошибка при получении дочерних документов' },
       { status: 500 }

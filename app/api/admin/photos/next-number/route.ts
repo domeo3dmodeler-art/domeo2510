@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { ValidationError } from '@/lib/api/errors';
+import { logger } from '@/lib/logging/logger';
+
 // Импортируем функции напрямую для совместимости
 function parsePhotoFileName(fileName: string) {
   const nameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
@@ -44,41 +50,33 @@ function getNextPhotoNumber(existingPhotos: string[], baseName: string): number 
   return nextNumber;
 }
 
-const prisma = new PrismaClient();
-
 // GET /api/admin/photos/next-number - Получить следующий доступный номер для фото
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(request);
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
     const mappingProperty = searchParams.get('mapping_property');
     const propertyValue = searchParams.get('property_value');
 
     if (!category) {
-      return NextResponse.json(
-        { success: false, message: 'Не указана категория' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не указана категория');
     }
 
     if (!mappingProperty) {
-      return NextResponse.json(
-        { success: false, message: 'Не указано свойство для привязки' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не указано свойство для привязки');
     }
 
     if (!propertyValue) {
-      return NextResponse.json(
-        { success: false, message: 'Не указано значение свойства' },
-        { status: 400 }
-      );
+      throw new ValidationError('Не указано значение свойства');
     }
 
-    console.log('=== ПОЛУЧЕНИЕ СЛЕДУЮЩЕГО НОМЕРА ФОТО ===');
-    console.log('Категория:', category);
-    console.log('Свойство:', mappingProperty);
-    console.log('Значение:', propertyValue);
+    logger.info('Получение следующего номера фото', 'admin/photos/next-number', { 
+      userId: user.userId, 
+      category, 
+      mappingProperty, 
+      propertyValue 
+    });
 
     // Получаем товары с указанным значением свойства
     const products = await prisma.product.findMany({
@@ -132,16 +130,16 @@ export async function GET(request: NextRequest) {
         
         return false;
       } catch (error) {
-        console.error('Ошибка парсинга свойств товара:', error);
+        logger.error('Ошибка парсинга свойств товара', 'admin/photos/next-number', error instanceof Error ? { error: error.message } : { error: String(error) });
         return false;
       }
     });
 
-    console.log(`Найдено ${matchingProducts.length} товаров с значением "${propertyValue}"`);
+    logger.info(`Найдено ${matchingProducts.length} товаров с значением "${propertyValue}"`, 'admin/photos/next-number', { matchingProductsCount: matchingProducts.length });
 
     if (matchingProducts.length === 0) {
-      return NextResponse.json({
-        success: false,
+      logger.warn('Товары с указанным значением не найдены', 'admin/photos/next-number', { propertyValue });
+      return apiSuccess({
         message: `Товары с значением "${propertyValue}" не найдены`,
         nextNumber: 1
       });
@@ -157,17 +155,16 @@ export async function GET(request: NextRequest) {
           allExistingPhotos.push(...properties.photos);
         }
       } catch (error) {
-        console.error(`Ошибка парсинга фото товара ${product.sku}:`, error);
+        logger.error(`Ошибка парсинга фото товара ${product.sku}`, 'admin/photos/next-number', error instanceof Error ? { error: error.message } : { error: String(error) });
       }
     });
 
     // Получаем следующий номер для базового имени
     const nextNumber = getNextPhotoNumber(allExistingPhotos, propertyValue);
 
-    console.log(`Следующий номер для "${propertyValue}": ${nextNumber}`);
+    logger.info(`Следующий номер для "${propertyValue}": ${nextNumber}`, 'admin/photos/next-number', { nextNumber, existingPhotosCount: allExistingPhotos.length });
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       nextNumber: nextNumber,
       baseName: propertyValue,
       existingPhotos: allExistingPhotos.length,
@@ -175,10 +172,15 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Ошибка при получении следующего номера фото:', error);
-    return NextResponse.json(
-      { success: false, message: 'Ошибка сервера' },
-      { status: 500 }
-    );
+    logger.error('Ошибка при получении следующего номера фото', 'admin/photos/next-number', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    return apiError(ApiErrorCode.INTERNAL_SERVER_ERROR, 'Ошибка сервера', 500);
   }
 }
+
+export const GET = withErrorHandling(
+  requireAuthAndPermission(getHandler, 'ADMIN'),
+  'admin/photos/next-number/GET'
+);
