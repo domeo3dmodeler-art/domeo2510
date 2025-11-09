@@ -12,11 +12,12 @@ export async function GET(
     const resolvedParams = await params;
     let filePath = resolvedParams.path.join('/');
     
-    // Исправляем пути вида "uploadsproducts/..." -> "uploads/products/..."
+    // Исправляем пути вида "uploadsproducts/..." -> "products/..."
+    // (так как в fullPath уже добавляется "public/uploads")
     if (filePath.startsWith('uploadsproducts/')) {
-      filePath = `uploads/products/${filePath.substring(17)}`;
+      filePath = `products/${filePath.substring(17)}`;
     } else if (filePath.startsWith('uploadsproducts')) {
-      filePath = `uploads/products/${filePath.substring(16)}`;
+      filePath = `products/${filePath.substring(16)}`;
     }
     
     // Проверяем безопасность пути
