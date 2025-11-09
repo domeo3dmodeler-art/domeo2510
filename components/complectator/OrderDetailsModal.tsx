@@ -107,17 +107,42 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     
     setLoading(true);
     try {
-      const response = await fetch(`/api/orders/${orderId}`);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+
+      const response = await fetch(`/api/orders/${orderId}`, {
+        headers,
+        credentials: 'include'
+      });
+      
       if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.order) {
-          setOrder(data.order);
+        const responseData = await response.json();
+        clientLogger.debug('📦 Raw response from /api/orders/[id]:', responseData);
+        
+        // apiSuccess возвращает { success: true, data: { order: ... } }
+        const data = responseData && typeof responseData === 'object' && responseData !== null && 'data' in responseData
+          ? (responseData as { data: { order?: any } }).data
+          : null;
+        const orderData = data && 'order' in data ? data.order : null;
+        
+        if (orderData) {
+          clientLogger.debug('📦 Extracted order data:', orderData);
+          setOrder(orderData);
         } else {
-          toast.error('Ошибка при загрузке заказа');
+          clientLogger.warn('❌ Invalid response format from /api/orders/[id]:', responseData);
+          toast.error('Ошибка при загрузке заказа: неверный формат ответа');
           onClose();
         }
       } else {
-        toast.error('Ошибка при загрузке заказа');
+        const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
+        clientLogger.error('❌ Error fetching order:', { status: response.status, error: errorData });
+        toast.error(`Ошибка при загрузке заказа: ${errorData.error || response.statusText}`);
         onClose();
       }
     } catch (error) {
@@ -134,11 +159,30 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     if (!orderId) return;
     
     try {
-      const response = await fetch(`/api/quotes?parent_document_id=${orderId}`);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+
+      const response = await fetch(`/api/quotes?parent_document_id=${orderId}`, {
+        headers,
+        credentials: 'include'
+      });
+      
       if (response.ok) {
-        const data = await response.json();
-        if (data.quotes) {
-          setQuotes(data.quotes);
+        const responseData = await response.json();
+        // apiSuccess возвращает { success: true, data: { quotes: ... } }
+        const data = responseData && typeof responseData === 'object' && responseData !== null && 'data' in responseData
+          ? (responseData as { data: { quotes?: Quote[] } }).data
+          : null;
+        const quotesData = data && 'quotes' in data && Array.isArray(data.quotes) ? data.quotes : [];
+        
+        if (quotesData.length > 0) {
+          setQuotes(quotesData);
         }
       }
     } catch (error) {
@@ -304,11 +348,19 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     
     setChangingStatus(true);
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+
       const response = await fetch(`/api/orders/${order.id}/status`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
+        credentials: 'include',
         body: JSON.stringify({
           status: newStatus
         })
