@@ -168,107 +168,108 @@ function DashboardContent() {
         headers['x-auth-token'] = token;
       }
       
-      const promises = [
-        fetch('/api/admin/stats', {
-          headers,
-          credentials: 'include',
-        }).catch(err => {
-          clientLogger.error('Error fetching admin stats:', err);
-          return new Response(JSON.stringify({ error: 'Failed to fetch stats' }), { status: 500 });
-        }),
-        fetch('/api/users', {
-          headers,
-          credentials: 'include',
-        }).catch(err => {
-          clientLogger.error('Error fetching users:', err);
-          return new Response(JSON.stringify({ error: 'Failed to fetch users' }), { status: 500 });
-        })
-      ];
-
-      // Добавляем запрос статистики комплектатора если пользователь комплектатор
       const userRole = localStorage.getItem('userRole');
-      if (userRole === 'complectator') {
-        promises.push(
-          fetch('/api/complectator/stats', {
+      
+      // Запрашиваем статистику в зависимости от роли
+      if (userRole === 'admin') {
+        // Для админа запрашиваем admin stats и users
+        const promises = [
+          fetch('/api/admin/stats', {
             headers,
             credentials: 'include',
           }).catch(err => {
-            clientLogger.error('Error fetching complectator stats:', err);
-            return new Response(JSON.stringify({ error: 'Failed to fetch complectator stats' }), { status: 500 });
+            clientLogger.error('Error fetching admin stats:', err);
+            return new Response(JSON.stringify({ error: 'Failed to fetch stats' }), { status: 500 });
+          }),
+          fetch('/api/users', {
+            headers,
+            credentials: 'include',
+          }).catch(err => {
+            clientLogger.error('Error fetching users:', err);
+            return new Response(JSON.stringify({ error: 'Failed to fetch users' }), { status: 500 });
           })
-        );
-      }
+        ];
 
-      const responses = await Promise.all(promises);
-      
-      if (responses[0].ok) {
-        try {
-          let statsData: unknown;
+        const responses = await Promise.all(promises);
+        
+        if (responses[0].ok) {
           try {
-            statsData = await responses[0].json();
-          } catch (jsonError) {
-            clientLogger.error('Ошибка парсинга JSON ответа admin/stats:', jsonError);
-            statsData = null;
+            let statsData: unknown;
+            try {
+              statsData = await responses[0].json();
+            } catch (jsonError) {
+              clientLogger.error('Ошибка парсинга JSON ответа admin/stats:', jsonError);
+              statsData = null;
+            }
+            if (statsData) {
+              setStats(statsData);
+            }
+          } catch (err) {
+            clientLogger.error('Error parsing admin stats:', err);
           }
-          if (statsData) {
-            setStats(statsData);
-          }
-        } catch (err) {
-          clientLogger.error('Error parsing admin stats:', err);
-        }
-      } else {
-        // Если статус 403, это нормально для не-админов
-        if (responses[0].status === 403) {
-          clientLogger.debug('Admin stats недоступен (требуется роль ADMIN)');
         } else {
           clientLogger.warn('Admin stats endpoint returned:', responses[0].status);
         }
-      }
-      
-      if (responses[1].ok) {
-        try {
-          let usersData: unknown;
+        
+        if (responses[1].ok) {
           try {
-            usersData = await responses[1].json();
-          } catch (jsonError) {
-            clientLogger.error('Ошибка парсинга JSON ответа users:', jsonError);
-            return;
+            let usersData: unknown;
+            try {
+              usersData = await responses[1].json();
+            } catch (jsonError) {
+              clientLogger.error('Ошибка парсинга JSON ответа users:', jsonError);
+              return;
+            }
+            // apiSuccess возвращает { success: true, data: { users: ..., pagination: ... } }
+            const responseData = usersData && typeof usersData === 'object' && usersData !== null && 'data' in usersData
+              ? (usersData as { data: { users?: unknown[]; pagination?: any } }).data
+              : null;
+            const usersArray = responseData && 'users' in responseData && Array.isArray(responseData.users)
+              ? responseData.users
+              : [];
+            setUserCount(usersArray.length);
+          } catch (err) {
+            clientLogger.error('Error parsing users data:', err);
           }
-          // apiSuccess возвращает { success: true, data: { users: ..., pagination: ... } }
-          const responseData = usersData && typeof usersData === 'object' && usersData !== null && 'data' in usersData
-            ? (usersData as { data: { users?: unknown[]; pagination?: any } }).data
-            : null;
-          const usersArray = responseData && 'users' in responseData && Array.isArray(responseData.users)
-            ? responseData.users
-            : [];
-          setUserCount(usersArray.length);
-        } catch (err) {
-          clientLogger.error('Error parsing users data:', err);
-        }
-      } else {
-        clientLogger.warn('Users endpoint returned:', responses[1].status);
-      }
-
-      // Обрабатываем статистику комплектатора
-      if (userRole === 'complectator' && responses[2]?.ok) {
-        try {
-          let complectatorData: unknown;
-          try {
-            complectatorData = await responses[2].json();
-          } catch (jsonError) {
-            clientLogger.error('Ошибка парсинга JSON ответа complectator stats:', jsonError);
-            return;
-          }
-          const statsData = complectatorData && typeof complectatorData === 'object' && complectatorData !== null && 'stats' in complectatorData
-            ? (complectatorData as { stats: unknown }).stats
-            : null;
-          setComplectatorStats(statsData);
-        } catch (err) {
-          clientLogger.error('Error parsing complectator stats:', err);
+        } else {
+          clientLogger.warn('Users endpoint returned:', responses[1].status);
         }
       } else if (userRole === 'complectator') {
-        clientLogger.warn('Complectator stats endpoint returned:', responses[2]?.status);
+        // Для комплектатора запрашиваем только complectator stats
+        try {
+          const response = await fetch('/api/complectator/stats', {
+            headers,
+            credentials: 'include',
+          });
+          
+          if (response.ok) {
+            try {
+              let complectatorData: unknown;
+              try {
+                complectatorData = await response.json();
+              } catch (jsonError) {
+                clientLogger.error('Ошибка парсинга JSON ответа complectator stats:', jsonError);
+                return;
+              }
+              // apiSuccess возвращает { success: true, data: { stats: ... } }
+              const responseData = complectatorData && typeof complectatorData === 'object' && complectatorData !== null && 'data' in complectatorData
+                ? (complectatorData as { data: { stats?: unknown } }).data
+                : null;
+              const statsData = responseData && 'stats' in responseData
+                ? responseData.stats
+                : null;
+              setComplectatorStats(statsData);
+            } catch (err) {
+              clientLogger.error('Error parsing complectator stats:', err);
+            }
+          } else {
+            clientLogger.warn('Complectator stats endpoint returned:', response.status);
+          }
+        } catch (err) {
+          clientLogger.error('Error fetching complectator stats:', err);
+        }
       }
+      // Для других ролей (executor, manager) не запрашиваем статистику
     } catch (fetchStatsError) {
       clientLogger.error('Error loading stats:', fetchStatsError);
       // Не показываем ошибку пользователю, просто логируем
