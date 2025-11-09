@@ -1341,7 +1341,16 @@ export default function DoorsPage() {
         
         // apiSuccess возвращает { success: true, data: [...] }
         // Проверяем формат ответа
-        const kits = Array.isArray(kitsData) 
+        let kits: unknown[] = [];
+        if (Array.isArray(kitsData)) {
+          kits = kitsData;
+        } else if (kitsData && typeof kitsData === 'object' && 'data' in kitsData && Array.isArray(kitsData.data)) {
+          kits = kitsData.data;
+        } else if (kitsData && typeof kitsData === 'object' && 'kits' in kitsData && Array.isArray(kitsData.kits)) {
+          kits = kitsData.kits;
+        }
+        // Удаляем старую тернарную операцию
+        const kitsOld = Array.isArray(kitsData) 
           ? kitsData 
           : (kitsData && typeof kitsData === 'object' && 'data' in kitsData && Array.isArray(kitsData.data)
             ? kitsData.data 
