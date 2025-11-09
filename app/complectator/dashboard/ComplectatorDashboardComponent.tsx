@@ -186,7 +186,21 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     
     try {
       isClientsLoadingRef.current = true;
-      const response = await fetch('/api/clients');
+      
+      // Получаем токен для авторизации
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
+      const response = await fetch('/api/clients', {
+        headers,
+        credentials: 'include'
+      });
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -197,7 +211,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
           errorData = { error: errorText || `HTTP ${response.status}` };
         }
         
-        clientLogger.error('Failed to fetch clients', fetchClientsError, {
+        const fetchError = new Error(`Failed to fetch clients: ${response.status} ${response.statusText}`);
+        clientLogger.error('Failed to fetch clients', fetchError, {
           status: response.status,
           statusText: response.statusText,
           error: errorData
@@ -205,7 +220,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         
         // Показываем пользователю понятное сообщение
         if (response.status === 500) {
-          clientLogger.error('Ошибка подключения к базе данных. Убедитесь, что SSH туннель запущен.', fetchClientsError);
+          clientLogger.error('Ошибка подключения к базе данных. Убедитесь, что SSH туннель запущен.', fetchError);
         }
         
         return;
