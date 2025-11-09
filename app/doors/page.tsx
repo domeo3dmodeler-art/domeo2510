@@ -1039,7 +1039,9 @@ export default function DoorsPage() {
           // Оптимизированная загрузка фото для всех моделей
           if (rows.length > 0) {
             try {
-              const modelNames = rows.map((m: any) => m.model);
+              const modelNames = rows
+                .filter((m: unknown): m is { model: string } => m && typeof m === 'object' && 'model' in m && typeof (m as { model: unknown }).model === 'string')
+                .map((m) => m.model);
               const photoResponse = await fetch('/api/catalog/doors/photos-batch', {
                 method: 'POST',
                 headers,
@@ -1048,24 +1050,39 @@ export default function DoorsPage() {
               });
               
               if (photoResponse.ok) {
-                const photoData = await photoResponse.json();
+                let photoData: unknown;
+                try {
+                  photoData = await photoResponse.json();
+                } catch (jsonError) {
+                  clientLogger.error('Ошибка парсинга JSON ответа photos-batch:', jsonError);
+                  // Продолжаем без фото
+                  photoData = { photos: {} };
+                }
                 clientLogger.debug('⚡ Batch загрузка фото завершена для', modelNames.length, 'моделей');
                 clientLogger.debug('📸 photoData:', photoData);
                 
                 // Объединяем данные моделей с фото
-                const modelsWithPhotos = rows.map((model: any) => {
-                  const photoInfo = photoData.photos[model.model];
-                  clientLogger.debug(`📸 Model ${model.model}:`, {
+                const photoDataObj = photoData && typeof photoData === 'object' && 'photos' in photoData && photoData.photos && typeof photoData.photos === 'object'
+                  ? photoData.photos as Record<string, unknown>
+                  : {};
+                const modelsWithPhotos = rows.map((model: unknown) => {
+                  const modelObj = model && typeof model === 'object' && 'model' in model && typeof model.model === 'string'
+                    ? model as { model: string; photo?: string | null; photos?: { cover: string | null; gallery: string[] }; [key: string]: unknown }
+                    : { model: '' };
+                  const photoInfo = modelObj.model && photoDataObj[modelObj.model] && typeof photoDataObj[modelObj.model] === 'object'
+                    ? photoDataObj[modelObj.model] as { photo?: string; photos?: { cover?: string | null; gallery?: string[] } }
+                    : null;
+                  clientLogger.debug(`📸 Model ${modelObj.model}:`, {
                     'photoInfo': photoInfo,
-                    'model.photo': model.photo,
-                    'final photo': photoInfo?.photo || model.photo,
-                    'hasGallery': photoInfo?.photos?.gallery?.length > 0
+                    'model.photo': modelObj.photo,
+                    'final photo': photoInfo?.photo || modelObj.photo,
+                    'hasGallery': photoInfo?.photos?.gallery && Array.isArray(photoInfo.photos.gallery) && photoInfo.photos.gallery.length > 0
                   });
                   return {
-                    ...model,
-                    photo: photoInfo?.photo || model.photo,
-                    photos: photoInfo?.photos || model.photos,
-                    hasGallery: photoInfo?.photos?.gallery?.length > 0 || false
+                    ...modelObj,
+                    photo: photoInfo?.photo || modelObj.photo || null,
+                    photos: photoInfo?.photos || modelObj.photos,
+                    hasGallery: photoInfo?.photos?.gallery && Array.isArray(photoInfo.photos.gallery) && photoInfo.photos.gallery.length > 0 || false
                   };
                 });
                 
@@ -1202,7 +1219,9 @@ export default function DoorsPage() {
           // Загружаем фото для всех моделей
           if (rows.length > 0) {
             try {
-              const modelNames = rows.map((m: any) => m.model);
+              const modelNames = rows
+                .filter((m: unknown): m is { model: string } => m && typeof m === 'object' && 'model' in m && typeof (m as { model: unknown }).model === 'string')
+                .map((m) => m.model);
               const photoResponse = await fetch('/api/catalog/doors/photos-batch', {
                 method: 'POST',
                 headers,
