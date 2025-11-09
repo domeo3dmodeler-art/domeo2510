@@ -234,7 +234,22 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
             {/* Основное изображение */}
             <div className="flex items-center justify-center relative flex-none max-h-[80vh]">
               <img
-                src={allPhotos[currentIndex].startsWith('/uploads') ? `/api${allPhotos[currentIndex]}` : `/api/uploads${allPhotos[currentIndex]}`}
+                src={(() => {
+                  const photo = allPhotos[currentIndex];
+                  if (photo.startsWith('/uploads/')) {
+                    return `/api${photo}`;
+                  } else if (photo.startsWith('/uploadsproducts')) {
+                    return `/api/uploads/products/${photo.substring(17)}`;
+                  } else if (photo.startsWith('/uploads')) {
+                    return `/api/uploads/${photo.substring(8)}`;
+                  } else if (photo.startsWith('products/')) {
+                    return `/api/uploads/${photo}`;
+                  } else if (photo.startsWith('uploads/')) {
+                    return `/api/${photo}`;
+                  } else {
+                    return `/api/uploads${photo}`;
+                  }
+                })()}
                 alt={`${productName} - увеличенное фото ${currentIndex + 1}`}
                 className="max-w-full max-h-[80vh] object-contain"
                 onClick={(e) => e.stopPropagation()}
