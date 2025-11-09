@@ -98,7 +98,8 @@ export class ExportService {
 }
 
 // Экспортируем типы для клиентских компонентов
-export type { CartItem } from '@/lib/cart/types';
+import type { CartItem as CartItemType } from '@/lib/cart/types';
+export type CartItem = CartItemType;
 
 export interface ExportOptions {
   format?: 'html' | 'pdf' | 'excel' | 'csv' | 'xlsx';
