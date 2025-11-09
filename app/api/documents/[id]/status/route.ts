@@ -15,7 +15,7 @@ import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 // PATCH /api/documents/[id]/status - Изменение статуса документа
 async function handler(
   req: NextRequest, 
-  user: ReturnType<typeof getAuthenticatedUser>,
+  user: Awaited<ReturnType<typeof getAuthenticatedUser>>,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const loggingContext = getLoggingContextFromRequest(req);
@@ -106,13 +106,19 @@ async function handler(
 
   // Отправляем уведомления
   try {
+    // Для документов получаем complectator_id и executor_id, если они есть
+    const complectatorId = (document as any).complectator_id || null;
+    const executorId = (document as any).executor_id || null;
     await sendStatusNotification(
       id,
       documentType,
       document.number || document.id,
       oldStatus,
       status,
-      (document as any).client_id
+      (document as any).client_id || '',
+      complectatorId,
+      executorId,
+      undefined
     );
   } catch (notificationError) {
     logger.warn('Не удалось отправить уведомления', 'documents/[id]/status', { error: notificationError }, loggingContext);
@@ -127,7 +133,7 @@ async function handler(
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse> {
   return withErrorHandling(
-    requireAuth(async (request: NextRequest, user: ReturnType<typeof getAuthenticatedUser>) => {
+    requireAuth(async (request: NextRequest, user: Awaited<ReturnType<typeof getAuthenticatedUser>>) => {
       return await handler(request, user, { params });
     }),
     'documents/[id]/status'

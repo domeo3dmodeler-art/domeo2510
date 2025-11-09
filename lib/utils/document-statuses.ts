@@ -27,13 +27,14 @@ export const QUOTE_STATUSES = {
 
 /**
  * Статусы Order для Комплектатора
- * Комплектатор может управлять только: Черновик, Отправлен, Оплачен/Заказ, Отменен
- * После перехода в "Оплачен/Заказ" заказ переходит к Исполнителю и получает статус NEW_PLANNED
+ * Комплектатор может управлять только: Новый заказ, Счет выставлен, Счет оплачен, Отменен
+ * После перехода в "Счет оплачен" заказ переходит к Исполнителю и получает статус NEW_PLANNED
  */
 export const ORDER_STATUSES_COMPLECTATOR = {
-  DRAFT: { label: 'Черновик', apiValue: 'DRAFT' },
+  DRAFT: { label: 'Новый заказ', apiValue: 'DRAFT' },
   SENT: { label: 'Счет выставлен', apiValue: 'SENT' },
-  PAID: { label: 'Счет оплачен', apiValue: 'PAID' },
+  NEW_PLANNED: { label: 'Счет оплачен (Заказываем)', apiValue: 'NEW_PLANNED' },
+  RETURNED_TO_COMPLECTATION: { label: 'Вернуть в комплектацию', apiValue: 'RETURNED_TO_COMPLECTATION' },
   CANCELLED: { label: 'Отменен', apiValue: 'CANCELLED' }
 } as const;
 
@@ -43,11 +44,13 @@ export const ORDER_STATUSES_COMPLECTATOR = {
  * Комплектатор видит эти статусы, но не может их изменять
  */
 export const ORDER_STATUSES_EXECUTOR = {
-  NEW_PLANNED: { label: 'Новый заказ', apiValue: 'NEW_PLANNED' },
+  NEW_PLANNED: { label: 'Счет оплачен (Заказываем)', apiValue: 'NEW_PLANNED' },
   UNDER_REVIEW: { label: 'На проверке', apiValue: 'UNDER_REVIEW' },
   AWAITING_MEASUREMENT: { label: 'Ждет замер', apiValue: 'AWAITING_MEASUREMENT' },
-  AWAITING_INVOICE: { label: 'Ожидает счет', apiValue: 'AWAITING_INVOICE' },
-  COMPLETED: { label: 'Выполнена', apiValue: 'COMPLETED' }
+  AWAITING_INVOICE: { label: 'Ожидает опт. счет', apiValue: 'AWAITING_INVOICE' },
+  READY_FOR_PRODUCTION: { label: 'Готов к запуску в производство', apiValue: 'READY_FOR_PRODUCTION' },
+  COMPLETED: { label: 'Выполнен', apiValue: 'COMPLETED' },
+  RETURNED_TO_COMPLECTATION: { label: 'Вернуть в комплектацию', apiValue: 'RETURNED_TO_COMPLECTATION' }
 } as const;
 
 /**

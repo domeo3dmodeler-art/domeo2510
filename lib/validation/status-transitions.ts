@@ -4,14 +4,15 @@
 
 export const STATUS_TRANSITIONS = {
   order: {
-    'DRAFT': ['SENT', 'NEW_PLANNED', 'CANCELLED'], // Добавлен переход DRAFT → NEW_PLANNED
-    'SENT': ['PAID', 'CANCELLED'],
-    'PAID': ['UNDER_REVIEW', 'CANCELLED'],
-    'NEW_PLANNED': ['UNDER_REVIEW', 'CANCELLED'],
-    'UNDER_REVIEW': ['AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'CANCELLED'],
-    'AWAITING_MEASUREMENT': ['AWAITING_INVOICE', 'CANCELLED'],
-    'AWAITING_INVOICE': ['COMPLETED', 'CANCELLED'],
+    'DRAFT': ['SENT', 'CANCELLED'],
+    'SENT': ['NEW_PLANNED', 'CANCELLED'],
+    'NEW_PLANNED': ['UNDER_REVIEW', 'CANCELLED', 'RETURNED_TO_COMPLECTATION'],
+    'UNDER_REVIEW': ['AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'CANCELLED', 'RETURNED_TO_COMPLECTATION'],
+    'AWAITING_MEASUREMENT': ['AWAITING_INVOICE', 'CANCELLED', 'RETURNED_TO_COMPLECTATION'],
+    'AWAITING_INVOICE': ['READY_FOR_PRODUCTION', 'CANCELLED', 'RETURNED_TO_COMPLECTATION'],
+    'READY_FOR_PRODUCTION': ['COMPLETED', 'CANCELLED', 'RETURNED_TO_COMPLECTATION'],
     'COMPLETED': [],
+    'RETURNED_TO_COMPLECTATION': ['DRAFT', 'SENT', 'NEW_PLANNED'],
     'CANCELLED': []
   },
   supplier_order: {
@@ -31,7 +32,7 @@ export function canTransitionTo(
   const transitions = STATUS_TRANSITIONS[documentType as keyof typeof STATUS_TRANSITIONS];
   if (!transitions) return false;
   
-  const allowedTransitions = transitions[currentStatus as keyof typeof transitions];
+  const allowedTransitions = transitions[currentStatus as keyof typeof transitions] as string[] | undefined;
   return allowedTransitions?.includes(newStatus) || false;
 }
 

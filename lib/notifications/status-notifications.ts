@@ -41,28 +41,40 @@ export const STATUS_NOTIFICATIONS = {
     }
   },
   order: {
-    'PAID': {
-      recipients: ['executor', 'manager'],
-      message: 'Заказ оплачен.'
+    'SENT': {
+      recipients: ['complectator'],
+      message: 'Счет по заказу отправлен клиенту.'
+    },
+    'NEW_PLANNED': {
+      recipients: ['complectator', 'executor'],
+      message: 'Счет оплачен. Заказ готов к обработке.'
     },
     'UNDER_REVIEW': {
-      recipients: ['complectator', 'manager'],
+      recipients: ['complectator'],
       message: 'Заказ переведен на проверку.'
     },
     'AWAITING_MEASUREMENT': {
-      recipients: ['complectator', 'manager'],
-      message: 'Заказ ожидает замера.'
+      recipients: ['complectator'],
+      message: 'Заказ ожидает замера. Требуются точные размеры с объекта.'
     },
     'AWAITING_INVOICE': {
-      recipients: ['complectator', 'manager'],
-      message: 'Заказ ожидает счета.'
+      recipients: ['complectator'],
+      message: 'Заказ ожидает оптовые счета. Запрошены счета у поставщиков.'
+    },
+    'READY_FOR_PRODUCTION': {
+      recipients: ['complectator'],
+      message: 'Заказ готов к запуску в производство. Все документы готовы. Требуется ваша команда на запуск.'
     },
     'COMPLETED': {
-      recipients: ['complectator', 'client', 'manager'],
-      message: 'Заказ выполнен.'
+      recipients: ['complectator', 'executor'],
+      message: 'Заказ выполнен и готов к отгрузке/установке.'
+    },
+    'RETURNED_TO_COMPLECTATION': {
+      recipients: ['complectator'],
+      message: 'Заказ возвращен вам для доработки.'
     },
     'CANCELLED': {
-      recipients: ['complectator', 'manager'],
+      recipients: ['complectator', 'executor'],
       message: 'Заказ отменен.'
     }
   },
@@ -88,7 +100,10 @@ export async function sendStatusNotification(
   documentNumber: string,
   oldStatus: string,
   newStatus: string,
-  clientId: string
+  clientId: string,
+  complectatorId?: string | null,
+  executorId?: string | null,
+  reason?: string
 ) {
   logger.debug('sendStatusNotification вызвана', 'status-notifications', {
     documentId,
@@ -96,7 +111,10 @@ export async function sendStatusNotification(
     documentNumber,
     oldStatus,
     newStatus,
-    clientId
+    clientId,
+    complectatorId,
+    executorId,
+    reason
   });
 
   const notificationConfig = STATUS_NOTIFICATIONS[documentType as keyof typeof STATUS_NOTIFICATIONS];
@@ -110,11 +128,16 @@ export async function sendStatusNotification(
     return;
   }
   
-  const config = notificationConfig[newStatus as keyof typeof notificationConfig];
+  const config = notificationConfig[newStatus as keyof typeof notificationConfig] as { recipients: string[]; message: string } | undefined;
+  if (!config) {
+    logger.warn('Нет конфигурации уведомлений для статуса', 'status-notifications', { documentType, newStatus });
+    return;
+  }
+  
   logger.debug('Конфигурация уведомления', 'status-notifications', { config, documentType, newStatus });
   
-  // Импортируем настоящую функцию из lib/notifications
-  const { notifyUsersByRole } = await import('@/lib/notifications');
+  // Импортируем функции из lib/notifications
+  const { notifyUsersByRole, notifyUser } = await import('@/lib/notifications');
   
   for (const recipient of config.recipients) {
     logger.debug('Отправка уведомления получателю', 'status-notifications', { recipient, documentId, documentType, newStatus });
@@ -123,33 +146,53 @@ export async function sendStatusNotification(
       // Клиенты не заходят в систему, пропускаем уведомление
       logger.debug('Уведомление клиенту (пропущено, клиенты не заходят в систему)', 'status-notifications', { clientId, message: config.message });
     } else if (recipient === 'complectator') {
-      logger.debug('Отправка уведомления всем COMPLECTATOR', 'status-notifications', { documentId, documentType, newStatus });
-      await notifyUsersByRole('COMPLECTATOR', {
-        clientId: clientId || undefined,
-        documentId,
-        type: `${documentType}:${newStatus}`, // Включаем статус в type для правильной дедубликации
-        title: `${config.message} [${documentNumber}]`,
-        message: `${config.message} Документ: ${documentNumber}`
-      });
+      // Комплектатор: отправляем уведомление только создателю заказа
+      if (complectatorId) {
+        logger.debug('Отправка уведомления комплектатору (создателю заказа)', 'status-notifications', { 
+          complectatorId, 
+          documentId, 
+          documentType, 
+          newStatus 
+        });
+        
+        // Формируем сообщение с учетом причины возврата, если есть
+        let message = `${config.message} Документ: ${documentNumber}`;
+        if (reason) {
+          message += `. Причина: ${reason}`;
+        }
+        
+        await notifyUser(complectatorId, {
+          clientId: clientId || undefined,
+          documentId,
+          type: `${documentType}:${newStatus}`,
+          title: `${config.message} [${documentNumber}]`,
+          message
+        });
+      } else {
+        logger.warn('Не указан complectator_id для заказа, уведомление комплектатору не отправлено', 'status-notifications', { documentId });
+      }
     } else if (recipient === 'executor') {
-      logger.debug('Отправка уведомления всем EXECUTOR', 'status-notifications', { documentId, documentType, newStatus });
-      await notifyUsersByRole('EXECUTOR', {
-        clientId: clientId || undefined,
-        documentId,
-        type: `${documentType}:${newStatus}`, // Включаем статус в type для правильной дедубликации
-        title: `${config.message} [${documentNumber}]`,
-        message: `${config.message} Документ: ${documentNumber}`
-      });
-    } else if (recipient === 'manager') {
-      logger.debug('Отправка уведомления всем MANAGER', 'status-notifications', { documentId, documentType, newStatus });
-      await notifyUsersByRole('MANAGER', {
-        clientId: clientId || undefined,
-        documentId,
-        type: `${documentType}:${newStatus}`, // Включаем статус в type для правильной дедубликации
-        title: `${config.message} [${documentNumber}]`,
-        message: `${config.message} Документ: ${documentNumber}`
-      });
+      // Исполнитель: отправляем уведомление только назначенному исполнителю
+      if (executorId) {
+        logger.debug('Отправка уведомления назначенному исполнителю', 'status-notifications', { 
+          executorId, 
+          documentId, 
+          documentType, 
+          newStatus 
+        });
+        await notifyUser(executorId, {
+          clientId: clientId || undefined,
+          documentId,
+          type: `${documentType}:${newStatus}`,
+          title: `${config.message} [${documentNumber}]`,
+          message: `${config.message} Документ: ${documentNumber}`
+        });
+      } else {
+        // Если executor_id не указан, уведомление не отправляется
+        logger.debug('executor_id не указан, уведомление исполнителю не отправлено', 'status-notifications', { documentId, documentType, newStatus });
+      }
     }
+    // Руководитель и администратор исключены из уведомлений - блок кода удален
   }
   
   logger.debug('sendStatusNotification завершена', 'status-notifications', { documentId, documentType, newStatus });

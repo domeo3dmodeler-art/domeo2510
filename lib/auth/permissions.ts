@@ -140,18 +140,18 @@ export function canUserChangeStatus(
         return false;
       }
       
-      // Комплектатор может менять Order только ДО PAID включительно
-      // Может перевести PAID → UNDER_REVIEW или CANCELLED, но не может изменять статусы исполнителя
+      // Комплектатор может менять Order только ДО NEW_PLANNED включительно
+      // Может работать со статусом RETURNED_TO_COMPLECTATION
       if (roleStr === 'complectator') {
-        const executorStatuses = ['NEW_PLANNED', 'UNDER_REVIEW', 'AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'COMPLETED'];
+        const executorStatuses = ['NEW_PLANNED', 'UNDER_REVIEW', 'AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'READY_FOR_PRODUCTION', 'COMPLETED'];
         
-        // Если текущий статус - статус исполнителя, комплектатор не может его изменить
-        if (currentStatus && executorStatuses.includes(currentStatus)) {
+        // Если текущий статус - статус исполнителя (кроме NEW_PLANNED), комплектатор не может его изменить
+        if (currentStatus && executorStatuses.includes(currentStatus) && currentStatus !== 'NEW_PLANNED') {
           return false;
         }
         
-        // Комплектатор может изменять статусы DRAFT, SENT, PAID
-        const complectatorStatuses = ['DRAFT', 'SENT', 'PAID', 'CANCELLED'];
+        // Комплектатор может изменять статусы DRAFT, SENT, NEW_PLANNED, RETURNED_TO_COMPLECTATION
+        const complectatorStatuses = ['DRAFT', 'SENT', 'NEW_PLANNED', 'RETURNED_TO_COMPLECTATION'];
         if (currentStatus && !complectatorStatuses.includes(currentStatus)) {
           return false;
         }
@@ -160,10 +160,14 @@ export function canUserChangeStatus(
         if (currentStatus === 'DRAFT' && (newStatus === 'SENT' || newStatus === 'CANCELLED')) {
           return true;
         }
-        if (currentStatus === 'SENT' && (newStatus === 'PAID' || newStatus === 'CANCELLED')) {
+        if (currentStatus === 'SENT' && (newStatus === 'NEW_PLANNED' || newStatus === 'CANCELLED')) {
           return true;
         }
-        if (currentStatus === 'PAID' && (newStatus === 'UNDER_REVIEW' || newStatus === 'CANCELLED')) {
+        if (currentStatus === 'NEW_PLANNED' && newStatus === 'CANCELLED') {
+          return true;
+        }
+        // Комплектатор может вернуть заказ из RETURNED_TO_COMPLECTATION в DRAFT, SENT или NEW_PLANNED
+        if (currentStatus === 'RETURNED_TO_COMPLECTATION' && (newStatus === 'DRAFT' || newStatus === 'SENT' || newStatus === 'NEW_PLANNED')) {
           return true;
         }
         
@@ -171,21 +175,32 @@ export function canUserChangeStatus(
       }
       
       // Исполнитель может изменять только статусы исполнителя
+      // Может вернуть заказ в комплектацию (RETURNED_TO_COMPLECTATION) на любом этапе
       if (roleStr === 'executor') {
-        const executorStatuses = ['NEW_PLANNED', 'UNDER_REVIEW', 'AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'COMPLETED'];
-        const complectatorStatuses = ['DRAFT', 'SENT', 'PAID'];
+        const executorStatuses = ['NEW_PLANNED', 'UNDER_REVIEW', 'AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'READY_FOR_PRODUCTION', 'COMPLETED'];
+        const complectatorStatuses = ['DRAFT', 'SENT'];
         
-        // Если текущий статус - статус комплектатора, исполнитель не может его изменить
+        // Если текущий статус - статус комплектатора (DRAFT, SENT), исполнитель не может его изменить
         if (currentStatus && complectatorStatuses.includes(currentStatus)) {
           return false;
         }
         
-        // Исполнитель может изменять только статусы исполнителя
-        if (currentStatus && !executorStatuses.includes(currentStatus)) {
+        // Исполнитель может изменять только статусы исполнителя и RETURNED_TO_COMPLECTATION
+        if (currentStatus && !executorStatuses.includes(currentStatus) && currentStatus !== 'RETURNED_TO_COMPLECTATION') {
           return false;
         }
         
-        return true; // Разрешаем переходы между статусами исполнителя
+        // Исполнитель может вернуть заказ в комплектацию на любом этапе
+        if (newStatus === 'RETURNED_TO_COMPLECTATION' && currentStatus && executorStatuses.includes(currentStatus)) {
+          return true;
+        }
+        
+        // Исполнитель может изменять статусы исполнителя
+        if (currentStatus && executorStatuses.includes(currentStatus)) {
+          return true;
+        }
+        
+        return false;
       }
       
       // Администратор может изменять все статусы

@@ -6,12 +6,13 @@ export type DocumentType = 'quote' | 'invoice' | 'order' | 'supplier_order';
 export type OrderStatus = 
   | 'DRAFT'
   | 'SENT'
-  | 'PAID'
   | 'NEW_PLANNED'
   | 'UNDER_REVIEW'
   | 'AWAITING_MEASUREMENT'
   | 'AWAITING_INVOICE'
+  | 'READY_FOR_PRODUCTION'
   | 'COMPLETED'
+  | 'RETURNED_TO_COMPLECTATION'
   | 'CANCELLED';
 
 export type SupplierOrderStatus = 

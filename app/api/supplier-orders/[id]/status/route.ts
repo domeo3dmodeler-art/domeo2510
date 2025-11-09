@@ -143,13 +143,21 @@ async function handler(req: NextRequest, user: Awaited<ReturnType<typeof getAuth
       }, loggingContext);
       
       const { sendStatusNotification } = await import('@/lib/notifications/status-notifications');
+      // Для supplier-orders получаем complectator_id и executor_id из связанного order
+      const relatedOrderForNotification = await prisma.order.findUnique({
+        where: { id: supplierOrderForNotification.parent_document_id },
+        select: { complectator_id: true, executor_id: true }
+      });
       await sendStatusNotification(
         id,
         'supplier_order',
         supplierOrderForNotification.number || supplierOrderForNotification.id,
         oldStatus,
         status,
-        clientId
+        clientId,
+        relatedOrderForNotification?.complectator_id || null,
+        relatedOrderForNotification?.executor_id || null,
+        undefined
       );
       
       logger.info('Уведомление SupplierOrder отправлено успешно', 'supplier-orders/[id]/status', {}, loggingContext);

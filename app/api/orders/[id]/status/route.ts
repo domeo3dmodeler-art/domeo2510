@@ -37,7 +37,20 @@ async function handler(
 
   // Получаем текущий заказ
   const order = await prisma.order.findUnique({
-    where: { id }
+    where: { id },
+    select: {
+      id: true,
+      number: true,
+      status: true,
+      client_id: true,
+      complectator_id: true,
+      executor_id: true,
+      notes: true,
+      project_file_url: true,
+      door_dimensions: true,
+      measurement_done: true,
+      project_complexity: true
+    }
   });
 
   if (!order) {
@@ -90,8 +103,10 @@ async function handler(
       order.status,
       status,
       {
-        ...orderForValidation,
-        door_dimensions: doorDimensions
+        project_file_url: order.project_file_url,
+        door_dimensions: doorDimensions,
+        measurement_done: order.measurement_done,
+        project_complexity: order.project_complexity
       }
     );
 
@@ -146,13 +161,18 @@ async function handler(
       order.number,
       oldStatus,
       targetStatus,
-      order.client_id
+      order.client_id,
+      order.complectator_id,
+      order.executor_id,
+      notes || undefined
     );
     logger.info('Уведомление о смене статуса заказа отправлено', 'orders/[id]/status', {
       orderId: id,
       oldStatus,
       newStatus: targetStatus,
-      userId: user.userId
+      userId: user.userId,
+      complectatorId: order.complectator_id,
+      executorId: order.executor_id
     }, loggingContext);
   } catch (notificationError) {
     logger.warn('Не удалось отправить уведомление о смене статуса заказа', 'orders/[id]/status', {
