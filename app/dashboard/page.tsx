@@ -407,7 +407,9 @@ function DashboardContent() {
             localStorage.setItem('userMiddleName', userDataObj.middleName || '');
             localStorage.setItem('userRole', userDataObj.role || userRole);
             localStorage.setItem('userId', userDataObj.id || userId);
-            if (authToken && !localToken) {
+            // Сохраняем токен, если он есть и отличается от сохраненного
+            const localToken = localStorage.getItem('authToken');
+            if (authToken && authToken !== localToken) {
               localStorage.setItem('authToken', authToken);
             }
             
