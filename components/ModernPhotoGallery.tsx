@@ -136,7 +136,10 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
               })()}
               alt={`${productName} - фото ${currentIndex + 1}`}
               className="max-h-full max-w-full object-contain transition-all duration-300 hover:scale-105 cursor-pointer"
-              onClick={toggleZoom}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleZoom();
+              }}
               onError={() => {
                 clientLogger.debug('❌ Ошибка загрузки изображения:', allPhotos[currentIndex]);
               }}
@@ -152,8 +155,11 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
         {/* Кнопка зума */}
         {allPhotos[currentIndex] && (
           <button
-            onClick={toggleZoom}
-            className="absolute top-4 right-4 bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleZoom();
+            }}
+            className="absolute top-4 right-4 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 z-10"
             aria-label={isZoomed ? "Уменьшить" : "Увеличить"}
           >
           <MagnifyingGlassIcon className="w-5 h-5 text-gray-700" />
@@ -161,19 +167,25 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
         )}
 
         {/* Навигационные стрелки (только для галереи) */}
-        {showThumbnails && allPhotos.length > 1 && allPhotos[currentIndex] && (
+        {allPhotos.length > 1 && allPhotos[currentIndex] && (
           <>
             <button
-              onClick={prevPhoto}
-              className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
+              onClick={(e) => {
+                e.stopPropagation();
+                prevPhoto();
+              }}
+              className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 z-10"
               aria-label="Предыдущее фото"
             >
               <ChevronLeftIcon className="w-6 h-6 text-gray-700" />
             </button>
             
             <button
-              onClick={nextPhoto}
-              className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
+              onClick={(e) => {
+                e.stopPropagation();
+                nextPhoto();
+              }}
+              className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 z-10"
               aria-label="Следующее фото"
             >
               <ChevronRightIcon className="w-6 h-6 text-gray-700" />
