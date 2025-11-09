@@ -400,13 +400,13 @@ function DashboardContent() {
             }
             
             const userData = {
-              id: userDataFromServer.user.id || userId,
-              email: userDataFromServer.user.email || localStorage.getItem('userEmail') || '',
-              firstName: userDataFromServer.user.firstName || localStorage.getItem('userFirstName') || 'Иван',
-              lastName: userDataFromServer.user.lastName || localStorage.getItem('userLastName') || 'Иванов',
-              middleName: userDataFromServer.user.middleName || localStorage.getItem('userMiddleName') || '',
-              role: userDataFromServer.user.role || userRole,
-              permissions: userDataFromServer.user.permissions || JSON.parse(localStorage.getItem('userPermissions') || '[]')
+              id: userDataObj.id || userId,
+              email: userDataObj.email || localStorage.getItem('userEmail') || '',
+              firstName: userDataObj.firstName || localStorage.getItem('userFirstName') || 'Иван',
+              lastName: userDataObj.lastName || localStorage.getItem('userLastName') || 'Иванов',
+              middleName: userDataObj.middleName || localStorage.getItem('userMiddleName') || '',
+              role: userDataObj.role || userRole,
+              permissions: userDataObj.permissions || JSON.parse(localStorage.getItem('userPermissions') || '[]')
             };
             
             setUser(userData);
