@@ -8,16 +8,24 @@
 export class ClientLogger {
   private static isDevelopment = 
     typeof window !== 'undefined' && 
-    (window.location.hostname === 'localhost' || 
-     window.location.hostname === '127.0.0.1');
+    (process.env.NODE_ENV === 'development' || 
+     window.location.hostname === 'localhost' || 
+     window.location.hostname === '127.0.0.1' ||
+     window.location.hostname.includes('130.193.40.35'));
 
   private static shouldLog(): boolean {
-    return this.isDevelopment && typeof window !== 'undefined';
+    // Логируем всегда в браузере для отладки
+    return typeof window !== 'undefined';
   }
 
   static debug(message: string, metadata?: Record<string, unknown>): void {
     if (!this.shouldLog()) return;
-    console.debug(`[DEBUG] ${message}`, metadata || '');
+    try {
+      console.debug(`[DEBUG] ${message}`, metadata || '');
+    } catch (e) {
+      // Fallback если console.debug не работает
+      console.log(`[DEBUG] ${message}`, metadata || '');
+    }
   }
 
   static info(message: string, metadata?: Record<string, unknown>): void {
