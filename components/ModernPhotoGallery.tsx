@@ -117,19 +117,22 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
             <img
               src={(() => {
                 const photo = allPhotos[currentIndex];
+                let imageUrl: string;
                 if (photo.startsWith('/uploads/')) {
-                  return `/api${photo}`;
+                  imageUrl = `/api${photo}`;
                 } else if (photo.startsWith('/uploadsproducts')) {
-                  return `/api/uploads/products/${photo.substring(17)}`;
+                  imageUrl = `/api/uploads/products/${photo.substring(17)}`;
                 } else if (photo.startsWith('/uploads')) {
-                  return `/api/uploads/${photo.substring(8)}`;
+                  imageUrl = `/api/uploads/${photo.substring(8)}`;
                 } else if (photo.startsWith('products/')) {
-                  return `/api/uploads/${photo}`;
+                  imageUrl = `/api/uploads/${photo}`;
                 } else if (photo.startsWith('uploads/')) {
-                  return `/api/${photo}`;
+                  imageUrl = `/api/${photo}`;
                 } else {
-                  return `/api/uploads${photo}`;
+                  imageUrl = `/api/uploads${photo}`;
                 }
+                clientLogger.debug('🖼️ ModernPhotoGallery imageUrl:', { photo, imageUrl });
+                return imageUrl;
               })()}
               alt={`${productName} - фото ${currentIndex + 1}`}
               className="max-h-full max-w-full object-contain transition-all duration-300 hover:scale-105 cursor-pointer"
