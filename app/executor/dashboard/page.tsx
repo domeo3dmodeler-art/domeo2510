@@ -661,10 +661,28 @@ export default function ExecutorDashboard() {
     try {
       clientLogger.debug('📊 Generating Excel for supplier order:', supplierOrderId);
       
-      const response = await fetch(`${window.location.origin}/api/supplier-orders/${supplierOrderId}/excel`);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+
+      const response = await fetch(`${window.location.origin}/api/supplier-orders/${supplierOrderId}/excel`, {
+        headers,
+        credentials: 'include'
+      });
 
       if (response.ok) {
         const blob = await response.blob();
+        
+        // Проверяем, что blob не пустой
+        if (blob.size === 0) {
+          throw new Error('Получен пустой файл');
+        }
+        
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -674,13 +692,33 @@ export default function ExecutorDashboard() {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
         
-        clientLogger.debug('✅ Excel file downloaded successfully');
+        clientLogger.debug('✅ Excel file downloaded successfully', { size: blob.size });
+        toast.success('Excel файл успешно скачан');
       } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Ошибка при генерации Excel файла');
+        let errorMessage = 'Ошибка при генерации Excel файла';
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            if (typeof errorData.error === 'string') {
+              errorMessage = errorData.error;
+            } else if (errorData.error.message) {
+              errorMessage = errorData.error.message;
+            }
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+          clientLogger.error('❌ Error generating Excel:', errorData);
+        } catch (parseError) {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          clientLogger.error('❌ Error parsing error response:', parseError);
+        }
+        toast.error(errorMessage);
+        throw new Error(errorMessage);
       }
     } catch (error) {
       clientLogger.error('❌ Error generating Excel:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Ошибка при генерации Excel файла';
+      toast.error(errorMessage);
       throw error;
     }
   };

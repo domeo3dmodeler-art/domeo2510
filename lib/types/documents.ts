@@ -15,10 +15,9 @@ export type OrderStatus =
   | 'CANCELLED';
 
 export type SupplierOrderStatus = 
-  | 'DRAFT'
-  | 'SENT'
-  | 'CONFIRMED'
-  | 'IN_PROGRESS'
+  | 'PENDING'
+  | 'ORDERED'
+  | 'RECEIVED_FROM_SUPPLIER'
   | 'COMPLETED'
   | 'CANCELLED';
 

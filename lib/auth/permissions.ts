@@ -135,32 +135,65 @@ export function canUserChangeStatus(
       return false;
     
     case 'order':
-      // Комплектатор может менять Order только ДО PAID включительно
-      // Может перевести PAID → UNDER_REVIEW или CANCELLED, но не может изменять UNDER_REVIEW обратно
-      if (roleStr === 'complectator') {
-        // Если текущий статус - статус исполнителя, комплектатор не может его изменить
-        const executorStatuses = ['NEW_PLANNED', 'UNDER_REVIEW', 'AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'COMPLETED'];
-        if (currentStatus && executorStatuses.includes(currentStatus)) {
-          // Исключение: если комплектатор переводит PAID → UNDER_REVIEW, это разрешено
-          // Но после установки UNDER_REVIEW, комплектатор не может его изменить
-          return false;
-        }
-        // Комплектатор может изменять статусы DRAFT, SENT, PAID
-        // Может перевести PAID → UNDER_REVIEW или CANCELLED
-        if (currentStatus === 'PAID' && newStatus === 'UNDER_REVIEW') {
-          return true; // Разрешаем перевод PAID → UNDER_REVIEW
-        }
-        if (currentStatus === 'PAID' && newStatus === 'CANCELLED') {
-          return true; // Разрешаем отмену
-        }
-        // Для остальных переходов проверяем, что текущий статус не статус исполнителя
-        return !currentStatus || !executorStatuses.includes(currentStatus);
-      }
       // Руководитель не может изменять статусы (только просмотр)
       if (roleStr === 'manager' || roleStr === 'руководитель') {
         return false;
       }
-      return roleStr === 'admin' || roleStr === 'executor' || roleStr === 'complectator';
+      
+      // Комплектатор может менять Order только ДО PAID включительно
+      // Может перевести PAID → UNDER_REVIEW или CANCELLED, но не может изменять статусы исполнителя
+      if (roleStr === 'complectator') {
+        const executorStatuses = ['NEW_PLANNED', 'UNDER_REVIEW', 'AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'COMPLETED'];
+        
+        // Если текущий статус - статус исполнителя, комплектатор не может его изменить
+        if (currentStatus && executorStatuses.includes(currentStatus)) {
+          return false;
+        }
+        
+        // Комплектатор может изменять статусы DRAFT, SENT, PAID
+        const complectatorStatuses = ['DRAFT', 'SENT', 'PAID', 'CANCELLED'];
+        if (currentStatus && !complectatorStatuses.includes(currentStatus)) {
+          return false;
+        }
+        
+        // Разрешаем переходы между статусами комплектатора
+        if (currentStatus === 'DRAFT' && (newStatus === 'SENT' || newStatus === 'CANCELLED')) {
+          return true;
+        }
+        if (currentStatus === 'SENT' && (newStatus === 'PAID' || newStatus === 'CANCELLED')) {
+          return true;
+        }
+        if (currentStatus === 'PAID' && (newStatus === 'UNDER_REVIEW' || newStatus === 'CANCELLED')) {
+          return true;
+        }
+        
+        return false;
+      }
+      
+      // Исполнитель может изменять только статусы исполнителя
+      if (roleStr === 'executor') {
+        const executorStatuses = ['NEW_PLANNED', 'UNDER_REVIEW', 'AWAITING_MEASUREMENT', 'AWAITING_INVOICE', 'COMPLETED'];
+        const complectatorStatuses = ['DRAFT', 'SENT', 'PAID'];
+        
+        // Если текущий статус - статус комплектатора, исполнитель не может его изменить
+        if (currentStatus && complectatorStatuses.includes(currentStatus)) {
+          return false;
+        }
+        
+        // Исполнитель может изменять только статусы исполнителя
+        if (currentStatus && !executorStatuses.includes(currentStatus)) {
+          return false;
+        }
+        
+        return true; // Разрешаем переходы между статусами исполнителя
+      }
+      
+      // Администратор может изменять все статусы
+      if (roleStr === 'admin') {
+        return true;
+      }
+      
+      return false;
     
     case 'supplier_order':
       return roleStr === 'admin' || roleStr === 'executor';

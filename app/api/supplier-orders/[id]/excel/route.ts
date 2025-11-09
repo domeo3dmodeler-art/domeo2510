@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logging/logger';
+import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
 import ExcelJS from 'exceljs';
+import { requireAuth } from '@/lib/auth/middleware';
+import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
+import { NotFoundError } from '@/lib/api/errors';
 
 // Поиск ручки в БД по ID
 async function findHandleById(handleId: string) {
@@ -24,7 +29,13 @@ async function findHandleById(handleId: string) {
   }
 }
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+// GET /api/supplier-orders/[id]/excel - Экспорт заказа у поставщика в Excel
+async function handler(
+  req: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(req);
   try {
     const { id } = await params;
 
@@ -44,7 +55,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     });
 
     if (!supplierOrder) {
-      return NextResponse.json({ error: 'Supplier order not found' }, { status: 404 });
+      throw new NotFoundError('Заказ у поставщика', id);
     }
 
     logger.debug('Supplier order cart_data', 'supplier-orders/excel', { supplierOrderId: supplierOrder.id, hasCartData: !!supplierOrder.cart_data });
@@ -66,7 +77,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     });
 
     if (!order) {
-      return NextResponse.json({ error: 'Related order not found' }, { status: 404 });
+      throw new NotFoundError('Связанный заказ', supplierOrder.parent_document_id || 'unknown');
     }
 
     // Получаем клиента по client_id из Order
@@ -83,7 +94,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     });
 
     if (!client) {
-      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+      throw new NotFoundError('Клиент', order.client_id);
     }
 
     // Получаем данные корзины
@@ -111,7 +122,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     if (!cartData || !cartData.items || cartData.items.length === 0) {
-      return NextResponse.json({ error: 'No cart data found for this supplier order' }, { status: 400 });
+      return apiError(
+        ApiErrorCode.VALIDATION_ERROR,
+        'Нет данных корзины для этого заказа у поставщика',
+        400
+      );
     }
 
     // Подготавливаем данные для генерации Excel
@@ -158,6 +173,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // Возвращаем файл с безопасным именем
     const safeFilename = `Supplier_Order_${supplierOrder.id.slice(-6)}.xlsx`;
     
+    logger.info('Excel файл заказа у поставщика сгенерирован', 'supplier-orders/excel', {
+      supplierOrderId: id,
+      itemsCount: cartData.items.length,
+      userId: user.userId
+    }, loggingContext);
+    
     return new NextResponse(buffer, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -167,12 +188,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     });
 
   } catch (error) {
-    logger.error('Error generating Excel for supplier order', 'supplier-orders/excel', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) });
-    return NextResponse.json(
-      { error: 'Failed to generate Excel file' },
-      { status: 500 }
-    );
+    logger.error('Error generating Excel for supplier order', 'supplier-orders/excel', error instanceof Error ? { error: error.message, stack: error.stack } : { error: String(error) }, loggingContext);
+    throw error;
   }
+}
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse> {
+  return withErrorHandling(
+    requireAuth(async (request: NextRequest, user: ReturnType<typeof getAuthenticatedUser>) => {
+      return await handler(request, user, { params });
+    }),
+    'supplier-orders/[id]/excel'
+  )(req);
 }
 
 // Генерация Excel файла с использованием шаблона категории

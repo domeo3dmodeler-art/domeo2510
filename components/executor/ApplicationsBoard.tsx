@@ -86,11 +86,30 @@ export function ApplicationsBoard({ executorId }: ApplicationsBoardProps) {
   const fetchApplications = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/applications?executor_id=${executorId}`);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+
+      const response = await fetch(`/api/orders?executor_id=${executorId}`, {
+        headers,
+        credentials: 'include'
+      });
       
       if (response.ok) {
-        const data = await response.json();
-        setApplications(data.applications || []);
+        const responseData = await response.json();
+        // apiSuccess возвращает { success: true, data: { orders: ... } }
+        const data = responseData && typeof responseData === 'object' && responseData !== null && 'data' in responseData
+          ? (responseData as { data: { orders?: any[] } }).data
+          : null;
+        const ordersArray = data && 'orders' in data && Array.isArray(data.orders)
+          ? data.orders
+          : [];
+        setApplications(ordersArray);
       } else {
         toast.error('Ошибка загрузки заявок');
       }

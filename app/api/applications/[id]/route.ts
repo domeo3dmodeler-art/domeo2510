@@ -162,17 +162,9 @@ export async function PUT(
         );
       }
 
-      // Проверяем валидность перехода
-      const validTransitions: Record<string, string[]> = {
-        'NEW_PLANNED': ['UNDER_REVIEW'],
-        'UNDER_REVIEW': ['AWAITING_MEASUREMENT', 'AWAITING_INVOICE'],
-        'AWAITING_MEASUREMENT': ['AWAITING_INVOICE'],
-        'AWAITING_INVOICE': ['COMPLETED'],
-        'COMPLETED': []
-      };
-
-      const allowedStatuses = validTransitions[existingOrder.status] || [];
-      if (!allowedStatuses.includes(status)) {
+      // Проверяем валидность перехода через общую функцию
+      const { canTransitionTo } = await import('@/lib/validation/status-transitions');
+      if (!canTransitionTo('order', existingOrder.status, status)) {
         return NextResponse.json(
           { error: `Недопустимый переход статуса из ${existingOrder.status} в ${status}` },
           { status: 400 }
