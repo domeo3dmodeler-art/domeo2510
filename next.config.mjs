@@ -3,8 +3,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = { 
   reactStrictMode: true,
-  // output: 'standalone' только для production сборки
-  ...(process.env.NODE_ENV === 'production' && { output: 'standalone' }),
+  // output: 'standalone' для production и staging сборки (для Docker)
+  ...((process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging') && { output: 'standalone' }),
   
   // Оптимизация производительности
   compress: true,
