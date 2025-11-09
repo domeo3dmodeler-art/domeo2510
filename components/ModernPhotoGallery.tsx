@@ -41,11 +41,21 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
   const showThumbnails = hasGallery && allPhotos.length > 1;
 
   const nextPhoto = () => {
-    setCurrentIndex((prev) => (prev + 1) % allPhotos.length);
+    clientLogger.debug('🔍 nextPhoto вызван:', { currentIndex, allPhotosLength: allPhotos.length });
+    setCurrentIndex((prev) => {
+      const next = (prev + 1) % allPhotos.length;
+      clientLogger.debug('🔍 nextPhoto новый индекс:', { prev, next });
+      return next;
+    });
   };
 
   const prevPhoto = () => {
-    setCurrentIndex((prev) => (prev - 1 + allPhotos.length) % allPhotos.length);
+    clientLogger.debug('🔍 prevPhoto вызван:', { currentIndex, allPhotosLength: allPhotos.length });
+    setCurrentIndex((prev) => {
+      const next = (prev - 1 + allPhotos.length) % allPhotos.length;
+      clientLogger.debug('🔍 prevPhoto новый индекс:', { prev, next });
+      return next;
+    });
   };
 
   const goToPhoto = (index: number) => {
@@ -54,6 +64,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
 
   const toggleZoom = () => {
     const newZoomState = !isZoomed;
+    clientLogger.debug('🔍 toggleZoom вызван:', { isZoomed, newZoomState });
     setIsZoomed(newZoomState);
     // Управляем видимостью боковых панелей
     if (onToggleSidePanels) {
@@ -137,7 +148,9 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
               alt={`${productName} - фото ${currentIndex + 1}`}
               className="max-h-full max-w-full object-contain transition-all duration-300 hover:scale-105 cursor-pointer"
               onClick={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
+                clientLogger.debug('🖼️ Клик по изображению для зума');
                 toggleZoom();
               }}
               onError={() => {
@@ -171,7 +184,9 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
           <>
             <button
               onClick={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
+                clientLogger.debug('⬅️ Клик по кнопке "Предыдущее фото"');
                 prevPhoto();
               }}
               className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 z-10"
@@ -182,7 +197,9 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
             
             <button
               onClick={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
+                clientLogger.debug('➡️ Клик по кнопке "Следующее фото"');
                 nextPhoto();
               }}
               className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 z-10"
@@ -194,8 +211,8 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
         )}
 
         {/* Индикатор текущего фото */}
-        {showThumbnails && allPhotos.length > 1 && allPhotos[currentIndex] && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        {allPhotos.length > 1 && allPhotos[currentIndex] && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-full text-sm font-medium z-10">
             {currentIndex + 1} / {allPhotos.length}
           </div>
         )}
