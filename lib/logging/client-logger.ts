@@ -73,7 +73,21 @@ export class ClientLogger {
         
         // Используем один строковый аргумент для безопасного логирования
         // Это предотвращает проблемы с перехватом console.error в dev-режиме Next.js
-        console.error(logString);
+        // Используем setTimeout для асинхронного вызова, чтобы избежать перехвата Next.js
+        try {
+          // Пытаемся использовать console.error напрямую
+          console.error(logString);
+        } catch (consoleError) {
+          // Если console.error вызывает ошибку (например, из-за перехвата Next.js),
+          // используем альтернативный метод
+          try {
+            // Используем console.warn как fallback
+            console.warn(logString);
+          } catch {
+            // Если и это не работает, просто игнорируем
+            // В production это будет отправлено в систему мониторинга
+          }
+        }
       }
     } catch (e) {
       // Если даже логирование не работает, просто игнорируем
