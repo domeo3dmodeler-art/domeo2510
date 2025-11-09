@@ -116,9 +116,10 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
       className="h-full w-full relative group focus:outline-none"
       tabIndex={0}
       onKeyDown={handleKeyDown}
+      style={{ position: 'relative', zIndex: 1 }}
     >
       {/* Основное изображение */}
-      <div className="relative h-full w-full bg-gray-50">
+      <div className="relative h-full w-full bg-gray-50" style={{ position: 'relative', zIndex: 1 }}>
         {isLoading && (
           <div className="absolute inset-0 bg-gray-200 animate-pulse rounded-lg" />
         )}
@@ -172,7 +173,8 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
               e.stopPropagation();
               toggleZoom();
             }}
-            className="absolute top-4 right-4 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 z-10"
+            className="absolute top-4 right-4 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200"
+            style={{ zIndex: 20, pointerEvents: 'auto' }}
             aria-label={isZoomed ? "Уменьшить" : "Увеличить"}
           >
           <MagnifyingGlassIcon className="w-5 h-5 text-gray-700" />
@@ -189,7 +191,8 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
                 clientLogger.debug('⬅️ Клик по кнопке "Предыдущее фото"');
                 prevPhoto();
               }}
-              className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 z-10"
+              className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200"
+            style={{ zIndex: 20, pointerEvents: 'auto' }}
               aria-label="Предыдущее фото"
             >
               <ChevronLeftIcon className="w-6 h-6 text-gray-700" />
@@ -202,7 +205,8 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
                 clientLogger.debug('➡️ Клик по кнопке "Следующее фото"');
                 nextPhoto();
               }}
-              className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 z-10"
+              className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200"
+            style={{ zIndex: 20, pointerEvents: 'auto' }}
               aria-label="Следующее фото"
             >
               <ChevronRightIcon className="w-6 h-6 text-gray-700" />
