@@ -2500,29 +2500,29 @@ export default function DoorsPage() {
                   </div>
                   
                   {/* Кнопка Выбрать под превью - показывается всегда, когда выбрана модель */}
-                  {(() => {
-                    clientLogger.debug('🔘 Проверка кнопки Выбрать:', { 
+                  {sel.model ? (
+                    <div className="mt-6 flex justify-center z-50 relative">
+                      <button
+                        onClick={handleModelSelect}
+                        disabled={!sel.model}
+                        className={`px-6 py-3 font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-black ${
+                          sel.model
+                            ? 'bg-white text-black hover:bg-black hover:text-white'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
+                        style={{ position: 'relative', zIndex: 50 }}
+                      >
+                        Выбрать
+                      </button>
+                    </div>
+                  ) : (
+                    clientLogger.debug('🔘 Кнопка Выбрать не показывается:', { 
                       hasModel: !!sel.model, 
                       model: sel.model,
                       isModelCollapsed,
                       isModelSelected
-                    });
-                    return sel.model ? (
-                      <div className="mt-6 flex justify-center">
-                        <button
-                          onClick={handleModelSelect}
-                          disabled={!sel.model}
-                          className={`px-6 py-3 font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-black ${
-                            sel.model
-                              ? 'bg-white text-black hover:bg-black hover:text-white'
-                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                          }`}
-                        >
-                          Выбрать
-                        </button>
-                      </div>
-                    ) : null;
-                  })()}
+                    }) || null
+                  )}
                 </div>
               ) : (
                 <div className="aspect-[2/3] w-full bg-gray-50 rounded-lg flex items-center justify-center">
