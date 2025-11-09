@@ -25,6 +25,18 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
   // Получаем все фото в правильном порядке
   const allPhotos = photos.cover ? [photos.cover, ...photos.gallery] : photos.gallery;
   
+  // Логируем для отладки
+  useEffect(() => {
+    if (allPhotos.length > 0) {
+      clientLogger.debug('📸 ModernPhotoGallery allPhotos:', {
+        cover: photos.cover,
+        gallery: photos.gallery,
+        allPhotos: allPhotos.slice(0, 3),
+        hasGallery
+      });
+    }
+  }, [photos.cover, photos.gallery, hasGallery]);
+  
   // Показываем миниатюры только если есть галерея
   const showThumbnails = hasGallery && allPhotos.length > 1;
 
