@@ -4,13 +4,10 @@ import { logger } from '@/lib/logging/logger';
 import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
 import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
 import { NotFoundError } from '@/lib/api/errors';
-import { requireAuth } from '@/lib/auth/middleware';
-import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
 // GET /api/price/doors - Получить базовую информацию о ценах
 async function getHandler(
-  req: NextRequest,
-  user: ReturnType<typeof getAuthenticatedUser>
+  req: NextRequest
 ): Promise<NextResponse> {
   const loggingContext = getLoggingContextFromRequest(req);
   const { searchParams } = new URL(req.url);
@@ -63,15 +60,15 @@ async function getHandler(
   });
 }
 
+// Публичный API - расчет цен доступен всем
 export const GET = withErrorHandling(
-  requireAuth(getHandler),
+  getHandler,
   'price/doors/GET'
 );
 
 // POST /api/price/doors - Расчет цены дверей
 async function postHandler(
-  req: NextRequest,
-  user: ReturnType<typeof getAuthenticatedUser>
+  req: NextRequest
 ): Promise<NextResponse> {
   const loggingContext = getLoggingContextFromRequest(req);
   const body = await req.json();
@@ -325,7 +322,8 @@ async function postHandler(
   return apiSuccess(result);
 }
 
+// Публичный API - расчет цен доступен всем
 export const POST = withErrorHandling(
-  requireAuth(postHandler),
+  postHandler,
   'price/doors/POST'
 );
