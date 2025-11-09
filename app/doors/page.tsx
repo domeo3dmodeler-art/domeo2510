@@ -1198,19 +1198,60 @@ export default function DoorsPage() {
         
         // Загружаем комплекты фурнитуры
         const kitsResponse = await fetch('/api/catalog/hardware?type=kits');
-        const kits = await kitsResponse.json();
-        setHardwareKits(kits);
-        clientLogger.debug('🔧 Комплекты загружены:', kits);
+        if (!kitsResponse.ok) {
+          throw new Error(`Failed to load hardware kits: ${kitsResponse.status}`);
+        }
+        const kitsData = await kitsResponse.json();
+        // apiSuccess возвращает { success: true, data: [...] }
+        // Проверяем формат ответа
+        const kits = Array.isArray(kitsData) 
+          ? kitsData 
+          : (kitsData.data && Array.isArray(kitsData.data) 
+            ? kitsData.data 
+            : (kitsData.kits && Array.isArray(kitsData.kits) 
+              ? kitsData.kits 
+              : []));
+        if (!Array.isArray(kits)) {
+          clientLogger.warn('🔧 Неожиданный формат данных комплектов:', kitsData);
+          setHardwareKits([]);
+        } else {
+          setHardwareKits(kits);
+          clientLogger.debug('🔧 Комплекты загружены:', { count: kits.length });
+        }
         
         // Загружаем ручки
         const handlesResponse = await fetch('/api/catalog/hardware?type=handles');
-        const handlesData = await handlesResponse.json();
+        if (!handlesResponse.ok) {
+          throw new Error(`Failed to load handles: ${handlesResponse.status}`);
+        }
+        const handlesDataRaw = await handlesResponse.json();
+        // apiSuccess возвращает { success: true, data: {...} }
+        // Проверяем формат ответа - может быть объект или массив
+        let handlesData: Record<string, Handle[]>;
+        if (Array.isArray(handlesDataRaw)) {
+          handlesData = { default: handlesDataRaw };
+        } else if (handlesDataRaw.data && typeof handlesDataRaw.data === 'object' && !Array.isArray(handlesDataRaw.data)) {
+          // Если data - это объект с группами
+          handlesData = handlesDataRaw.data;
+        } else if (handlesDataRaw.handles && typeof handlesDataRaw.handles === 'object') {
+          handlesData = handlesDataRaw.handles;
+        } else if (typeof handlesDataRaw === 'object' && !Array.isArray(handlesDataRaw)) {
+          // Если сам ответ - это объект с группами
+          handlesData = handlesDataRaw;
+        } else {
+          handlesData = {};
+        }
         setHandles(handlesData);
-        clientLogger.debug('🔧 Ручки загружены:', handlesData);
+        clientLogger.debug('🔧 Ручки загружены:', { keys: Object.keys(handlesData) });
         
         // Устанавливаем базовые значения по умолчанию
-        const basicKit = kits.find((k: any) => k.isBasic);
-        const basicHandle = Object.values(handlesData).flat().find((h: any) => h.isBasic);
+        const basicKit = Array.isArray(kits) && kits.length > 0 
+          ? kits.find((k: HardwareKit) => k.isBasic) 
+          : null;
+        const handlesArray = Object.values(handlesData).flat();
+        const basicHandle = Array.isArray(handlesArray) && handlesArray.length > 0
+          ? handlesArray.find((h: Handle) => h.isBasic)
+          : null;
         
         if (basicKit || basicHandle) {
           setSel(prev => {
