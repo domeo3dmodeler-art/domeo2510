@@ -358,7 +358,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
                     alt={`Миниатюра ${index + 1}`}
                     className="w-full h-full object-cover"
                     onError={() => {
-                      clientLogger.debug('❌ Ошибка загрузки миниатюры:', photo);
+                      clientLogger.debug('❌ Ошибка загрузки миниатюры:', { photo });
                     }}
                   />
                 </button>
@@ -456,7 +456,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
                           alt={`Миниатюра ${index + 1}`}
                           className="w-full h-full object-cover"
                           onError={() => {
-                            clientLogger.debug('❌ Ошибка загрузки миниатюры:', photo);
+                            clientLogger.debug('❌ Ошибка загрузки миниатюры:', { photo });
                           }}
                         />
                       </button>
