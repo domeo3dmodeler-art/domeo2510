@@ -846,6 +846,10 @@ export default function DoorsPage() {
           modelKey: found.modelKey,
           photo: found.photo,
           photos: found.photos,
+          hasPhotos: !!found.photos,
+          hasPhotosCover: !!found.photos?.cover,
+          hasPhotosGallery: Array.isArray(found.photos?.gallery) && found.photos.gallery.length > 0,
+          photosGalleryLength: Array.isArray(found.photos?.gallery) ? found.photos.gallery.length : 0,
           hasGallery: found.hasGallery,
           style: found.style
         });
@@ -1120,17 +1124,27 @@ export default function DoorsPage() {
                   const photoInfo = modelObj.model && photoDataObj[modelObj.model] && typeof photoDataObj[modelObj.model] === 'object'
                     ? photoDataObj[modelObj.model] as { photo?: string; photos?: { cover?: string | null; gallery?: string[] } }
                     : null;
-                  clientLogger.debug(`📸 Model ${modelObj.model}:`, {
+                  // Приоритет: photoInfo из photos-batch, затем modelObj из complete-data
+                  // Если photoInfo есть, используем его, иначе используем modelObj.photos
+                  const finalPhotos = photoInfo?.photos || modelObj.photos;
+                  const finalPhoto = photoInfo?.photo || modelObj.photo || null;
+                  const finalHasGallery = photoInfo?.photos?.gallery && Array.isArray(photoInfo.photos.gallery) && photoInfo.photos.gallery.length > 0 
+                    || (modelObj.photos?.gallery && Array.isArray(modelObj.photos.gallery) && modelObj.photos.gallery.length > 0)
+                    || false;
+                  
+                  clientLogger.debug(`📸 Model ${modelObj.model} - финальные данные:`, {
                     'photoInfo': photoInfo,
-                    'model.photo': modelObj.photo,
-                    'final photo': photoInfo?.photo || modelObj.photo,
-                    'hasGallery': photoInfo?.photos?.gallery && Array.isArray(photoInfo.photos.gallery) && photoInfo.photos.gallery.length > 0
+                    'modelObj.photos': modelObj.photos,
+                    'finalPhotos': finalPhotos,
+                    'finalPhoto': finalPhoto,
+                    'finalHasGallery': finalHasGallery
                   });
+                  
                   return {
                     ...modelObj,
-                    photo: photoInfo?.photo || modelObj.photo || null,
-                    photos: photoInfo?.photos || modelObj.photos,
-                    hasGallery: photoInfo?.photos?.gallery && Array.isArray(photoInfo.photos.gallery) && photoInfo.photos.gallery.length > 0 || false
+                    photo: finalPhoto,
+                    photos: finalPhotos,
+                    hasGallery: finalHasGallery
                   };
                 });
                 
@@ -1299,11 +1313,19 @@ export default function DoorsPage() {
                   const photoInfo = modelObj.model && photoDataObj[modelObj.model] && typeof photoDataObj[modelObj.model] === 'object'
                     ? photoDataObj[modelObj.model] as { photo?: string; photos?: { cover?: string | null; gallery?: string[] } }
                     : null;
+                  // Приоритет: photoInfo из photos-batch, затем modelObj из complete-data
+                  // Если photoInfo есть, используем его, иначе используем modelObj.photos
+                  const finalPhotos = photoInfo?.photos || modelObj.photos;
+                  const finalPhoto = photoInfo?.photo || modelObj.photo || null;
+                  const finalHasGallery = photoInfo?.photos?.gallery && Array.isArray(photoInfo.photos.gallery) && photoInfo.photos.gallery.length > 0 
+                    || (modelObj.photos?.gallery && Array.isArray(modelObj.photos.gallery) && modelObj.photos.gallery.length > 0)
+                    || false;
+                  
                   return {
                     ...modelObj,
-                    photo: photoInfo?.photo || modelObj.photo || null,
-                    photos: photoInfo?.photos || modelObj.photos,
-                    hasGallery: photoInfo?.photos?.gallery && Array.isArray(photoInfo.photos.gallery) && photoInfo.photos.gallery.length > 0 || false
+                    photo: finalPhoto,
+                    photos: finalPhotos,
+                    hasGallery: finalHasGallery
                   };
                 });
                 
@@ -2412,13 +2434,30 @@ export default function DoorsPage() {
                   {/* Профессиональная галерея с увеличенным размером */}
                   <div className="w-full bg-white rounded-xl shadow-lg overflow-visible">
                     <div className="aspect-[4/6.5] overflow-hidden rounded-t-xl">
-                    {selectedModelCard?.photos && (selectedModelCard.photos.cover || selectedModelCard.photos.gallery.length > 0) ? (
-                      <ModernPhotoGallery
-                        photos={selectedModelCard.photos}
-                        productName={selectedModelCard.model}
-                        hasGallery={selectedModelCard.hasGallery || false}
-                        onToggleSidePanels={setHideSidePanels}
-                      />
+                    {(() => {
+                      const hasPhotos = selectedModelCard?.photos && selectedModelCard.photos;
+                      const hasCover = hasPhotos && selectedModelCard.photos.cover;
+                      const hasGallery = hasPhotos && Array.isArray(selectedModelCard.photos.gallery) && selectedModelCard.photos.gallery.length > 0;
+                      const shouldShowGallery = hasCover || hasGallery;
+                      
+                      clientLogger.debug('🖼️ Рендер галереи:', {
+                        model: selectedModelCard?.model,
+                        hasPhotos: !!hasPhotos,
+                        hasCover: !!hasCover,
+                        hasGallery: !!hasGallery,
+                        shouldShowGallery,
+                        photos: selectedModelCard?.photos
+                      });
+                      
+                      return shouldShowGallery ? (
+                        <ModernPhotoGallery
+                          photos={selectedModelCard.photos}
+                          productName={selectedModelCard.model}
+                          hasGallery={selectedModelCard.hasGallery || false}
+                          onToggleSidePanels={setHideSidePanels}
+                        />
+                      ) : null;
+                    })() || selectedModelCard?.photo ? (
                     ) : selectedModelCard?.photo ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
