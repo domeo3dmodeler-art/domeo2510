@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
-import { requireAuth } from '@/lib/auth/middleware';
-import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
-import { apiSuccess, apiError, ApiErrorCode } from '@/lib/api/response';
+import { apiSuccess, apiError, ApiErrorCode, withErrorHandling } from '@/lib/api/response';
 import { logger } from '@/lib/logging/logger';
 
 // Простое кэширование в памяти (для продакшена лучше использовать Redis)
@@ -10,8 +8,7 @@ const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 минут
 
 async function getHandler(
-  req: NextRequest,
-  user: ReturnType<typeof getAuthenticatedUser>
+  req: NextRequest
 ): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(req.url);
@@ -197,4 +194,8 @@ async function getHandler(
   }
 }
 
-export const GET = requireAuth(getHandler);
+// Публичный API - каталог доступен всем
+export const GET = withErrorHandling(
+  getHandler,
+  'catalog/doors/cascade-options/GET'
+);

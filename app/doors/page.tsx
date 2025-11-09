@@ -944,6 +944,14 @@ export default function DoorsPage() {
         // if (sel.edge) query.set('edge', sel.edge);
 
         const response = await fetch(`/api/catalog/doors/cascade-options?${query.toString()}`);
+        if (!response.ok) {
+          if (response.status === 500) {
+            clientLogger.error('Ошибка сервера при загрузке cascade-options:', response.status, response.statusText);
+          } else {
+            clientLogger.warn('Ошибка при загрузке cascade-options:', response.status, response.statusText);
+          }
+          return;
+        }
         let data: unknown;
         try {
           data = await response.json();
