@@ -71,7 +71,17 @@ async function postHandler(
   req: NextRequest
 ): Promise<NextResponse> {
   const loggingContext = getLoggingContextFromRequest(req);
-  const body = await req.json();
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch (jsonError) {
+    logger.error('Ошибка парсинга JSON в price/doors', 'price/doors', jsonError instanceof Error ? { error: jsonError.message, stack: jsonError.stack } : { error: String(jsonError) }, loggingContext);
+    return apiError(
+      ApiErrorCode.VALIDATION_ERROR,
+      'Некорректный формат JSON в теле запроса',
+      400
+    );
+  }
   
   logger.debug('Расчет цены дверей', 'price/doors', {
     bodyType: typeof body,
