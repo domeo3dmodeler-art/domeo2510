@@ -2459,7 +2459,10 @@ export default function DoorsPage() {
                         
                         return (
                           <ModernPhotoGallery
-                            photos={selectedModelCard.photos}
+                            photos={{
+                              cover: selectedModelCard.photos.cover || null,
+                              gallery: selectedModelCard.photos.gallery || []
+                            }}
                             productName={selectedModelCard.model || ''}
                             hasGallery={selectedModelCard.hasGallery || false}
                             onToggleSidePanels={setHideSidePanels}
@@ -2467,7 +2470,7 @@ export default function DoorsPage() {
                         );
                       }
                       
-                      if (selectedModelCard?.photo) {
+                      if (selectedModelCard && selectedModelCard.photo) {
                         return (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
