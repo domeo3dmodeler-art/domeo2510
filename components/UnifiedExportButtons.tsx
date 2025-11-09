@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { exportService, CartItem, ExportOptions } from '@/lib/services/export.service';
+import type { CartItem, ExportOptions } from '@/lib/services/export.service';
 
 export interface ExportButtonsProps {
   getCart: () => CartItem[];
@@ -32,13 +32,60 @@ export default function ExportButtons({
 
     try {
       const cart = getCart();
-      const result = await exportService.export(type, cart, acceptedKPId, options);
       
-      if (!result.success) {
-        setError(result.error || 'Ошибка экспорта');
+      // Определяем тип документа и формат
+      let documentType: 'quote' | 'invoice' | 'order' = 'quote';
+      let format: 'pdf' | 'excel' | 'csv' = 'pdf';
+      
+      if (type === 'kp') {
+        documentType = 'quote';
+        format = options.format === 'pdf' ? 'pdf' : 'excel';
+      } else if (type === 'invoice') {
+        documentType = 'invoice';
+        format = options.format === 'pdf' ? 'pdf' : 'excel';
+      } else if (type === 'factory-csv' || type === 'factory-xlsx' || type === 'order-from-kp') {
+        documentType = 'order';
+        format = type === 'factory-csv' ? 'csv' : 'excel';
       }
-    } catch (err: any) {
-      setError(err.message || 'Неизвестная ошибка');
+      
+      // Вызываем API route
+      const response = await fetch('/api/cart/export/enhanced', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cart: { items: cart },
+          documentType,
+          format,
+          clientId: cart[0]?.clientId || null,
+          sourceDocumentId: acceptedKPId || null,
+          sourceDocumentType: acceptedKPId ? 'quote' : null
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Ошибка экспорта' }));
+        setError(errorData.error || 'Ошибка экспорта');
+        return;
+      }
+      
+      // Обрабатываем ответ
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      
+      if (options.openInNewTab) {
+        window.open(url, '_blank');
+      } else {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || `export.${format === 'pdf' ? 'pdf' : format === 'excel' ? 'xlsx' : 'csv'}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+      
+      URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
     } finally {
       setBusy(null);
     }

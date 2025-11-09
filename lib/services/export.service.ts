@@ -1,3 +1,5 @@
+'use server';
+
 // lib/services/export.service.ts
 // Сервис для экспорта документов в различные форматы
 
@@ -10,6 +12,7 @@ import type {
   DocumentType,
   DocumentItem
 } from '@/lib/types/documents';
+import type { CartItem } from '@/lib/cart/types';
 
 export type ExportFormat = 'pdf' | 'excel' | 'csv';
 
@@ -92,6 +95,22 @@ export class ExportService {
     // Эта функция больше не используется, валидация через Zod
     // Оставлена для обратной совместимости
   }
+}
+
+// Экспортируем типы для клиентских компонентов
+export type { CartItem } from '@/lib/cart/types';
+
+export interface ExportOptions {
+  format?: 'html' | 'pdf' | 'excel' | 'csv' | 'xlsx';
+  openInNewTab?: boolean;
+  [key: string]: unknown;
+}
+
+export interface ExportResult {
+  success: boolean;
+  error?: string;
+  url?: string;
+  filename?: string;
 }
 
 // Экспортируем singleton instance
