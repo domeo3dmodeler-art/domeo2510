@@ -283,7 +283,7 @@ export default function ProductsPage() {
           )}
           <span className="text-sm">{category.name}</span>
         </div>
-        {isExpanded && (category as CatalogCategory & { children: CatalogCategory[] }).children?.map((child: CatalogCategory & { children: CatalogCategory[] }) => renderCategoryNode(child, level + 1))}
+        {isExpanded && (category as CatalogCategory & { children: CatalogCategory[] }).children?.map((child) => renderCategoryNode(child as CatalogCategory & { children: CatalogCategory[] }, level + 1))}
       </div>
     );
   };
