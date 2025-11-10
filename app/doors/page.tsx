@@ -3253,10 +3253,100 @@ function CartManager({
   const [createdOrder, setCreatedOrder] = useState<{ id: string; number: string } | null>(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
   
-  // Сброс созданного заказа при изменении клиента
+  // Проверка существующих заказов при изменении корзины или клиента
   useEffect(() => {
-    setCreatedOrder(null);
-  }, [selectedClient]);
+    const checkExistingOrder = async () => {
+      if (!selectedClient || cart.length === 0) {
+        setCreatedOrder(null);
+        return;
+      }
+
+      try {
+        // Преобразуем items корзины в формат для API
+        const items = cart.map(item => ({
+          id: item.id,
+          productId: item.id,
+          name: item.name || item.model || 'Товар',
+          model: item.model,
+          qty: item.qty || 1,
+          quantity: item.qty || 1,
+          unitPrice: item.unitPrice || 0,
+          price: item.unitPrice || 0,
+          width: item.width,
+          height: item.height,
+          color: item.color,
+          finish: item.finish,
+          sku_1c: item.sku_1c,
+          handleId: item.handleId,
+          handleName: item.handleName,
+          type: item.type || (item.handleId ? 'handle' : 'door'),
+          hardwareKitId: item.hardwareKitId,
+          hardwareKitName: item.hardwareKitName
+        }));
+
+        const totalAmount = cart.reduce((sum, item) => sum + (item.unitPrice || 0) * (item.qty || 1), 0);
+
+        // Проверяем существующий заказ через API
+        const response = await fetch('/api/orders', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const { parseApiResponse } = await import('@/lib/utils/parse-api-response');
+          const parsedResult = parseApiResponse<{ orders?: Array<{ id: string; number: string; client_id: string; cart_data: string; total_amount: number }> }>(result);
+          
+          const orders = parsedResult && typeof parsedResult === 'object' && parsedResult !== null && 'orders' in parsedResult
+            ? (parsedResult as { orders?: Array<{ id: string; number: string; client_id: string; cart_data: string; total_amount: number }> }).orders
+            : null;
+
+          if (orders && Array.isArray(orders)) {
+            // Ищем заказ с таким же клиентом, составом и суммой
+            const existingOrder = orders.find(order => {
+              if (order.client_id !== selectedClient) return false;
+              if (Math.abs((order.total_amount || 0) - totalAmount) > 0.01) return false;
+              
+              try {
+                const orderCartData = JSON.parse(order.cart_data || '[]');
+                // Простое сравнение количества товаров и их типов
+                if (orderCartData.length !== items.length) return false;
+                
+                // Сравниваем каждый товар
+                const orderItemsMap = new Map(orderCartData.map((item: any) => [
+                  `${item.type || 'door'}-${item.model || ''}-${item.qty || item.quantity || 1}-${item.unitPrice || item.price || 0}`,
+                  true
+                ]));
+                
+                return items.every(item => {
+                  const key = `${item.type || 'door'}-${item.model || ''}-${item.qty || item.quantity || 1}-${item.unitPrice || item.price || 0}`;
+                  return orderItemsMap.has(key);
+                });
+              } catch (e) {
+                return false;
+              }
+            });
+
+            if (existingOrder) {
+              setCreatedOrder({ id: existingOrder.id, number: existingOrder.number });
+              clientLogger.debug('Найден существующий заказ:', { orderId: existingOrder.id, orderNumber: existingOrder.number });
+            } else {
+              setCreatedOrder(null);
+            }
+          } else {
+            setCreatedOrder(null);
+          }
+        } else {
+          setCreatedOrder(null);
+        }
+      } catch (error) {
+        clientLogger.error('Ошибка при проверке существующих заказов:', error);
+        setCreatedOrder(null);
+      }
+    };
+
+    checkExistingOrder();
+  }, [selectedClient, cart]);
   
   // Вспомогательная функция для получения ручки по ID (оптимизация для избежания повторных поисков)
   const getHandleById = React.useCallback((handleId: string | undefined): Handle | undefined => {
@@ -3799,11 +3889,14 @@ function CartManager({
             {canCreateOrder && (
             createdOrder ? (
               <button
-                onClick={() => setShowOrderModal(true)}
+                onClick={() => {
+                  clientLogger.debug('Открытие модального окна заказа:', { orderId: createdOrder.id, orderNumber: createdOrder.number });
+                  setShowOrderModal(true);
+                }}
                 className="flex items-center space-x-1 px-3 py-1 text-sm border border-blue-500 bg-blue-600 text-white hover:bg-blue-700 transition-all duration-200"
               >
                 <span>📦</span>
-                <span>Заказ-{createdOrder.number}</span>
+                <span>{createdOrder.number}</span>
               </button>
             ) : (
             <button
