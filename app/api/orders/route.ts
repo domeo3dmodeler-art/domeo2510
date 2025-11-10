@@ -334,11 +334,29 @@ async function getHandler(
     executor_name: order.executor_id ? executorMap.get(order.executor_id) || 'Не указан' : null,
     status: order.status,
     project_file_url: order.project_file_url,
-    door_dimensions: order.door_dimensions ? JSON.parse(order.door_dimensions) : null,
+    door_dimensions: order.door_dimensions ? (() => {
+      try {
+        return JSON.parse(order.door_dimensions);
+      } catch {
+        return null;
+      }
+    })() : null,
     measurement_done: order.measurement_done,
     project_complexity: order.project_complexity,
-    wholesale_invoices: order.wholesale_invoices ? JSON.parse(order.wholesale_invoices) : [],
-    technical_specs: order.technical_specs ? JSON.parse(order.technical_specs) : [],
+    wholesale_invoices: order.wholesale_invoices ? (() => {
+      try {
+        return JSON.parse(order.wholesale_invoices);
+      } catch {
+        return [];
+      }
+    })() : [],
+    technical_specs: order.technical_specs ? (() => {
+      try {
+        return JSON.parse(order.technical_specs);
+      } catch {
+        return [];
+      }
+    })() : [],
     verification_status: order.verification_status,
     verification_notes: order.verification_notes,
     notes: order.notes,
