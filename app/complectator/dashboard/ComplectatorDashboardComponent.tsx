@@ -141,12 +141,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
   // Проверка блокировки статуса документа (базовая функция)
   const isStatusBlocked = useCallback(async (documentId: string, documentType: 'invoice' | 'quote'): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/${documentType}s/${documentId}/status`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await fetchWithAuth(`/api/${documentType}s/${documentId}/status`);
 
       if (response.ok) {
         const data = await response.json();

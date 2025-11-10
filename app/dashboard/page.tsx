@@ -211,16 +211,13 @@ function DashboardContent() {
             let usersData: unknown;
             try {
               usersData = await responses[1].json();
+              usersData = parseApiResponse<{ users?: unknown[]; pagination?: any }>(usersData);
             } catch (jsonError) {
               clientLogger.error('Ошибка парсинга JSON ответа users:', jsonError);
               return;
             }
-            // apiSuccess возвращает { success: true, data: { users: ..., pagination: ... } }
-            const responseData = usersData && typeof usersData === 'object' && usersData !== null && 'data' in usersData
-              ? (usersData as { data: { users?: unknown[]; pagination?: any } }).data
-              : null;
-            const usersArray = responseData && 'users' in responseData && Array.isArray(responseData.users)
-              ? responseData.users
+            const usersArray = usersData && typeof usersData === 'object' && usersData !== null && 'users' in usersData && Array.isArray(usersData.users)
+              ? usersData.users
               : [];
             setUserCount(usersArray.length);
           } catch (err) {
@@ -232,26 +229,20 @@ function DashboardContent() {
       } else if (userRole === 'complectator') {
         // Для комплектатора запрашиваем только complectator stats
         try {
-          const response = await fetch('/api/complectator/stats', {
-            headers,
-            credentials: 'include',
-          });
+          const response = await fetchWithAuth('/api/complectator/stats');
           
           if (response.ok) {
             try {
               let complectatorData: unknown;
               try {
                 complectatorData = await response.json();
+                complectatorData = parseApiResponse<{ stats?: unknown }>(complectatorData);
               } catch (jsonError) {
                 clientLogger.error('Ошибка парсинга JSON ответа complectator stats:', jsonError);
                 return;
               }
-              // apiSuccess возвращает { success: true, data: { stats: ... } }
-              const responseData = complectatorData && typeof complectatorData === 'object' && complectatorData !== null && 'data' in complectatorData
-                ? (complectatorData as { data: { stats?: unknown } }).data
-                : null;
-              const statsData = responseData && 'stats' in responseData
-                ? responseData.stats
+              const statsData = complectatorData && typeof complectatorData === 'object' && complectatorData !== null && 'stats' in complectatorData
+                ? complectatorData.stats
                 : null;
               setComplectatorStats(statsData);
             } catch (err) {
