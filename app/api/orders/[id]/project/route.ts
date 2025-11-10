@@ -52,10 +52,10 @@ async function postHandler(
     throw new ValidationError('Неподдерживаемый тип файла. Разрешены: PDF, JPG, PNG, DWG, DXF');
   }
 
-  // Валидация размера файла (максимум 10MB)
-  const maxSize = 10 * 1024 * 1024; // 10MB
+  // Валидация размера файла (максимум 1MB)
+  const maxSize = 1 * 1024 * 1024; // 1MB
   if (file.size > maxSize) {
-    throw new ValidationError('Файл слишком большой. Максимальный размер: 10MB');
+    throw new ValidationError('Файл слишком большой. Максимальный размер: 1MB');
   }
 
   // Создаем директорию для заказов если её нет

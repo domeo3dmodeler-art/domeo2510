@@ -321,6 +321,14 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
       return;
     }
 
+    // Валидация размера файла (максимум 1MB)
+    const maxSize = 1 * 1024 * 1024; // 1MB
+    if (projectFile.size > maxSize) {
+      toast.error(`Файл слишком большой. Максимальный размер: 1MB. Размер файла: ${(projectFile.size / 1024 / 1024).toFixed(2)}MB`);
+      setProjectFile(null);
+      return;
+    }
+
     try {
       setUploadingProject(true);
       const formData = new FormData();
@@ -979,7 +987,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
             {/* Проект/планировка для Комплектатора */}
             {userRole === 'complectator' && (
               <div className="mb-4 pb-4 border-b border-gray-200">
-                <div className="flex justify-between items-center mb-3">
+                <div className="flex items-center space-x-3 mb-3">
                   <h3 className="text-sm font-medium text-gray-900">Проект/планировка</h3>
                   <button
                     onClick={() => setShowProjectUpload(true)}
@@ -999,7 +1007,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
                       className="text-blue-600 hover:underline text-sm flex items-center"
                     >
                       <Download className="h-3 w-3 mr-1" />
-                      Проект
+                      {order.project_file_url.split('/').pop() || 'Проект'}
                     </a>
                   </div>
                 ) : (
@@ -1237,6 +1245,16 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
                   accept=".pdf,.jpg,.jpeg,.png,.dwg,.dxf"
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null;
+                    if (file) {
+                      // Валидация размера файла (максимум 1MB)
+                      const maxSize = 1 * 1024 * 1024; // 1MB
+                      if (file.size > maxSize) {
+                        toast.error(`Файл слишком большой. Максимальный размер: 1MB. Размер файла: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
+                        e.target.value = ''; // Сбрасываем input
+                        setProjectFile(null);
+                        return;
+                      }
+                    }
                     setProjectFile(file);
                     clientLogger.debug('🔘 Выбран файл проекта', { fileName: file?.name, fileSize: file?.size });
                   }}
