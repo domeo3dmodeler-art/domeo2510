@@ -174,30 +174,48 @@ export class DocumentRepository {
    * Создает Order в БД
    */
   async createOrder(data: CreateDocumentRecordInput): Promise<OrderWithRelations> {
-    const cartData = JSON.stringify(data.items);
-    
-    const order = await prisma.order.create({
-      data: {
-        number: data.number,
-        parent_document_id: null, // Order - основной документ
-        cart_session_id: data.cart_session_id,
-        client_id: data.client_id,
-        created_by: data.created_by,
-        status: 'DRAFT',
-        subtotal: data.subtotal,
-        tax_amount: data.tax_amount,
-        total_amount: data.total_amount,
-        notes: data.notes,
-        cart_data: cartData
-      } as any
-    });
+    try {
+      // Безопасная сериализация items
+      let cartData: string;
+      try {
+        cartData = JSON.stringify(data.items);
+      } catch (jsonError) {
+        logger.error('Error stringifying items in createOrder', 'DOCUMENT_REPOSITORY', {
+          error: jsonError instanceof Error ? jsonError.message : String(jsonError),
+          itemsCount: data.items.length
+        });
+        // Используем упрощенную версию items
+        cartData = JSON.stringify(data.items.map(item => ({
+          type: item.type,
+          qty: item.qty || item.quantity,
+          unitPrice: item.unitPrice || item.price || item.unit_price,
+          model: item.model,
+          name: item.name
+        })));
+      }
+      
+      const order = await prisma.order.create({
+        data: {
+          number: data.number,
+          parent_document_id: null, // Order - основной документ
+          cart_session_id: data.cart_session_id,
+          client_id: data.client_id,
+          created_by: data.created_by,
+          status: 'DRAFT',
+          subtotal: data.subtotal,
+          tax_amount: data.tax_amount,
+          total_amount: data.total_amount,
+          notes: data.notes,
+          cart_data: cartData
+        } as any
+      });
 
-    // Создаем элементы заказа
-    const orderItems = data.items.map((item, i) => ({
-      order_id: order.id,
-      product_id: item.productId || item.product_id || `temp_${i}`,
-      quantity: item.qty || item.quantity || 1,
-      unit_price: item.unitPrice || item.price || item.unit_price || 0,
+      // Создаем элементы заказа
+      const orderItems = data.items.map((item, i) => ({
+        order_id: order.id,
+        product_id: item.productId || item.product_id || `temp_${i}`,
+        quantity: item.qty || item.quantity || 1,
+        unit_price: item.unitPrice || item.price || item.unit_price || 0,
       total_price: (item.qty || item.quantity || 1) * (item.unitPrice || item.price || item.unit_price || 0),
       notes: item.name || item.model || 'Товар'
     }));
