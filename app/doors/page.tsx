@@ -2381,15 +2381,7 @@ export default function DoorsPage() {
                       const hasGallery = hasPhotos && Array.isArray(selectedModelCard.photos?.gallery) && selectedModelCard.photos?.gallery.length > 0;
                       const shouldShowGallery = !!(hasCover || hasGallery);
                       
-                      clientLogger.debug('🖼️ Рендер галереи:', {
-                        model: selectedModelCard?.model,
-                        hasPhotos: !!hasPhotos,
-                        hasCover: !!hasCover,
-                        hasGallery: !!hasGallery,
-                        shouldShowGallery,
-                        photos: selectedModelCard?.photos,
-                        selectedModelCard: selectedModelCard
-                      });
+                      // Рендер галереи
                       
                       if (shouldShowGallery && selectedModelCard?.photos) {
                         // Рендерим ModernPhotoGallery
