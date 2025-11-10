@@ -10,7 +10,7 @@ export const createClientSchema = z.object({
   middleName: z.string().max(100, 'Отчество слишком длинное').nullable().optional(),
   phone: z.string().min(1, 'Телефон обязателен').max(20, 'Телефон слишком длинный'),
   address: z.string().min(1, 'Адрес обязателен').max(500, 'Адрес слишком длинный'),
-  objectId: z.string().min(1, 'ID объекта обязателен'),
+  objectId: z.string().optional(),
   compilationLeadNumber: z.string().nullable().optional(),
   customFields: z.string().optional().default('{}'),
   isActive: z.boolean().optional().default(true)

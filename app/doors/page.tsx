@@ -757,13 +757,24 @@ export default function DoorsPage() {
         } catch (jsonError) {
           throw new Error('Failed to parse create client response');
         }
-        const clientData = data && typeof data === 'object' && 'client' in data
-          ? (data as { client: unknown }).client
-          : null;
+        
+        // Парсим ответ в формате apiSuccess
+        const { parseApiResponse } = await import('@/lib/utils/parse-api-response');
+        const parsedData = parseApiResponse<{ id: string; firstName: string; lastName: string; middleName?: string; phone: string; address: string; objectId: string; compilationLeadNumber?: string; createdAt: string }>(data);
+        
         await fetchClients(); // Обновляем список
-        return clientData;
+        return parsedData;
       } else {
-        throw new Error('Failed to create client');
+        let errorData: unknown;
+        try {
+          errorData = await response.json();
+        } catch (jsonError) {
+          // Игнорируем ошибку парсинга JSON
+        }
+        const errorMessage = errorData && typeof errorData === 'object' && 'error' in errorData
+          ? String((errorData as { error: unknown }).error)
+          : `HTTP ${response.status}: ${response.statusText}`;
+        throw new Error(errorMessage || 'Failed to create client');
       }
     } catch (error) {
       clientLogger.error('Error creating client:', error);
@@ -3142,7 +3153,7 @@ export default function DoorsPage() {
                             middleName: newClientData.middleName || null,
                             phone: newClientData.phone,
                             address: newClientData.address || '',
-                            objectId: newClientData.objectId || `object-${Date.now()}`,
+                            objectId: newClientData.objectId && newClientData.objectId.trim() ? newClientData.objectId : `object-${Date.now()}`,
                             compilationLeadNumber: newClientData.compilationLeadNumber || null,
                             customFields: '{}',
                             isActive: true
