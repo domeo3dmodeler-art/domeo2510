@@ -342,10 +342,20 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         const data = await response.json();
         const parsedData = parseApiResponse(data);
         clientLogger.debug('handleStatusChange: success', parsedData);
+        
+        // Обновляем статус заказа сразу из ответа, если он есть
+        if (parsedData && typeof parsedData === 'object' && parsedData !== null && 'order' in parsedData) {
+          const updatedOrderData = (parsedData as { order?: any }).order;
+          if (updatedOrderData) {
+            clientLogger.debug('handleStatusChange: updating order from response', updatedOrderData);
+            setOrder((prevOrder) => prevOrder ? { ...prevOrder, status: updatedOrderData.status || newStatus } : prevOrder);
+          }
+        }
+        
         toast.success('Статус заказа успешно изменен');
         setShowStatusChangeModal(false);
         setNewStatus('');
-        // Обновляем данные заказа
+        // Обновляем данные заказа для получения полной информации
         await fetchOrder();
       } else {
         let errorData: any;
