@@ -823,40 +823,7 @@ export default function DoorsPage() {
 
   const selectedModelCard = useMemo(
     () => {
-      clientLogger.debug('🔍 selectedModelCard debug:', { 
-        selModel: sel.model, 
-        modelsCount: models?.length,
-        modelsSample: models?.slice(0, 3).map(m => ({ model: m.model, modelKey: m.modelKey, photo: m.photo }))
-      });
-      
-      const found = Array.isArray(models) ? models.find((m) => m.model === sel.model) || null : null;
-      clientLogger.debug('🔍 selectedModelCard result:', { 
-        selModel: sel.model, 
-        modelsCount: models?.length, 
-        found: !!found,
-        foundModel: found?.model,
-        foundModelKey: found?.modelKey,
-        foundPhoto: found?.photo,
-        foundPhotos: found?.photos
-      });
-      
-      // Дополнительное логирование для отладки
-      if (found) {
-        clientLogger.debug('🔍 Детали найденной модели:', {
-          model: found.model,
-          modelKey: found.modelKey,
-          photo: found.photo,
-          photos: found.photos,
-          hasPhotos: !!found.photos,
-          hasPhotosCover: !!found.photos?.cover,
-          hasPhotosGallery: Array.isArray(found.photos?.gallery) && found.photos.gallery.length > 0,
-          photosGalleryLength: Array.isArray(found.photos?.gallery) ? found.photos.gallery.length : 0,
-          hasGallery: found.hasGallery,
-          style: found.style
-        });
-      }
-      
-      return found;
+      return Array.isArray(models) ? models.find((m) => m.model === sel.model) || null : null;
     },
     [models, sel.model]
   );
@@ -1090,14 +1057,11 @@ export default function DoorsPage() {
             return;
           }
           
-          clientLogger.debug('✅ Все данные загружены одним запросом:', data);
-          
           // Проверяем формат ответа apiSuccess
-          const rows = Array.isArray(data && typeof data === 'object' && 'models' in data && data.models) 
-            ? (data.models as unknown[]) 
-            : (data && typeof data === 'object' && 'data' in data && data.data && typeof data.data === 'object' && 'models' in data.data && Array.isArray(data.data.models)
-              ? (data.data.models as unknown[]) 
-              : []);
+          const parsedData = parseApiResponse<{ models?: unknown[] }>(data);
+          const rows = Array.isArray(parsedData && typeof parsedData === 'object' && 'models' in parsedData && parsedData.models)
+            ? parsedData.models
+            : (Array.isArray(parsedData) ? parsedData : []);
           
           // Оптимизированная загрузка фото для всех моделей
           if (rows.length > 0) {
@@ -1105,10 +1069,8 @@ export default function DoorsPage() {
               const modelNames = rows
                 .filter((m: unknown): m is { model: string } => m && typeof m === 'object' && 'model' in m && typeof (m as { model: unknown }).model === 'string')
                 .map((m) => m.model);
-              const photoResponse = await fetch('/api/catalog/doors/photos-batch', {
+              const photoResponse = await fetchWithAuth('/api/catalog/doors/photos-batch', {
                 method: 'POST',
-                headers,
-                credentials: 'include',
                 body: JSON.stringify({ models: modelNames })
               });
               
@@ -1121,12 +1083,10 @@ export default function DoorsPage() {
                   // Продолжаем без фото
                   photoData = { photos: {} };
                 }
-                clientLogger.debug('⚡ Batch загрузка фото завершена для', modelNames.length, 'моделей');
-                clientLogger.debug('📸 photoData:', photoData);
-                
                 // Объединяем данные моделей с фото
-                const photoDataObj = photoData && typeof photoData === 'object' && 'photos' in photoData && photoData.photos && typeof photoData.photos === 'object'
-                  ? photoData.photos as Record<string, unknown>
+                const parsedPhotoData = parseApiResponse<{ photos?: Record<string, { photo?: string; photos?: { cover?: string | null; gallery?: string[] } }> }>(photoData);
+                const photoDataObj = parsedPhotoData && typeof parsedPhotoData === 'object' && 'photos' in parsedPhotoData && parsedPhotoData.photos && typeof parsedPhotoData.photos === 'object'
+                  ? parsedPhotoData.photos
                   : {};
                 const modelsWithPhotos = rows.map((model: unknown) => {
                   const modelObj = model && typeof model === 'object' && 'model' in model && typeof model.model === 'string'
@@ -1136,20 +1096,11 @@ export default function DoorsPage() {
                     ? photoDataObj[modelObj.model] as { photo?: string; photos?: { cover?: string | null; gallery?: string[] } }
                     : null;
                   // Приоритет: photoInfo из photos-batch, затем modelObj из complete-data
-                  // Если photoInfo есть, используем его, иначе используем modelObj.photos
                   const finalPhotos = photoInfo?.photos || modelObj.photos;
                   const finalPhoto = photoInfo?.photo || modelObj.photo || null;
                   const finalHasGallery = photoInfo?.photos?.gallery && Array.isArray(photoInfo.photos.gallery) && photoInfo.photos.gallery.length > 0 
                     || (modelObj.photos?.gallery && Array.isArray(modelObj.photos.gallery) && modelObj.photos.gallery.length > 0)
                     || false;
-                  
-                  clientLogger.debug(`📸 Model ${modelObj.model} - финальные данные:`, {
-                    'photoInfo': photoInfo,
-                    'modelObj.photos': modelObj.photos,
-                    'finalPhotos': finalPhotos,
-                    'finalPhoto': finalPhoto,
-                    'finalHasGallery': finalHasGallery
-                  });
                   
                   return {
                     ...modelObj,
@@ -1158,8 +1109,6 @@ export default function DoorsPage() {
                     hasGallery: finalHasGallery
                   };
                 });
-                
-                clientLogger.debug('📸 Первые 3 модели с фото:', modelsWithPhotos.slice(0, 3));
                 
                 setModels(modelsWithPhotos);
                 
@@ -1295,10 +1244,8 @@ export default function DoorsPage() {
               const modelNames = rows
                 .filter((m: unknown): m is { model: string } => m && typeof m === 'object' && 'model' in m && typeof (m as { model: unknown }).model === 'string')
                 .map((m) => m.model);
-              const photoResponse = await fetch('/api/catalog/doors/photos-batch', {
+              const photoResponse = await fetchWithAuth('/api/catalog/doors/photos-batch', {
                 method: 'POST',
-                headers,
-                credentials: 'include',
                 body: JSON.stringify({ models: modelNames })
               });
               

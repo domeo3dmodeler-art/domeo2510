@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import { ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { clientLogger } from '@/lib/logging/client-logger';
@@ -17,20 +17,7 @@ interface ModernPhotoGalleryProps {
   onToggleSidePanels?: (hide: boolean) => void;
 }
 
-export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSidePanels }: ModernPhotoGalleryProps) {
-  // Логируем при каждом вызове функции компонента
-  console.log('🔄 ModernPhotoGallery function called:', {
-    productName,
-    hasGallery,
-    cover: photos.cover,
-    galleryLength: photos.gallery?.length || 0
-  });
-  clientLogger.debug('🔄 ModernPhotoGallery render:', {
-    productName,
-    hasGallery,
-    cover: photos.cover,
-    galleryLength: photos.gallery?.length || 0
-  });
+export const ModernPhotoGallery = React.memo(function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSidePanels }: ModernPhotoGalleryProps) {
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
@@ -92,36 +79,26 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
   // Показываем миниатюры только если есть галерея
   const showThumbnails = hasGallery && allPhotos.length > 1;
 
-  const nextPhoto = () => {
-    clientLogger.debug('🔍 nextPhoto вызван:', { currentIndex, allPhotosLength: allPhotos.length });
-    setCurrentIndex((prev) => {
-      const next = (prev + 1) % allPhotos.length;
-      clientLogger.debug('🔍 nextPhoto новый индекс:', { prev, next });
-      return next;
-    });
-  };
+  const nextPhoto = useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % allPhotos.length);
+  }, [allPhotos.length]);
 
-  const prevPhoto = () => {
-    clientLogger.debug('🔍 prevPhoto вызван:', { currentIndex, allPhotosLength: allPhotos.length });
-    setCurrentIndex((prev) => {
-      const next = (prev - 1 + allPhotos.length) % allPhotos.length;
-      clientLogger.debug('🔍 prevPhoto новый индекс:', { prev, next });
-      return next;
-    });
-  };
+  const prevPhoto = useCallback(() => {
+    setCurrentIndex((prev) => (prev - 1 + allPhotos.length) % allPhotos.length);
+  }, [allPhotos.length]);
 
   const goToPhoto = (index: number) => {
     setCurrentIndex(index);
   };
 
-  const toggleZoom = () => {
-    const newZoomState = !isZoomed;
-    clientLogger.debug('🔍 toggleZoom вызван:', { isZoomed, newZoomState });
-    setIsZoomed(newZoomState);
-    // Управляем видимостью боковых панелей
-    if (onToggleSidePanels) {
-      onToggleSidePanels(newZoomState);
-    }
+  const toggleZoom = useCallback(() => {
+    setIsZoomed((prev) => {
+      const newZoomState = !prev;
+      if (onToggleSidePanels) {
+        onToggleSidePanels(newZoomState);
+      }
+      return newZoomState;
+    });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

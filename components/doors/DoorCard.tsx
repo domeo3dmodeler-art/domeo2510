@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, memo } from 'react';
 import { clientLogger } from '@/lib/logging/client-logger';
+import { fetchWithAuth } from '@/lib/utils/fetch-with-auth';
+import { parseApiResponse } from '@/lib/utils/parse-api-response';
 import { formatModelNameForCard } from './utils';
 import type { ModelItem } from './types';
 
@@ -11,43 +13,34 @@ interface DoorCardProps {
   onSelect: () => void;
 }
 
-export function DoorCard({ item, selected, onSelect }: DoorCardProps) {
+export const DoorCard = memo(function DoorCard({ item, selected, onSelect }: DoorCardProps) {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Используем фото напрямую из данных модели
-    clientLogger.debug('🔍 DoorCard useEffect, item:', {
-      model: item.model,
-      modelKey: item.modelKey,
-      photo: item.photo,
-      hasPhoto: !!item.photo
-    });
+  // Мемоизируем вычисление URL изображения
+  const imageUrl = useMemo(() => {
+    if (!item.photo || typeof item.photo !== 'string') {
+      return null;
+    }
     
-    if (item.photo && typeof item.photo === 'string') {
-      clientLogger.debug('📷 item.photo:', item.photo);
-      clientLogger.debug('📷 startsWith("/uploads"):', item.photo.startsWith('/uploads'));
-      
-      // Если фото начинается с /uploads/, используем как есть
-      // Если начинается с products/ или uploads/, добавляем /api
-      let imageUrl: string;
-      if (item.photo.startsWith('/uploads/')) {
-        imageUrl = `/api${item.photo}`;
-      } else if (item.photo.startsWith('/uploadsproducts')) {
-        // Корректируем: /uploadsproducts/... -> /uploads/products/...
-        imageUrl = `/api/uploads/products/${item.photo.substring(17)}`; // убираем первые 17 символов '/uploadsproducts'
-      } else if (item.photo.startsWith('/uploads')) {
-        // Корректируем: /uploads... -> /uploads/...
-        imageUrl = `/api/uploads/${item.photo.substring(8)}`; // убираем первые 8 символов '/uploads'
-      } else if (item.photo.startsWith('products/')) {
-        imageUrl = `/api/uploads/${item.photo}`;
-      } else if (item.photo.startsWith('uploads/')) {
-        imageUrl = `/api/${item.photo}`;
-      } else {
-        imageUrl = `/api/uploads/${item.photo}`;
-      }
-      
-      clientLogger.debug('📷 imageUrl:', imageUrl);
+    // Если фото начинается с /uploads/, используем как есть
+    if (item.photo.startsWith('/uploads/')) {
+      return `/api${item.photo}`;
+    } else if (item.photo.startsWith('/uploadsproducts')) {
+      return `/api/uploads/products/${item.photo.substring(17)}`;
+    } else if (item.photo.startsWith('/uploads')) {
+      return `/api/uploads/${item.photo.substring(8)}`;
+    } else if (item.photo.startsWith('products/')) {
+      return `/api/uploads/${item.photo}`;
+    } else if (item.photo.startsWith('uploads/')) {
+      return `/api/${item.photo}`;
+    } else {
+      return `/api/uploads/${item.photo}`;
+    }
+  }, [item.photo]);
+
+  useEffect(() => {
+    if (imageUrl) {
       setImageSrc(imageUrl);
       setIsLoading(false);
     } else if (item.modelKey) {
@@ -55,28 +48,27 @@ export function DoorCard({ item, selected, onSelect }: DoorCardProps) {
       const loadPhoto = async () => {
         try {
           setIsLoading(true);
-          clientLogger.debug('🔄 Загружаем фото для карточки модели:', item.modelKey);
-
-          const response = await fetch(`/api/catalog/doors/photos?model=${encodeURIComponent(item.modelKey || '')}`);
+          const response = await fetchWithAuth(`/api/catalog/doors/photos?model=${encodeURIComponent(item.modelKey || '')}`);
 
           if (response.ok) {
             const data = await response.json();
-            if (data.photos && data.photos.length > 0) {
-              const photoPath = data.photos[0];
+            const parsedData = parseApiResponse<{ photos?: string[] }>(data);
+            if (parsedData.photos && parsedData.photos.length > 0) {
+              const photoPath = parsedData.photos[0];
               // Обрабатываем разные форматы путей
-              let imageUrl: string;
+              let url: string;
               if (photoPath.startsWith('/uploads/')) {
-                imageUrl = `/api${photoPath}`;
+                url = `/api${photoPath}`;
               } else if (photoPath.startsWith('/uploads')) {
-                imageUrl = `/api/uploads/${photoPath.substring(8)}`;
+                url = `/api/uploads/${photoPath.substring(8)}`;
               } else if (photoPath.startsWith('products/')) {
-                imageUrl = `/api/uploads/${photoPath}`;
+                url = `/api/uploads/${photoPath}`;
               } else if (photoPath.startsWith('uploads/')) {
-                imageUrl = `/api/${photoPath}`;
+                url = `/api/${photoPath}`;
               } else {
-                imageUrl = `/api/uploads/${photoPath}`;
+                url = `/api/uploads/${photoPath}`;
               }
-              setImageSrc(imageUrl);
+              setImageSrc(url);
             } else {
               setImageSrc(null);
             }
@@ -93,11 +85,10 @@ export function DoorCard({ item, selected, onSelect }: DoorCardProps) {
 
       loadPhoto();
     } else {
-      // Если фото нет, показываем placeholder
       setImageSrc(null);
       setIsLoading(false);
     }
-  }, [item.model, item.modelKey, item.photo]);
+  }, [imageUrl, item.modelKey]);
 
   return (
     <div className="flex flex-col">
@@ -159,4 +150,13 @@ export function DoorCard({ item, selected, onSelect }: DoorCardProps) {
     </div>
   );
 }
+
+export const DoorCard = memo(DoorCardComponent, (prevProps, nextProps) => {
+  // Мемоизация: перерендериваем только если изменились важные пропсы
+  return (
+    prevProps.item.model === nextProps.item.model &&
+    prevProps.item.photo === nextProps.item.photo &&
+    prevProps.selected === nextProps.selected
+  );
+});
 
