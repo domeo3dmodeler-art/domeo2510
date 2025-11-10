@@ -234,9 +234,9 @@ export class DocumentRepository {
       }
     });
 
-    if (!orderWithRelations) {
-      throw new Error('Не удалось получить созданный Order');
-    }
+      if (!orderWithRelations) {
+        throw new Error('Не удалось получить созданный Order');
+      }
 
       logger.info('Order created', 'DOCUMENT_REPOSITORY', {
         orderId: order.id,
@@ -247,6 +247,19 @@ export class DocumentRepository {
       simpleCache.deleteByPrefix('order:');
 
       return orderWithRelations;
+    } catch (error) {
+      logger.error('Error creating order in documentRepository', 'DOCUMENT_REPOSITORY', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        data: {
+          number: data.number,
+          client_id: data.client_id,
+          itemsCount: data.items.length,
+          total_amount: data.total_amount
+        }
+      });
+      throw error;
+    }
   }
 
   /**
