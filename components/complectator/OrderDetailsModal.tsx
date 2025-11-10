@@ -1210,6 +1210,69 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
         />
       )}
 
+      {/* Модальное окно загрузки проекта/планировки */}
+      {showProjectUpload && order && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]" 
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setShowProjectUpload(false);
+            setProjectFile(null);
+          }}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 max-w-md w-full mx-4" 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
+            <h3 className="text-lg font-semibold mb-4">Загрузка проекта/планировки</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Выберите файл</label>
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.dwg,.dxf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setProjectFile(file);
+                    clientLogger.debug('🔘 Выбран файл проекта', { fileName: file?.name, fileSize: file?.size });
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <button
+                  onClick={() => {
+                    setShowProjectUpload(false);
+                    setProjectFile(null);
+                  }}
+                  className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  disabled={uploadingProject}
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (projectFile && !uploadingProject) {
+                      handleProjectUpload();
+                    }
+                  }}
+                  disabled={!projectFile || uploadingProject}
+                  className="px-4 py-2 text-sm bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {uploadingProject ? 'Загрузка...' : 'Загрузить'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Модальное окно изменения статуса */}
       {showStatusChangeModal && order && (
         <div 
