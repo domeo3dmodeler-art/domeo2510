@@ -17,6 +17,7 @@ interface OrderDetailsModalProps {
   onClose: () => void;
   orderId: string;
   userRole: string;
+  onOrderUpdate?: () => void;
 }
 
 interface OrderData {
@@ -85,7 +86,7 @@ const STATUS_COLORS: Record<string, string> = {
   'RECEIVED_FROM_SUPPLIER': 'bg-purple-100 text-purple-800 border-purple-200'
 };
 
-export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderDetailsModalProps) {
+export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderUpdate }: OrderDetailsModalProps) {
   const [order, setOrder] = useState<OrderData | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(false);
@@ -357,6 +358,10 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         setNewStatus('');
         // Обновляем данные заказа для получения полной информации
         await fetchOrder();
+        // Обновляем список заказов в родительском компоненте
+        if (onOrderUpdate) {
+          onOrderUpdate();
+        }
       } else {
         let errorData: any;
         try {

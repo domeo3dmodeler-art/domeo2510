@@ -1353,6 +1353,12 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
           }}
           orderId={selectedOrderId}
           userRole={user.role}
+          onOrderUpdate={async () => {
+            // Обновляем список заказов после смены статуса
+            if (selectedClient) {
+              await fetchOrders(selectedClient);
+            }
+          }}
         />
       )}
     </div>
