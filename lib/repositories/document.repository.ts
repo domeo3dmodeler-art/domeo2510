@@ -200,14 +200,11 @@ export class DocumentRepository {
           parent_document_id: null, // Order - основной документ
           cart_session_id: data.cart_session_id,
           client_id: data.client_id,
-          created_by: data.created_by,
-          status: 'DRAFT',
-          subtotal: data.subtotal,
-          tax_amount: data.tax_amount,
+          status: 'NEW_PLANNED', // Статус по умолчанию для Order
           total_amount: data.total_amount,
           notes: data.notes,
           cart_data: cartData
-        } as any
+        }
       });
 
       // Создаем элементы заказа
