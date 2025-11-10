@@ -21,7 +21,7 @@ export const documentItemSchema = z.object({
   color: z.string().optional(),
   finish: z.string().optional(),
   style: z.string().optional(),
-  sku_1c: z.string().optional(),
+  sku_1c: z.string().nullable().optional(),
   handleId: z.string().optional(),
   handleName: z.string().optional(),
   hardwareKitId: z.string().optional(),

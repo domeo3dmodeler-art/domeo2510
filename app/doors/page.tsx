@@ -3317,8 +3317,17 @@ function CartManager({
                 return false;
               }
               
-              if (Math.abs((order.total_amount || 0) - totalAmount) > 0.01) {
-                clientLogger.debug('Заказ не подходит по сумме:', { orderTotal: order.total_amount, totalAmount });
+              const orderTotal = order.total_amount !== null && order.total_amount !== undefined ? Number(order.total_amount) : 0;
+              const currentTotal = Number(totalAmount) || 0;
+              
+              if (Math.abs(orderTotal - currentTotal) > 0.01) {
+                clientLogger.debug('Заказ не подходит по сумме:', { 
+                  orderTotal, 
+                  currentTotal, 
+                  diff: Math.abs(orderTotal - currentTotal),
+                  orderTotalType: typeof order.total_amount,
+                  currentTotalType: typeof totalAmount
+                });
                 return false;
               }
               
@@ -3970,7 +3979,7 @@ function CartManager({
                         height: item.height,
                         color: item.color,
                         finish: item.finish,
-                        sku_1c: item.sku_1c,
+                        sku_1c: item.sku_1c || undefined,
                         // ВАЖНО: Сохраняем handleId и type для определения ручек
                         handleId: item.handleId,
                         handleName: item.handleName,
