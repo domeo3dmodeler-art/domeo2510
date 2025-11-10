@@ -1266,7 +1266,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
                 />
                 {projectFile && (
                   <div className="mt-2 text-sm text-gray-600">
-                    Выбран файл: {projectFile.name} ({(projectFile.size / 1024).toFixed(2)} KB)
+                    Выбран файл: <span className="font-medium">{projectFile.name}</span> ({(projectFile.size / 1024).toFixed(2)} KB)
                   </div>
                 )}
               </div>
