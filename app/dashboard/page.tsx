@@ -13,6 +13,7 @@ import { Card, Button } from '../../components/ui';
 import { ClientAuthGuard } from '../../components/auth/ClientAuthGuard';
 import NotificationBell from '../../components/ui/NotificationBell';
 import { clientLogger } from '@/lib/logging/client-logger';
+import { fetchWithAuth } from '@/lib/utils/fetch-with-auth';
 
 interface User {
   id: string;
