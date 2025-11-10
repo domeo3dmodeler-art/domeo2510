@@ -708,24 +708,34 @@ export default function DoorsPage() {
     try {
       setClientsLoading(true);
       const response = await fetch('/api/clients');
-      if (response.ok) {
-        let data: unknown;
-        try {
-          data = await response.json();
-        } catch (jsonError) {
-          clientLogger.error('Ошибка парсинга JSON ответа clients:', jsonError);
-          setClients([]);
-          return;
-        }
-        const clientsData = data && typeof data === 'object' && 'clients' in data
-          ? (data as { clients: unknown[] }).clients
-          : [];
-        setClients(Array.isArray(clientsData) ? clientsData : []);
+      if (!response.ok) {
+        clientLogger.error('Failed to fetch clients:', response.status, response.statusText);
+        setClients([]);
+        return;
+      }
+      
+      let data: unknown;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        clientLogger.error('Ошибка парсинга JSON ответа clients:', jsonError);
+        setClients([]);
+        return;
+      }
+      
+      // Парсим ответ в формате apiSuccess
+      const { parseApiResponse } = await import('@/lib/utils/parse-api-response');
+      const parsedData = parseApiResponse<{ clients: any[]; pagination?: any }>(data);
+      
+      if (parsedData && Array.isArray(parsedData.clients)) {
+        setClients(parsedData.clients);
       } else {
-        clientLogger.error('Failed to fetch clients');
+        clientLogger.error('Неверный формат данных клиентов:', parsedData);
+        setClients([]);
       }
     } catch (error) {
       clientLogger.error('Error fetching clients:', error);
+      setClients([]);
     } finally {
       setClientsLoading(false);
     }
