@@ -1097,7 +1097,10 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                 <label className="block text-sm font-medium mb-2">Новый статус</label>
                 <select
                   value={newStatus}
-                  onChange={(e) => setNewStatus(e.target.value)}
+                  onChange={(e) => {
+                    clientLogger.debug('🔘 Выбран новый статус', { newStatus: e.target.value });
+                    setNewStatus(e.target.value);
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
                 >
                   <option value="">Выберите статус</option>
