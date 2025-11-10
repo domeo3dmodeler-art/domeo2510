@@ -356,7 +356,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
       {/* Полноэкранный режим при зуме */}
       {isZoomed && allPhotos[currentIndex] && (
         <div 
-          className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4 overflow-auto"
+          className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4 overflow-hidden"
           onClick={(e) => {
             // Закрываем зум только при клике на фон, не на содержимое
             if (e.target === e.currentTarget) {
@@ -441,7 +441,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
             {/* Миниатюры внизу */}
             {allPhotos.length > 1 && (
               <div className="bg-black/50 p-4 flex-none">
-                <div className="flex justify-center space-x-3 overflow-x-auto">
+                <div className="flex justify-center space-x-3 overflow-x-auto scrollbar-hide">
                   {allPhotos.map((photo, index) => (
                     photo ? (
                       <button
