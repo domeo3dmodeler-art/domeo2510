@@ -77,10 +77,14 @@ export async function GET(
         break;
     }
 
+    // Определяем имя файла для заголовка Content-Disposition
+    const fileName = filePath.split('/').pop() || 'file';
+    
     // Возвращаем файл с правильными заголовками
     return new NextResponse(fileBuffer, {
       headers: {
         'Content-Type': mimeType,
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Content-Length': fileBuffer.length.toString(),
       },
