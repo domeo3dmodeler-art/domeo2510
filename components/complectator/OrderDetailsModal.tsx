@@ -348,9 +348,33 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         // Обновляем данные заказа
         await fetchOrder();
       } else {
-        const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
-        clientLogger.error('handleStatusChange: error', errorData);
-        toast.error(`Ошибка при изменении статуса: ${errorData.error || 'Неизвестная ошибка'}`);
+        let errorData: any;
+        try {
+          errorData = await response.json();
+        } catch (jsonError) {
+          clientLogger.error('handleStatusChange: error parsing JSON', jsonError);
+          errorData = { error: `Ошибка ${response.status}: ${response.statusText}` };
+        }
+        
+        // Парсим ответ в формате apiError
+        const parsedError = parseApiResponse<{ error?: { code?: string; message?: string; details?: unknown } }>(errorData);
+        
+        const errorMessage = parsedError && typeof parsedError === 'object' && parsedError !== null && 'error' in parsedError
+          ? (parsedError.error && typeof parsedError.error === 'object' && 'message' in parsedError.error
+            ? String(parsedError.error.message)
+            : String(parsedError.error))
+          : (errorData && typeof errorData === 'object' && errorData !== null && 'error' in errorData
+            ? String((errorData as { error: unknown }).error)
+            : 'Неизвестная ошибка');
+        
+        clientLogger.error('handleStatusChange: error', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+          parsedError,
+          errorMessage
+        });
+        toast.error(`Ошибка при изменении статуса: ${errorMessage}`);
       }
     } catch (error) {
       clientLogger.error('Error changing order status:', error);
