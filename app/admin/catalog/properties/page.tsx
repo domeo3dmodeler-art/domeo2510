@@ -38,7 +38,7 @@ export default function PropertiesPage() {
       ]);
 
       if (propertiesRes.ok) {
-        const propertiesData = await propertiesRes.json();
+      const propertiesData = await propertiesRes.json();
         // apiSuccess возвращает { success: true, data: { properties: ... } }
         const responseData = propertiesData && typeof propertiesData === 'object' && 'data' in propertiesData
           ? (propertiesData as { data: { properties?: ProductProperty[] } }).data
@@ -46,8 +46,8 @@ export default function PropertiesPage() {
         const properties = responseData && 'properties' in responseData && Array.isArray(responseData.properties)
           ? responseData.properties
           : (propertiesData.properties || []);
-        
-        if (propertiesData.success) {
+
+      if (propertiesData.success) {
           setProperties(properties);
         }
       }
@@ -61,8 +61,8 @@ export default function PropertiesPage() {
         const categories = responseData && 'categories' in responseData && Array.isArray(responseData.categories)
           ? responseData.categories
           : (categoriesData.categories || []);
-        
-        if (categoriesData.success) {
+
+      if (categoriesData.success) {
           setCategories(categories);
         }
       }

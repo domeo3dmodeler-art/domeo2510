@@ -75,19 +75,33 @@ async function postHandler(
 
     // Загружаем только не кэшированные модели
     if (uncachedModels.length > 0) {
-      // Получаем все товары для определения артикулов поставщика для каждой модели
+      // Оптимизация: фильтруем товары по нужным моделям на уровне БД
+      // Создаем условия для поиска моделей в properties_data
+      const modelSearchConditions = uncachedModels.map(model => ({
+        properties_data: {
+          contains: `"Domeo_Название модели для Web":"${model}"`
+        }
+      }));
+
+      // Получаем только товары с нужными моделями
       const products = await prisma.product.findMany({
         where: {
           catalog_category: {
             name: "Межкомнатные двери"
-          }
+          },
+          OR: modelSearchConditions.length > 0 ? modelSearchConditions : undefined
         },
         select: {
           properties_data: true
-        }
+        },
+        // Ограничиваем количество для оптимизации
+        take: uncachedModels.length * 10 // Примерно 10 товаров на модель
       });
 
-      logger.debug('Получено товаров из БД', 'catalog/doors/photos-batch/POST', { productsCount: products.length }, loggingContext);
+      logger.debug('Получено товаров из БД (оптимизировано)', 'catalog/doors/photos-batch/POST', { 
+        productsCount: products.length,
+        modelsRequested: uncachedModels.length
+      }, loggingContext);
 
       // Создаем мапу модель -> артикул (для поиска фото по артикулу)
       const modelToValue = new Map<string, string>();

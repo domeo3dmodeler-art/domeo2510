@@ -12,6 +12,7 @@ import ImportInstructionsDialog from '../../../components/admin/ImportInstructio
 import InstructionsModal from '../../../components/admin/InstructionsModal';
 import { fixFieldsEncoding } from '@/lib/encoding-utils';
 import { clientLogger } from '@/lib/logging/client-logger';
+import { parseApiResponse } from '@/lib/utils/parse-api-response';
 
   // Функция анализа свойств группы товаров
   const analyzeGroupProperties = (products: Product[]) => {
@@ -428,13 +429,13 @@ export default function CatalogPage() {
       }
       
       const data = await response.json();
-      // apiSuccess возвращает { success: true, data: { categories: ... } }
-      const responseData = data && typeof data === 'object' && 'data' in data
-        ? (data as { data: { categories?: CatalogCategory[] } }).data
-        : null;
-      const categories = responseData && 'categories' in responseData && Array.isArray(responseData.categories)
-        ? responseData.categories
-        : (data.categories || []);
+      clientLogger.debug('📡 Ответ от /api/catalog/categories:', data);
+      
+      // apiSuccess возвращает { success: true, data: { categories: ..., total_count: ... } }
+      const responseData = parseApiResponse<{ categories: CatalogCategory[]; total_count: number }>(data);
+      const categories = responseData?.categories || [];
+      
+      clientLogger.debug('📦 Извлеченные категории:', { count: categories.length, categories });
       setCategories(categories);
     } catch (error) {
       clientLogger.error('Error loading categories:', error);
@@ -480,36 +481,26 @@ export default function CatalogPage() {
       }
       
       const data = await response.json();
-      // apiSuccess возвращает { success: true, data: { products: ..., total: ... } }
-      const responseData = data && typeof data === 'object' && 'data' in data
-        ? (data as { data: { products?: Product[]; total?: number } }).data
-        : null;
-      const products = responseData && 'products' in responseData && Array.isArray(responseData.products)
-        ? responseData.products
-        : (data.products || []);
-      const total = responseData && 'total' in responseData && typeof responseData.total === 'number'
-        ? responseData.total
-        : (data.total || 0);
+      clientLogger.debug('📡 Ответ от /api/catalog/products:', data);
       
-      if (data.success && products.length > 0) {
-        
-        if (append) {
-          // Дозагружаем товары
-          setCategoryProducts(prev => [...prev, ...products]);
-          setCurrentLoadedCount(prev => prev + products.length);
-        } else {
-          // Загружаем с начала
-          setCategoryProducts(products);
-          setCurrentLoadedCount(products.length);
-        }
-        setTotalProductsCount(total);
+      // apiSuccess возвращает { success: true, data: { products: ..., total: ... } }
+      const responseData = parseApiResponse<{ products: Product[]; total: number }>(data);
+      const products = responseData?.products || [];
+      const total = responseData?.total || 0;
+      
+      clientLogger.debug('📦 Извлеченные товары:', { count: products.length, total, products });
+      
+      // Обновляем состояние независимо от количества товаров
+      if (append) {
+        // Дозагружаем товары
+        setCategoryProducts(prev => [...prev, ...products]);
+        setCurrentLoadedCount(prev => prev + products.length);
       } else {
-        if (!append) {
-          setCategoryProducts([]);
-          setCurrentLoadedCount(0);
-        }
-        setTotalProductsCount(0);
+        // Загружаем с начала
+        setCategoryProducts(products);
+        setCurrentLoadedCount(products.length);
       }
+      setTotalProductsCount(total);
     } catch (error) {
       clientLogger.error('Error loading products:', error);
       if (!append) {
@@ -526,12 +517,21 @@ export default function CatalogPage() {
     try {
       setTemplateLoading(true);
       const response = await fetch(`/api/admin/templates?catalogCategoryId=${categoryId}`);
+      
+      if (!response.ok) {
+        clientLogger.error('Error loading template', { status: response.status });
+        setSelectedTemplate(null);
+        return;
+      }
+      
       const data = await response.json();
+      clientLogger.debug('📡 Ответ от /api/admin/templates:', data);
       
+      // apiSuccess возвращает { success: true, data: { template: ... } }
+      const responseData = parseApiResponse<{ template?: ImportTemplate }>(data);
+      const template = responseData?.template;
       
-      if (data.success && data.template) {
-        const template = data.template;
-        
+      if (template) {
         if (template.requiredFields) {
           try {
             const fields = template.requiredFields; // Уже парсится в API

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { clientLogger } from '@/lib/logging/client-logger';
+import { parseApiResponse } from '@/lib/utils/parse-api-response';
 
 interface CatalogCategory {
   id: string;
@@ -31,7 +32,11 @@ export function CatalogTreePanel({ onCategorySelect, selectedCategoryIds = [] }:
         const response = await fetch('/api/catalog/categories');
         if (response.ok) {
           const data = await response.json();
-          setCategories(data.categories || []);
+          // apiSuccess возвращает { success: true, data: { categories: ..., total_count: ... } }
+          const responseData = parseApiResponse<{ categories: CatalogCategory[]; total_count: number }>(data);
+          const categories = responseData?.categories || [];
+          
+          setCategories(categories);
           
           // Автоматически раскрываем первые уровни
           const autoExpand = (cats: CatalogCategory[], level = 0) => {
@@ -44,7 +49,7 @@ export function CatalogTreePanel({ onCategorySelect, selectedCategoryIds = [] }:
               });
             }
           };
-          autoExpand(data.categories || []);
+          autoExpand(categories);
         }
       } catch (error) {
         clientLogger.error('Error loading catalog tree', error instanceof Error ? error : new Error(String(error)));

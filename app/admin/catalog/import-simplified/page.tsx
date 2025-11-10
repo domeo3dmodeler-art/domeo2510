@@ -59,7 +59,10 @@ export default function SimplifiedCatalogImportPage() {
       const response = await fetch('/api/catalog/categories');
       if (response.ok) {
         const data = await response.json();
-        setCatalogCategories(data.categories || []);
+        // apiSuccess возвращает { success: true, data: { categories: ..., total_count: ... } }
+        const { parseApiResponse } = await import('@/lib/utils/parse-api-response');
+        const responseData = parseApiResponse<{ categories: CatalogCategory[]; total_count: number }>(data);
+        setCatalogCategories(responseData?.categories || []);
       }
     } catch (error) {
       clientLogger.error('Error loading catalog categories:', error);

@@ -68,7 +68,7 @@ export default function ProductsPage() {
       });
       
       if (categoriesRes.ok) {
-        const categoriesData = await categoriesRes.json();
+      const categoriesData = await categoriesRes.json();
         // apiSuccess возвращает { success: true, data: { categories: ... } }
         const responseData = categoriesData && typeof categoriesData === 'object' && 'data' in categoriesData
           ? (categoriesData as { data: { categories?: CatalogCategory[] } }).data
@@ -100,7 +100,7 @@ export default function ProductsPage() {
           ? (productsData as { data: ProductsResponse }).data
           : null;
         const products = responseData || productsData;
-        
+
         setProducts(products.products || []);
         setTotalPages(products.totalPages || 1);
         setTotal(products.total || 0);

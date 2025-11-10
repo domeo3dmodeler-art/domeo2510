@@ -18,6 +18,7 @@ import HandleSelectionModal from "../../components/HandleSelectionModal";
 import { clientLogger } from "@/lib/logging/client-logger";
 import { fetchWithAuth } from "@/lib/utils/fetch-with-auth";
 import { parseApiResponse } from "@/lib/utils/parse-api-response";
+import { useDebounce } from "@/hooks/useDebounce";
 import { DoorCard, StickyPreview, Select, HardwareSelect, HandleSelect, SelectMini } from "@/components/doors";
 import type { BasicState, CartItem, Domain, HardwareKit, Handle, ModelItem } from "@/components/doors";
 import { resetDependentParams, formatModelNameForCard, formatModelNameForPreview, fmtInt, fmt2, uid, hasBasic, slugify } from "@/components/doors";
@@ -828,6 +829,15 @@ export default function DoorsPage() {
     [models, sel.model]
   );
 
+  // Оптимизация: мемоизируем отфильтрованные модели для рендеринга
+  // Ограничиваем количество рендерируемых карточек для оптимизации производительности
+  const MAX_VISIBLE_MODELS = 100; // Максимальное количество видимых моделей
+  const visibleModels = useMemo(() => {
+    if (!Array.isArray(models)) return [];
+    // Ограничиваем количество для оптимизации рендеринга
+    return models.slice(0, MAX_VISIBLE_MODELS);
+  }, [models]);
+
   const query = useMemo(() => {
     const q = new URLSearchParams();
     (["style", "model", "finish", "color", "type", "width", "height"] as const).forEach((k) => {
@@ -995,11 +1005,14 @@ export default function DoorsPage() {
   // }, [sel.model, sel.style, sel.finish, sel.color, sel.type, sel.width, sel.height]);
 
   // Оптимизированная загрузка моделей и опций при изменении стиля
+  // Дебаунсируем стиль для оптимизации загрузки
+  const debouncedStyle = useDebounce(sel.style, 300); // 300ms задержка
+
   useEffect(() => {
     let c = false;
     (async () => {
       try {
-        const styleKey = sel.style || 'all';
+        const styleKey = debouncedStyle || 'all';
         
         // Проверяем клиентский кэш для моделей с проверкой времени
         const cached = modelsCache.get('all');
@@ -1007,8 +1020,8 @@ export default function DoorsPage() {
           clientLogger.debug('✅ Используем предзагруженные данные');
           
           // Фильтруем модели по стилю в памяти
-          const filteredModels = sel.style ? 
-            cached.data.filter((model: any) => model.style === sel.style) : 
+          const filteredModels = debouncedStyle ? 
+            cached.data.filter((model: any) => model.style === debouncedStyle) : 
             cached.data;
           
           setModels(filteredModels);
@@ -1017,7 +1030,7 @@ export default function DoorsPage() {
         }
         
         // Если нет кэша, загружаем данные
-        clientLogger.debug('🔄 Загружаем данные для стиля:', sel.style || 'все');
+        clientLogger.debug('🔄 Загружаем данные для стиля:', debouncedStyle || 'все');
         
         // Проверяем, не загружаются ли уже данные
         if (isLoadingModels) {
@@ -1031,7 +1044,7 @@ export default function DoorsPage() {
         if (!c) setModels([]);
         
         // Один оптимизированный запрос для всех данных
-        const response = await fetchWithAuth(`/api/catalog/doors/complete-data?style=${encodeURIComponent(sel.style || "")}`);
+        const response = await fetchWithAuth(`/api/catalog/doors/complete-data?style=${encodeURIComponent(debouncedStyle || "")}`);
         
         if (!c && response.ok) {
           let data: unknown;
@@ -1179,17 +1192,20 @@ export default function DoorsPage() {
     return () => {
       c = true;
     };
-  }, [sel.style, CACHE_TTL, isLoadingModels, modelsCache]); // Добавлены зависимости
+  }, [debouncedStyle, CACHE_TTL, isLoadingModels, modelsCache]); // Используем debouncedStyle вместо sel.style
+
+  // Дебаунсируем параметры для расчета цены
+  const debouncedSel = useDebounce(sel, 500); // 500ms задержка для расчета цены
 
   useEffect(() => {
     let c = false;
     (async () => {
-      if (!hasBasic(sel)) {
+      if (!hasBasic(debouncedSel)) {
         setPrice(null);
         return;
       }
       try {
-        const p = await api.price(sel);
+        const p = await api.price(debouncedSel);
         
         // API уже включает комплект фурнитуры и ручку в расчет
         if (!c) {
@@ -1202,7 +1218,7 @@ export default function DoorsPage() {
     return () => {
       c = true;
     };
-  }, [sel, hardwareKits, handles]);
+  }, [debouncedSel, hardwareKits, handles]);
 
   // Предзагрузка всех данных при загрузке страницы
   useEffect(() => {
@@ -1320,86 +1336,51 @@ export default function DoorsPage() {
     preloadAllData();
   }, []);
 
-  // Загружаем данные фурнитуры
+  // Загружаем данные фурнитуры параллельно
   useEffect(() => {
     const loadHardwareData = async () => {
       try {
-        clientLogger.debug('🔧 Загружаем данные фурнитуры...');
+        // Загружаем комплекты фурнитуры и ручки параллельно
+        const [kitsResponse, handlesResponse] = await Promise.all([
+          fetchWithAuth('/api/catalog/hardware?type=kits'),
+          fetchWithAuth('/api/catalog/hardware?type=handles')
+        ]);
         
-        // Получаем токен для авторизации
-        const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-        const headers: HeadersInit = {
-          'Content-Type': 'application/json',
-        };
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-          headers['x-auth-token'] = token;
-        }
-        
-        // Загружаем комплекты фурнитуры
-        const kitsResponse = await fetch('/api/catalog/hardware?type=kits', {
-          headers,
-          credentials: 'include',
-        });
-        if (!kitsResponse.ok) {
-          if (kitsResponse.status === 401) {
-            clientLogger.warn('🔧 Необходима авторизация для загрузки комплектов фурнитуры');
+        // Обрабатываем комплекты фурнитуры
+        if (kitsResponse.ok) {
+          let kitsData: unknown;
+          try {
+            kitsData = await kitsResponse.json();
+            const parsedKits = parseApiResponse<{ kits?: HardwareKit[] }>(kitsData);
+            let kits: unknown[] = [];
+            if (Array.isArray(parsedKits)) {
+              kits = parsedKits;
+            } else if (parsedKits && typeof parsedKits === 'object' && 'kits' in parsedKits && Array.isArray(parsedKits.kits)) {
+              kits = parsedKits.kits;
+            } else if (parsedKits && typeof parsedKits === 'object' && 'data' in parsedKits && Array.isArray((parsedKits as { data: unknown }).data)) {
+              kits = (parsedKits as { data: unknown[] }).data;
+            }
+            if (Array.isArray(kits)) {
+              setHardwareKits(kits as HardwareKit[]);
+            } else {
+              setHardwareKits([]);
+            }
+          } catch (jsonError) {
+            clientLogger.error('Ошибка парсинга JSON ответа kits:', jsonError);
             setHardwareKits([]);
-            return;
           }
-          throw new Error(`Failed to load hardware kits: ${kitsResponse.status}`);
-        }
-        let kitsData: unknown;
-        try {
-          kitsData = await kitsResponse.json();
-        } catch (jsonError) {
-          clientLogger.error('Ошибка парсинга JSON ответа kits:', jsonError);
+        } else if (kitsResponse.status === 401) {
+          clientLogger.warn('🔧 Необходима авторизация для загрузки комплектов фурнитуры');
           setHardwareKits([]);
-          return;
         }
         
-        // apiSuccess возвращает { success: true, data: [...] }
-        // Проверяем формат ответа
-        let kits: unknown[] = [];
-        if (Array.isArray(kitsData)) {
-          kits = kitsData;
-        } else if (kitsData && typeof kitsData === 'object' && kitsData !== null) {
-          if ('data' in kitsData && Array.isArray((kitsData as { data: unknown }).data)) {
-            kits = (kitsData as { data: unknown[] }).data;
-          } else if ('kits' in kitsData && Array.isArray((kitsData as { kits: unknown }).kits)) {
-            kits = (kitsData as { kits: unknown[] }).kits;
-          }
-        }
-        if (!Array.isArray(kits)) {
-          clientLogger.warn('🔧 Неожиданный формат данных комплектов:', { kitsData });
-          setHardwareKits([]);
-        } else {
-          setHardwareKits(kits as HardwareKit[]);
-          clientLogger.debug('🔧 Комплекты загружены:', { count: kits.length });
-        }
-        
-        // Загружаем ручки
-        const handlesResponse = await fetch('/api/catalog/hardware?type=handles', {
-          headers,
-          credentials: 'include',
-        });
-        if (!handlesResponse.ok) {
-          if (handlesResponse.status === 401) {
-            clientLogger.warn('🔧 Необходима авторизация для загрузки ручек');
-            setHandles({});
-            return;
-          }
-          throw new Error(`Failed to load handles: ${handlesResponse.status}`);
-        }
-        let handlesDataRaw: unknown;
-        try {
-          handlesDataRaw = await handlesResponse.json();
-        } catch (jsonError) {
-          clientLogger.error('Ошибка парсинга JSON ответа handles:', jsonError);
-          setHandles({});
-          return;
-        }
-        
+        // Обрабатываем ручки
+        if (handlesResponse.ok) {
+          let handlesDataRaw: unknown;
+          try {
+            handlesDataRaw = await handlesResponse.json();
+            const parsedHandles = parseApiResponse<{ handles?: Record<string, Handle[]> }>(handlesDataRaw);
+            
             // Проверяем формат ответа - может быть объект или массив
             let handlesData: Record<string, Handle[]>;
             if (Array.isArray(parsedHandles)) {
@@ -1424,6 +1405,8 @@ export default function DoorsPage() {
         }
         
         // Устанавливаем базовые значения по умолчанию
+        const kits = hardwareKits;
+        const handlesData = handles;
         const basicKit = Array.isArray(kits) && kits.length > 0 
           ? kits.find((k: unknown): k is HardwareKit => k && typeof k === 'object' && 'isBasic' in k && (k as HardwareKit).isBasic === true) 
           : null;
@@ -2117,7 +2100,7 @@ export default function DoorsPage() {
                 ) : Array.isArray(models) && models.length ? (
                   <>
                     <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8">
-                    {models.map((m) => (
+                    {visibleModels.map((m) => (
                       <DoorCard
                         key={m.model}
                         item={m}
@@ -2131,6 +2114,11 @@ export default function DoorsPage() {
                       />
                     ))}
                   </div>
+                  {models.length > MAX_VISIBLE_MODELS && (
+                    <div className="text-center text-sm text-gray-500 mt-4">
+                      Показано {MAX_VISIBLE_MODELS} из {models.length} моделей. Используйте фильтры для уточнения поиска.
+                    </div>
+                  )}
                   </>
                 ) : (
                   <div className="text-gray-600 text-center py-8">Нет моделей для выбранного стиля</div>

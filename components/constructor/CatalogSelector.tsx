@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, Card, Checkbox } from '../ui';
 import { ChevronDown, ChevronRight, Package, Search } from 'lucide-react';
 import { clientLogger } from '@/lib/logging/client-logger';
+import { parseApiResponse } from '@/lib/utils/parse-api-response';
 
 interface CatalogCategory {
   id: string;
@@ -40,16 +41,19 @@ export default function CatalogSelector({
   const loadCategories = async () => {
     try {
       const response = await fetch('/api/catalog/categories');
-      const data = await response.json();
       
-      if (data.success && Array.isArray(data)) {
-        setCategories(data);
-      } else if (data.categories && Array.isArray(data.categories)) {
-        setCategories(data.categories);
-      } else {
-        clientLogger.error('Неожиданный формат данных каталога:', data);
+      if (!response.ok) {
+        clientLogger.error('Error loading categories', { status: response.status });
         setCategories([]);
+        return;
       }
+      
+      const data = await response.json();
+      // apiSuccess возвращает { success: true, data: { categories: ..., total_count: ... } }
+      const responseData = parseApiResponse<{ categories: CatalogCategory[]; total_count: number }>(data);
+      const categories = responseData?.categories || [];
+      
+      setCategories(categories);
     } catch (error) {
       clientLogger.error('Ошибка при загрузке категорий:', error);
       setCategories([]);
