@@ -20,6 +20,8 @@ import { ORDER_STATUSES_EXECUTOR } from '@/lib/utils/document-statuses';
 import { getOrderDisplayStatus, getExecutorOrderStatus } from '@/lib/utils/order-status-display';
 import { getValidTransitions } from '@/lib/validation/status-transitions';
 import { clientLogger } from '@/lib/logging/client-logger';
+import { fetchWithAuth } from '@/lib/utils/fetch-with-auth';
+import { parseApiResponse } from '@/lib/utils/parse-api-response';
 
 // Статусы заказов для исполнителя - используем единый источник истины
 const ORDER_STATUSES = {
@@ -90,11 +92,12 @@ export function OrdersBoard({ executorId }: OrdersBoardProps) {
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/orders?executor_id=${executorId}`);
+      const response = await fetchWithAuth(`/api/orders?executor_id=${executorId}`);
       
       if (response.ok) {
         const data = await response.json();
-        setOrders(data.orders || []);
+        const parsedData = parseApiResponse<{ orders: Order[] }>(data);
+        setOrders(parsedData.orders || []);
       } else {
         toast.error('Ошибка загрузки заказов');
       }
@@ -372,10 +375,11 @@ function OrderDetailModal({
   const fetchSupplierOrders = useCallback(async () => {
     if (!order.id) return;
     try {
-      const response = await fetch(`/api/supplier-orders?orderId=${order.id}`);
+      const response = await fetchWithAuth(`/api/supplier-orders?orderId=${order.id}`);
       if (response.ok) {
         const data = await response.json();
-        setSupplierOrders(data.supplierOrders || []);
+        const parsedData = parseApiResponse<{ supplierOrders: any[] }>(data);
+        setSupplierOrders(parsedData.supplierOrders || []);
       }
     } catch (error) {
       clientLogger.error('Error fetching supplier orders', error);
@@ -402,12 +406,13 @@ function OrderDetailModal({
     
     try {
       // Загружаем информацию о товарах через API
-      const response = await fetch(`/api/products/batch-info?ids=${Array.from(productIds).join(',')}`);
+      const response = await fetchWithAuth(`/api/products/batch-info?ids=${Array.from(productIds).join(',')}`);
       if (response.ok) {
         const data = await response.json();
+        const parsedData = parseApiResponse<{ products: any[] }>(data);
         const infoMap = new Map<string, { id: string; name: string; isHandle: boolean }>();
-        if (data.products) {
-          data.products.forEach((product: any) => {
+        if (parsedData.products) {
+          parsedData.products.forEach((product: any) => {
             infoMap.set(product.id, {
               id: product.id,
               name: product.name || '',
@@ -504,7 +509,7 @@ function OrderDetailModal({
       
       // Если нет cart_data ни в invoice, ни в order, пробуем использовать прямой экспорт через API
       if (items.length === 0 && currentOrder.invoice?.id) {
-        const response = await fetch(`/api/documents/${currentOrder.invoice.id}/export?format=pdf`, {
+        const response = await fetchWithAuth(`/api/documents/${currentOrder.invoice.id}/export?format=pdf`, {
           method: 'POST'
         });
         if (response.ok) {
@@ -528,9 +533,8 @@ function OrderDetailModal({
       }
 
       // Используем механизм экспорта из корзины
-      const response = await fetch('/api/export/fast', {
+      const response = await fetchWithAuth('/api/export/fast', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'invoice',
           format: 'pdf',
@@ -749,19 +753,9 @@ function OrderDetailModal({
   const handleStatusChange = async () => {
     try {
       setLoading(true);
-      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-        headers['x-auth-token'] = token;
-      }
 
-      const response = await fetch(`/api/orders/${order.id}/status`, {
+      const response = await fetchWithAuth(`/api/orders/${order.id}/status`, {
         method: 'PUT',
-        headers,
-        credentials: 'include',
         body: JSON.stringify({
           status: newStatus,
           require_measurement: currentOrder.status === 'UNDER_REVIEW' ? newStatus === 'AWAITING_MEASUREMENT' : undefined
@@ -771,8 +765,9 @@ function OrderDetailModal({
       if (response.ok) {
         const responseData = await response.json();
         // apiSuccess возвращает { success: true, data: { order: ... } }
-        const data = responseData && typeof responseData === 'object' && responseData !== null && 'data' in responseData
-          ? (responseData as { data: { order?: any } }).data
+        const parsedData = parseApiResponse<{ order?: any }>(responseData);
+        const data = parsedData && typeof parsedData === 'object' && 'order' in parsedData
+          ? parsedData
           : null;
         
         toast.success('Статус изменен успешно');

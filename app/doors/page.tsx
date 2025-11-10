@@ -16,6 +16,8 @@ import GlobalHeader from "../../components/layout/GlobalHeader";
 import NotificationBell from "../../components/ui/NotificationBell";
 import HandleSelectionModal from "../../components/HandleSelectionModal";
 import { clientLogger } from "@/lib/logging/client-logger";
+import { fetchWithAuth } from "@/lib/utils/fetch-with-auth";
+import { parseApiResponse } from "@/lib/utils/parse-api-response";
 import { DoorCard, StickyPreview, Select, HardwareSelect, HandleSelect, SelectMini } from "@/components/doors";
 import type { BasicState, CartItem, Domain, HardwareKit, Handle, ModelItem } from "@/components/doors";
 import { resetDependentParams, formatModelNameForCard, formatModelNameForPreview, fmtInt, fmt2, uid, hasBasic, slugify } from "@/components/doors";
@@ -227,9 +229,8 @@ const mockApi = {
 
   async price(selection: any): Promise<any> {
     // Используем реальный API для расчета цены
-    const response = await fetch('/api/price/doors', {
+    const response = await fetchWithAuth('/api/price/doors', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(selection)
     });
     
@@ -244,11 +245,12 @@ const mockApi = {
       throw new Error('Failed to parse price response');
     }
     
+    // Парсим ответ API
+    const parsedData = parseApiResponse<{ total?: number; breakdown?: unknown[]; sku_1c?: string | number | null }>(priceData);
+    
     // Пока что возвращаем только базовую цену двери
     // Цена комплекта и ручки будет добавлена в компоненте
-    const priceObj = priceData && typeof priceData === 'object' && priceData !== null
-      ? priceData as { total?: number; breakdown?: unknown[]; sku_1c?: string | number | null }
-      : { total: 0, breakdown: [], sku_1c: null };
+    const priceObj = parsedData || { total: 0, breakdown: [], sku_1c: null };
     return {
       ok: true,
       currency: "RUB",
@@ -449,48 +451,47 @@ const mockApi = {
 
 const realApi = {
   async getOptions(query: URLSearchParams): Promise<any> {
-    const r = await fetch(`${API}/catalog/doors/options?${query.toString()}`);
+    const r = await fetchWithAuth(`${API}/catalog/doors/options?${query.toString()}`);
     if (!r.ok) throw new Error(`options HTTP ${r.status}`);
-    return r.json();
+    const data = await r.json();
+    return parseApiResponse(data);
   },
   async listModelsByStyle(style?: string): Promise<any> {
-    const r = await fetch(
+    const r = await fetchWithAuth(
       `${API}/catalog/doors/models?style=${encodeURIComponent(style || "")}`
     );
     if (!r.ok) throw new Error(`models HTTP ${r.status}`);
-    return r.json();
+    const data = await r.json();
+    return parseApiResponse(data);
   },
   async price(selection: any): Promise<any> {
-    const r = await fetch(`${API}/price/doors`, {
+    const r = await fetchWithAuth(`${API}/price/doors`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ selection }),
     });
     if (!r.ok) throw new Error(`price HTTP ${r.status}`);
-    return r.json();
+    const data = await r.json();
+    return parseApiResponse(data);
   },
   async kp(cart: { items: CartItem[] }): Promise<string> {
-    const r = await fetch(`${API}/cart/export/doors/kp`, {
+    const r = await fetchWithAuth(`${API}/cart/export/doors/kp`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cart }),
     });
     if (!r.ok) throw new Error(`kp HTTP ${r.status}`);
     return r.text();
   },
   async invoice(cart: { items: CartItem[] }): Promise<string> {
-    const r = await fetch(`${API}/cart/export/doors/invoice`, {
+    const r = await fetchWithAuth(`${API}/cart/export/doors/invoice`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cart }),
     });
     if (!r.ok) throw new Error(`invoice HTTP ${r.status}`);
     return r.text();
   },
   async factory(cart: { items: CartItem[] }): Promise<string> {
-    const r = await fetch(`${API}/cart/export/doors/factory`, {
+    const r = await fetchWithAuth(`${API}/cart/export/doors/factory`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cart }),
     });
     if (!r.ok) throw new Error(`factory HTTP ${r.status}`);

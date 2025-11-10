@@ -15,6 +15,8 @@ import { DocumentQuickViewModal } from '@/components/documents/DocumentQuickView
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { toast } from 'sonner';
 import { clientLogger } from '@/lib/logging/client-logger';
+import { fetchWithAuth } from '@/lib/utils/fetch-with-auth';
+import { parseApiResponse } from '@/lib/utils/parse-api-response';
 import { 
   FileText, 
   Download, 
@@ -127,12 +129,13 @@ export default function ExecutorDashboard() {
   // Функция для загрузки количества комментариев для документа
   const fetchCommentsCount = useCallback(async (documentId: string) => {
     try {
-      const response = await fetch(`/api/documents/${documentId}/comments/count`);
+      const response = await fetchWithAuth(`/api/documents/${documentId}/comments/count`);
       if (response.ok) {
         const data = await response.json();
+        const parsedData = parseApiResponse<{ count: number }>(data);
         setCommentsCount(prev => ({
           ...prev,
-          [documentId]: data.count
+          [documentId]: parsedData.count || 0
         }));
       }
     } catch (error) {
@@ -169,11 +172,12 @@ export default function ExecutorDashboard() {
   // Загрузка списка клиентов (оптимизированная)
   const fetchClients = useCallback(async () => {
     try {
-      const response = await fetch('/api/clients');
+      const response = await fetchWithAuth('/api/clients');
       if (response.ok) {
         const data = await response.json();
+        const parsedData = parseApiResponse<{ clients: any[] }>(data);
         // Преобразуем данные клиентов в нужный формат
-        const formattedClients = data.clients.map((client: any) => ({
+        const formattedClients = (parsedData.clients || []).map((client: any) => ({
           id: client.id,
           firstName: client.firstName,
           lastName: client.lastName,
@@ -186,7 +190,7 @@ export default function ExecutorDashboard() {
         }));
         setClients(formattedClients);
       } else {
-        clientLogger.error('Failed to fetch clients');
+        clientLogger.error('Failed to fetch clients', { status: response.status });
       }
     } catch (error) {
       clientLogger.error('Error fetching clients', error);
@@ -200,10 +204,11 @@ export default function ExecutorDashboard() {
       setInvoices([]);
       setSupplierOrders([]);
       
-      const response = await fetch(`/api/clients/${clientId}`);
+      const response = await fetchWithAuth(`/api/clients/${clientId}`);
       if (response.ok) {
         const data = await response.json();
-        const client = data.client;
+        const parsedData = parseApiResponse<{ client: any }>(data);
+        const client = parsedData.client;
         
         // Преобразуем Счета (только нужные поля)
         const formattedInvoices = client.invoices.map((invoice: any) => ({
@@ -335,30 +340,28 @@ export default function ExecutorDashboard() {
   // Создание нового клиента
   const createClient = async (clientData: any) => {
     try {
-      const response = await fetch('/api/clients', {
+      const response = await fetchWithAuth('/api/clients', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(clientData)
       });
 
       if (response.ok) {
         const data = await response.json();
+        const parsedData = parseApiResponse<{ client: any }>(data);
         // Обновляем список клиентов
         const newClient = {
-          id: data.client.id,
-          firstName: data.client.firstName,
-          lastName: data.client.lastName,
-          middleName: data.client.middleName,
-          phone: data.client.phone,
-          address: data.client.address,
-          objectId: data.client.objectId,
-          lastActivityAt: data.client.createdAt,
+          id: parsedData.client.id,
+          firstName: parsedData.client.firstName,
+          lastName: parsedData.client.lastName,
+          middleName: parsedData.client.middleName,
+          phone: parsedData.client.phone,
+          address: parsedData.client.address,
+          objectId: parsedData.client.objectId,
+          lastActivityAt: parsedData.client.createdAt,
           lastDoc: undefined
         };
         setClients(prev => [...prev, newClient]);
-        setSelectedClient(data.client.id);
+        setSelectedClient(parsedData.client.id);
         setShowCreateClientForm(false);
         setNewClientData({
           firstName: '',
@@ -369,7 +372,7 @@ export default function ExecutorDashboard() {
           objectId: '',
           compilationLeadNumber: ''
         });
-        return data.client;
+        return parsedData.client;
       } else {
         throw new Error('Failed to create client');
       }
@@ -422,11 +425,8 @@ export default function ExecutorDashboard() {
       const apiStatus = statusMap[newStatus] || newStatus;
       clientLogger.debug('📤 Sending to API:', { apiStatus });
       
-      const response = await fetch(`/api/invoices/${invoiceId}/status`, {
+      const response = await fetchWithAuth(`/api/invoices/${invoiceId}/status`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ status: apiStatus })
       });
 
@@ -434,7 +434,8 @@ export default function ExecutorDashboard() {
 
       if (response.ok) {
         const result = await response.json();
-        clientLogger.debug('✅ API Response data:', result);
+        const parsedResult = parseApiResponse<{ invoice: any }>(result);
+        clientLogger.debug('✅ API Response data:', parsedResult);
         
         // Маппинг обратно на русские статусы
         const reverseStatusMap: Record<string, string> = {
@@ -447,8 +448,8 @@ export default function ExecutorDashboard() {
           'COMPLETED': 'Исполнен'
         };
         
-        const russianStatus = reverseStatusMap[result.invoice.status] || result.invoice.status;
-        clientLogger.debug('🔄 Mapped status:', { apiStatus: result.invoice.status, russianStatus });
+        const russianStatus = reverseStatusMap[parsedResult.invoice.status] || parsedResult.invoice.status;
+        clientLogger.debug('🔄 Mapped status:', { apiStatus: parsedResult.invoice.status, russianStatus });
         
         // Обновляем список Счетов
         setInvoices(prev => prev.map(inv => 
@@ -460,7 +461,7 @@ export default function ExecutorDashboard() {
         
         hideStatusDropdown();
         clientLogger.debug('✅ Invoice status update completed successfully');
-        return result.invoice;
+        return parsedResult.invoice;
       } else {
         const errorData = await response.json();
         clientLogger.error('❌ API Error:', errorData);
@@ -486,29 +487,29 @@ export default function ExecutorDashboard() {
       }
 
       // Получаем полные данные счета из API
-      const invoiceResponse = await fetch(`/api/invoices/${invoiceId}`);
+      const invoiceResponse = await fetchWithAuth(`/api/invoices/${invoiceId}`);
       if (!invoiceResponse.ok) {
         toast.error('Ошибка при получении данных счета');
         return;
       }
       
       const invoiceData = await invoiceResponse.json();
+      const parsedInvoiceData = parseApiResponse<{ invoice: any }>(invoiceData);
       
-      if (!invoiceData.invoice.cart_data) {
+      if (!parsedInvoiceData.invoice.cart_data) {
         toast.error('Нет данных корзины для создания нового счета');
         return;
       }
 
-      const cartData = JSON.parse(invoiceData.invoice.cart_data);
+      const cartData = JSON.parse(parsedInvoiceData.invoice.cart_data);
       
       // Создаем новый счет через API
-      const response = await fetch('/api/export/fast', {
+      const response = await fetchWithAuth('/api/export/fast', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'invoice',
           format: 'pdf',
-          clientId: invoiceData.invoice.client_id,
+          clientId: parsedInvoiceData.invoice.client_id,
           items: cartData,
           totalAmount: invoice.total
         })
