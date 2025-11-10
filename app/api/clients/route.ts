@@ -106,8 +106,7 @@ async function postHandler(
   try {
     const client = await clientRepository.create({
       ...validatedData,
-      phone: normalizedPhone,
-      objectId: validatedData.objectId || `object-${Date.now()}`
+      phone: normalizedPhone
     });
 
     return apiSuccess(
@@ -118,7 +117,6 @@ async function postHandler(
         middleName: client.middleName,
         phone: client.phone,
         address: client.address,
-        objectId: client.objectId,
         compilationLeadNumber: client.compilationLeadNumber,
         createdAt: client.createdAt
       },

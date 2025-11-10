@@ -11,7 +11,6 @@ interface Client {
   middleName?: string;
   phone: string;
   address: string;
-  objectId: string;
 }
 
 interface ClientSelectorProps {
@@ -151,7 +150,6 @@ export default function ClientSelector({ onClientSelect, onClose }: ClientSelect
                       </h4>
                       <p className="text-sm text-gray-600">{client.phone}</p>
                       <p className="text-sm text-gray-600">{client.address}</p>
-                      <p className="text-xs text-gray-500">ID: {client.objectId}</p>
                     </div>
                     {selectedClient?.id === client.id && (
                       <div className="text-blue-500">

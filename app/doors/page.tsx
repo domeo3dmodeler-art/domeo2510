@@ -644,7 +644,6 @@ export default function DoorsPage() {
     middleName: '',
     phone: '',
     address: '',
-    objectId: '',
     compilationLeadNumber: ''
   });
 
@@ -760,7 +759,7 @@ export default function DoorsPage() {
         
         // Парсим ответ в формате apiSuccess
         const { parseApiResponse } = await import('@/lib/utils/parse-api-response');
-        const parsedData = parseApiResponse<{ id: string; firstName: string; lastName: string; middleName?: string; phone: string; address: string; objectId: string; compilationLeadNumber?: string; createdAt: string }>(data);
+        const parsedData = parseApiResponse<{ id: string; firstName: string; lastName: string; middleName?: string; phone: string; address: string; compilationLeadNumber?: string; createdAt: string }>(data);
         
         await fetchClients(); // Обновляем список
         return parsedData;
@@ -3009,7 +3008,7 @@ export default function DoorsPage() {
                   <div className="space-y-4">
                     <input
                       type="text"
-                  placeholder="Поиск по ФИО, телефону, адресу, ID объекта..."
+                  placeholder="Поиск по ФИО, телефону, адресу..."
                   value={clientSearchInput}
                   onChange={(e) => setClientSearchInput(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -3023,7 +3022,7 @@ export default function DoorsPage() {
                     clients
                       .filter((c) => {
                         if (!clientSearch) return true;
-                        const hay = `${c.lastName} ${c.firstName} ${c.middleName ?? ''} ${c.phone ?? ''} ${c.address ?? ''} ${(c as any).objectId ?? ''}`.toLowerCase();
+                        const hay = `${c.lastName} ${c.firstName} ${c.middleName ?? ''} ${c.phone ?? ''} ${c.address ?? ''}`.toLowerCase();
                         return hay.includes(clientSearch.toLowerCase());
                       })
                       .map((client) => (
@@ -3035,7 +3034,7 @@ export default function DoorsPage() {
                               setSelectedClientName(`${client.firstName} ${client.lastName}`);
                             }}
                           >
-                        <div className="grid items-center gap-3" style={{gridTemplateColumns: '5fr 3fr 7fr 120px'}}>
+                        <div className="grid items-center gap-3" style={{gridTemplateColumns: '5fr 3fr 7fr'}}>
                           <div className="font-medium truncate">
                             {client.lastName} {client.firstName}{client.middleName ? ` ${client.middleName}` : ''}
                           </div>
@@ -3043,7 +3042,6 @@ export default function DoorsPage() {
                           <div className="text-sm text-gray-600 overflow-hidden" style={{display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical'}}>
                             {client.address || '—'}
                           </div>
-                          <div className="text-sm text-gray-600 text-right" style={{minWidth:120, maxWidth:120, whiteSpace:'nowrap'}}>{(client as any).objectId || '—'}</div>
                         </div>
                           </div>
                         ))
@@ -3153,7 +3151,6 @@ export default function DoorsPage() {
                             middleName: newClientData.middleName || null,
                             phone: newClientData.phone,
                             address: newClientData.address || '',
-                            objectId: newClientData.objectId && newClientData.objectId.trim() ? newClientData.objectId : `object-${Date.now()}`,
                             compilationLeadNumber: newClientData.compilationLeadNumber || null,
                             customFields: '{}',
                             isActive: true

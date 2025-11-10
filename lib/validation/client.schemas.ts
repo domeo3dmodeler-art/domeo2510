@@ -10,7 +10,6 @@ export const createClientSchema = z.object({
   middleName: z.string().max(100, 'Отчество слишком длинное').nullable().optional(),
   phone: z.string().min(1, 'Телефон обязателен').max(20, 'Телефон слишком длинный'),
   address: z.string().min(1, 'Адрес обязателен').max(500, 'Адрес слишком длинный'),
-  objectId: z.string().optional(),
   compilationLeadNumber: z.string().nullable().optional(),
   customFields: z.string().optional().default('{}'),
   isActive: z.boolean().optional().default(true)
@@ -23,7 +22,6 @@ export const updateClientSchema = z.object({
   middleName: z.string().max(100).nullable().optional(),
   phone: z.string().min(1).max(20).optional(),
   address: z.string().min(1).max(500).optional(),
-  objectId: z.string().min(1).optional(),
   compilationLeadNumber: z.string().nullable().optional(),
   customFields: z.string().optional(),
   isActive: z.boolean().optional()

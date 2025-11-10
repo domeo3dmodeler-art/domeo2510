@@ -19,7 +19,6 @@ interface Client {
   middleName?: string;
   phone: string;
   address: string;
-  objectId: string;
 }
 
 interface ExportToClientProps {
@@ -166,7 +165,6 @@ export default function ExportToClient({ cartItems, onSuccess, onClose }: Export
                   </h4>
                   <p className="text-sm text-blue-700">{selectedClient.phone}</p>
                   <p className="text-sm text-blue-700">{selectedClient.address}</p>
-                  <p className="text-xs text-blue-600">ID: {selectedClient.objectId}</p>
                 </div>
                 <Button
                   variant="ghost"
