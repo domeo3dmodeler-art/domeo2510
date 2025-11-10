@@ -99,7 +99,7 @@ function ModernPhotoGalleryComponent({ photos, productName, hasGallery, onToggle
       }
       return newZoomState;
     });
-  };
+  }, [onToggleSidePanels]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
