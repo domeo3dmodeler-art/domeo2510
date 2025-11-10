@@ -66,6 +66,15 @@ export async function GET(
       case 'svg':
         mimeType = 'image/svg+xml';
         break;
+      case 'pdf':
+        mimeType = 'application/pdf';
+        break;
+      case 'dwg':
+        mimeType = 'application/acad';
+        break;
+      case 'dxf':
+        mimeType = 'application/x-dxf';
+        break;
     }
 
     // Возвращаем файл с правильными заголовками
