@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Input, Modal, Alert, LoadingSpinner } from '@/components/ui';
+import { parseApiResponse } from '@/lib/utils/parse-api-response';
 
 interface Client {
   id: string;
@@ -34,14 +35,22 @@ export default function ClientSelector({ onClientSelect, onClose }: ClientSelect
       });
 
       const response = await fetch(`/api/clients?${params}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
-
-      if (data.success) {
-        setClients(data.clients);
+      const parsedData = parseApiResponse<{ clients: Client[]; pagination?: any }>(data);
+      
+      if (parsedData && Array.isArray(parsedData.clients)) {
+        setClients(parsedData.clients);
       } else {
-        setAlert({ type: 'error', message: 'Ошибка загрузки заказчиков' });
+        setClients([]);
+        setAlert({ type: 'error', message: 'Ошибка загрузки заказчиков: неверный формат данных' });
       }
     } catch (error) {
+      console.error('Error fetching clients:', error);
+      setClients([]);
       setAlert({ type: 'error', message: 'Ошибка загрузки заказчиков' });
     } finally {
       setLoading(false);
