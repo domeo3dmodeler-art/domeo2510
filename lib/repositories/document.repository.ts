@@ -200,7 +200,7 @@ export class DocumentRepository {
           parent_document_id: null, // Order - основной документ
           cart_session_id: data.cart_session_id,
           client_id: data.client_id,
-          status: 'NEW_PLANNED', // Статус по умолчанию для Order
+          status: 'DRAFT', // Статус "Новый заказ" по умолчанию для Order
           total_amount: data.total_amount,
           notes: data.notes,
           cart_data: cartData
