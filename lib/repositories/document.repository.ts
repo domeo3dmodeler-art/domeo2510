@@ -207,29 +207,15 @@ export class DocumentRepository {
         }
       });
 
-      // Создаем элементы заказа
-      const orderItems = data.items.map((item, i) => ({
-        order_id: order.id,
-        product_id: item.productId || item.product_id || `temp_${i}`,
-        quantity: item.qty || item.quantity || 1,
-        unit_price: item.unitPrice || item.price || item.unit_price || 0,
-      total_price: (item.qty || item.quantity || 1) * (item.unitPrice || item.price || item.unit_price || 0),
-      notes: item.name || item.model || 'Товар'
-    }));
-
-    await prisma.orderItem.createMany({
-      data: orderItems
-    });
-
-    // Получаем созданный Order с связями
-    const orderWithRelations = await prisma.order.findUnique({
-      where: { id: order.id },
-      include: {
-        client: true,
-        invoice: true,
-        orderItems: true
-      }
-    });
+      // Элементы заказа хранятся в cart_data как JSON, не создаем отдельные записи
+      // Получаем созданный Order с связями
+      const orderWithRelations = await prisma.order.findUnique({
+        where: { id: order.id },
+        include: {
+          client: true,
+          invoice: true
+        }
+      });
 
       if (!orderWithRelations) {
         throw new Error('Не удалось получить созданный Order');
