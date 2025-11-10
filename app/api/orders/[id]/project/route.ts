@@ -59,7 +59,8 @@ async function postHandler(
   }
 
   // Создаем директорию для заказов если её нет
-  const uploadsDir = join(process.cwd(), 'uploads', 'orders', id);
+  // Сохраняем в public/uploads/orders для доступа через API route
+  const uploadsDir = join(process.cwd(), 'public', 'uploads', 'orders', id);
   if (!existsSync(uploadsDir)) {
     await mkdir(uploadsDir, { recursive: true });
   }
@@ -75,7 +76,8 @@ async function postHandler(
   await writeFile(filepath, buffer);
 
   // URL файла для сохранения в БД
-  const fileUrl = `/uploads/orders/${id}/${filename}`;
+  // Используем /api/uploads/ для доступа через API route
+  const fileUrl = `/api/uploads/orders/${id}/${filename}`;
 
   // Обновляем заказ
   const updatedOrder = await prisma.order.update({
