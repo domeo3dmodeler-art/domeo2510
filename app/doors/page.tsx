@@ -3856,17 +3856,32 @@ function CartManager({
                     const totalAmount = cart.reduce((sum, item) => sum + (item.unitPrice || 0) * (item.qty || 1), 0);
 
                     // Создаем Order (основной документ) из корзины
+                    const requestBody = {
+                      client_id: selectedClient,
+                      items,
+                      total_amount: totalAmount,
+                      subtotal: totalAmount,
+                      tax_amount: 0,
+                      notes: 'Создан из корзины на странице Doors'
+                    };
+                    
+                    clientLogger.debug('Создание заказа:', {
+                      client_id: selectedClient,
+                      itemsCount: items.length,
+                      items: items.map(item => ({
+                        type: item.type,
+                        qty: item.qty,
+                        unitPrice: item.unitPrice,
+                        model: item.model,
+                        handleId: item.handleId
+                      })),
+                      total_amount: totalAmount
+                    });
+                    
                     const response = await fetch('/api/orders', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        client_id: selectedClient,
-                        items,
-                        total_amount: totalAmount,
-                        subtotal: totalAmount,
-                        tax_amount: 0,
-                        notes: 'Создан из корзины на странице Doors'
-                      })
+                      body: JSON.stringify(requestBody)
                     });
 
                     if (response.ok) {
@@ -3895,9 +3910,26 @@ function CartManager({
                         alert(`Ошибка: ${response.status} ${response.statusText}`);
                         return;
                       }
-                      const errorMessage = errorData && typeof errorData === 'object' && errorData !== null && 'error' in errorData
-                        ? String((errorData as { error: unknown }).error)
-                        : 'Неизвестная ошибка';
+                      // Парсим ответ в формате apiError
+                      const { parseApiResponse } = await import('@/lib/utils/parse-api-response');
+                      const parsedError = parseApiResponse<{ error?: { code?: string; message?: string; details?: unknown } }>(errorData);
+                      
+                      const errorMessage = parsedError && typeof parsedError === 'object' && parsedError !== null && 'error' in parsedError
+                        ? (parsedError.error && typeof parsedError.error === 'object' && 'message' in parsedError.error
+                          ? String(parsedError.error.message)
+                          : String(parsedError.error))
+                        : (errorData && typeof errorData === 'object' && errorData !== null && 'error' in errorData
+                          ? String((errorData as { error: unknown }).error)
+                          : 'Неизвестная ошибка');
+                      
+                      clientLogger.error('Ошибка при создании заказа:', {
+                        status: response.status,
+                        statusText: response.statusText,
+                        errorData,
+                        parsedError,
+                        errorMessage
+                      });
+                      
                       alert(`Ошибка: ${errorMessage}`);
                     }
                   } catch (error) {
