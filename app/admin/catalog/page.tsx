@@ -454,23 +454,55 @@ export default function CatalogPage() {
         setProductsLoading(true);
       }
       
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
       const offset = append ? currentLoadedCount : 0;
-      const response = await fetch(`/api/catalog/products?category=${categoryId}&limit=${actualLimit}&offset=${offset}`);
+      const response = await fetch(`/api/catalog/products?category=${categoryId}&limit=${actualLimit}&offset=${offset}`, {
+        headers,
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        clientLogger.error('Error loading products', { status: response.status });
+        if (!append) {
+          setCategoryProducts([]);
+          setCurrentLoadedCount(0);
+        }
+        setTotalProductsCount(0);
+        return;
+      }
+      
       const data = await response.json();
+      // apiSuccess возвращает { success: true, data: { products: ..., total: ... } }
+      const responseData = data && typeof data === 'object' && 'data' in data
+        ? (data as { data: { products?: Product[]; total?: number } }).data
+        : null;
+      const products = responseData && 'products' in responseData && Array.isArray(responseData.products)
+        ? responseData.products
+        : (data.products || []);
+      const total = responseData && 'total' in responseData && typeof responseData.total === 'number'
+        ? responseData.total
+        : (data.total || 0);
       
-      
-      if (data.success && data.products) {
+      if (data.success && products.length > 0) {
         
         if (append) {
           // Дозагружаем товары
-          setCategoryProducts(prev => [...prev, ...data.products]);
-          setCurrentLoadedCount(prev => prev + data.products.length);
+          setCategoryProducts(prev => [...prev, ...products]);
+          setCurrentLoadedCount(prev => prev + products.length);
         } else {
           // Загружаем с начала
-          setCategoryProducts(data.products);
-          setCurrentLoadedCount(data.products.length);
+          setCategoryProducts(products);
+          setCurrentLoadedCount(products.length);
         }
-        setTotalProductsCount(data.total || 0);
+        setTotalProductsCount(total);
       } else {
         if (!append) {
           setCategoryProducts([]);
