@@ -23,6 +23,7 @@ import { DoorCard, StickyPreview, Select, HardwareSelect, HandleSelect, SelectMi
 import type { BasicState, CartItem, Domain, HardwareKit, Handle, ModelItem } from "@/components/doors";
 import { resetDependentParams, formatModelNameForCard, formatModelNameForPreview, fmtInt, fmt2, uid, hasBasic, slugify } from "@/components/doors";
 import type { CreateClientInput } from "@/lib/validation/client.schemas";
+import { OrderDetailsModal } from "@/components/complectator/OrderDetailsModal";
 
 // Типы и утилиты импортируются из @/components/doors
 
@@ -3248,6 +3249,10 @@ function CartManager({
   const [editingHandleItemId, setEditingHandleItemId] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<string | null>(null);
   
+  // Состояние для созданного заказа
+  const [createdOrder, setCreatedOrder] = useState<{ id: string; number: string } | null>(null);
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  
   // Вспомогательная функция для получения ручки по ID (оптимизация для избежания повторных поисков)
   const getHandleById = React.useCallback((handleId: string | undefined): Handle | undefined => {
     if (!handleId) return undefined;
@@ -3787,6 +3792,15 @@ function CartManager({
             </button>
             )}
             {canCreateOrder && (
+            createdOrder ? (
+              <button
+                onClick={() => setShowOrderModal(true)}
+                className="flex items-center space-x-1 px-3 py-1 text-sm border border-blue-500 bg-blue-600 text-white hover:bg-blue-700 transition-all duration-200"
+              >
+                <span>📦</span>
+                <span>Заказ-{createdOrder.number}</span>
+              </button>
+            ) : (
             <button
                 onClick={async () => {
                   if (!selectedClient) {
@@ -3893,13 +3907,28 @@ function CartManager({
                         alert('Ошибка при создании заказа: не удалось обработать ответ сервера');
                         return;
                       }
-                      const orderData = result && typeof result === 'object' && result !== null && 'order' in result
-                        ? (result as { order: { number?: string } | null }).order
+                      // Парсим ответ в формате apiSuccess
+                      const { parseApiResponse } = await import('@/lib/utils/parse-api-response');
+                      const parsedResult = parseApiResponse<{ order?: { id?: string; number?: string } }>(result);
+                      
+                      const orderData = parsedResult && typeof parsedResult === 'object' && parsedResult !== null && 'order' in parsedResult
+                        ? (parsedResult as { order: { id?: string; number?: string } | null }).order
                         : null;
+                      
+                      const orderId = orderData && typeof orderData === 'object' && 'id' in orderData
+                        ? String(orderData.id)
+                        : '';
                       const orderNumber = orderData && typeof orderData === 'object' && 'number' in orderData
                         ? String(orderData.number)
                         : '';
-                      alert(`Заказ ${orderNumber} создан успешно!`);
+                      
+                      if (orderId && orderNumber) {
+                        // Сохраняем данные созданного заказа
+                        setCreatedOrder({ id: orderId, number: orderNumber });
+                        alert(`Заказ ${orderNumber} создан успешно!`);
+                      } else {
+                        alert('Заказ создан успешно!');
+                      }
                       // Корзина остается активной (не очищаем)
                     } else {
                       let errorData: unknown;
@@ -3942,6 +3971,7 @@ function CartManager({
                 <span>🛒</span>
               <span>Создать заказ</span>
             </button>
+            )
             )}
           </div>
           
