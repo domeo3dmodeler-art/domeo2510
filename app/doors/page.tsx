@@ -3286,8 +3286,8 @@ function CartManager({
 
         const totalAmount = cart.reduce((sum, item) => sum + (item.unitPrice || 0) * (item.qty || 1), 0);
 
-        // Проверяем существующий заказ через API
-        const response = await fetch('/api/orders', {
+        // Проверяем существующий заказ через API с фильтром по клиенту
+        const response = await fetch(`/api/orders?client_id=${selectedClient}`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' }
         });
@@ -3295,6 +3295,7 @@ function CartManager({
         if (response.ok) {
           const result = await response.json();
           const { parseApiResponse } = await import('@/lib/utils/parse-api-response');
+          const { compareCartContent } = await import('@/lib/documents/deduplication');
           const parsedResult = parseApiResponse<{ orders?: Array<{ id: string; number: string; client_id: string; cart_data: string; total_amount: number }> }>(result);
           
           const orders = parsedResult && typeof parsedResult === 'object' && parsedResult !== null && 'orders' in parsedResult
@@ -3302,42 +3303,56 @@ function CartManager({
             : null;
 
           if (orders && Array.isArray(orders)) {
+            clientLogger.debug('Проверка существующих заказов:', {
+              ordersCount: orders.length,
+              selectedClient,
+              totalAmount,
+              itemsCount: items.length
+            });
+
             // Ищем заказ с таким же клиентом, составом и суммой
             const existingOrder = orders.find(order => {
-              if (order.client_id !== selectedClient) return false;
-              if (Math.abs((order.total_amount || 0) - totalAmount) > 0.01) return false;
-              
-              try {
-                const orderCartData = JSON.parse(order.cart_data || '[]');
-                // Простое сравнение количества товаров и их типов
-                if (orderCartData.length !== items.length) return false;
-                
-                // Сравниваем каждый товар
-                const orderItemsMap = new Map(orderCartData.map((item: any) => [
-                  `${item.type || 'door'}-${item.model || ''}-${item.qty || item.quantity || 1}-${item.unitPrice || item.price || 0}`,
-                  true
-                ]));
-                
-                return items.every(item => {
-                  const key = `${item.type || 'door'}-${item.model || ''}-${item.qty || item.quantity || 1}-${item.unitPrice || item.price || 0}`;
-                  return orderItemsMap.has(key);
-                });
-              } catch (e) {
+              if (order.client_id !== selectedClient) {
+                clientLogger.debug('Заказ не подходит по клиенту:', { orderClientId: order.client_id, selectedClient });
                 return false;
               }
+              
+              if (Math.abs((order.total_amount || 0) - totalAmount) > 0.01) {
+                clientLogger.debug('Заказ не подходит по сумме:', { orderTotal: order.total_amount, totalAmount });
+                return false;
+              }
+              
+              // Используем функцию compareCartContent для правильного сравнения
+              const cartMatches = compareCartContent(items, order.cart_data);
+              
+              if (cartMatches) {
+                clientLogger.debug('Найден существующий заказ по содержимому корзины:', {
+                  orderId: order.id,
+                  orderNumber: order.number,
+                  orderTotal: order.total_amount,
+                  totalAmount
+                });
+              } else {
+                clientLogger.debug('Заказ не подходит по содержимому корзины:', { orderId: order.id });
+              }
+              
+              return cartMatches;
             });
 
             if (existingOrder) {
               setCreatedOrder({ id: existingOrder.id, number: existingOrder.number });
-              clientLogger.debug('Найден существующий заказ:', { orderId: existingOrder.id, orderNumber: existingOrder.number });
+              clientLogger.debug('Установлен существующий заказ:', { orderId: existingOrder.id, orderNumber: existingOrder.number });
             } else {
               setCreatedOrder(null);
+              clientLogger.debug('Существующий заказ не найден');
             }
           } else {
             setCreatedOrder(null);
+            clientLogger.debug('Заказы не получены из API');
           }
         } else {
           setCreatedOrder(null);
+          clientLogger.error('Ошибка при получении заказов:', { status: response.status, statusText: response.statusText });
         }
       } catch (error) {
         clientLogger.error('Ошибка при проверке существующих заказов:', error);
