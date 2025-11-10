@@ -39,6 +39,8 @@ import {
   getOrderFilterStatusForComplectator
 } from '@/lib/utils/order-status-display';
 import { clientLogger } from '@/lib/logging/client-logger';
+import { fetchWithAuth } from '@/lib/utils/fetch-with-auth';
+import { parseApiResponse } from '@/lib/utils/parse-api-response';
 
 // Маппинг статусов КП из API в русские (используем общий модуль)
 const mapQuoteStatus = (apiStatus: string): string => {
@@ -187,20 +189,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     try {
       isClientsLoadingRef.current = true;
       
-      // Получаем токен для авторизации
-      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-        headers['x-auth-token'] = token;
-      }
-      
-      const response = await fetch('/api/clients', {
-        headers,
-        credentials: 'include'
-      });
+      const response = await fetchWithAuth('/api/clients');
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -230,8 +219,9 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       clientLogger.debug('📦 Raw response from /api/clients:', { responseData });
       
       // apiSuccess возвращает { success: true, data: { clients: ..., pagination: ... } }
-      const data = responseData && typeof responseData === 'object' && responseData !== null && 'data' in responseData
-        ? (responseData as { data: { clients?: any[]; pagination?: any } }).data
+      const parsedData = parseApiResponse<{ clients?: any[]; pagination?: any }>(responseData);
+      const data = parsedData && typeof parsedData === 'object' && 'clients' in parsedData
+        ? parsedData
         : null;
       clientLogger.debug('📦 Extracted data from response:', { data, hasClients: data && 'clients' in data, clientsLength: data?.clients?.length });
       
@@ -272,12 +262,13 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
   // Функция для загрузки количества комментариев для документа (базовая функция)
   const fetchCommentsCount = useCallback(async (documentId: string) => {
     try {
-      const response = await fetch(`/api/documents/${documentId}/comments/count`);
+      const response = await fetchWithAuth(`/api/documents/${documentId}/comments/count`);
       if (response.ok) {
         const data = await response.json();
+        const parsedData = parseApiResponse<{ count: number }>(data);
         setCommentsCount(prev => ({
           ...prev,
-          [documentId]: data.count
+          [documentId]: parsedData.count || 0
         }));
       }
     } catch (commentsCountError) {
@@ -319,12 +310,13 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
   // Загрузка заказов клиента
   const fetchClientOrders = useCallback(async (clientId: string) => {
     try {
-      const response = await fetch(`/api/orders?client_id=${clientId}`);
+      const response = await fetchWithAuth(`/api/orders?client_id=${clientId}`);
       if (response.ok) {
         const responseData = await response.json();
         // apiSuccess возвращает { success: true, data: { orders: ..., pagination: ... } }
-        const data = responseData && typeof responseData === 'object' && responseData !== null && 'data' in responseData
-          ? (responseData as { data: { orders?: any[]; pagination?: any } }).data
+        const parsedData = parseApiResponse<{ orders?: any[]; pagination?: any }>(responseData);
+        const data = parsedData && typeof parsedData === 'object' && 'orders' in parsedData
+          ? parsedData
           : null;
         // Преобразуем заказы - ВСЕГДА используем статус Order, а не Invoice
         const formattedOrders = ((data?.orders || []) as any[]).map((order: any) => {

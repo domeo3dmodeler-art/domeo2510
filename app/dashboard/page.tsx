@@ -174,17 +174,11 @@ function DashboardContent() {
       if (userRole === 'admin') {
         // Для админа запрашиваем admin stats и users
         const promises = [
-          fetch('/api/admin/stats', {
-            headers,
-            credentials: 'include',
-          }).catch(err => {
+          fetchWithAuth('/api/admin/stats').catch(err => {
             clientLogger.error('Error fetching admin stats:', err);
             return new Response(JSON.stringify({ error: 'Failed to fetch stats' }), { status: 500 });
           }),
-          fetch('/api/users', {
-            headers,
-            credentials: 'include',
-          }).catch(err => {
+          fetchWithAuth('/api/users').catch(err => {
             clientLogger.error('Error fetching users:', err);
             return new Response(JSON.stringify({ error: 'Failed to fetch users' }), { status: 500 });
           })
@@ -193,20 +187,21 @@ function DashboardContent() {
         const responses = await Promise.all(promises);
         
         if (responses[0].ok) {
-          try {
-            let statsData: unknown;
-            try {
-              statsData = await responses[0].json();
-            } catch (jsonError) {
-              clientLogger.error('Ошибка парсинга JSON ответа admin/stats:', jsonError);
-              statsData = null;
-            }
-            if (statsData) {
-              setStats(statsData);
-            }
-          } catch (err) {
-            clientLogger.error('Error parsing admin stats:', err);
-          }
+                  try {
+                    let statsData: unknown;
+                    try {
+                      statsData = await responses[0].json();
+                      statsData = parseApiResponse(statsData);
+                    } catch (jsonError) {
+                      clientLogger.error('Ошибка парсинга JSON ответа admin/stats:', jsonError);
+                      statsData = null;
+                    }
+                    if (statsData) {
+                      setStats(statsData);
+                    }
+                  } catch (err) {
+                    clientLogger.error('Error parsing admin stats:', err);
+                  }
         } else {
           clientLogger.warn('Admin stats endpoint returned', { status: responses[0].status });
         }

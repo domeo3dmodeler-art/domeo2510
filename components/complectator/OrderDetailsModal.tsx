@@ -9,6 +9,8 @@ import { Download, FileText, User, MapPin, Clock, Package, Upload, CheckCircle, 
 import { getStatusLabel, ORDER_STATUSES_COMPLECTATOR } from '@/lib/utils/document-statuses';
 import { getValidTransitions } from '@/lib/validation/status-transitions';
 import { clientLogger } from '@/lib/logging/client-logger';
+import { fetchWithAuth } from '@/lib/utils/fetch-with-auth';
+import { parseApiResponse } from '@/lib/utils/parse-api-response';
 
 interface OrderDetailsModalProps {
   isOpen: boolean;
@@ -109,29 +111,17 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     
     setLoading(true);
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-        headers['x-auth-token'] = token;
-      }
-
-      const response = await fetch(`/api/orders/${orderId}`, {
-        headers,
-        credentials: 'include'
-      });
+      const response = await fetchWithAuth(`/api/orders/${orderId}`);
       
       if (response.ok) {
         const responseData = await response.json();
         clientLogger.debug('📦 Raw response from /api/orders/[id]:', responseData);
         
         // apiSuccess возвращает { success: true, data: { order: ... } }
-        const data = responseData && typeof responseData === 'object' && responseData !== null && 'data' in responseData
-          ? (responseData as { data: { order?: any } }).data
+        const parsedData = parseApiResponse<{ order?: any }>(responseData);
+        const orderData = parsedData && typeof parsedData === 'object' && 'order' in parsedData
+          ? parsedData.order
           : null;
-        const orderData = data && 'order' in data ? data.order : null;
         
         if (orderData) {
           clientLogger.debug('📦 Extracted order data:', orderData);
@@ -161,27 +151,15 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     if (!orderId) return;
     
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-        headers['x-auth-token'] = token;
-      }
-
-      const response = await fetch(`/api/quotes?parent_document_id=${orderId}`, {
-        headers,
-        credentials: 'include'
-      });
+      const response = await fetchWithAuth(`/api/quotes?parent_document_id=${orderId}`);
       
       if (response.ok) {
         const responseData = await response.json();
         // apiSuccess возвращает { success: true, data: { quotes: ... } }
-        const data = responseData && typeof responseData === 'object' && responseData !== null && 'data' in responseData
-          ? (responseData as { data: { quotes?: Quote[] } }).data
-          : null;
-        const quotesData = data && 'quotes' in data && Array.isArray(data.quotes) ? data.quotes : [];
+        const parsedData = parseApiResponse<{ quotes?: Quote[] }>(responseData);
+        const quotesData = parsedData && typeof parsedData === 'object' && 'quotes' in parsedData && Array.isArray(parsedData.quotes)
+          ? parsedData.quotes
+          : [];
         
         if (quotesData.length > 0) {
           setQuotes(quotesData);
@@ -347,19 +325,8 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
     
     setChangingStatus(true);
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-        headers['x-auth-token'] = token;
-      }
-
-      const response = await fetch(`/api/orders/${order.id}/status`, {
+      const response = await fetchWithAuth(`/api/orders/${order.id}/status`, {
         method: 'PUT',
-        headers,
-        credentials: 'include',
         body: JSON.stringify({
           status: newStatus
         })
@@ -373,7 +340,8 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
 
       if (response.ok) {
         const data = await response.json();
-        clientLogger.debug('handleStatusChange: success', data);
+        const parsedData = parseApiResponse(data);
+        clientLogger.debug('handleStatusChange: success', parsedData);
         toast.success('Статус заказа успешно изменен');
         setShowStatusChangeModal(false);
         setNewStatus('');
@@ -457,9 +425,8 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         sampleItem: formattedItems[0] // Логируем первый товар для отладки
       });
 
-      const response = await fetch('/api/export/fast', {
+      const response = await fetchWithAuth('/api/export/fast', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'invoice',
           format: 'pdf',
