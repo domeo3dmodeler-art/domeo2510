@@ -178,40 +178,20 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                e.nativeEvent.stopImmediatePropagation();
-                // Клик по изображению
-                // Если не в режиме зума и есть несколько фото, перелистываем галерею
-                if (!isZoomed && allPhotos.length > 1) {
-                  nextPhoto();
-                } else {
-                  // Иначе включаем зум
-                  toggleZoom();
-                }
+                // Клик по изображению - включаем зум
+                toggleZoom();
               }}
               onMouseDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                e.nativeEvent.stopImmediatePropagation();
-                // MouseDown по изображению
-                // Если не в режиме зума и есть несколько фото, перелистываем галерею
-                if (!isZoomed && allPhotos.length > 1) {
-                  nextPhoto();
-                } else {
-                  // Иначе включаем зум
-                  toggleZoom();
-                }
+                // MouseDown по изображению - включаем зум
+                toggleZoom();
               }}
               onPointerDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                // PointerDown по изображению
-                // Если не в режиме зума и есть несколько фото, перелистываем галерею
-                if (!isZoomed && allPhotos.length > 1) {
-                  nextPhoto();
-                } else {
-                  // Иначе включаем зум
-                  toggleZoom();
-                }
+                // PointerDown по изображению - включаем зум
+                toggleZoom();
               }}
               onError={() => {
                 clientLogger.debug('❌ Ошибка загрузки изображения:', { photo: allPhotos[currentIndex] });
@@ -227,18 +207,17 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
 
         {/* Кнопка зума */}
         {allPhotos[currentIndex] && (
-          <div
+          <button
+            type="button"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              e.nativeEvent.stopImmediatePropagation();
               // Клик по кнопке зума
               toggleZoom();
             }}
             onMouseDown={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              e.nativeEvent.stopImmediatePropagation();
               // MouseDown по кнопке зума
               toggleZoom();
             }}
@@ -250,12 +229,10 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
             }}
             className="absolute top-4 right-4 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 cursor-pointer z-30"
             style={{ zIndex: 30, pointerEvents: 'auto', position: 'absolute' }}
-            role="button"
-            tabIndex={0}
             aria-label={isZoomed ? "Уменьшить" : "Увеличить"}
           >
-          <MagnifyingGlassIcon className="w-5 h-5 text-gray-700" />
-        </div>
+            <MagnifyingGlassIcon className="w-5 h-5 text-gray-700" />
+          </button>
         )}
 
         {/* Навигационные стрелки (только для галереи) */}
@@ -331,8 +308,8 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
         )}
       </div>
 
-      {/* Миниатюры под изображением (только для галереи) */}
-      {showThumbnails && allPhotos.length > 1 && (
+      {/* Миниатюры под изображением - показываем только в режиме зума */}
+      {false && showThumbnails && allPhotos.length > 1 && (
         <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm p-4 rounded-b-xl shadow-lg z-10">
           <div className="flex justify-center space-x-2 overflow-x-auto">
             {allPhotos.map((photo, index) => (
