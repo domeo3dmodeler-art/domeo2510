@@ -630,11 +630,23 @@ function OrderDetailModal({
 
   // Обновление данных заказа
   const fetchOrder = async () => {
+    if (!currentOrder?.id) return;
+    
     try {
-      const response = await fetch(`/api/orders/${order.id}`);
+      const response = await fetchWithAuth(`/api/orders/${currentOrder.id}`);
       if (response.ok) {
         const data = await response.json();
-        setCurrentOrder(data.order);
+        const parsedData = parseApiResponse<{ order?: any }>(data);
+        const orderData = parsedData && typeof parsedData === 'object' && 'order' in parsedData
+          ? (parsedData as { order?: any }).order
+          : null;
+        
+        if (orderData) {
+          setCurrentOrder(orderData);
+          clientLogger.debug('fetchOrder: order updated', { orderId: orderData.id, status: orderData.status });
+        }
+      } else {
+        clientLogger.error('fetchOrder: error response', { status: response.status, statusText: response.statusText });
       }
     } catch (error) {
       clientLogger.error('Error fetching order', error);
@@ -751,10 +763,26 @@ function OrderDetailModal({
 
   // Изменение статуса
   const handleStatusChange = async () => {
+    if (!currentOrder || !newStatus) {
+      clientLogger.error('handleStatusChange: missing order or newStatus', { 
+        hasOrder: !!currentOrder, 
+        newStatus 
+      });
+      toast.error('Ошибка: отсутствуют данные для смены статуса');
+      return;
+    }
+
     try {
       setLoading(true);
 
-      const response = await fetchWithAuth(`/api/orders/${order.id}/status`, {
+      clientLogger.debug('handleStatusChange: starting', {
+        orderId: currentOrder.id,
+        currentStatus: currentOrder.status,
+        newStatus,
+        requireMeasurement: currentOrder.status === 'UNDER_REVIEW' ? newStatus === 'AWAITING_MEASUREMENT' : undefined
+      });
+
+      const response = await fetchWithAuth(`/api/orders/${currentOrder.id}/status`, {
         method: 'PUT',
         body: JSON.stringify({
           status: newStatus,
@@ -762,37 +790,62 @@ function OrderDetailModal({
         })
       });
 
+      clientLogger.debug('handleStatusChange: response', {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText
+      });
+
       if (response.ok) {
         const responseData = await response.json();
         // apiSuccess возвращает { success: true, data: { order: ... } }
         const parsedData = parseApiResponse<{ order?: any }>(responseData);
-        const data = parsedData && typeof parsedData === 'object' && 'order' in parsedData
-          ? parsedData
+        const updatedOrderData = parsedData && typeof parsedData === 'object' && 'order' in parsedData
+          ? (parsedData as { order?: any }).order
           : null;
+        
+        clientLogger.debug('handleStatusChange: success', {
+          updatedOrder: updatedOrderData
+        });
+        
+        // Обновляем статус заказа сразу из ответа
+        if (updatedOrderData) {
+          setCurrentOrder((prevOrder) => prevOrder ? { ...prevOrder, status: updatedOrderData.status || newStatus } : prevOrder);
+        }
         
         toast.success('Статус изменен успешно');
         await fetchOrder();
         onUpdate();
         setShowStatusChangeModal(false);
+        setNewStatus('');
       } else {
-        let errorMessage = 'Ошибка изменения статуса';
+        let errorData: any;
         try {
-          const errorData = await response.json();
-          if (errorData.error) {
-            if (typeof errorData.error === 'string') {
-              errorMessage = errorData.error;
-            } else if (errorData.error.message) {
-              errorMessage = errorData.error.message;
-            }
-          } else if (errorData.message) {
-            errorMessage = errorData.message;
-          }
-          clientLogger.error('Error changing status:', errorData);
-        } catch (parseError) {
-          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-          clientLogger.error('Error parsing error response:', parseError);
+          errorData = await response.json();
+        } catch (jsonError) {
+          clientLogger.error('handleStatusChange: error parsing JSON', jsonError);
+          errorData = { error: `Ошибка ${response.status}: ${response.statusText}` };
         }
-        toast.error(errorMessage);
+        
+        // Парсим ответ в формате apiError
+        const parsedError = parseApiResponse<{ error?: { code?: string; message?: string; details?: unknown } }>(errorData);
+        
+        const errorMessage = parsedError && typeof parsedError === 'object' && parsedError !== null && 'error' in parsedError
+          ? (parsedError.error && typeof parsedError.error === 'object' && 'message' in parsedError.error
+            ? String(parsedError.error.message)
+            : String(parsedError.error))
+          : (errorData && typeof errorData === 'object' && errorData !== null && 'error' in errorData
+            ? String((errorData as { error: unknown }).error)
+            : 'Неизвестная ошибка');
+        
+        clientLogger.error('handleStatusChange: error', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+          parsedError,
+          errorMessage
+        });
+        toast.error(`Ошибка при изменении статуса: ${errorMessage}`);
       }
     } catch (error) {
       clientLogger.error('Error changing status:', error);
