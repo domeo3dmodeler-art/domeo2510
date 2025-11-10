@@ -1240,8 +1240,17 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
                     setProjectFile(file);
                     clientLogger.debug('🔘 Выбран файл проекта', { fileName: file?.name, fileSize: file?.size });
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black cursor-pointer"
+                  style={{ pointerEvents: 'auto' }}
                 />
+                {projectFile && (
+                  <div className="mt-2 text-sm text-gray-600">
+                    Выбран файл: {projectFile.name} ({(projectFile.size / 1024).toFixed(2)} KB)
+                  </div>
+                )}
               </div>
               <div className="flex justify-end space-x-3 pt-4 border-t">
                 <button
