@@ -71,7 +71,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
     });
   }, [onToggleSidePanels]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       setIsZoomed(false);
       if (onToggleSidePanels) {
@@ -80,7 +80,32 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
     }
     if (e.key === 'ArrowRight') nextPhoto();
     if (e.key === 'ArrowLeft') prevPhoto();
-  };
+  }, [nextPhoto, prevPhoto, onToggleSidePanels]);
+
+  // Обработка клавиатуры в режиме зума
+  useEffect(() => {
+    if (!isZoomed) return;
+    
+    const handleZoomKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsZoomed(false);
+        if (onToggleSidePanels) {
+          onToggleSidePanels(false);
+        }
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        nextPhoto();
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prevPhoto();
+      }
+    };
+
+    window.addEventListener('keydown', handleZoomKeyDown);
+    return () => window.removeEventListener('keydown', handleZoomKeyDown);
+  }, [isZoomed, nextPhoto, prevPhoto, onToggleSidePanels]);
 
   // Сбрасываем индекс и зум при смене модели/продукта
   useEffect(() => {
@@ -308,7 +333,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
 
       {/* Миниатюры под изображением (только для галереи) */}
       {showThumbnails && allPhotos.length > 1 && (
-        <div className="absolute -bottom-20 left-0 right-0 bg-white p-4 rounded-b-xl shadow-lg">
+        <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm p-4 rounded-b-xl shadow-lg z-10">
           <div className="flex justify-center space-x-2 overflow-x-auto">
             {allPhotos.map((photo, index) => (
               photo ? (
@@ -354,13 +379,25 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
       {/* Полноэкранный режим при зуме */}
       {isZoomed && allPhotos[currentIndex] && (
         <div 
-          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 overflow-auto"
-          onClick={() => {
-            setIsZoomed(false);
-            if (onToggleSidePanels) {
-              onToggleSidePanels(false);
+          className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4 overflow-auto"
+          onClick={(e) => {
+            // Закрываем зум только при клике на фон, не на содержимое
+            if (e.target === e.currentTarget) {
+              setIsZoomed(false);
+              if (onToggleSidePanels) {
+                onToggleSidePanels(false);
+              }
             }
           }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setIsZoomed(false);
+              if (onToggleSidePanels) {
+                onToggleSidePanels(false);
+              }
+            }
+          }}
+          tabIndex={-1}
         >
           <div className="relative max-w-7xl w-full max-h-[90vh] flex flex-col">
             {/* Основное изображение */}
@@ -383,19 +420,27 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
                   }
                 })()}
                 alt={`${productName} - увеличенное фото ${currentIndex + 1}`}
-                className="max-w-full max-h-[80vh] object-contain"
-                onClick={(e) => e.stopPropagation()}
+                className="max-w-full max-h-[80vh] object-contain cursor-default"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
               />
               
               {/* Навигационные стрелки */}
-              {showThumbnails && allPhotos.length > 1 && (
+              {allPhotos.length > 1 && (
                 <>
                   <button
                     onClick={(e) => {
+                      e.preventDefault();
                       e.stopPropagation();
                       prevPhoto();
                     }}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white rounded-full p-3 transition-all duration-200"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white rounded-full p-3 transition-all duration-200 z-10"
                     aria-label="Предыдущее фото"
                   >
                     <ChevronLeftIcon className="w-8 h-8" />
@@ -403,10 +448,11 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
                   
                   <button
                     onClick={(e) => {
+                      e.preventDefault();
                       e.stopPropagation();
                       nextPhoto();
                     }}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white rounded-full p-3 transition-all duration-200"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white rounded-full p-3 transition-all duration-200 z-10"
                     aria-label="Следующее фото"
                   >
                     <ChevronRightIcon className="w-8 h-8" />
@@ -416,7 +462,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
             </div>
             
             {/* Миниатюры внизу */}
-            {showThumbnails && allPhotos.length > 1 && (
+            {allPhotos.length > 1 && (
               <div className="bg-black/50 p-4 flex-none">
                 <div className="flex justify-center space-x-3 overflow-x-auto">
                   {allPhotos.map((photo, index) => (
@@ -451,13 +497,15 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
             
             {/* Кнопка закрытия */}
             <button
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 setIsZoomed(false);
                 if (onToggleSidePanels) {
                   onToggleSidePanels(false);
                 }
               }}
-              className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors duration-200"
+              className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors duration-200 z-10"
               aria-label="Закрыть"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
