@@ -801,9 +801,17 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                 {userRole === 'complectator' && displayStatus?.canManage && availableStatuses.length > 0 && (
                   <button
                     onClick={() => {
+                      clientLogger.debug('🔘 Кнопка "Изменить статус" нажата', {
+                        availableStatuses,
+                        currentStatus: order?.status,
+                        firstStatus: availableStatuses[0]
+                      });
                       if (availableStatuses.length > 0) {
                         setNewStatus(availableStatuses[0]);
                         setShowStatusChangeModal(true);
+                        clientLogger.debug('🔘 Модальное окно смены статуса открыто', {
+                          newStatus: availableStatuses[0]
+                        });
                       }
                     }}
                     className="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors"
@@ -1072,7 +1080,10 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
 
       {/* Модальное окно изменения статуса */}
       {showStatusChangeModal && order && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60" onClick={() => setShowStatusChangeModal(false)}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60" onClick={() => {
+          clientLogger.debug('🔘 Закрытие модального окна смены статуса');
+          setShowStatusChangeModal(false);
+        }}>
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold mb-4">Изменение статуса заказа</h3>
             <div className="space-y-4">
@@ -1112,7 +1123,25 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                   Отмена
                 </button>
                 <button
-                  onClick={handleStatusChange}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    clientLogger.debug('🔘 Кнопка "Изменить" в модальном окне нажата', {
+                      newStatus,
+                      changingStatus,
+                      hasOrder: !!order,
+                      orderId: order?.id
+                    });
+                    if (newStatus && !changingStatus && order) {
+                      handleStatusChange();
+                    } else {
+                      clientLogger.warn('🔘 Кнопка "Изменить" заблокирована', {
+                        newStatus,
+                        changingStatus,
+                        hasOrder: !!order
+                      });
+                    }
+                  }}
                   disabled={!newStatus || changingStatus}
                   className="px-4 py-2 text-sm bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
