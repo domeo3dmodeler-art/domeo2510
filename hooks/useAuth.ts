@@ -54,8 +54,12 @@ export function useAuth() {
 
       if (response.ok) {
         const data = await response.json();
+        // apiSuccess возвращает { success: true, data: { user: ... } }
+        const userData = data && typeof data === 'object' && 'data' in data && data.data && typeof data.data === 'object' && 'user' in data.data
+          ? data.data.user
+          : data.user || data;
         setAuthState({
-          user: data.user,
+          user: userData,
           isAuthenticated: true,
           isLoading: false,
           error: null
