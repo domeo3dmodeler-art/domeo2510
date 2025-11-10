@@ -865,16 +865,15 @@ export default function DoorsPage() {
           return;
         }
         
-        const response = await api.getOptions(query);
-        // Извлекаем domain из ответа API
-        const domain = (response?.domain || response) as Domain;
-        clientLogger.debug('🔍 Общие данные загружены для query:', { query: query.toString(), domain });
-        // НЕ устанавливаем domain если уже выбрана модель
-        if (!c && !sel.model) {
-          setDomain(domain);
-          clientLogger.debug('🔍 Общий domain установлен (нет выбранной модели)');
-        } else {
-          clientLogger.debug('🔍 Пропускаем установку общего domain - выбрана модель:', sel.model);
+        // Загружаем domain только если он еще не загружен
+        if (!domain) {
+          const response = await api.getOptions(query);
+          // Извлекаем domain из ответа API
+          const domainData = (response?.domain || response) as Domain;
+          // НЕ устанавливаем domain если уже выбрана модель
+          if (!c && !sel.model && domainData) {
+            setDomain(domainData);
+          }
         }
       } catch (e: unknown) {
         if (!c) setErr(e instanceof Error ? e.message : "Ошибка доменов");
@@ -1050,16 +1049,34 @@ export default function DoorsPage() {
             ? parsedData.models
             : (Array.isArray(parsedData) ? parsedData : []);
           
-          // Оптимизированная загрузка фото для всех моделей
+          // Параллельная загрузка фото и domain для оптимизации скорости
           if (rows.length > 0) {
             try {
               const modelNames = rows
                 .filter((m: unknown): m is { model: string } => m && typeof m === 'object' && 'model' in m && typeof (m as { model: unknown }).model === 'string')
                 .map((m) => m.model);
-              const photoResponse = await fetchWithAuth('/api/catalog/doors/photos-batch', {
-                method: 'POST',
-                body: JSON.stringify({ models: modelNames })
-              });
+              
+              // Загружаем фото и domain параллельно
+              const [photoResponse, domainResponse] = await Promise.all([
+                fetchWithAuth('/api/catalog/doors/photos-batch', {
+                  method: 'POST',
+                  body: JSON.stringify({ models: modelNames })
+                }),
+                // Загружаем domain только если он еще не загружен
+                !domain ? api.getOptions(query).catch(() => null) : Promise.resolve(null)
+              ]);
+              
+              // Обрабатываем domain если он был загружен
+              if (domainResponse && !domain) {
+                try {
+                  const domainData = domainResponse?.domain || domainResponse;
+                  if (domainData && typeof domainData === 'object') {
+                    setDomain(domainData as Domain);
+                  }
+                } catch (domainError) {
+                  clientLogger.warn('Ошибка обработки domain:', domainError);
+                }
+              }
               
               if (photoResponse.ok) {
                 let photoData: unknown;
@@ -1383,24 +1400,28 @@ export default function DoorsPage() {
           return;
         }
         
-        // apiSuccess возвращает { success: true, data: {...} }
-        // Проверяем формат ответа - может быть объект или массив
-        let handlesData: Record<string, Handle[]>;
-        if (Array.isArray(handlesDataRaw)) {
-          handlesData = { default: handlesDataRaw as Handle[] };
-        } else if (handlesDataRaw && typeof handlesDataRaw === 'object' && 'data' in handlesDataRaw && handlesDataRaw.data && typeof handlesDataRaw.data === 'object' && !Array.isArray(handlesDataRaw.data)) {
-          // Если data - это объект с группами
-          handlesData = handlesDataRaw.data as Record<string, Handle[]>;
-        } else if (handlesDataRaw && typeof handlesDataRaw === 'object' && 'handles' in handlesDataRaw && handlesDataRaw.handles && typeof handlesDataRaw.handles === 'object') {
-          handlesData = handlesDataRaw.handles as Record<string, Handle[]>;
-        } else if (handlesDataRaw && typeof handlesDataRaw === 'object' && !Array.isArray(handlesDataRaw)) {
-          // Если сам ответ - это объект с группами
-          handlesData = handlesDataRaw as Record<string, Handle[]>;
-        } else {
-          handlesData = {};
+            // Проверяем формат ответа - может быть объект или массив
+            let handlesData: Record<string, Handle[]>;
+            if (Array.isArray(parsedHandles)) {
+              handlesData = { default: parsedHandles as Handle[] };
+            } else if (parsedHandles && typeof parsedHandles === 'object' && 'handles' in parsedHandles && parsedHandles.handles && typeof parsedHandles.handles === 'object' && !Array.isArray(parsedHandles.handles)) {
+              handlesData = parsedHandles.handles as Record<string, Handle[]>;
+            } else if (parsedHandles && typeof parsedHandles === 'object' && 'data' in parsedHandles && parsedHandles.data && typeof parsedHandles.data === 'object' && !Array.isArray(parsedHandles.data)) {
+              handlesData = parsedHandles.data as Record<string, Handle[]>;
+            } else if (parsedHandles && typeof parsedHandles === 'object' && !Array.isArray(parsedHandles)) {
+              handlesData = parsedHandles as Record<string, Handle[]>;
+            } else {
+              handlesData = {};
+            }
+            setHandles(handlesData);
+          } catch (jsonError) {
+            clientLogger.error('Ошибка парсинга JSON ответа handles:', jsonError);
+            setHandles({});
+          }
+        } else if (handlesResponse.status === 401) {
+          clientLogger.warn('🔧 Необходима авторизация для загрузки ручек');
+          setHandles({});
         }
-        setHandles(handlesData);
-        clientLogger.debug('🔧 Ручки загружены:', { keys: Object.keys(handlesData) });
         
         // Устанавливаем базовые значения по умолчанию
         const basicKit = Array.isArray(kits) && kits.length > 0 
