@@ -1356,7 +1356,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
           onOrderUpdate={async () => {
             // Обновляем список заказов после смены статуса
             if (selectedClient) {
-              await fetchOrders(selectedClient);
+              await fetchClientOrders(selectedClient);
             }
           }}
         />
