@@ -4521,6 +4521,16 @@ function CartManager({
           />
         );
       })()}
+
+      {/* Модальное окно заказа */}
+      {createdOrder && (
+        <OrderDetailsModal
+          isOpen={showOrderModal}
+          onClose={() => setShowOrderModal(false)}
+          orderId={createdOrder.id}
+          userRole={userRole}
+        />
+      )}
     </div>
   );
 }
