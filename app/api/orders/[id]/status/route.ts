@@ -182,6 +182,13 @@ async function handler(
     // Не прерываем выполнение, если не удалось отправить уведомление
   }
 
+  logger.info('Статус заказа успешно изменен', 'orders/[id]/status', {
+    orderId: id,
+    oldStatus,
+    newStatus: targetStatus,
+    userId: user.userId
+  }, loggingContext);
+
   return apiSuccess(
     { order: updatedOrder },
     'Статус заказа успешно изменен'
