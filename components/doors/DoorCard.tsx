@@ -113,6 +113,8 @@ function DoorCardComponent({ item, selected, onSelect }: DoorCardProps) {
                 src={imageSrc}
                 alt={formatModelNameForCard(item.model)}
                 className="absolute inset-0 w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                loading="lazy"
+                decoding="async"
                 onLoad={() => clientLogger.debug('✅ Изображение загружено для', item.model, ':', imageSrc)}
                 onError={(e) => {
                   clientLogger.error('❌ ОШИБКА ЗАГРУЗКИ изображения:', imageSrc);

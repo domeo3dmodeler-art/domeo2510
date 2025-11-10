@@ -1031,21 +1031,8 @@ export default function DoorsPage() {
         // Оптимистичное обновление: показываем пустой список сразу
         if (!c) setModels([]);
         
-        // Получаем токен для авторизации
-        const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-        const headers: HeadersInit = {
-          'Content-Type': 'application/json',
-        };
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-          headers['x-auth-token'] = token;
-        }
-        
         // Один оптимизированный запрос для всех данных
-        const response = await fetch(`/api/catalog/doors/complete-data?style=${encodeURIComponent(sel.style || "")}`, {
-          headers,
-          credentials: 'include',
-        });
+        const response = await fetchWithAuth(`/api/catalog/doors/complete-data?style=${encodeURIComponent(sel.style || "")}`);
         
         if (!c && response.ok) {
           let data: unknown;
@@ -1206,20 +1193,7 @@ export default function DoorsPage() {
       try {
         clientLogger.debug('🚀 Предзагрузка всех данных...');
         
-        // Получаем токен для авторизации
-        const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-        const headers: HeadersInit = {
-          'Content-Type': 'application/json',
-        };
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-          headers['x-auth-token'] = token;
-        }
-        
-        const response = await fetch('/api/catalog/doors/complete-data', {
-          headers,
-          credentials: 'include',
-        });
+        const response = await fetchWithAuth('/api/catalog/doors/complete-data');
         if (response.ok) {
           let data: unknown;
           try {
