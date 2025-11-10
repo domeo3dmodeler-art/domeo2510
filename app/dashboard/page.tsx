@@ -14,6 +14,7 @@ import { ClientAuthGuard } from '../../components/auth/ClientAuthGuard';
 import NotificationBell from '../../components/ui/NotificationBell';
 import { clientLogger } from '@/lib/logging/client-logger';
 import { fetchWithAuth } from '@/lib/utils/fetch-with-auth';
+import { parseApiResponse } from '@/lib/utils/parse-api-response';
 
 interface User {
   id: string;
