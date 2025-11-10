@@ -407,11 +407,38 @@ export default function CatalogPage() {
   const loadCategories = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/catalog/categories');
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
+      const response = await fetch('/api/catalog/categories', {
+        headers,
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        clientLogger.error('Error loading categories', { status: response.status });
+        setCategories([]);
+        return;
+      }
+      
       const data = await response.json();
-      setCategories(data.categories || []);
+      // apiSuccess возвращает { success: true, data: { categories: ... } }
+      const responseData = data && typeof data === 'object' && 'data' in data
+        ? (data as { data: { categories?: CatalogCategory[] } }).data
+        : null;
+      const categories = responseData && 'categories' in responseData && Array.isArray(responseData.categories)
+        ? responseData.categories
+        : (data.categories || []);
+      setCategories(categories);
     } catch (error) {
       clientLogger.error('Error loading categories:', error);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
