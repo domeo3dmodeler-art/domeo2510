@@ -2392,11 +2392,7 @@ export default function DoorsPage() {
                       });
                       
                       if (shouldShowGallery && selectedModelCard?.photos) {
-                        clientLogger.debug('🖼️ Рендерим ModernPhotoGallery:', {
-                          photos: selectedModelCard.photos,
-                          productName: selectedModelCard.model,
-                          hasGallery: selectedModelCard.hasGallery || false
-                        });
+                        // Рендерим ModernPhotoGallery
                         
                         return (
                           <ModernPhotoGallery

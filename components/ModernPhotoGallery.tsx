@@ -31,50 +31,20 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
     return photos.gallery || [];
   }, [photos.cover, photos.gallery]);
   
-  // Логируем для отладки
-  useEffect(() => {
-    if (allPhotos.length > 0) {
-      clientLogger.debug('📸 ModernPhotoGallery allPhotos:', {
-        cover: photos.cover,
-        gallery: photos.gallery,
-        allPhotos: allPhotos.slice(0, 3),
-        hasGallery,
-        allPhotosLength: allPhotos.length,
-        currentIndex,
-        isZoomed
-      });
-    }
-  }, [photos.cover, photos.gallery, hasGallery, currentIndex, isZoomed]);
-  
   // Логируем при монтировании компонента (только один раз)
   useEffect(() => {
-    clientLogger.debug('📸 ModernPhotoGallery mounted:', {
-      allPhotosLength: allPhotos.length,
-      currentIndex,
-      isZoomed,
-      hasGallery,
-      showThumbnails: hasGallery && allPhotos.length > 1,
-      photos: photos,
-      productName: productName,
-      cover: photos.cover,
-      galleryLength: photos.gallery?.length || 0
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Только при монтировании - allPhotos не нужен в зависимостях, так как это useMemo
-  
-  // Логируем при изменении данных
-  useEffect(() => {
     if (allPhotos.length > 0) {
-      clientLogger.debug('📸 ModernPhotoGallery data changed:', {
+      clientLogger.debug('📸 ModernPhotoGallery mounted:', {
         allPhotosLength: allPhotos.length,
         currentIndex,
-        isZoomed,
         hasGallery,
+        productName: productName,
         cover: photos.cover,
         galleryLength: photos.gallery?.length || 0
       });
     }
-  }, [photos.cover, photos.gallery, hasGallery, allPhotos.length, currentIndex, isZoomed]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Только при монтировании
   
   // Показываем миниатюры только если есть галерея
   const showThumbnails = hasGallery && allPhotos.length > 1;
@@ -175,7 +145,6 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
                 } else {
                   imageUrl = `/api/uploads${photo}`;
                 }
-                clientLogger.debug('🖼️ ModernPhotoGallery imageUrl:', { photo, imageUrl });
                 return imageUrl;
               })()}
               alt={`${productName} - фото ${currentIndex + 1}`}
@@ -185,7 +154,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
                 e.preventDefault();
                 e.stopPropagation();
                 e.nativeEvent.stopImmediatePropagation();
-                clientLogger.debug('🖼️ Клик по изображению', { isZoomed, currentIndex, allPhotosLength: allPhotos.length });
+                // Клик по изображению
                 // Если не в режиме зума и есть несколько фото, перелистываем галерею
                 if (!isZoomed && allPhotos.length > 1) {
                   nextPhoto();
@@ -198,7 +167,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
                 e.preventDefault();
                 e.stopPropagation();
                 e.nativeEvent.stopImmediatePropagation();
-                clientLogger.debug('🖼️ MouseDown по изображению', { isZoomed, currentIndex });
+                // MouseDown по изображению
                 // Если не в режиме зума и есть несколько фото, перелистываем галерею
                 if (!isZoomed && allPhotos.length > 1) {
                   nextPhoto();
@@ -210,7 +179,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
               onPointerDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                clientLogger.debug('🖼️ PointerDown по изображению', { isZoomed, currentIndex });
+                // PointerDown по изображению
                 // Если не в режиме зума и есть несколько фото, перелистываем галерею
                 if (!isZoomed && allPhotos.length > 1) {
                   nextPhoto();
@@ -238,20 +207,20 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
               e.preventDefault();
               e.stopPropagation();
               e.nativeEvent.stopImmediatePropagation();
-              clientLogger.debug('🔍 Клик по кнопке зума', { isZoomed, currentIndex, allPhotosLength: allPhotos.length });
+              // Клик по кнопке зума
               toggleZoom();
             }}
             onMouseDown={(e) => {
               e.preventDefault();
               e.stopPropagation();
               e.nativeEvent.stopImmediatePropagation();
-              clientLogger.debug('🔍 MouseDown по кнопке зума', { isZoomed, currentIndex });
+              // MouseDown по кнопке зума
               toggleZoom();
             }}
             onPointerDown={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              clientLogger.debug('🔍 PointerDown по кнопке зума', { isZoomed, currentIndex });
+              // PointerDown по кнопке зума
               toggleZoom();
             }}
             className="absolute top-4 right-4 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 cursor-pointer z-30"
@@ -272,20 +241,20 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
                 e.preventDefault();
                 e.stopPropagation();
                 e.nativeEvent.stopImmediatePropagation();
-                clientLogger.debug('⬅️ Клик по кнопке "Предыдущее фото"', { currentIndex, allPhotosLength: allPhotos.length });
+                // Клик по кнопке "Предыдущее фото"
                 prevPhoto();
               }}
               onMouseDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 e.nativeEvent.stopImmediatePropagation();
-                clientLogger.debug('⬅️ MouseDown по кнопке "Предыдущее фото"', { currentIndex, allPhotosLength: allPhotos.length });
+                // MouseDown по кнопке "Предыдущее фото"
                 prevPhoto();
               }}
               onPointerDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                clientLogger.debug('⬅️ PointerDown по кнопке "Предыдущее фото"', { currentIndex, allPhotosLength: allPhotos.length });
+                // PointerDown по кнопке "Предыдущее фото"
                 prevPhoto();
               }}
               className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 cursor-pointer z-30"
@@ -302,20 +271,20 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
                 e.preventDefault();
                 e.stopPropagation();
                 e.nativeEvent.stopImmediatePropagation();
-                clientLogger.debug('➡️ Клик по кнопке "Следующее фото"', { currentIndex, allPhotosLength: allPhotos.length });
+                // Клик по кнопке "Следующее фото"
                 nextPhoto();
               }}
               onMouseDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 e.nativeEvent.stopImmediatePropagation();
-                clientLogger.debug('➡️ MouseDown по кнопке "Следующее фото"', { currentIndex, allPhotosLength: allPhotos.length });
+                // MouseDown по кнопке "Следующее фото"
                 nextPhoto();
               }}
               onPointerDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                clientLogger.debug('➡️ PointerDown по кнопке "Следующее фото"', { currentIndex, allPhotosLength: allPhotos.length });
+                // PointerDown по кнопке "Следующее фото"
                 nextPhoto();
               }}
               className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 cursor-pointer z-30"
