@@ -1003,9 +1003,21 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
                     <button
                       onClick={async () => {
                         try {
-                          const response = await fetchWithAuth(order.project_file_url!);
+                          // Нормализуем URL: если начинается с /uploads/, заменяем на /api/uploads/
+                          let fileUrl = order.project_file_url!;
+                          if (fileUrl.startsWith('/uploads/')) {
+                            fileUrl = fileUrl.replace('/uploads/', '/api/uploads/');
+                          } else if (!fileUrl.startsWith('/api/uploads/') && !fileUrl.startsWith('http')) {
+                            // Если URL не начинается с /api/uploads/ и не абсолютный, добавляем /api/uploads/
+                            fileUrl = `/api/uploads/${fileUrl.startsWith('/') ? fileUrl.substring(1) : fileUrl}`;
+                          }
+                          
+                          clientLogger.debug('Downloading project file:', { originalUrl: order.project_file_url, normalizedUrl: fileUrl });
+                          
+                          const response = await fetchWithAuth(fileUrl);
                           if (!response.ok) {
-                            toast.error('Ошибка при скачивании файла');
+                            clientLogger.error('Failed to download file:', { status: response.status, statusText: response.statusText, url: fileUrl });
+                            toast.error(`Ошибка при скачивании файла: ${response.status} ${response.statusText}`);
                             return;
                           }
                           const blob = await response.blob();
