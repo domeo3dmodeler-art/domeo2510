@@ -84,6 +84,10 @@ async function postHandler(
   const validation = createDocumentRequestSchema.safeParse(documentRequest);
   if (!validation.success) {
     const errors = validation.error.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', ');
+    logger.error('Validation error in orders/POST', 'orders/POST', {
+      errors: validation.error.errors,
+      documentRequest
+    }, loggingContext);
     return apiError(
       ApiErrorCode.VALIDATION_ERROR,
       `Ошибка валидации данных: ${errors}`,
@@ -92,7 +96,22 @@ async function postHandler(
   }
 
   // Используем DocumentService для создания заказа
-  const result = await documentService.createDocument(validation.data);
+  let result;
+  try {
+    logger.info('Creating order via documentService', 'orders/POST', {
+      client_id,
+      itemsCount: items.length,
+      total_amount: calculatedTotalAmount
+    }, loggingContext);
+    result = await documentService.createDocument(validation.data);
+  } catch (error) {
+    logger.error('Error creating document via documentService', 'orders/POST', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      documentRequest: validation.data
+    }, loggingContext);
+    throw error;
+  }
 
   // Если заказ был создан, обновляем complectator_id и lead_number
   if (result.isNew && result.id) {
