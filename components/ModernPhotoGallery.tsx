@@ -17,7 +17,7 @@ interface ModernPhotoGalleryProps {
   onToggleSidePanels?: (hide: boolean) => void;
 }
 
-export const ModernPhotoGallery = React.memo(function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSidePanels }: ModernPhotoGalleryProps) {
+function ModernPhotoGalleryComponent({ photos, productName, hasGallery, onToggleSidePanels }: ModernPhotoGalleryProps) {
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);

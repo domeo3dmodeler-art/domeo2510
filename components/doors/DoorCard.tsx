@@ -13,7 +13,7 @@ interface DoorCardProps {
   onSelect: () => void;
 }
 
-export const DoorCard = memo(function DoorCard({ item, selected, onSelect }: DoorCardProps) {
+function DoorCardComponent({ item, selected, onSelect }: DoorCardProps) {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
