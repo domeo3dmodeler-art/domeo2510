@@ -3253,6 +3253,11 @@ function CartManager({
   const [createdOrder, setCreatedOrder] = useState<{ id: string; number: string } | null>(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
   
+  // Сброс созданного заказа при изменении клиента
+  useEffect(() => {
+    setCreatedOrder(null);
+  }, [selectedClient]);
+  
   // Вспомогательная функция для получения ручки по ID (оптимизация для избежания повторных поисков)
   const getHandleById = React.useCallback((handleId: string | undefined): Handle | undefined => {
     if (!handleId) return undefined;
@@ -4348,7 +4353,10 @@ function CartManager({
                 </button>
               )}
               <button
-                onClick={() => setCart([])}
+                onClick={() => {
+                  setCart([]);
+                  setCreatedOrder(null); // Сбрасываем созданный заказ при очистке корзины
+                }}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
               >
                 Очистить корзину
