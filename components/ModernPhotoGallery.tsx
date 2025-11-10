@@ -62,25 +62,23 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
   };
 
   const toggleZoom = useCallback(() => {
-    setIsZoomed((prev) => {
-      const newZoomState = !prev;
-      if (onToggleSidePanels) {
-        onToggleSidePanels(newZoomState);
-      }
-      return newZoomState;
-    });
-  }, [onToggleSidePanels]);
+    setIsZoomed((prev) => !prev);
+  }, []);
+  
+  // Вызываем onToggleSidePanels после обновления isZoomed
+  useEffect(() => {
+    if (onToggleSidePanels) {
+      onToggleSidePanels(isZoomed);
+    }
+  }, [isZoomed, onToggleSidePanels]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       setIsZoomed(false);
-      if (onToggleSidePanels) {
-        onToggleSidePanels(false);
-      }
     }
     if (e.key === 'ArrowRight') nextPhoto();
     if (e.key === 'ArrowLeft') prevPhoto();
-  }, [nextPhoto, prevPhoto, onToggleSidePanels]);
+  }, [nextPhoto, prevPhoto]);
 
   // Обработка клавиатуры в режиме зума
   useEffect(() => {
@@ -89,9 +87,6 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
     const handleZoomKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsZoomed(false);
-        if (onToggleSidePanels) {
-          onToggleSidePanels(false);
-        }
       }
       if (e.key === 'ArrowRight') {
         e.preventDefault();
@@ -105,7 +100,7 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
 
     window.addEventListener('keydown', handleZoomKeyDown);
     return () => window.removeEventListener('keydown', handleZoomKeyDown);
-  }, [isZoomed, nextPhoto, prevPhoto, onToggleSidePanels]);
+  }, [isZoomed, nextPhoto, prevPhoto]);
 
   // Сбрасываем индекс и зум при смене модели/продукта
   useEffect(() => {
@@ -361,17 +356,11 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
             // Закрываем зум только при клике на фон, не на содержимое
             if (e.target === e.currentTarget) {
               setIsZoomed(false);
-              if (onToggleSidePanels) {
-                onToggleSidePanels(false);
-              }
             }
           }}
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
               setIsZoomed(false);
-              if (onToggleSidePanels) {
-                onToggleSidePanels(false);
-              }
             }
           }}
           tabIndex={-1}
