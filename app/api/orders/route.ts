@@ -408,6 +408,8 @@ async function getHandler(
     verification_status: order.verification_status,
     verification_notes: order.verification_notes,
     notes: order.notes,
+    cart_data: order.cart_data, // Добавляем cart_data для дедубликации
+    total_amount: order.total_amount, // Добавляем total_amount для дедубликации
     created_at: order.created_at,
     updated_at: order.updated_at,
     client: {
