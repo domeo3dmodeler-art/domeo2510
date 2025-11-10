@@ -15,8 +15,12 @@ export async function fetchWithAuth(
   const token =
     typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
 
+  // Если body является FormData, не устанавливаем Content-Type,
+  // чтобы браузер мог автоматически установить multipart/form-data с boundary
+  const isFormData = options?.body instanceof FormData;
+  
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options?.headers as HeadersInit),
   };
 
