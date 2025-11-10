@@ -681,7 +681,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
         isOpen={isOpen}
         onClose={onClose}
         title=""
-        size="full"
+        size="xl"
       >
         {loading ? (
           <div className="flex items-center justify-center py-8">
