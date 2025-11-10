@@ -3109,17 +3109,10 @@ export default function DoorsPage() {
                   />
                   <input
                     type="text"
-                    placeholder="ID объекта"
-                    value={newClientData.objectId}
-                    onChange={(e) => setNewClientData(prev => ({ ...prev, objectId: e.target.value }))}
-                    className="col-span-3 md:col-span-3 px-3 py-2 border border-gray-300 rounded"
-                  />
-                  <input
-                    type="text"
                     placeholder="Номер лида комплектации"
                     value={newClientData.compilationLeadNumber}
                     onChange={(e) => setNewClientData(prev => ({ ...prev, compilationLeadNumber: e.target.value }))}
-                    className="col-span-2 px-3 py-2 border border-gray-300 rounded"
+                    className="col-span-3 px-3 py-2 border border-gray-300 rounded"
                   />
                   <input
                     type="text"
