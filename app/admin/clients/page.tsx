@@ -61,11 +61,42 @@ export default function ClientsPage() {
   const fetchClients = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/clients');
-      const data = await response.json();
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
+      const response = await fetch('/api/clients', {
+        headers,
+        credentials: 'include',
+      });
 
-      if (response.ok && data.clients) {
-        setClients(data.clients);
+      if (!response.ok) {
+        alert('Ошибка загрузки заказчиков');
+        return;
+      }
+
+      const data = await response.json();
+      // apiSuccess возвращает { success: true, data: { clients: ..., pagination: ... } }
+      const responseData = data && typeof data === 'object' && 'data' in data
+        ? (data as { data: { clients?: Client[]; pagination?: Pagination } }).data
+        : null;
+      const clients = responseData && 'clients' in responseData && Array.isArray(responseData.clients)
+        ? responseData.clients
+        : (data.clients || []);
+      const paginationData = responseData && 'pagination' in responseData
+        ? responseData.pagination
+        : (data.pagination || null);
+
+      if (response.ok && clients.length >= 0) {
+        setClients(clients);
+        if (paginationData) {
+          setPagination(paginationData);
+        }
       } else {
         alert('Ошибка загрузки заказчиков');
       }
@@ -82,15 +113,38 @@ export default function ClientsPage() {
 
   const handleCreateClient = async () => {
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
       const response = await fetch('/api/clients', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
+        credentials: 'include',
         body: JSON.stringify(formData)
       });
 
-      const data = await response.json();
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert(errorData.error || 'Ошибка создания заказчика');
+        return;
+      }
 
-      if (response.ok && data.client) {
+      const data = await response.json();
+      // apiSuccess возвращает { success: true, data: { client: ... } }
+      const responseData = data && typeof data === 'object' && 'data' in data
+        ? (data as { data: { client?: Client } }).data
+        : null;
+      const client = responseData && 'client' in responseData
+        ? responseData.client
+        : (data.client || null);
+
+      if (response.ok && client) {
         alert('Заказчик создан успешно');
         setShowCreateModal(false);
         resetForm();
@@ -107,11 +161,27 @@ export default function ClientsPage() {
     if (!editingClient) return;
 
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
       const response = await fetch(`/api/clients/${editingClient.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
+        credentials: 'include',
         body: JSON.stringify(formData)
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert(errorData.error || 'Ошибка обновления заказчика');
+        return;
+      }
 
       const data = await response.json();
 
@@ -130,9 +200,19 @@ export default function ClientsPage() {
 
   const handleToggleStatus = async (clientId: string, currentStatus: boolean) => {
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
       const response = await fetch(`/api/clients/${clientId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
+        credentials: 'include',
         body: JSON.stringify({
           isActive: !currentStatus
         })
@@ -159,9 +239,26 @@ export default function ClientsPage() {
     if (!confirm('Удалить заказчика? Это действие нельзя отменить.')) return;
 
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
       const response = await fetch(`/api/clients/${clientId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers,
+        credentials: 'include',
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert(errorData.error || 'Ошибка удаления заказчика');
+        return;
+      }
 
       const data = await response.json();
 

@@ -74,14 +74,34 @@ export default function AnalyticsPage() {
   const fetchAnalyticsData = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/admin/analytics?period=${selectedPeriod}`);
+      setError(null);
+      
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
+      const response = await fetch(`/api/admin/analytics?period=${selectedPeriod}`, {
+        headers,
+        credentials: 'include',
+      });
       
       if (!response.ok) {
         throw new Error('Ошибка загрузки данных аналитики');
       }
       
       const data = await response.json();
-      setAnalyticsData(data);
+      // apiSuccess возвращает { success: true, data: { ... } }
+      const responseData = data && typeof data === 'object' && 'data' in data
+        ? (data as { data: AnalyticsData }).data
+        : null;
+      const analyticsData = responseData || data;
+      
+      setAnalyticsData(analyticsData);
       setLastUpdated(new Date());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Неизвестная ошибка');

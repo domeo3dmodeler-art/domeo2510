@@ -59,16 +59,45 @@ export default function CategoriesPage() {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('/api/admin/categories');
+      setLoading(true);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
+      const response = await fetch('/api/admin/categories', {
+        headers,
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        clientLogger.error('Error fetching categories', { status: response.status });
+        setCategories([]);
+        return;
+      }
+      
       const data = await response.json();
+      // apiSuccess возвращает { success: true, data: { categories: ... } }
+      const responseData = data && typeof data === 'object' && 'data' in data
+        ? (data as { data: { categories?: Category[] } }).data
+        : null;
+      const categories = responseData && 'categories' in responseData && Array.isArray(responseData.categories)
+        ? responseData.categories
+        : (data.categories || []);
       
       if (data.success) {
-        setCategories(data.categories || []);
+        setCategories(categories);
       } else {
-        clientLogger.error('Error fetching categories:', data.error);
+        clientLogger.error('Error fetching categories', { error: data.error });
+        setCategories([]);
       }
     } catch (error) {
       clientLogger.error('Error fetching categories:', error);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
@@ -80,9 +109,26 @@ export default function CategoriesPage() {
     }
 
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
       const response = await fetch(`/api/admin/categories/${categoryId}`, {
         method: 'DELETE',
+        headers,
+        credentials: 'include',
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert('Ошибка при удалении категории: ' + (errorData.error || 'Неизвестная ошибка'));
+        return;
+      }
       
       const data = await response.json();
       
@@ -91,7 +137,7 @@ export default function CategoriesPage() {
         setCategories(prev => prev.filter(cat => cat.id !== categoryId));
         alert('Категория успешно удалена');
       } else {
-        alert('Ошибка при удалении категории: ' + data.error);
+        alert('Ошибка при удалении категории: ' + (data.error || 'Неизвестная ошибка'));
       }
     } catch (error) {
       clientLogger.error('Error deleting category:', error);

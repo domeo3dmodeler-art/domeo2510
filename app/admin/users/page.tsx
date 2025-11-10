@@ -74,17 +74,31 @@ function AdminUsersPageContent() {
         headers,
         credentials: 'include'
       });
+      
+      if (!response.ok) {
+        clientLogger.error('Ошибка загрузки пользователей', { status: response.status });
+        setUsers([]);
+        return;
+      }
+      
       const data = await response.json();
+      // apiSuccess возвращает { success: true, data: { users: ... } }
+      const responseData = data && typeof data === 'object' && 'data' in data
+        ? (data as { data: { users?: User[] } }).data
+        : null;
+      const users = responseData && 'users' in responseData && Array.isArray(responseData.users)
+        ? responseData.users
+        : (data.users || []);
       
       if (data.success) {
-        setUsers(data.users);
+        setUsers(users);
       } else {
-        clientLogger.error('Ошибка загрузки пользователей:', data.error);
-        setUsers(demoUsers);
+        clientLogger.error('Ошибка загрузки пользователей', { error: data.error });
+        setUsers([]);
       }
     } catch (error) {
       clientLogger.error('Ошибка загрузки пользователей:', error);
-      setUsers(demoUsers);
+      setUsers([]);
     } finally {
       setIsLoading(false);
     }

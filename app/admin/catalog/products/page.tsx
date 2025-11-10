@@ -52,10 +52,32 @@ export default function ProductsPage() {
     try {
       setLoading(true);
       
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
       // Загружаем категории каталога
-      const categoriesRes = await fetch('/api/catalog/categories');
-      const categoriesData = await categoriesRes.json();
-      setCatalogCategories(categoriesData.categories || []);
+      const categoriesRes = await fetch('/api/catalog/categories', {
+        headers,
+        credentials: 'include',
+      });
+      
+      if (categoriesRes.ok) {
+        const categoriesData = await categoriesRes.json();
+        // apiSuccess возвращает { success: true, data: { categories: ... } }
+        const responseData = categoriesData && typeof categoriesData === 'object' && 'data' in categoriesData
+          ? (categoriesData as { data: { categories?: CatalogCategory[] } }).data
+          : null;
+        const categories = responseData && 'categories' in responseData && Array.isArray(responseData.categories)
+          ? responseData.categories
+          : (categoriesData.categories || []);
+        setCatalogCategories(categories);
+      }
 
       // Загружаем товары
       const params = new URLSearchParams({
@@ -66,12 +88,23 @@ export default function ProductsPage() {
       if (searchTerm) params.append('search', searchTerm);
       if (selectedCategory) params.append('catalogCategoryId', selectedCategory);
 
-      const productsRes = await fetch(`/api/catalog/products?${params}`);
-      const productsData: ProductsResponse = await productsRes.json();
-
-      setProducts(productsData.products);
-      setTotalPages(productsData.totalPages);
-      setTotal(productsData.total);
+      const productsRes = await fetch(`/api/catalog/products?${params}`, {
+        headers,
+        credentials: 'include',
+      });
+      
+      if (productsRes.ok) {
+        const productsData = await productsRes.json();
+        // apiSuccess возвращает { success: true, data: { products: ..., total: ..., page: ..., limit: ..., totalPages: ... } }
+        const responseData = productsData && typeof productsData === 'object' && 'data' in productsData
+          ? (productsData as { data: ProductsResponse }).data
+          : null;
+        const products = responseData || productsData;
+        
+        setProducts(products.products || []);
+        setTotalPages(products.totalPages || 1);
+        setTotal(products.total || 0);
+      }
     } catch (error) {
       clientLogger.error('Error loading data:', error);
     } finally {
@@ -87,8 +120,19 @@ export default function ProductsPage() {
     if (!confirm(`Удалить товар "${product.name}"?`)) return;
 
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
       const response = await fetch(`/api/catalog/products/${product.id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers,
+        credentials: 'include',
       });
 
       if (response.ok) {
@@ -239,7 +283,7 @@ export default function ProductsPage() {
           )}
           <span className="text-sm">{category.name}</span>
         </div>
-        {isExpanded && category.children.map(child => renderCategoryNode(child, level + 1))}
+        {isExpanded && (category as CatalogCategory & { children: CatalogCategory[] }).children?.map((child: CatalogCategory & { children: CatalogCategory[] }) => renderCategoryNode(child, level + 1))}
       </div>
     );
   };
@@ -343,7 +387,7 @@ export default function ProductsPage() {
                   >
                     <span className="text-sm font-medium">Все категории</span>
                   </div>
-                  {buildCategoryTree(catalogCategories).map(category => renderCategoryNode(category))}
+                  {buildCategoryTree(catalogCategories).map(category => renderCategoryNode(category as CatalogCategory & { children: CatalogCategory[] }))}
                 </div>
               </div>
             )}
@@ -660,8 +704,8 @@ function ImportProductsDialog({
                     id="file-upload"
                   />
                   <label htmlFor="file-upload">
-                    <Button variant="outline" size="sm" asChild>
-                      <span>Выбрать файл</span>
+                    <Button variant="outline" size="sm">
+                      Выбрать файл
                     </Button>
                   </label>
                 </div>

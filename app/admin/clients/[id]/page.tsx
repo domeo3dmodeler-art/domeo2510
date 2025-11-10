@@ -37,11 +37,36 @@ export default function ClientDetailPage() {
   const fetchClient = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/clients/${clientId}`);
-      const data = await response.json();
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
+      const response = await fetch(`/api/clients/${clientId}`, {
+        headers,
+        credentials: 'include',
+      });
 
-      if (data.success) {
-        setClient(data.client);
+      if (!response.ok) {
+        setAlert({ type: 'error', message: 'Ошибка загрузки заказчика' });
+        return;
+      }
+
+      const data = await response.json();
+      // apiSuccess возвращает { success: true, data: { client: ... } }
+      const responseData = data && typeof data === 'object' && 'data' in data
+        ? (data as { data: { client?: Client } }).data
+        : null;
+      const client = responseData && 'client' in responseData
+        ? responseData.client
+        : (data.client || null);
+
+      if (data.success && client) {
+        setClient(client);
       } else {
         setAlert({ type: 'error', message: 'Ошибка загрузки заказчика' });
       }
@@ -62,13 +87,29 @@ export default function ClientDetailPage() {
     if (!client) return;
     
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
       const response = await fetch(`/api/clients/${clientId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
+        credentials: 'include',
         body: JSON.stringify({
           isActive: newStatus
         })
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setAlert({ type: 'error', message: errorData.error || 'Ошибка обновления статуса' });
+        return;
+      }
 
       const data = await response.json();
 

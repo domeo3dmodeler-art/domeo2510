@@ -22,20 +22,49 @@ export default function PropertiesPage() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
+      
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
       const [propertiesRes, categoriesRes] = await Promise.all([
-        fetch('/api/catalog/properties'),
-        fetch('/api/catalog/categories-flat')
+        fetch('/api/catalog/properties', { headers, credentials: 'include' }),
+        fetch('/api/catalog/categories-flat', { headers, credentials: 'include' })
       ]);
 
-      const propertiesData = await propertiesRes.json();
-      const categoriesData = await categoriesRes.json();
-
-      if (propertiesData.success) {
-        setProperties(propertiesData.properties || []);
+      if (propertiesRes.ok) {
+        const propertiesData = await propertiesRes.json();
+        // apiSuccess возвращает { success: true, data: { properties: ... } }
+        const responseData = propertiesData && typeof propertiesData === 'object' && 'data' in propertiesData
+          ? (propertiesData as { data: { properties?: ProductProperty[] } }).data
+          : null;
+        const properties = responseData && 'properties' in responseData && Array.isArray(responseData.properties)
+          ? responseData.properties
+          : (propertiesData.properties || []);
+        
+        if (propertiesData.success) {
+          setProperties(properties);
+        }
       }
 
-      if (categoriesData.success) {
-        setCategories(categoriesData.categories || []);
+      if (categoriesRes.ok) {
+        const categoriesData = await categoriesRes.json();
+        // apiSuccess возвращает { success: true, data: { categories: ... } }
+        const responseData = categoriesData && typeof categoriesData === 'object' && 'data' in categoriesData
+          ? (categoriesData as { data: { categories?: any[] } }).data
+          : null;
+        const categories = responseData && 'categories' in responseData && Array.isArray(responseData.categories)
+          ? responseData.categories
+          : (categoriesData.categories || []);
+        
+        if (categoriesData.success) {
+          setCategories(categories);
+        }
       }
     } catch (error) {
       clientLogger.error('Error loading data:', error);
@@ -51,6 +80,16 @@ export default function PropertiesPage() {
   const loadProperties = useCallback(async () => {
     try {
       setLoading(true);
+      
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
       const params = new URLSearchParams();
       if (selectedCategory) {
         params.append('categoryId', selectedCategory);
@@ -60,14 +99,27 @@ export default function PropertiesPage() {
       }
 
       const url = `/api/catalog/properties?${params.toString()}`;
-      clientLogger.debug('Loading properties from:', url);
+      clientLogger.debug('Loading properties from', { url });
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers,
+        credentials: 'include',
+      });
+      
       if (!response.ok) {
         throw new Error('Ошибка загрузки свойств');
       }
+      
       const data = await response.json();
-      setProperties(data.properties || []);
+      // apiSuccess возвращает { success: true, data: { properties: ... } }
+      const responseData = data && typeof data === 'object' && 'data' in data
+        ? (data as { data: { properties?: ProductProperty[] } }).data
+        : null;
+      const properties = responseData && 'properties' in responseData && Array.isArray(responseData.properties)
+        ? responseData.properties
+        : (data.properties || []);
+      
+      setProperties(properties);
     } catch (error) {
       clientLogger.error('Error loading properties:', error);
     } finally {
@@ -189,11 +241,27 @@ export default function PropertiesPage() {
 
   const handleCreateProperty = async (data: CreateProductPropertyDto) => {
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
       const response = await fetch('/api/catalog/properties', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
+        credentials: 'include',
         body: JSON.stringify(data)
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert(`Ошибка создания свойства: ${errorData.error || 'Неизвестная ошибка'}`);
+        return;
+      }
 
       const result = await response.json();
       
@@ -214,11 +282,27 @@ export default function PropertiesPage() {
     if (!propertyToEdit) return;
 
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
       const response = await fetch(`/api/catalog/properties/${propertyToEdit.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
+        credentials: 'include',
         body: JSON.stringify(data)
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert(`Ошибка обновления свойства: ${errorData.error || 'Неизвестная ошибка'}`);
+        return;
+      }
 
       const result = await response.json();
 
@@ -240,9 +324,26 @@ export default function PropertiesPage() {
     if (!confirm(`Удалить свойство "${property.name}"?`)) return;
 
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
       const response = await fetch(`/api/catalog/properties/${property.id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers,
+        credentials: 'include',
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert(`Ошибка удаления свойства: ${errorData.error || 'Неизвестная ошибка'}`);
+        return;
+      }
 
       const result = await response.json();
 

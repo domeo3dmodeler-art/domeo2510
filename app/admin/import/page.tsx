@@ -50,11 +50,39 @@ export default function UniversalImportPage() {
   const fetchCategories = useCallback(async () => {
     try {
       clientLogger.debug('Fetching categories...');
-      const response = await fetch('/api/categories');
-      const data = await response.json();
-      clientLogger.debug('Categories fetched:', data);
       
-      setCategories(data.categories || []);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
+      
+      const response = await fetch('/api/categories', {
+        headers,
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        clientLogger.error('Error fetching categories', { status: response.status });
+        setCategories([]);
+        return;
+      }
+      
+      const data = await response.json();
+      // apiSuccess возвращает { success: true, data: { categories: ... } }
+      const responseData = data && typeof data === 'object' && 'data' in data
+        ? (data as { data: { categories?: Category[] } }).data
+        : null;
+      const categories = responseData && 'categories' in responseData && Array.isArray(responseData.categories)
+        ? responseData.categories
+        : (data.categories || []);
+      
+      clientLogger.debug('Categories fetched', { count: categories.length });
+      
+      setCategories(categories);
       
       // Автоматически выбираем категорию из URL параметра или первую доступную
       if (data.categories?.length > 0) {
@@ -62,14 +90,14 @@ export default function UniversalImportPage() {
         
         if (categoryParam) {
           // Ищем категорию по параметру из URL
-          categoryToSelect = data.categories.find((cat: Category) => cat.id === categoryParam);
-          clientLogger.debug('Category from URL param:', categoryParam, 'found:', categoryToSelect);
+          categoryToSelect = categories.find((cat: Category) => cat.id === categoryParam);
+          clientLogger.debug('Category from URL param', { categoryParam, found: categoryToSelect });
         }
         
         if (!categoryToSelect) {
           // Если не найдена по параметру, выбираем первую
-          categoryToSelect = data.categories[0];
-          clientLogger.debug('Auto-selecting first category:', categoryToSelect);
+          categoryToSelect = categories[0];
+          clientLogger.debug('Auto-selecting first category', { category: categoryToSelect });
         }
         
         setSelectedCategory(categoryToSelect);
@@ -123,10 +151,19 @@ export default function UniversalImportPage() {
         mode: 'headers'
       });
       
-      clientLogger.debug('Sending request to:', '/api/admin/import/universal');
+      clientLogger.debug('Sending request to', { url: '/api/admin/import/universal' });
+      
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-auth-token'] = token;
+      }
       
       const response = await fetch('/api/admin/import/universal', {
         method: 'POST',
+        headers,
+        credentials: 'include',
         body: formData
       });
       
@@ -200,12 +237,12 @@ export default function UniversalImportPage() {
 
   const getAvailableFields = () => {
     if (!selectedCategory) return [];
-    clientLogger.debug('getAvailableFields - selectedCategory:', selectedCategory);
-    clientLogger.debug('getAvailableFields - fileHeaders:', fileHeaders);
-    clientLogger.debug('getAvailableFields - selectedCategory.properties:', selectedCategory.properties);
+    clientLogger.debug('getAvailableFields - selectedCategory', { selectedCategory });
+    clientLogger.debug('getAvailableFields - fileHeaders', { fileHeaders });
+    clientLogger.debug('getAvailableFields - selectedCategory.properties', { properties: selectedCategory.properties });
     
     const availableFields = selectedCategory.properties.filter(field => fileHeaders.includes(field.key));
-    clientLogger.debug('getAvailableFields - availableFields:', availableFields);
+    clientLogger.debug('getAvailableFields - availableFields', { availableFields });
     return availableFields;
   };
 
