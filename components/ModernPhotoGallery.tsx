@@ -17,7 +17,7 @@ interface ModernPhotoGalleryProps {
   onToggleSidePanels?: (hide: boolean) => void;
 }
 
-function ModernPhotoGalleryComponent({ photos, productName, hasGallery, onToggleSidePanels }: ModernPhotoGalleryProps) {
+export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSidePanels }: ModernPhotoGalleryProps) {
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
