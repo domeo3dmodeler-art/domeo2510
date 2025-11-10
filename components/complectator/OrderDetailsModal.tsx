@@ -97,6 +97,9 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
   const [showStatusChangeModal, setShowStatusChangeModal] = useState(false);
   const [newStatus, setNewStatus] = useState<string>('');
   const [changingStatus, setChangingStatus] = useState(false);
+  const [showProjectUpload, setShowProjectUpload] = useState(false);
+  const [projectFile, setProjectFile] = useState<File | null>(null);
+  const [uploadingProject, setUploadingProject] = useState(false);
 
   clientLogger.debug('🔵 OrderDetailsModal render:', {
     isOpen,
@@ -903,6 +906,38 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
                 </div>
               )}
             </div>
+
+            {/* Проект/планировка для Комплектатора */}
+            {userRole === 'complectator' && (
+              <div className="mb-4 pb-4 border-b border-gray-200">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-sm font-medium text-gray-900">Проект/планировка</h3>
+                  <button
+                    onClick={() => setShowProjectUpload(true)}
+                    className="flex items-center space-x-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <Upload className="h-4 w-4" />
+                    <span>Загрузить</span>
+                  </button>
+                </div>
+                {order.project_file_url ? (
+                  <div className="flex items-center space-x-2">
+                    <FileText className="h-4 w-4 text-gray-400" />
+                    <a
+                      href={order.project_file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline text-sm flex items-center"
+                    >
+                      <Download className="h-3 w-3 mr-1" />
+                      Проект
+                    </a>
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500">Проект не загружен</div>
+                )}
+              </div>
+            )}
 
             {/* Дополнительная информация для Руководителя (файлы, тех. задания и т.д.) */}
             {userRole === 'manager' && (
