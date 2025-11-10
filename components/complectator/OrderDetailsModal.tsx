@@ -798,23 +798,46 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
                 </button>
                 
                 {/* Кнопка изменения статуса для комплектатора */}
-                {userRole === 'complectator' && displayStatus?.canManage && availableStatuses.length > 0 && (
+                {userRole === 'complectator' && (
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       clientLogger.debug('🔘 Кнопка "Изменить статус" нажата', {
                         availableStatuses,
                         currentStatus: order?.status,
-                        firstStatus: availableStatuses[0]
+                        displayStatus,
+                        canManage: displayStatus?.canManage,
+                        firstStatus: availableStatuses.length > 0 ? availableStatuses[0] : null
                       });
                       if (availableStatuses.length > 0) {
                         setNewStatus(availableStatuses[0]);
                         setShowStatusChangeModal(true);
                         clientLogger.debug('🔘 Модальное окно смены статуса открыто', {
-                          newStatus: availableStatuses[0]
+                          newStatus: availableStatuses[0],
+                          showStatusChangeModal: true
                         });
+                      } else {
+                        clientLogger.warn('🔘 Нет доступных статусов для перехода', {
+                          currentStatus: order?.status,
+                          availableStatuses
+                        });
+                        toast.error('Нет доступных статусов для перехода');
                       }
                     }}
-                    className="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors"
+                    disabled={!displayStatus?.canManage || availableStatuses.length === 0}
+                    className={`flex items-center space-x-1 transition-colors ${
+                      displayStatus?.canManage && availableStatuses.length > 0
+                        ? 'text-gray-600 hover:text-gray-800 cursor-pointer'
+                        : 'text-gray-400 cursor-not-allowed opacity-50'
+                    }`}
+                    title={
+                      !displayStatus?.canManage
+                        ? 'Статус не может быть изменен'
+                        : availableStatuses.length === 0
+                        ? 'Нет доступных статусов для перехода'
+                        : 'Изменить статус заказа'
+                    }
                   >
                     <ChevronDown className="h-3 w-3" />
                     <span className="text-xs">Изменить статус</span>
