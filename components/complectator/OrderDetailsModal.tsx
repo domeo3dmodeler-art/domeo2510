@@ -1103,11 +1103,23 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole }: OrderD
 
       {/* Модальное окно изменения статуса */}
       {showStatusChangeModal && order && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60" onClick={() => {
-          clientLogger.debug('🔘 Закрытие модального окна смены статуса');
-          setShowStatusChangeModal(false);
-        }}>
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]" 
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            clientLogger.debug('🔘 Закрытие модального окна смены статуса (клик по фону)');
+            setShowStatusChangeModal(false);
+            setNewStatus('');
+          }}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 max-w-md w-full mx-4" 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
             <h3 className="text-lg font-semibold mb-4">Изменение статуса заказа</h3>
             <div className="space-y-4">
               <div>
