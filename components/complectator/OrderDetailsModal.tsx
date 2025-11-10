@@ -314,6 +314,75 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
     return filteredTransitions;
   }, [order, userRole]);
 
+  // Загрузка проекта/планировки
+  const handleProjectUpload = async () => {
+    if (!projectFile || !order) {
+      toast.error('Выберите файл проекта');
+      return;
+    }
+
+    try {
+      setUploadingProject(true);
+      const formData = new FormData();
+      formData.append('file', projectFile);
+
+      clientLogger.debug('handleProjectUpload: starting', {
+        orderId: order.id,
+        fileName: projectFile.name,
+        fileSize: projectFile.size
+      });
+
+      const response = await fetchWithAuth(`/api/orders/${order.id}/project`, {
+        method: 'POST',
+        body: formData
+      });
+
+      clientLogger.debug('handleProjectUpload: response', {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText
+      });
+
+      if (response.ok) {
+        toast.success('Проект загружен успешно');
+        await fetchOrder();
+        setShowProjectUpload(false);
+        setProjectFile(null);
+        // Обновляем список заказов в родительском компоненте
+        if (onOrderUpdate) {
+          onOrderUpdate();
+        }
+      } else {
+        let errorData: any;
+        try {
+          errorData = await response.json();
+        } catch (jsonError) {
+          clientLogger.error('handleProjectUpload: error parsing JSON', jsonError);
+          errorData = { error: `Ошибка ${response.status}: ${response.statusText}` };
+        }
+        
+        const errorMessage = errorData && typeof errorData === 'object' && errorData !== null && 'error' in errorData
+          ? (errorData.error && typeof errorData.error === 'object' && 'message' in errorData.error
+            ? String(errorData.error.message)
+            : String(errorData.error))
+          : 'Ошибка загрузки проекта';
+        
+        clientLogger.error('handleProjectUpload: error', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+          errorMessage
+        });
+        toast.error(`Ошибка загрузки проекта: ${errorMessage}`);
+      }
+    } catch (error) {
+      clientLogger.error('Error uploading project:', error);
+      toast.error('Ошибка загрузки проекта');
+    } finally {
+      setUploadingProject(false);
+    }
+  };
+
   // Обработчик изменения статуса заказа
   const handleStatusChange = async () => {
     if (!order || !newStatus) {
