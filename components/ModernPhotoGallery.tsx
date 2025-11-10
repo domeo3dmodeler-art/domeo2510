@@ -467,9 +467,6 @@ export function ModernPhotoGallery({ photos, productName, hasGallery, onToggleSi
                 e.preventDefault();
                 e.stopPropagation();
                 setIsZoomed(false);
-                if (onToggleSidePanels) {
-                  onToggleSidePanels(false);
-                }
               }}
               className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors duration-200 z-10"
               aria-label="Закрыть"
