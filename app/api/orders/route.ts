@@ -48,14 +48,25 @@ async function postHandler(
     throw new NotFoundError('Клиент', client_id);
   }
 
+  // Проверяем, что items не пустой
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    logger.error('Empty or invalid items array in orders/POST', 'orders/POST', {
+      items,
+      client_id
+    }, loggingContext);
+    return apiError(
+      ApiErrorCode.VALIDATION_ERROR,
+      'Корзина пуста. Добавьте товары в корзину перед созданием заказа.',
+      400
+    );
+  }
+
   // Вычисляем total_amount из items
-  const calculatedTotalAmount = items && items.length > 0
-    ? items.reduce((sum: number, item: any) => {
-        const qty = item.qty || item.quantity || 1;
-        const price = item.unitPrice || item.price || 0;
-        return sum + (qty * price);
-      }, 0)
-    : (total_amount || 0);
+  const calculatedTotalAmount = items.reduce((sum: number, item: any) => {
+    const qty = item.qty || item.quantity || 1;
+    const price = item.unitPrice || item.price || 0;
+    return sum + (qty * price);
+  }, 0);
 
   // Определяем complectator_id если пользователь - комплектатор
   let finalComplectatorId: string | null = null;
