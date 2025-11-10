@@ -29,7 +29,6 @@ export type OrderWithRelations = Prisma.OrderGetPayload<{
   include: {
     client: true;
     invoice: true;
-    orderItems: true;
   }
 }>;
 
