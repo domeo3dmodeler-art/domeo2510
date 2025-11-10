@@ -1000,15 +1000,33 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
                 {order.project_file_url ? (
                   <div className="flex items-center space-x-2">
                     <FileText className="h-4 w-4 text-gray-400" />
-                    <a
-                      href={order.project_file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline text-sm flex items-center"
+                    <button
+                      onClick={async () => {
+                        try {
+                          const response = await fetchWithAuth(order.project_file_url!);
+                          if (!response.ok) {
+                            toast.error('Ошибка при скачивании файла');
+                            return;
+                          }
+                          const blob = await response.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = order.project_file_url.split('/').pop() || 'project';
+                          document.body.appendChild(a);
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                          document.body.removeChild(a);
+                        } catch (error) {
+                          clientLogger.error('Error downloading project file:', error);
+                          toast.error('Ошибка при скачивании файла');
+                        }
+                      }}
+                      className="text-blue-600 hover:underline text-sm flex items-center cursor-pointer"
                     >
                       <Download className="h-3 w-3 mr-1" />
                       {order.project_file_url.split('/').pop() || 'Проект'}
-                    </a>
+                    </button>
                   </div>
                 ) : (
                   <div className="text-sm text-gray-500">Проект не загружен</div>
