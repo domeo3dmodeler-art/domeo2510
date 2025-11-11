@@ -27,7 +27,8 @@ import NotificationBell from '@/components/ui/NotificationBell';
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import DocumentWorkflowIntegration from '@/app/components/documents/DocumentWorkflowIntegration';
 import { OrderDetailsModal } from '@/components/complectator/OrderDetailsModal';
-import { toast } from 'sonner';
+import { fetchWithAuth } from '@/lib/utils/fetch-with-auth';
+import { parseApiResponse } from '@/lib/utils/parse-api-response';
 import { COMPLECTATOR_FILTER_STATUSES, getStatusLabel, ORDER_STATUSES_COMPLECTATOR, INVOICE_STATUSES, QUOTE_STATUSES } from '@/lib/utils/document-statuses';
 import { 
   mapOrderStatusToRussianForComplectator,
@@ -502,7 +503,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
   // Создание нового клиента
   const createClient = async (clientData: any) => {
     try {
-      const response = await fetch('/api/clients', {
+      const response = await fetchWithAuth('/api/clients', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -739,7 +740,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         toast.info('Создаем заказ на основе КП...');
         
         // Создаем Order из данных КП
-        const orderResponse = await fetch('/api/orders', {
+        const orderResponse = await fetchWithAuth('/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -763,7 +764,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       }
       
       // Создаем Invoice на основе Order через /api/documents/create
-      const response = await fetch('/api/documents/create', {
+      const response = await fetchWithAuth('/api/documents/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -800,7 +801,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
   const regenerateQuote = async (quoteId: string) => {
     try {
       // Получаем данные КП из API
-      const quoteResponse = await fetch(`/api/quotes/${quoteId}`);
+      const quoteResponse = await fetchWithAuth(`/api/quotes/${quoteId}`);
       if (!quoteResponse.ok) {
         toast.error('КП не найдено');
         return;
@@ -817,7 +818,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       const cartData = JSON.parse(quoteFull.cart_data);
       
       // Перегенерируем КП через API
-      const response = await fetch('/api/export/fast', {
+      const response = await fetchWithAuth('/api/export/fast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -867,7 +868,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
   const regenerateInvoice = async (invoiceId: string) => {
     try {
       // Получаем данные счета из API
-      const invoiceResponse = await fetch(`/api/invoices/${invoiceId}`);
+      const invoiceResponse = await fetchWithAuth(`/api/invoices/${invoiceId}`);
       if (!invoiceResponse.ok) {
         toast.error('Счет не найден');
         return;
@@ -883,7 +884,7 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       const cartData = JSON.parse(invoiceFull.cart_data);
       
       // Перегенерируем счет через API
-      const response = await fetch('/api/export/fast', {
+      const response = await fetchWithAuth('/api/export/fast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

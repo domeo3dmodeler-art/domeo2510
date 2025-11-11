@@ -642,8 +642,8 @@ function OrderDetailModal({
     try {
       setLoading(true);
       
-      // Используем прямой API для экспорта
-      const response = await fetch(`/api/supplier-orders/${supplierOrder.id}/excel`);
+      // Используем fetchWithAuth для экспорта
+      const response = await fetchWithAuth(`/api/supplier-orders/${supplierOrder.id}/excel`);
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
