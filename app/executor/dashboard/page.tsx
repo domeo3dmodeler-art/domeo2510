@@ -1003,18 +1003,21 @@ export default function ExecutorDashboard() {
       </div>
 
         <div className="md:col-span-1">
-          <Card variant="base">
-            <div className="p-4 border-b border-gray-100">
+          <Card variant="base" className="h-full flex flex-col">
+            <div className="p-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-black flex items-center">
                 <FileText className="h-5 w-5 mr-2"/>Табло заказов
               </h3>
             </div>
 
-            <div className="p-4">
+            <div className="p-4 flex-1 overflow-hidden">
               {user?.id ? (
                 <OrdersBoard executorId={user.id} />
               ) : (
-                <div className="text-gray-600">Загрузка...</div>
+                <div className="flex items-center justify-center h-32 text-gray-600">
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                  Загрузка...
+                </div>
               )}
             </div>
 

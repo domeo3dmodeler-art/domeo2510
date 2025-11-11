@@ -180,7 +180,7 @@ export function OrdersBoard({ executorId }: OrdersBoardProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Поиск */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -189,21 +189,28 @@ export function OrdersBoard({ executorId }: OrdersBoardProps) {
           placeholder="Поиск по номеру заказа, клиенту, адресу..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+          className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all"
         />
       </div>
 
       {/* Вкладки статусов */}
-      <div className="flex space-x-2 overflow-x-auto border-b border-gray-200">
+      <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setActiveStatus('all')}
-          className={`px-4 py-2 whitespace-nowrap font-medium border-b-2 transition-colors ${
+          className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors flex items-center space-x-2 ${
             activeStatus === 'all'
-              ? 'border-black text-black'
-              : 'border-transparent text-gray-600 hover:text-black'
+              ? 'border-black bg-black text-white'
+              : 'border-gray-300 text-gray-700 hover:border-black hover:bg-gray-50'
           }`}
         >
-          Все ({orders.length})
+          <span>Все</span>
+          {orders.length > 0 && (
+            <span className={`px-1.5 py-0.5 rounded text-xs ${
+              activeStatus === 'all' ? 'bg-white/20' : 'bg-gray-100'
+            }`}>
+              {orders.length}
+            </span>
+          )}
         </button>
         {Object.entries(ORDER_STATUSES)
           .filter(([, config]) => config && config.icon != null)
@@ -211,64 +218,73 @@ export function OrdersBoard({ executorId }: OrdersBoardProps) {
             if (!config || !config.icon) return null;
             const count = statusCounts[status];
             const Icon = config.icon;
+            const isActive = activeStatus === status;
             
             return (
               <button
                 key={status}
                 onClick={() => setActiveStatus(status as keyof typeof ORDER_STATUSES)}
-                className={`px-4 py-2 whitespace-nowrap font-medium border-b-2 transition-colors flex items-center space-x-2 ${
-                  activeStatus === status
-                    ? 'border-black text-black'
-                    : 'border-transparent text-gray-600 hover:text-black'
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors flex items-center space-x-2 ${
+                  isActive
+                    ? 'border-black bg-black text-white'
+                    : 'border-gray-300 text-gray-700 hover:border-black hover:bg-gray-50'
                 }`}
               >
-              <Icon className="h-4 w-4" />
-              <span>{config.label}</span>
-              {count > 0 && (
-                <span className={`px-2 py-0.5 rounded-full text-xs ${config.color}`}>
-                  {count}
-                </span>
-              )}
-            </button>
-          );
-        })
-        .filter(Boolean)}
+                <Icon className="h-4 w-4" />
+                <span>{config.label}</span>
+                {count > 0 && (
+                  <span className={`px-1.5 py-0.5 rounded text-xs ${
+                    isActive ? 'bg-white/20' : 'bg-gray-100'
+                  }`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })
+          .filter(Boolean)}
       </div>
 
       {/* Таблица заказов */}
       <Card variant="base" className="overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+          <table className="w-full table-auto">
+            <thead className="bg-gray-50 border-b-2 border-gray-200">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-24">
                   ДАТА
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-20">
                   ЛИД
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-32">
                   КОМПЛЕКТАТОР
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">
                   ФИО КЛИЕНТА
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                  Адрес
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[250px]">
+                  АДРЕС
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                  Статус
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-40">
+                  СТАТУС
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                  Действия
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider w-20">
+                  ДЕЙСТВИЯ
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                    {searchQuery ? 'Заказы не найдены' : 'Нет заказов'}
+                  <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
+                    <div className="flex flex-col items-center">
+                      <FileText className="h-12 w-12 text-gray-300 mb-2" />
+                      <p className="text-sm font-medium">{searchQuery ? 'Заказы не найдены' : 'Нет заказов'}</p>
+                      {searchQuery && (
+                        <p className="text-xs text-gray-400 mt-1">Попробуйте изменить параметры поиска</p>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -286,36 +302,39 @@ export function OrdersBoard({ executorId }: OrdersBoardProps) {
                         className="hover:bg-gray-50 cursor-pointer transition-colors"
                         onClick={() => handleOrderClick(order)}
                       >
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                           {formatDate(order.created_at)}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {order.lead_number || '-'}
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                          {order.lead_number || <span className="text-gray-400">—</span>}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {order.complectator_name || '-'}
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                          {order.complectator_name || <span className="text-gray-400">—</span>}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {order.client.fullName}
+                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                          <div className="max-w-[200px] truncate" title={order.client.fullName}>
+                            {order.client.fullName}
+                          </div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          <div className="max-w-xs truncate" title={order.client.address}>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          <div className="max-w-[250px] truncate" title={order.client.address}>
                             {order.client.address}
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig.color}`}>
-                            <StatusIcon className="h-3 w-3 mr-1" />
-                            {statusConfig.label}
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig.color}`}>
+                            <StatusIcon className="h-3 w-3 mr-1.5 flex-shrink-0" />
+                            <span className="truncate">{statusConfig.label}</span>
                           </span>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        <td className="px-4 py-3 whitespace-nowrap text-center">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleOrderClick(order);
                             }}
-                            className="text-gray-600 hover:text-black transition-colors"
+                            className="inline-flex items-center justify-center p-1.5 text-gray-600 hover:text-black hover:bg-gray-100 rounded transition-colors"
+                            title="Просмотр заказа"
                           >
                             <Eye className="h-4 w-4" />
                           </button>
