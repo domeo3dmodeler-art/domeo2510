@@ -408,20 +408,52 @@ export default function CatalogPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
-    const userRole = localStorage.getItem('userRole');
-    if (userRole !== 'admin') {
-      clientLogger.debug('Пользователь не является админом, редирект с админской страницы');
-      router.push('/auth/unauthorized');
-      return;
-    }
+    const checkAdminAccess = async () => {
+      try {
+        const response = await fetchWithAuth('/api/users/me');
+        if (!response.ok) {
+          clientLogger.debug('Не удалось получить данные пользователя, редирект');
+          router.push('/auth/unauthorized');
+          return;
+        }
+        
+        const data = await response.json();
+        const userData = parseApiResponse<{ role?: string }>(data);
+        const userRole = userData?.role;
+        
+        if (userRole !== 'admin') {
+          clientLogger.debug('Пользователь не является админом, редирект с админской страницы', { role: userRole });
+          router.push('/auth/unauthorized');
+          return;
+        }
+      } catch (error) {
+        clientLogger.error('Ошибка при проверке доступа:', error);
+        router.push('/auth/unauthorized');
+      }
+    };
+    
+    checkAdminAccess();
   }, [router]);
 
   useEffect(() => {
-    // Загружаем категории только если пользователь админ
-    const userRole = typeof window !== 'undefined' ? localStorage.getItem('userRole') : null;
-    if (userRole === 'admin') {
-      loadCategories();
-    }
+    // Загружаем категории только после проверки доступа
+    // Проверка доступа выполняется в другом useEffect выше
+    const checkAndLoad = async () => {
+      try {
+        const response = await fetchWithAuth('/api/users/me');
+        if (response.ok) {
+          const data = await response.json();
+          const userData = parseApiResponse<{ role?: string }>(data);
+          if (userData?.role === 'admin') {
+            loadCategories();
+          }
+        }
+      } catch (error) {
+        clientLogger.error('Ошибка при проверке доступа для загрузки категорий:', error);
+      }
+    };
+    
+    checkAndLoad();
   }, []);
 
   const loadCategories = async () => {
