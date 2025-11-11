@@ -1356,6 +1356,57 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
               </div>
             )}
 
+            {/* Тех. задания и Оптовые счета для Комплектатора и Исполнителя */}
+            {(userRole === 'complectator' || userRole === 'executor') && (
+              <div className="mb-4 pb-4 border-b border-gray-200 space-y-3">
+                {/* Тех. задания */}
+                {order.technical_specs && order.technical_specs.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-900 mb-2">Тех. задания</h3>
+                    <div className="space-y-1">
+                      {order.technical_specs.map((url: string, index: number) => (
+                        <button
+                          key={index}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            downloadFile(url, `Техзадание_${index + 1}`);
+                          }}
+                          className="text-blue-600 hover:underline text-sm flex items-center cursor-pointer"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          {getOriginalFileName(url)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Оптовые счета */}
+                {order.wholesale_invoices && order.wholesale_invoices.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-900 mb-2">Оптовые счета</h3>
+                    <div className="space-y-1">
+                      {order.wholesale_invoices.map((url: string, index: number) => (
+                        <button
+                          key={index}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            downloadFile(url, `Счет_${index + 1}`);
+                          }}
+                          className="text-blue-600 hover:underline text-sm flex items-center cursor-pointer"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          {getOriginalFileName(url)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Дополнительная информация для Руководителя (файлы, тех. задания и т.д.) */}
             {userRole === 'manager' && (
               <div className="mb-4 pb-4 border-b border-gray-200 space-y-3">
