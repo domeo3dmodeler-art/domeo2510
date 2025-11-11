@@ -16,16 +16,14 @@ const adminOnlyPaths = [
   '/admin/catalog/import'
 ];
 
-// Пути для комплектаторов
-const complectatorPaths = [
-  '/admin/categories',
-  '/admin/catalog',
-  '/admin/clients'
+// Пути для комплектаторов (убраны из админ панели - доступ только через свои разделы)
+const complectatorPaths: string[] = [
+  // Комплектаторы не имеют доступа к админ панели
 ];
 
-// Пути для исполнителей
-const executorPaths = [
-  '/admin/catalog'
+// Пути для исполнителей (убраны из админ панели - доступ только через свои разделы)
+const executorPaths: string[] = [
+  // Исполнители не имеют доступа к админ панели
 ];
 
 // Пути для экспорта заказов на фабрику (Админ и Исполнитель)
@@ -106,8 +104,8 @@ export async function middleware(request: NextRequest) {
 
     // Проверяем доступ к админ-панели
     if (pathname.startsWith('/admin')) {
-      // Только админы, комплектаторы и исполнители имеют доступ к админ-панели
-      if (!userRole || !['admin', 'complectator', 'executor'].includes(userRole)) {
+      // Только админы имеют доступ к админ-панели
+      if (userRole !== 'admin') {
         return NextResponse.redirect(new URL('/auth/unauthorized', request.url));
       }
     }

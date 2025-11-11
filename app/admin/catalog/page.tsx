@@ -562,19 +562,7 @@ export default function CatalogPage() {
         setSelectedTemplate(null);
       }
     } catch (error) {
-      // Проверяем, является ли ошибка связанной с 403 (Forbidden)
-      const userRole = localStorage.getItem('userRole');
-      const isForbiddenError = error instanceof Error && 
-        (error.message.includes('403') || error.message.includes('Forbidden') || error.message.includes('FORBIDDEN'));
-      
-      if (userRole !== 'admin' || isForbiddenError) {
-        // Не логируем ошибки 403 как ERROR для не-админов
-        clientLogger.debug('Ошибка загрузки шаблона (доступ запрещен или пользователь не админ):', {
-          error: error instanceof Error ? error.message : String(error)
-        });
-      } else {
-        clientLogger.error('Error loading template:', error);
-      }
+      clientLogger.error('Error loading template:', error);
       setSelectedTemplate(null);
     } finally {
       setTemplateLoading(false);

@@ -13,18 +13,9 @@ interface PriceListExporterProps {
 export default function PriceListExporter({ catalogCategoryId, catalogCategoryName }: PriceListExporterProps) {
   const [exporting, setExporting] = useState(false);
 
-  // Проверяем роль пользователя
-  const userRole = typeof window !== 'undefined' ? localStorage.getItem('userRole') : null;
-  const isAdmin = userRole === 'admin';
-
   const downloadPriceList = async () => {
     if (!catalogCategoryId) {
       alert('Пожалуйста, выберите категорию для экспорта прайса.');
-      return;
-    }
-
-    if (!isAdmin) {
-      alert('Экспорт прайса доступен только администраторам.');
       return;
     }
 
@@ -45,15 +36,9 @@ export default function PriceListExporter({ catalogCategoryId, catalogCategoryNa
         
         alert('Прайс успешно экспортирован в Excel! Все товары категории включены.');
       } else {
-        // Не показываем ошибку 403 как критическую, это нормально для не-админов
-        if (response.status === 403) {
-          clientLogger.debug('Доступ запрещен к экспорту прайса');
-          alert('Экспорт прайса доступен только администраторам.');
-        } else {
-          const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
-          clientLogger.error('Failed to export price list:', errorData.error);
-          alert(`Ошибка при экспорте прайса: ${errorData.error?.message || errorData.error || 'Неизвестная ошибка'}`);
-        }
+        const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
+        clientLogger.error('Failed to export price list:', errorData.error);
+        alert(`Ошибка при экспорте прайса: ${errorData.error?.message || errorData.error || 'Неизвестная ошибка'}`);
       }
     } catch (error) {
       clientLogger.error('Error exporting price list:', error);
@@ -63,12 +48,7 @@ export default function PriceListExporter({ catalogCategoryId, catalogCategoryNa
     }
   };
 
-  const disabled = !catalogCategoryId || !isAdmin;
-
-  // Не показываем кнопку, если пользователь не админ
-  if (!isAdmin) {
-    return null;
-  }
+  const disabled = !catalogCategoryId;
 
   return (
     <div className="flex items-center space-x-2">
