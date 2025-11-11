@@ -392,6 +392,73 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
     }
   };
 
+  // Удаление проекта/планировки
+  const handleDeleteProject = async () => {
+    if (!order || !order.project_file_url) {
+      toast.error('Файл проекта не найден');
+      return;
+    }
+
+    if (!confirm('Вы уверены, что хотите удалить файл проекта?')) {
+      return;
+    }
+
+    try {
+      setDeletingProject(true);
+      
+      clientLogger.debug('handleDeleteProject: starting', {
+        orderId: order.id,
+        projectFileUrl: order.project_file_url
+      });
+
+      const response = await fetchWithAuth(`/api/orders/${order.id}/project`, {
+        method: 'DELETE'
+      });
+
+      clientLogger.debug('handleDeleteProject: response', {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText
+      });
+
+      if (response.ok) {
+        toast.success('Файл проекта удален');
+        await fetchOrder();
+        // Обновляем список заказов в родительском компоненте
+        if (onOrderUpdate) {
+          onOrderUpdate();
+        }
+      } else {
+        let errorData: any;
+        try {
+          errorData = await response.json();
+        } catch (jsonError) {
+          clientLogger.error('handleDeleteProject: error parsing JSON', jsonError);
+          errorData = { error: `Ошибка ${response.status}: ${response.statusText}` };
+        }
+        
+        const errorMessage = errorData && typeof errorData === 'object' && errorData !== null && 'error' in errorData
+          ? (errorData.error && typeof errorData.error === 'object' && 'message' in errorData.error
+            ? String(errorData.error.message)
+            : String(errorData.error))
+          : 'Ошибка удаления файла проекта';
+        
+        clientLogger.error('handleDeleteProject: error', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+          errorMessage
+        });
+        toast.error(`Ошибка удаления файла: ${errorMessage}`);
+      }
+    } catch (error) {
+      clientLogger.error('Error deleting project file:', error);
+      toast.error('Ошибка удаления файла проекта');
+    } finally {
+      setDeletingProject(false);
+    }
+  };
+
   // Обработчик изменения статуса заказа
   const handleStatusChange = async () => {
     if (!order || !newStatus) {
