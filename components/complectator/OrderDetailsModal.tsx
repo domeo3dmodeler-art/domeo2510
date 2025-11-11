@@ -423,10 +423,13 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
 
       if (response.ok) {
         toast.success('Файл проекта удален');
+        // Обновляем данные заказа
         await fetchOrder();
-        // Обновляем список заказов в родительском компоненте
+        // Обновляем список заказов в родительском компоненте (с задержкой, чтобы избежать конфликтов)
         if (onOrderUpdate) {
-          onOrderUpdate();
+          setTimeout(() => {
+            onOrderUpdate();
+          }, 100);
         }
       } else {
         let errorData: any;
@@ -506,9 +509,11 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
         setNewStatus('');
         // Обновляем данные заказа для получения полной информации
         await fetchOrder();
-        // Обновляем список заказов в родительском компоненте
+        // Обновляем список заказов в родительском компоненте (с задержкой, чтобы избежать конфликтов)
         if (onOrderUpdate) {
-          onOrderUpdate();
+          setTimeout(() => {
+            onOrderUpdate();
+          }, 100);
         }
       } else {
         let errorData: any;
@@ -1060,7 +1065,11 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
                   <div className="flex items-center space-x-2">
                     {order.project_file_url && (
                       <button
-                        onClick={handleDeleteProject}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDeleteProject();
+                        }}
                         disabled={deletingProject}
                         className="text-red-600 hover:text-red-700 text-sm flex items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed p-1.5"
                         title="Удалить файл проекта"
@@ -1069,7 +1078,11 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
                       </button>
                     )}
                     <button
-                      onClick={() => setShowProjectUpload(true)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowProjectUpload(true);
+                      }}
                       className="flex items-center space-x-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                     >
                       <Upload className="h-4 w-4" />
@@ -1081,7 +1094,9 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
                   <div className="flex items-center space-x-2">
                     <FileText className="h-4 w-4 text-gray-400" />
                     <button
-                      onClick={async () => {
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                         try {
                           // Нормализуем URL: если начинается с /uploads/, заменяем на /api/uploads/
                           let fileUrl = order.project_file_url!;
