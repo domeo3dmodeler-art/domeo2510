@@ -65,10 +65,14 @@ async function postHandler(
     await mkdir(uploadsDir, { recursive: true });
   }
 
-  // Генерируем имя файла
+  // Генерируем имя файла с сохранением оригинального имени
   const timestamp = Date.now();
   const extension = file.name.split('.').pop();
-  const filename = `project_${timestamp}.${extension}`;
+  // Безопасное имя файла: убираем недопустимые символы, но сохраняем читаемость
+  const safeOriginalName = file.name
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .substring(0, 100); // Ограничиваем длину
+  const filename = `project_${timestamp}_${safeOriginalName}`;
   const filepath = join(uploadsDir, filename);
 
   // Сохраняем файл
@@ -77,7 +81,8 @@ async function postHandler(
 
   // URL файла для сохранения в БД
   // Используем /api/uploads/ для доступа через API route
-  const fileUrl = `/api/uploads/orders/${id}/${filename}`;
+  // Сохраняем оригинальное имя в query параметре для отображения
+  const fileUrl = `/api/uploads/orders/${id}/${filename}?original=${encodeURIComponent(file.name)}`;
 
   // Обновляем заказ
   const updatedOrder = await prisma.order.update({
