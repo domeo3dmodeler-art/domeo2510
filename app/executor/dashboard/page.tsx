@@ -649,7 +649,7 @@ export default function ExecutorDashboard() {
         
         const cartData = invoiceData.invoice.cart_data ? JSON.parse(invoiceData.invoice.cart_data) : null;
         
-        const orderResponse = await fetch('/api/orders', {
+        const orderResponse = await fetchWithAuth('/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -686,7 +686,7 @@ export default function ExecutorDashboard() {
       }
 
       // Создаем заказ у поставщика через API
-      const response = await fetch(`${window.location.origin}/api/supplier-orders`, {
+      const response = await fetchWithAuth(`${window.location.origin}/api/supplier-orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
