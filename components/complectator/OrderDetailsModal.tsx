@@ -353,7 +353,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
     } else if (currentStatus === 'SENT') {
       allowedStatuses = ['NEW_PLANNED', 'CANCELLED'];
     } else if (currentStatus === 'NEW_PLANNED') {
-      allowedStatuses = ['CANCELLED'];
+      allowedStatuses = ['CANCELLED', 'RETURNED_TO_COMPLECTATION'];
     } else if (currentStatus === 'RETURNED_TO_COMPLECTATION') {
       allowedStatuses = ['DRAFT', 'SENT', 'NEW_PLANNED'];
     }

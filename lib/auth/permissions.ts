@@ -163,7 +163,7 @@ export function canUserChangeStatus(
         if (currentStatus === 'SENT' && (newStatus === 'NEW_PLANNED' || newStatus === 'CANCELLED')) {
           return true;
         }
-        if (currentStatus === 'NEW_PLANNED' && newStatus === 'CANCELLED') {
+        if (currentStatus === 'NEW_PLANNED' && (newStatus === 'CANCELLED' || newStatus === 'RETURNED_TO_COMPLECTATION')) {
           return true;
         }
         // Комплектатор может вернуть заказ из RETURNED_TO_COMPLECTATION в DRAFT, SENT или NEW_PLANNED
