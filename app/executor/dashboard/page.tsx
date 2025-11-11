@@ -941,8 +941,8 @@ export default function ExecutorDashboard() {
   return (
     <div className="space-y-6">
       {/* Клиенты и детали клиента */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:[grid-template-columns:1.3fr_2fr]">
-        <div className="md:col-span-1 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[350px_1fr] gap-4">
+        <div className="space-y-4">
           <Card variant="base">
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-black flex items-center"><Users className="h-5 w-5 mr-2"/>Клиенты</h3>
@@ -961,9 +961,9 @@ export default function ExecutorDashboard() {
                   className={`px-3 py-1 text-sm border transition-all duration-200 ${showInWorkOnly ? 'border-black bg-black text-white' : 'border-gray-300 hover:border-black'}`}
                   title="Показать клиентов с незавершенными документами"
                 >
-                  В работе
+                  В работе {showInWorkOnly && filteredClients.length > 0 && `(${filteredClients.length})`}
                 </button>
-      </div>
+              </div>
             </div>
             <div className="p-4">
               <div className="relative">
@@ -1002,15 +1002,15 @@ export default function ExecutorDashboard() {
           </Card>
       </div>
 
-        <div className="md:col-span-1">
+        <div className="min-w-0">
           <Card variant="base" className="h-full flex flex-col">
-            <div className="p-4 border-b border-gray-200">
+            <div className="p-4 border-b border-gray-200 flex-shrink-0">
               <h3 className="text-lg font-semibold text-black flex items-center">
                 <FileText className="h-5 w-5 mr-2"/>Табло заказов
               </h3>
             </div>
 
-            <div className="p-4 flex-1 overflow-hidden">
+            <div className="p-4 flex-1 overflow-hidden min-w-0">
               {user?.id ? (
                 <OrdersBoard executorId={user.id} />
               ) : (
