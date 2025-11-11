@@ -9,7 +9,7 @@ import { NotFoundError, ValidationError, BusinessRuleError } from '@/lib/api/err
 import { updateClientSchema } from '@/lib/validation/client.schemas';
 import { validateRequest } from '@/lib/validation/middleware';
 import { clientRepository } from '@/lib/repositories/client.repository';
-import { requireAuthAndPermission } from '@/lib/auth/middleware';
+import { requireAuth, requireAuthAndPermission } from '@/lib/auth/middleware';
 import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
 // GET /api/clients/[id] - Получение клиента с документами
