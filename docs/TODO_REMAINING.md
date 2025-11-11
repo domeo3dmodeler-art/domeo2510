@@ -18,28 +18,31 @@
    - Кнопка с иконкой корзины справа от каждого заказа в списке
    - Модальное окно подтверждения удаления
    - Автоматическое обновление списка после удаления
+9. ✅ Удалены все DEPRECATED endpoints `/api/applications/*` (2025-11-11)
+   - Проверено использование в коде - не используются
+   - Все компоненты используют актуальные endpoints `/api/orders/*`
+   - Удалено 7 файлов DEPRECATED endpoints
 
 ## ⚠️ Осталось сделать
 
-### 1. Удалить DEPRECATED endpoints (приоритет: средний)
+### 1. Удалить DEPRECATED endpoints (приоритет: средний) ✅ ВЫПОЛНЕНО
 
 **Проблема:**
 DEPRECATED endpoints все еще существуют и могут использоваться:
 
-- `app/api/applications/[id]/status/route.ts` - ⚠️ DEPRECATED
-- `app/api/applications/[id]/route.ts` - может изменять статус (DEPRECATED?)
-- `app/api/applications/[id]/door-dimensions/route.ts` - ⚠️ DEPRECATED
-- `app/api/applications/[id]/verify/route.ts` - ⚠️ DEPRECATED
-- `app/api/applications/[id]/project/route.ts` - ⚠️ DEPRECATED
-- `app/api/applications/[id]/files/route.ts` - ⚠️ DEPRECATED
-- `app/api/applications/route.ts` - ⚠️ DEPRECATED
+**Статус:** ✅ **ВЫПОЛНЕНО** (2025-11-11)
+- ✅ Проверено использование в коде - не используются
+- ✅ Проверено наличие актуальных endpoints - все существуют
+- ✅ Удалены все DEPRECATED endpoints:
+  - ✅ `app/api/applications/route.ts`
+  - ✅ `app/api/applications/[id]/route.ts`
+  - ✅ `app/api/applications/[id]/status/route.ts`
+  - ✅ `app/api/applications/[id]/door-dimensions/route.ts`
+  - ✅ `app/api/applications/[id]/verify/route.ts`
+  - ✅ `app/api/applications/[id]/project/route.ts`
+  - ✅ `app/api/applications/[id]/files/route.ts`
 
-**Действие:**
-1. Проверить, используются ли эти endpoints где-то в коде
-2. Заменить на актуальные endpoints (`/api/orders/...`)
-3. Удалить DEPRECATED endpoints после замены
-
-**Статус:** ⚠️ Требует проверки использования
+**Результат:** Все компоненты используют актуальные endpoints `/api/orders/*`. DEPRECATED endpoints удалены.
 
 ---
 

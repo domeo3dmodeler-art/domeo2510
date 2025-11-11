@@ -715,14 +715,14 @@ export default function DoorsPage() {
         return;
       }
       
-      let data: unknown;
-      try {
-        data = await response.json();
-      } catch (jsonError) {
-        clientLogger.error('Ошибка парсинга JSON ответа clients:', jsonError);
-        setClients([]);
-        return;
-      }
+        let data: unknown;
+        try {
+          data = await response.json();
+        } catch (jsonError) {
+          clientLogger.error('Ошибка парсинга JSON ответа clients:', jsonError);
+          setClients([]);
+          return;
+        }
       
       // Парсим ответ в формате apiSuccess
       const { parseApiResponse } = await import('@/lib/utils/parse-api-response');
@@ -3993,12 +3993,12 @@ function CartManager({
 
                     // Создаем Order (основной документ) из корзины
                     const requestBody = {
-                      client_id: selectedClient,
-                      items,
-                      total_amount: totalAmount,
-                      subtotal: totalAmount,
-                      tax_amount: 0,
-                      notes: 'Создан из корзины на странице Doors'
+                        client_id: selectedClient,
+                        items,
+                        total_amount: totalAmount,
+                        subtotal: totalAmount,
+                        tax_amount: 0,
+                        notes: 'Создан из корзины на странице Doors'
                     };
                     
                     clientLogger.debug('Создание заказа:', {
@@ -4047,7 +4047,7 @@ function CartManager({
                       if (orderId && orderNumber) {
                         // Сохраняем данные созданного заказа
                         setCreatedOrder({ id: orderId, number: orderNumber });
-                        alert(`Заказ ${orderNumber} создан успешно!`);
+                      alert(`Заказ ${orderNumber} создан успешно!`);
                       } else {
                         alert('Заказ создан успешно!');
                       }
@@ -4070,7 +4070,7 @@ function CartManager({
                           ? String(parsedError.error.message)
                           : String(parsedError.error))
                         : (errorData && typeof errorData === 'object' && errorData !== null && 'error' in errorData
-                          ? String((errorData as { error: unknown }).error)
+                        ? String((errorData as { error: unknown }).error)
                           : 'Неизвестная ошибка');
                       
                       clientLogger.error('Ошибка при создании заказа:', {

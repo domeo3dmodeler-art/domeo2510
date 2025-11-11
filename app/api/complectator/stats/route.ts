@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logging/logger';
 import { getLoggingContextFromRequest } from '@/lib/auth/logging-context';
 import { apiSuccess, withErrorHandling } from '@/lib/api/response';
-import { requireAuth } from '@/lib/auth/middleware';
+import { requireAuthAndPermission } from '@/lib/auth/middleware';
 import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 
 async function getHandler(
@@ -139,6 +139,6 @@ async function getHandler(
 }
 
 export const GET = withErrorHandling(
-  requireAuth(getHandler),
+  requireAuthAndPermission(getHandler, 'complectator'),
   'complectator/stats/GET'
 );

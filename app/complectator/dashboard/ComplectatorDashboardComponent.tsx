@@ -1145,11 +1145,11 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                           <div className="flex items-center justify-between">
                             <div 
                               className="flex-1 cursor-pointer"
-                              onClick={() => {
-                                setSelectedOrderId(o.id);
-                                setIsOrderModalOpen(true);
-                              }}
-                            >
+                          onClick={() => {
+                            setSelectedOrderId(o.id);
+                            setIsOrderModalOpen(true);
+                          }}
+                        >
                               <div className="flex items-center space-x-3">
                                 <div className="font-medium text-black">{o.number}</div>
                                 <div className="text-sm text-gray-600">от {o.date}</div>

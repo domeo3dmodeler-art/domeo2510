@@ -444,7 +444,7 @@ export default function CatalogPage() {
   useEffect(() => {
     // Загружаем категории только после проверки доступа и подтверждения, что пользователь админ
     if (accessChecked && hasAccess) {
-      loadCategories();
+    loadCategories();
     }
   }, [accessChecked, hasAccess]);
 
@@ -522,16 +522,16 @@ export default function CatalogPage() {
       clientLogger.debug('📦 Извлеченные товары:', { count: products.length, total, products });
       
       // Обновляем состояние независимо от количества товаров
-      if (append) {
-        // Дозагружаем товары
-        setCategoryProducts(prev => [...prev, ...products]);
-        setCurrentLoadedCount(prev => prev + products.length);
-      } else {
-        // Загружаем с начала
-        setCategoryProducts(products);
-        setCurrentLoadedCount(products.length);
-      }
-      setTotalProductsCount(total);
+        if (append) {
+          // Дозагружаем товары
+          setCategoryProducts(prev => [...prev, ...products]);
+          setCurrentLoadedCount(prev => prev + products.length);
+        } else {
+          // Загружаем с начала
+          setCategoryProducts(products);
+          setCurrentLoadedCount(products.length);
+        }
+        setTotalProductsCount(total);
     } catch (error) {
       clientLogger.error('Error loading products:', error);
       if (!append) {
@@ -557,7 +557,7 @@ export default function CatalogPage() {
       
       const data = await response.json();
       clientLogger.debug('📡 Ответ от /api/admin/templates:', data);
-      
+        
       // apiSuccess возвращает { success: true, data: { template: ... } }
       const responseData = parseApiResponse<{ template?: ImportTemplate }>(data);
       const template = responseData?.template;

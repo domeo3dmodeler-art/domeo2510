@@ -44,7 +44,7 @@ export default function ClientSelector({ onClientSelect, onClose }: ClientSelect
       
       const data = await response.json();
       const parsedData = parseApiResponse<{ clients: Client[]; pagination?: any }>(data);
-      
+
       if (parsedData && Array.isArray(parsedData.clients)) {
         setClients(parsedData.clients);
       } else {

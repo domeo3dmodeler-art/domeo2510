@@ -50,10 +50,10 @@ export async function GET(
         logger.debug('Файл найден в старом месте', 'uploads/[...path]', { filePath, fullPath });
       } else {
         logger.warn('Файл не найден ни в новом, ни в старом месте', 'uploads/[...path]', { filePath, newPath: fullPath, oldPath });
-        return NextResponse.json(
-          { error: 'File not found' },
-          { status: 404 }
-        );
+      return NextResponse.json(
+        { error: 'File not found' },
+        { status: 404 }
+      );
       }
     }
 
@@ -94,7 +94,7 @@ export async function GET(
 
     // Определяем имя файла для заголовка Content-Disposition
     const fileName = filePath.split('/').pop() || 'file';
-    
+
     // Возвращаем файл с правильными заголовками
     return new NextResponse(fileBuffer, {
       headers: {

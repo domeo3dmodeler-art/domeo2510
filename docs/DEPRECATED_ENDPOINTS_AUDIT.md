@@ -1,0 +1,116 @@
+# 📊 Отчет о проверке DEPRECATED endpoints
+
+**Дата проверки:** 2025-11-11  
+**Версия системы:** develop
+
+---
+
+## ✅ Результаты проверки
+
+### 1. Использование в компонентах
+
+**Проверено:**
+- ✅ `components/executor/ApplicationsBoard.tsx` - **ИСПОЛЬЗУЕТ актуальные endpoints** `/api/orders/*`
+- ✅ Все компоненты в `app/` - **НЕ используют** `/api/applications/*`
+- ✅ Все компоненты в `components/` - **НЕ используют** `/api/applications/*`
+
+**Вывод:** DEPRECATED endpoints **НЕ используются** в клиентском коде.
+
+---
+
+### 2. Соответствие актуальных endpoints
+
+Все актуальные endpoints существуют и работают:
+
+| DEPRECATED endpoint | Актуальный endpoint | Статус |
+|---------------------|---------------------|--------|
+| `GET /api/applications` | `GET /api/orders` | ✅ Существует |
+| `POST /api/applications` | `POST /api/orders` | ✅ Существует |
+| `GET /api/applications/[id]` | `GET /api/orders/[id]` | ✅ Существует |
+| `PUT /api/applications/[id]` | `PUT /api/orders/[id]` | ✅ Существует |
+| `DELETE /api/applications/[id]` | `DELETE /api/orders/[id]` | ✅ Существует |
+| `PUT /api/applications/[id]/status` | `PUT /api/orders/[id]/status` | ✅ Существует |
+| `POST /api/applications/[id]/project` | `POST /api/orders/[id]/project` | ✅ Существует |
+| `POST /api/applications/[id]/files` | `POST /api/orders/[id]/files` | ✅ Существует |
+| `PUT /api/applications/[id]/door-dimensions` | `PUT /api/orders/[id]/door-dimensions` | ✅ Существует |
+| `POST /api/applications/[id]/verify` | `POST /api/orders/[id]/verify` | ✅ Существует |
+
+---
+
+### 3. DEPRECATED endpoints в коде
+
+**Найдено 7 DEPRECATED endpoints:**
+
+1. `app/api/applications/route.ts` - ⚠️ DEPRECATED
+   - Комментарий: `// ⚠️ DEPRECATED: Используйте POST /api/orders напрямую`
+   - Комментарий: `// ⚠️ DEPRECATED: Используйте GET /api/orders напрямую`
+
+2. `app/api/applications/[id]/route.ts` - ⚠️ DEPRECATED
+   - Комментарий: `// ⚠️ DEPRECATED: Используйте GET /api/orders/[id] напрямую`
+
+3. `app/api/applications/[id]/status/route.ts` - ⚠️ DEPRECATED
+   - Комментарий: `// PUT /api/applications/[id]/status - Изменение статуса заказа`
+
+4. `app/api/applications/[id]/door-dimensions/route.ts` - ⚠️ DEPRECATED
+   - Комментарий: `// PUT /api/applications/[id]/door-dimensions - Обновление данных дверей`
+
+5. `app/api/applications/[id]/verify/route.ts` - ⚠️ DEPRECATED
+   - Комментарий: `// POST /api/applications/[id]/verify - Проверка данных заказа`
+
+6. `app/api/applications/[id]/project/route.ts` - ⚠️ DEPRECATED
+   - Комментарий: `// POST /api/applications/[id]/project - Загрузка проекта/планировки`
+
+7. `app/api/applications/[id]/files/route.ts` - ⚠️ DEPRECATED
+   - Комментарий: `// POST /api/applications/[id]/files - Загрузка оптовых счетов и техзаданий`
+
+---
+
+## 🎯 Рекомендации
+
+### ✅ Можно безопасно удалить
+
+**Причина:**
+- ✅ Все компоненты используют актуальные endpoints `/api/orders/*`
+- ✅ Все актуальные endpoints существуют и работают
+- ✅ DEPRECATED endpoints помечены как устаревшие
+- ✅ Нет внешних зависимостей от `/api/applications/*`
+
+**Действие:**
+1. Удалить все файлы из `app/api/applications/`
+2. Обновить документацию (удалить упоминания о `/api/applications/*`)
+3. Протестировать систему после удаления
+
+---
+
+## 📋 План удаления
+
+### Шаг 1: Подготовка
+- ✅ Проверка использования - **ЗАВЕРШЕНО**
+- ✅ Проверка актуальных endpoints - **ЗАВЕРШЕНО**
+
+### Шаг 2: Удаление файлов
+- ⏳ Удалить `app/api/applications/route.ts`
+- ⏳ Удалить `app/api/applications/[id]/route.ts`
+- ⏳ Удалить `app/api/applications/[id]/status/route.ts`
+- ⏳ Удалить `app/api/applications/[id]/door-dimensions/route.ts`
+- ⏳ Удалить `app/api/applications/[id]/verify/route.ts`
+- ⏳ Удалить `app/api/applications/[id]/project/route.ts`
+- ⏳ Удалить `app/api/applications/[id]/files/route.ts`
+
+### Шаг 3: Обновление документации
+- ⏳ Удалить упоминания из `docs/TODO_REMAINING.md`
+- ⏳ Удалить упоминания из `docs/REMAINING_TASKS_SUMMARY.md`
+- ⏳ Обновить `docs/PROJECT_OVERVIEW.md`
+
+### Шаг 4: Тестирование
+- ⏳ Проверить работу всех функций после удаления
+- ⏳ Убедиться, что нет ошибок 404
+
+---
+
+## ✅ Итоговый вывод
+
+**DEPRECATED endpoints можно безопасно удалить.**
+
+Все компоненты используют актуальные endpoints `/api/orders/*`, и нет зависимостей от `/api/applications/*`.
+
