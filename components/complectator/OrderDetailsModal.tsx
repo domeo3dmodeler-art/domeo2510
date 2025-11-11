@@ -1156,93 +1156,15 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
                   <div className="flex items-center space-x-2">
                     <FileText className="h-4 w-4 text-gray-400" />
                     <button
-                      onClick={async (e) => {
+                      onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        try {
-                          // Нормализуем URL: если начинается с /uploads/, заменяем на /api/uploads/
-                          let fileUrl = order.project_file_url!;
-                          if (fileUrl.startsWith('/uploads/')) {
-                            fileUrl = fileUrl.replace('/uploads/', '/api/uploads/');
-                          } else if (!fileUrl.startsWith('/api/uploads/') && !fileUrl.startsWith('http')) {
-                            // Если URL не начинается с /api/uploads/ и не абсолютный, добавляем /api/uploads/
-                            fileUrl = `/api/uploads/${fileUrl.startsWith('/') ? fileUrl.substring(1) : fileUrl}`;
-                          }
-                          
-                          clientLogger.debug('Downloading project file:', { originalUrl: order.project_file_url, normalizedUrl: fileUrl });
-                          
-                          const response = await fetchWithAuth(fileUrl);
-                          if (!response.ok) {
-                            clientLogger.error('Failed to download file:', { status: response.status, statusText: response.statusText, url: fileUrl });
-                            toast.error(`Ошибка при скачивании файла: ${response.status} ${response.statusText}`);
-                            return;
-                          }
-                          const blob = await response.blob();
-                          const url = window.URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          
-                          // Извлекаем оригинальное имя файла из URL или используем имя из пути
-                          let downloadName = 'project';
-                          try {
-                            const urlObj = new URL(fileUrl, window.location.origin);
-                            const originalName = urlObj.searchParams.get('original');
-                            if (originalName) {
-                              downloadName = decodeURIComponent(originalName);
-                            } else {
-                              // Если нет query параметра, пытаемся извлечь из имени файла
-                              const fileName = fileUrl.split('/').pop()?.split('?')[0] || '';
-                              // Ищем паттерн project_timestamp_originalname
-                              const match = fileName.match(/^project_\d+_(.+)$/);
-                              if (match && match[1]) {
-                                downloadName = match[1];
-                              } else {
-                                downloadName = fileName || 'project';
-                              }
-                            }
-                          } catch (e) {
-                            // Если не удалось распарсить URL, используем имя из пути
-                            const fileName = fileUrl.split('/').pop()?.split('?')[0] || '';
-                            const match = fileName.match(/^project_\d+_(.+)$/);
-                            if (match && match[1]) {
-                              downloadName = match[1];
-                            } else {
-                              downloadName = fileName || 'project';
-                            }
-                          }
-                          
-                          a.download = downloadName;
-                          document.body.appendChild(a);
-                          a.click();
-                          window.URL.revokeObjectURL(url);
-                          document.body.removeChild(a);
-                        } catch (error) {
-                          clientLogger.error('Error downloading project file:', error);
-                          toast.error('Ошибка при скачивании файла');
-                        }
+                        downloadFile(order.project_file_url!, 'Проект');
                       }}
                       className="text-blue-600 hover:underline text-sm flex items-center cursor-pointer"
                     >
                       <Download className="h-3 w-3 mr-1" />
-                      {(() => {
-                        // Извлекаем оригинальное имя файла для отображения
-                        try {
-                          const urlObj = new URL(order.project_file_url, window.location.origin);
-                          const originalName = urlObj.searchParams.get('original');
-                          if (originalName) {
-                            return decodeURIComponent(originalName);
-                          }
-                        } catch (e) {
-                          // Игнорируем ошибки парсинга URL
-                        }
-                        // Если нет query параметра, пытаемся извлечь из имени файла
-                        const fileName = order.project_file_url.split('/').pop()?.split('?')[0] || '';
-                        const match = fileName.match(/^project_\d+_(.+)$/);
-                        if (match && match[1]) {
-                          return match[1];
-                        }
-                        return fileName || 'Проект';
-                      })()}
+                      {getOriginalFileName(order.project_file_url!)}
                     </button>
                   </div>
                 ) : (
