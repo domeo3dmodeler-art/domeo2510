@@ -564,7 +564,7 @@ const api = mockApi; // Временно используем mockApi для о�
 
 // --- helper: resolve selection by SKU (prefill calculator) ---
 async function resolveSelectionBySku(sku: string) {
-  const r = await fetch("/api/catalog/doors/sku-to-selection", {
+  const r = await fetchWithAuth("/api/catalog/doors/sku-to-selection", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ sku }),
@@ -708,7 +708,7 @@ export default function DoorsPage() {
   const fetchClients = useCallback(async () => {
     try {
       setClientsLoading(true);
-      const response = await fetch('/api/clients');
+      const response = await fetchWithAuth('/api/clients');
       if (!response.ok) {
         clientLogger.error('Failed to fetch clients:', response.status, response.statusText);
         setClients([]);
@@ -752,7 +752,7 @@ export default function DoorsPage() {
   // Создание нового клиента
   const createClient = async (clientData: CreateClientInput) => {
     try {
-      const response = await fetch('/api/clients', {
+      const response = await fetchWithAuth('/api/clients', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1832,7 +1832,7 @@ export default function DoorsPage() {
     }
 
     try {
-      const response = await fetch('/api/documents/generate', {
+      const response = await fetchWithAuth('/api/documents/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
@@ -3399,7 +3399,7 @@ function CartManager({
     clientLogger.debug('📦 Данные корзины:', cart);
 
     try {
-      const response = await fetch('/api/export/fast', {
+      const response = await fetchWithAuth('/api/export/fast', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -3498,7 +3498,7 @@ function CartManager({
           headers['x-auth-token'] = token;
         }
         
-        const response = await fetch('/api/available-params', {
+        const response = await fetchWithAuth('/api/available-params', {
           method: 'POST',
           headers,
           credentials: 'include',
@@ -4014,7 +4014,7 @@ function CartManager({
                       total_amount: totalAmount
                     });
                     
-                    const response = await fetch('/api/orders', {
+                    const response = await fetchWithAuth('/api/orders', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify(requestBody)
