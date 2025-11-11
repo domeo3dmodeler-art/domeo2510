@@ -1472,7 +1472,11 @@ function OrderDetailModal({
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">Новый статус</label>
-                  {currentOrder.status === 'UNDER_REVIEW' && availableStatuses.length > 1 ? (
+                  {(() => {
+                    // Маппим статус для проверки (PAID -> NEW_PLANNED)
+                    const executorStatus = getExecutorOrderStatus(currentOrder.status);
+                    return executorStatus === 'UNDER_REVIEW' && availableStatuses.length > 1;
+                  })() ? (
                     <div className="space-y-2">
                       <label className="flex items-center space-x-2 p-2 border rounded cursor-pointer hover:bg-gray-50">
                         <input
