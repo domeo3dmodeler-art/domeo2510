@@ -1286,8 +1286,8 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
               </div>
             )}
 
-            {/* Тех. задания и Оптовые счета для Комплектатора и Исполнителя */}
-            {(userRole === 'complectator' || userRole === 'executor') && (
+            {/* Тех. задания и Оптовые счета только для Исполнителя */}
+            {userRole === 'executor' && (
               <div className="mb-4 pb-4 border-b border-gray-200 space-y-3">
                 {/* Тех. задания */}
                 <div>
