@@ -895,6 +895,23 @@ export default function CatalogPage() {
     }
   };
 
+  // Показываем загрузку до проверки доступа
+  if (!accessChecked) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto"></div>
+          <p className="mt-4 text-gray-600">Проверка доступа...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Если доступ не разрешен, не показываем содержимое (редирект уже выполнен)
+  if (!hasAccess) {
+    return null;
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
