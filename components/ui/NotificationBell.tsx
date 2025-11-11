@@ -5,6 +5,8 @@ import { Bell, ChevronDown, FileText, CreditCard, Package } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import DocumentQuickViewModal from '@/components/documents/DocumentQuickViewModal';
 import { clientLogger } from '@/lib/logging/client-logger';
+import { fetchWithAuth } from '@/lib/utils/fetch-with-auth';
+import { parseApiResponse } from '@/lib/utils/parse-api-response';
 
 interface Notification {
   id: string;
@@ -40,27 +42,28 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const token = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('auth-token='))
-        ?.split('=')[1];
-
-      if (!token) return;
-
-      const response = await fetch('/api/notifications', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      
+      const response = await fetchWithAuth('/api/notifications');
 
       if (response.ok) {
         const data = await response.json();
-        setNotifications(data.notifications || []);
-        setUnreadCount(data.notifications?.filter((n: Notification) => !n.is_read).length || 0);
+        const parsedData = parseApiResponse<{ notifications: Notification[] }>(data);
+        const notificationsList = parsedData.notifications || (Array.isArray(parsedData) ? parsedData : []);
+        setNotifications(notificationsList);
+        setUnreadCount(notificationsList.filter((n: Notification) => !n.is_read).length);
+      } else {
+        // Если ошибка авторизации или другая ошибка, просто логируем
+        if (response.status !== 401 && response.status !== 403) {
+          clientLogger.debug('Failed to fetch notifications:', { status: response.status });
+        }
       }
     } catch (error) {
-      clientLogger.error('Error fetching notifications:', error);
+      // Игнорируем ошибки сети, если пользователь не авторизован
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        clientLogger.debug('Network error fetching notifications (user may not be authenticated)');
+      } else {
+        clientLogger.error('Error fetching notifications:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -69,26 +72,17 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
   // Отмечаем уведомление как прочитанное
   const markAsRead = async (notificationId: string) => {
     try {
-      const token = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('auth-token='))
-        ?.split('=')[1];
-
-      if (!token) return;
-
-      await fetch(`/api/notifications/${notificationId}/read`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      const response = await fetchWithAuth(`/api/notifications/${notificationId}/read`, {
+        method: 'PUT'
       });
 
-      // Обновляем локальное состояние
-      setNotifications(prev => 
-        prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
-      );
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      if (response.ok) {
+        // Обновляем локальное состояние
+        setNotifications(prev => 
+          prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
     } catch (error) {
       clientLogger.error('Error marking notification as read:', error);
     }
