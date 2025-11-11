@@ -208,10 +208,16 @@ export default function ExecutorDashboard() {
       if (response.ok) {
         const data = await response.json();
         const parsedData = parseApiResponse<{ client: any }>(data);
-        const client = parsedData.client;
+        const client = parsedData?.client;
+        
+        if (!client) {
+          clientLogger.error('Client data is missing in response:', { parsedData });
+          return;
+        }
         
         // Преобразуем Счета (только нужные поля)
-        const formattedInvoices = client.invoices.map((invoice: any) => ({
+        const invoices = Array.isArray(client.invoices) ? client.invoices : [];
+        const formattedInvoices = invoices.map((invoice: any) => ({
           id: invoice.id,
           number: invoice.number ? invoice.number.replace('INVOICE-', 'СЧ-') : `СЧ-${invoice.id.slice(-6)}`,
           date: new Date(invoice.created_at).toISOString().split('T')[0],
@@ -222,23 +228,40 @@ export default function ExecutorDashboard() {
         setInvoices(formattedInvoices);
         
         // Преобразуем Заказы у поставщика (только нужные поля)
-        clientLogger.debug('📦 Обрабатываем заказы у поставщика:', client.supplierOrders?.length || 0);
-        const formattedSupplierOrders = client.supplierOrders?.map((so: any) => ({
+        // Примечание: API не возвращает supplierOrders напрямую, нужно получать через orders
+        const orders = Array.isArray(client.orders) ? client.orders : [];
+        const supplierOrdersFromOrders = orders.flatMap((order: any) => 
+          Array.isArray(order.supplier_orders) ? order.supplier_orders : []
+        );
+        
+        clientLogger.debug('📦 Обрабатываем заказы у поставщика:', {
+          ordersCount: orders.length,
+          supplierOrdersCount: supplierOrdersFromOrders.length,
+          hasSupplierOrders: !!client.supplierOrders
+        });
+        
+        const formattedSupplierOrders = supplierOrdersFromOrders.map((so: any) => ({
           id: so.id,
-          number: so.number ? so.number.replace('SUPPLIER-', 'Заказ-') : `Заказ-${so.id.slice(-6)}`, // Заменяем SUPPLIER- на Заказ-
+          number: so.number ? so.number.replace('SUPPLIER-', 'Заказ-') : `Заказ-${so.id.slice(-6)}`,
           date: new Date(so.created_at).toISOString().split('T')[0],
           status: mapSupplierOrderStatusToRussian(so.status) as SupplierOrderFilterStatus,
-          total: so.total_amount || so.order?.total_amount || 0, // Используем total_amount из заказа у поставщика
+          total: so.total_amount || so.order?.total_amount || 0,
           supplierName: so.supplier_name,
-          invoiceInfo: so.invoiceInfo // Добавляем информацию о счете
-        })) || [];
+          invoiceInfo: so.invoiceInfo
+        }));
+        
         clientLogger.debug('📦 Форматированные заказы у поставщика:', formattedSupplierOrders.length);
         setSupplierOrders(formattedSupplierOrders);
         
         // Загружаем количество комментариев для всех документов
         await fetchAllCommentsCount(formattedInvoices, formattedSupplierOrders);
       } else {
-        clientLogger.error('Failed to fetch client documents');
+        const errorData = await response.json().catch(() => ({}));
+        clientLogger.error('Failed to fetch client documents:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData
+        });
       }
     } catch (error) {
       clientLogger.error('Error fetching client documents:', error);
