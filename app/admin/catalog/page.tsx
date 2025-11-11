@@ -403,6 +403,8 @@ export default function CatalogPage() {
   const [newCategoryParent, setNewCategoryParent] = useState<string | undefined>();
   const [categoryToDelete, setCategoryToDelete] = useState<CatalogCategory | null>(null);
   const [instructionsDialogOpen, setInstructionsDialogOpen] = useState(false);
+  const [accessChecked, setAccessChecked] = useState(false);
+  const [hasAccess, setHasAccess] = useState(false);
 
   // Проверка доступа: только админы могут открыть эту страницу
   useEffect(() => {
@@ -426,6 +428,10 @@ export default function CatalogPage() {
           router.push('/auth/unauthorized');
           return;
         }
+        
+        // Пользователь админ, разрешаем доступ
+        setHasAccess(true);
+        setAccessChecked(true);
       } catch (error) {
         clientLogger.error('Ошибка при проверке доступа:', error);
         router.push('/auth/unauthorized');
@@ -436,25 +442,11 @@ export default function CatalogPage() {
   }, [router]);
 
   useEffect(() => {
-    // Загружаем категории только после проверки доступа
-    // Проверка доступа выполняется в другом useEffect выше
-    const checkAndLoad = async () => {
-      try {
-        const response = await fetchWithAuth('/api/users/me');
-        if (response.ok) {
-          const data = await response.json();
-          const responseData = parseApiResponse<{ user?: { role?: string } }>(data);
-          if (responseData?.user?.role === 'admin') {
-            loadCategories();
-          }
-        }
-      } catch (error) {
-        clientLogger.error('Ошибка при проверке доступа для загрузки категорий:', error);
-      }
-    };
-    
-    checkAndLoad();
-  }, []);
+    // Загружаем категории только после проверки доступа и подтверждения, что пользователь админ
+    if (accessChecked && hasAccess) {
+      loadCategories();
+    }
+  }, [accessChecked, hasAccess]);
 
   const loadCategories = async () => {
     try {
