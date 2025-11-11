@@ -80,8 +80,7 @@ async function getHandler(
                 phone: true,
                 address: true
               }
-            },
-            order_items: true
+            }
           }
         });
 
@@ -163,8 +162,22 @@ async function getHandler(
       totalAmount: document.total_amount,
       createdAt: document.created_at,
       updatedAt: document.updated_at,
-      content: document.content ? JSON.parse(document.content) : null,
-      documentData: document.documentData ? JSON.parse(document.documentData) : null
+      content: document.content ? (() => {
+        try {
+          return JSON.parse(document.content);
+        } catch (e) {
+          logger.warn('Failed to parse document.content as JSON', 'documents/[id]/GET', { documentId: id, error: e }, loggingContext);
+          return document.content;
+        }
+      })() : null,
+      documentData: document.documentData ? (() => {
+        try {
+          return JSON.parse(document.documentData);
+        } catch (e) {
+          logger.warn('Failed to parse document.documentData as JSON', 'documents/[id]/GET', { documentId: id, error: e }, loggingContext);
+          return document.documentData;
+        }
+      })() : null
     }
   });
 }
