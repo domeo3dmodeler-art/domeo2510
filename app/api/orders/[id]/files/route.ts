@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir, unlink } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { logger } from '@/lib/logging/logger';
@@ -156,6 +156,118 @@ async function postHandler(
   }, 'Файлы загружены');
 }
 
+// DELETE /api/orders/[id]/files - Удаление оптовых счетов и техзаданий
+async function deleteHandler(
+  req: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(req);
+  const { id } = await params;
+  const body = await req.json();
+  const { fileUrl, fileType } = body; // fileType: 'wholesale_invoice' | 'technical_spec'
+
+  if (!fileUrl || !fileType) {
+    throw new ValidationError('Не указан URL файла или тип файла');
+  }
+
+  if (!['wholesale_invoice', 'technical_spec'].includes(fileType)) {
+    throw new ValidationError('Неверный тип файла. Допустимые значения: wholesale_invoice, technical_spec');
+  }
+
+  // Проверяем существование заказа
+  const order = await prisma.order.findUnique({
+    where: { id }
+  });
+
+  if (!order) {
+    throw new NotFoundError('Заказ', id);
+  }
+
+  // Удаляем query параметры из URL
+  let filePath = fileUrl.split('?')[0];
+  
+  // Нормализуем путь: убираем /api/uploads/ или /uploads/
+  if (filePath.startsWith('/api/uploads/')) {
+    filePath = filePath.replace('/api/uploads/', '');
+  } else if (filePath.startsWith('/uploads/')) {
+    filePath = filePath.replace('/uploads/', '');
+  }
+
+  // Проверяем безопасность пути
+  if (filePath.includes('..') || !filePath.startsWith(`orders/${id}/`)) {
+    throw new ValidationError('Небезопасный путь к файлу');
+  }
+
+  // Полный путь к файлу
+  const fullPath = join(process.cwd(), 'public', 'uploads', filePath);
+  const oldPath = join(process.cwd(), 'uploads', filePath);
+
+  // Удаляем файл с диска
+  try {
+    if (existsSync(fullPath)) {
+      await unlink(fullPath);
+    } else if (existsSync(oldPath)) {
+      await unlink(oldPath);
+    }
+  } catch (error) {
+    logger.warn('Не удалось удалить файл с диска', 'orders/[id]/files/DELETE', { error, filePath }, loggingContext);
+    // Продолжаем выполнение, даже если файл не найден на диске
+  }
+
+  // Получаем существующие файлы
+  const existingWholesaleInvoices = order.wholesale_invoices 
+    ? JSON.parse(order.wholesale_invoices) 
+    : [];
+  const existingTechnicalSpecs = order.technical_specs 
+    ? JSON.parse(order.technical_specs) 
+    : [];
+
+  // Удаляем файл из массива
+  let updatedWholesaleInvoices = existingWholesaleInvoices;
+  let updatedTechnicalSpecs = existingTechnicalSpecs;
+
+  if (fileType === 'wholesale_invoice') {
+    updatedWholesaleInvoices = existingWholesaleInvoices.filter((url: string) => url !== fileUrl);
+  } else if (fileType === 'technical_spec') {
+    updatedTechnicalSpecs = existingTechnicalSpecs.filter((url: string) => url !== fileUrl);
+  }
+
+  // Обновляем заказ
+  const updatedOrder = await prisma.order.update({
+    where: { id },
+    data: {
+      wholesale_invoices: JSON.stringify(updatedWholesaleInvoices),
+      technical_specs: JSON.stringify(updatedTechnicalSpecs)
+    },
+    include: {
+      client: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          middleName: true
+        }
+      }
+    }
+  });
+
+  logger.info('Файл удален', 'orders/[id]/files/DELETE', {
+    orderId: id,
+    fileUrl,
+    fileType,
+    userId: user.userId
+  }, loggingContext);
+
+  return apiSuccess({
+    order: updatedOrder,
+    files: {
+      wholesale_invoices: updatedWholesaleInvoices,
+      technical_specs: updatedTechnicalSpecs
+    }
+  }, 'Файл удален');
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -163,6 +275,16 @@ export async function POST(
   return withErrorHandling(
     requireAuth((request, user) => postHandler(request, user, { params })),
     'orders/[id]/files/POST'
+  )(req);
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  return withErrorHandling(
+    requireAuth((request, user) => deleteHandler(request, user, { params })),
+    'orders/[id]/files/DELETE'
   )(req);
 }
 

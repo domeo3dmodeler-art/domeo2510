@@ -160,6 +160,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
   const [projectFile, setProjectFile] = useState<File | null>(null);
   const [uploadingProject, setUploadingProject] = useState(false);
   const [deletingProject, setDeletingProject] = useState(false);
+  const [deletingFiles, setDeletingFiles] = useState<Record<string, boolean>>({});
 
   clientLogger.debug('🔵 OrderDetailsModal render:', {
     isOpen,
@@ -521,6 +522,85 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
       toast.error('Ошибка удаления файла проекта');
     } finally {
       setDeletingProject(false);
+    }
+  };
+
+  // Удаление файла (техзадание или оптовый счет)
+  const handleDeleteFile = async (fileUrl: string, fileType: 'wholesale_invoice' | 'technical_spec') => {
+    if (!order) {
+      toast.error('Заказ не найден');
+      return;
+    }
+
+    const fileName = getOriginalFileName(fileUrl);
+    if (!confirm(`Вы уверены, что хотите удалить файл "${fileName}"?`)) {
+      return;
+    }
+
+    const fileKey = `${fileType}_${fileUrl}`;
+    try {
+      setDeletingFiles(prev => ({ ...prev, [fileKey]: true }));
+
+      clientLogger.debug('handleDeleteFile: starting', {
+        orderId: order.id,
+        fileUrl,
+        fileType
+      });
+
+      const response = await fetchWithAuth(`/api/orders/${order.id}/files`, {
+        method: 'DELETE',
+        body: JSON.stringify({ fileUrl, fileType })
+      });
+
+      clientLogger.debug('handleDeleteFile: response', {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText
+      });
+
+      if (response.ok) {
+        toast.success('Файл удален');
+        // Обновляем данные заказа
+        await fetchOrder();
+        // Обновляем список заказов в родительском компоненте (с задержкой, чтобы избежать конфликтов)
+        setTimeout(() => {
+          if (onOrderUpdate) {
+            onOrderUpdate();
+          }
+        }, 100);
+      } else {
+        let errorData: any = {};
+        try {
+          const jsonData = await response.json();
+          errorData = parseApiResponse(jsonData);
+        } catch (jsonError) {
+          clientLogger.error('handleDeleteFile: error parsing JSON', jsonError);
+          errorData = { error: `Ошибка ${response.status}: ${response.statusText}` };
+        }
+        
+        const errorMessage = errorData && typeof errorData === 'object' && errorData !== null && 'error' in errorData
+          ? (errorData.error && typeof errorData.error === 'object' && 'message' in errorData.error
+            ? String(errorData.error.message)
+            : String(errorData.error))
+          : 'Ошибка удаления файла';
+        
+        clientLogger.error('handleDeleteFile: error', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+          errorMessage
+        });
+        toast.error(`Ошибка удаления файла: ${errorMessage}`);
+      }
+    } catch (error) {
+      clientLogger.error('Error deleting file:', error);
+      toast.error('Ошибка удаления файла');
+    } finally {
+      setDeletingFiles(prev => {
+        const newState = { ...prev };
+        delete newState[fileKey];
+        return newState;
+      });
     }
   };
 
@@ -1204,50 +1284,92 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
             {(userRole === 'complectator' || userRole === 'executor') && (
               <div className="mb-4 pb-4 border-b border-gray-200 space-y-3">
                 {/* Тех. задания */}
-                {order.technical_specs && order.technical_specs.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900 mb-2">Тех. задания</h3>
-                    <div className="space-y-1">
-                      {order.technical_specs.map((url: string, index: number) => (
-                        <button
-                          key={index}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            downloadFile(url, `Техзадание_${index + 1}`);
-                          }}
-                          className="text-blue-600 hover:underline text-sm flex items-center cursor-pointer"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          {getOriginalFileName(url)}
-                        </button>
-                      ))}
-                    </div>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-gray-900">Тех. задания</h3>
                   </div>
-                )}
+                  {order.technical_specs && order.technical_specs.length > 0 ? (
+                    <div className="space-y-1">
+                      {order.technical_specs.map((url: string, index: number) => {
+                        const fileKey = `technical_spec_${url}`;
+                        const isDeleting = deletingFiles[fileKey] || false;
+                        return (
+                          <div key={index} className="flex items-center justify-between group">
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                downloadFile(url, `Техзадание_${index + 1}`);
+                              }}
+                              className="text-blue-600 hover:underline text-sm flex items-center cursor-pointer"
+                            >
+                              <Download className="h-3 w-3 mr-1" />
+                              {getOriginalFileName(url)}
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleDeleteFile(url, 'technical_spec');
+                              }}
+                              disabled={isDeleting}
+                              className="text-red-600 hover:text-red-700 text-sm flex items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Удалить файл"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">Тех. задания не загружены</p>
+                  )}
+                </div>
                 
                 {/* Оптовые счета */}
-                {order.wholesale_invoices && order.wholesale_invoices.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900 mb-2">Оптовые счета</h3>
-                    <div className="space-y-1">
-                      {order.wholesale_invoices.map((url: string, index: number) => (
-                        <button
-                          key={index}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            downloadFile(url, `Счет_${index + 1}`);
-                          }}
-                          className="text-blue-600 hover:underline text-sm flex items-center cursor-pointer"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          {getOriginalFileName(url)}
-                        </button>
-                      ))}
-                    </div>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-gray-900">Оптовые счета</h3>
                   </div>
-                )}
+                  {order.wholesale_invoices && order.wholesale_invoices.length > 0 ? (
+                    <div className="space-y-1">
+                      {order.wholesale_invoices.map((url: string, index: number) => {
+                        const fileKey = `wholesale_invoice_${url}`;
+                        const isDeleting = deletingFiles[fileKey] || false;
+                        return (
+                          <div key={index} className="flex items-center justify-between group">
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                downloadFile(url, `Счет_${index + 1}`);
+                              }}
+                              className="text-blue-600 hover:underline text-sm flex items-center cursor-pointer"
+                            >
+                              <Download className="h-3 w-3 mr-1" />
+                              {getOriginalFileName(url)}
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleDeleteFile(url, 'wholesale_invoice');
+                              }}
+                              disabled={isDeleting}
+                              className="text-red-600 hover:text-red-700 text-sm flex items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Удалить файл"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">Оптовые счета не загружены</p>
+                  )}
+                </div>
               </div>
             )}
 
