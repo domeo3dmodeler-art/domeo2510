@@ -205,7 +205,12 @@ function DashboardContent() {
                     clientLogger.error('Error parsing admin stats:', err);
                   }
         } else {
-          clientLogger.warn('Admin stats endpoint returned', { status: responses[0].status });
+          // Не логируем 403 как предупреждение, если пользователь не админ (хотя это не должно происходить)
+          if (responses[0].status === 403) {
+            clientLogger.debug('Admin stats endpoint returned 403 (access denied)');
+          } else {
+            clientLogger.warn('Admin stats endpoint returned', { status: responses[0].status });
+          }
         }
         
         if (responses[1].ok) {

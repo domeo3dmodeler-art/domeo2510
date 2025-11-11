@@ -14,6 +14,7 @@ import InstructionsModal from '../../../components/admin/InstructionsModal';
 import { fixFieldsEncoding } from '@/lib/encoding-utils';
 import { clientLogger } from '@/lib/logging/client-logger';
 import { parseApiResponse } from '@/lib/utils/parse-api-response';
+import { fetchWithAuth } from '@/lib/utils/fetch-with-auth';
 
   // Функция анализа свойств группы товаров
   const analyzeGroupProperties = (products: Product[]) => {
@@ -426,19 +427,7 @@ export default function CatalogPage() {
   const loadCategories = async () => {
     try {
       setLoading(true);
-      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-        headers['x-auth-token'] = token;
-      }
-      
-      const response = await fetch('/api/catalog/categories', {
-        headers,
-        credentials: 'include',
-      });
+      const response = await fetchWithAuth('/api/catalog/categories');
       
       if (!response.ok) {
         clientLogger.error('Error loading categories', { status: response.status });
