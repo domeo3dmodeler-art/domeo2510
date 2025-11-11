@@ -7,6 +7,7 @@ import { NotFoundError, BusinessRuleError, InvalidStateError } from '@/lib/api/e
 import { requireAuth } from '@/lib/auth/middleware';
 import { getAuthenticatedUser } from '@/lib/auth/request-helpers';
 import { canTransitionTo } from '@/lib/validation/status-transitions';
+import { validateStatusTransitionRequirements } from '@/lib/validation/status-requirements';
 
 // GET /api/orders/[id] - Получение заказа по ID
 async function getHandler(
@@ -189,11 +190,6 @@ async function putHandler(
 
   // Валидация переходов статусов
   if (status && status !== existingOrder.status) {
-    // Проверяем обязательность загрузки проекта при переходе в UNDER_REVIEW
-    if (status === 'UNDER_REVIEW' && !existingOrder.project_file_url && !project_file_url) {
-      throw new BusinessRuleError('Для перехода в статус "На проверке" требуется загрузить проект/планировку');
-    }
-
     // Проверяем валидность перехода через общую функцию
     if (!canTransitionTo('order', existingOrder.status, status)) {
       throw new InvalidStateError('Недопустимый переход статуса', {
@@ -201,6 +197,50 @@ async function putHandler(
         newStatus: status,
         documentType: 'order'
       });
+    }
+
+    // Проверяем обязательные поля для перехода в новый статус
+    const orderForValidation = await prisma.order.findUnique({
+      where: { id },
+      select: {
+        project_file_url: true,
+        door_dimensions: true,
+        measurement_done: true,
+        project_complexity: true
+      }
+    });
+
+    if (orderForValidation) {
+      // Парсим door_dimensions если это строка
+      let doorDimensions = orderForValidation.door_dimensions;
+      if (typeof doorDimensions === 'string') {
+        try {
+          doorDimensions = JSON.parse(doorDimensions);
+        } catch (e) {
+          doorDimensions = null;
+        }
+      }
+
+      // Используем project_file_url из body если он передан, иначе из БД
+      const finalProjectFileUrl = project_file_url !== undefined ? project_file_url : orderForValidation.project_file_url;
+      // Используем door_dimensions из body если они переданы, иначе из БД
+      const finalDoorDimensions = door_dimensions !== undefined ? door_dimensions : doorDimensions;
+
+      const validationResult = validateStatusTransitionRequirements(
+        'order',
+        existingOrder.status,
+        status,
+        {
+          project_file_url: finalProjectFileUrl,
+          door_dimensions: finalDoorDimensions,
+          measurement_done: orderForValidation.measurement_done,
+          project_complexity: orderForValidation.project_complexity
+        }
+      );
+
+      if (!validationResult.valid) {
+        throw new BusinessRuleError(validationResult.error || 'Не выполнены требования для перехода в новый статус');
+      }
     }
   }
 

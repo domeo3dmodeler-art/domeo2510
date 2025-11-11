@@ -56,6 +56,27 @@ export const ORDER_STATUS_REQUIREMENTS: Record<string, Record<string, StatusTran
         return { valid: true };
       }
     },
+    'READY_FOR_PRODUCTION': {
+      requiredFields: ['project_file_url', 'door_dimensions'],
+      customValidation: (document: any) => {
+        if (!document.project_file_url) {
+          return {
+            valid: false,
+            error: 'Для перехода в статус "Готов к запуску в производство" требуется загрузить проект/планировку'
+          };
+        }
+        if (!document.door_dimensions || (Array.isArray(document.door_dimensions) && document.door_dimensions.length === 0)) {
+          return {
+            valid: false,
+            error: 'Для перехода в статус "Готов к запуску в производство" требуется указать данные дверей'
+          };
+        }
+        // Проверяем наличие оптовых счетов или техзаданий (хотя бы одно)
+        // Это проверяется через наличие wholesale_invoices или technical_specs
+        // Но так как эти поля не передаются в document, проверка будет только на уровне API
+        return { valid: true };
+      }
+    },
     'COMPLETED': {
       requiredFields: ['project_file_url', 'door_dimensions'],
       customValidation: (document: any) => {

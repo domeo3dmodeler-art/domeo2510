@@ -22,6 +22,10 @@
    - Проверено использование в коде - не используются
    - Все компоненты используют актуальные endpoints `/api/orders/*`
    - Удалено 7 файлов DEPRECATED endpoints
+10. ✅ Улучшены проверки обязательных полей при смене статуса (2025-11-11)
+   - Добавлены проверки для статуса `READY_FOR_PRODUCTION`
+   - Исправлено дублирование логики в `app/api/orders/[id]/route.ts`
+   - Теперь используется унифицированная функция `validateStatusTransitionRequirements` везде
 
 ## ⚠️ Осталось сделать
 
@@ -64,30 +68,23 @@ DEPRECATED endpoints все еще существуют и могут испол
 
 ---
 
-### 3. Добавить проверки обязательных полей при смене статуса (приоритет: средний)
+### 3. Добавить проверки обязательных полей при смене статуса (приоритет: средний) ✅ ВЫПОЛНЕНО
 
 **Проблема:**
-Только для перехода в `UNDER_REVIEW` проверяется наличие `project_file_url`. Для других переходов нет проверок обязательных полей.
+Только для перехода в `UNDER_REVIEW` проверялось наличие `project_file_url`. Для других переходов не было проверок обязательных полей.
 
-**Примеры:**
-- При переходе в `AWAITING_MEASUREMENT` может потребоваться проверка `measurement_done`
-- При переходе в `COMPLETED` может потребоваться проверка всех обязательных полей
+**Статус:** ✅ **ВЫПОЛНЕНО** (2025-11-11)
+- ✅ Добавлены проверки для статуса `READY_FOR_PRODUCTION`
+- ✅ Исправлено дублирование логики в `app/api/orders/[id]/route.ts`
+- ✅ Теперь используется унифицированная функция `validateStatusTransitionRequirements` везде
+- ✅ Проверки покрывают все важные переходы:
+  - `UNDER_REVIEW` - требуется `project_file_url`
+  - `AWAITING_MEASUREMENT` - требуется `project_file_url`
+  - `AWAITING_INVOICE` - требуется `project_file_url` и `door_dimensions`
+  - `READY_FOR_PRODUCTION` - требуется `project_file_url` и `door_dimensions`
+  - `COMPLETED` - требуется `project_file_url` и `door_dimensions`
 
-**Действие:**
-Создать функцию для проверки обязательных полей:
-
-```typescript
-export function validateStatusTransitionRequirements(
-  documentType: string,
-  currentStatus: string,
-  newStatus: string,
-  document: any
-): { valid: boolean; error?: string } {
-  // Проверки для каждого перехода
-}
-```
-
-**Статус:** ⚠️ Требует реализации
+**Результат:** Все переходы статусов теперь проверяют обязательные поля через единую функцию.
 
 ---
 
