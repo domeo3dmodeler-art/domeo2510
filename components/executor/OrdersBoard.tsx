@@ -364,12 +364,19 @@ function OrderDetailModal({
   const [showTechSpecsUpload, setShowTechSpecsUpload] = useState(false);
   const [techSpecsFiles, setTechSpecsFiles] = useState<File[]>([]);
   const [wholesaleInvoices, setWholesaleInvoices] = useState<File[]>([]);
-  const [newStatus, setNewStatus] = useState<string>(order.status);
+  // Инициализируем newStatus с маппированным статусом для исполнителя
+  const getInitialStatus = (orderStatus: string) => {
+    const executorStatus = getExecutorOrderStatus(orderStatus);
+    return executorStatus;
+  };
   
-  // Обновляем newStatus при изменении currentOrder
+  const [newStatus, setNewStatus] = useState<string>(getInitialStatus(order.status));
+  
+  // Обновляем newStatus при изменении currentOrder (используем маппированный статус)
   useEffect(() => {
     if (currentOrder) {
-      setNewStatus(currentOrder.status);
+      const executorStatus = getExecutorOrderStatus(currentOrder.status);
+      setNewStatus(executorStatus);
     }
   }, [currentOrder.status]);
   const [requireMeasurement, setRequireMeasurement] = useState(false);
@@ -782,18 +789,23 @@ function OrderDetailModal({
     try {
       setLoading(true);
 
+      // Маппим статус для проверки (PAID -> NEW_PLANNED)
+      const executorStatus = getExecutorOrderStatus(currentOrder.status);
+      const shouldRequireMeasurement = executorStatus === 'UNDER_REVIEW' && newStatus === 'AWAITING_MEASUREMENT';
+
       clientLogger.debug('handleStatusChange: starting', {
         orderId: currentOrder.id,
         currentStatus: currentOrder.status,
+        executorStatus,
         newStatus,
-        requireMeasurement: currentOrder.status === 'UNDER_REVIEW' ? newStatus === 'AWAITING_MEASUREMENT' : undefined
+        requireMeasurement: shouldRequireMeasurement
       });
 
       const response = await fetchWithAuth(`/api/orders/${currentOrder.id}/status`, {
         method: 'PUT',
         body: JSON.stringify({
           status: newStatus,
-          require_measurement: currentOrder.status === 'UNDER_REVIEW' ? newStatus === 'AWAITING_MEASUREMENT' : undefined
+          require_measurement: shouldRequireMeasurement || undefined
         })
       });
 
@@ -818,6 +830,9 @@ function OrderDetailModal({
         // Обновляем статус заказа сразу из ответа
         if (updatedOrderData) {
           setCurrentOrder((prevOrder) => prevOrder ? { ...prevOrder, status: updatedOrderData.status || newStatus } : prevOrder);
+          // Обновляем newStatus на маппированный статус заказа
+          const executorStatus = getExecutorOrderStatus(updatedOrderData.status || newStatus);
+          setNewStatus(executorStatus);
         }
         
         toast.success('Статус изменен успешно');
@@ -828,12 +843,6 @@ function OrderDetailModal({
         setTimeout(() => {
           onUpdate();
         }, 100);
-        // Обновляем newStatus на текущий статус заказа
-        if (updatedOrderData) {
-          setNewStatus(updatedOrderData.status || newStatus);
-        } else {
-          setNewStatus(newStatus);
-        }
       } else {
         let errorData: any;
         try {
@@ -1071,7 +1080,11 @@ function OrderDetailModal({
               <Card variant="base" className="p-4">
                 <h3 className="font-semibold text-black mb-3">Действия</h3>
                 <div className="space-y-2">
-                  {currentOrder.status === 'UNDER_REVIEW' && 
+                  {(() => {
+                    // Маппим статус для проверки (PAID -> NEW_PLANNED)
+                    const executorStatus = getExecutorOrderStatus(currentOrder.status);
+                    return executorStatus === 'UNDER_REVIEW';
+                  })() && 
                    currentOrder.project_file_url && 
                    currentOrder.invoice && (
                     <Button
@@ -1091,10 +1104,12 @@ function OrderDetailModal({
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        // Устанавливаем первый доступный статус или текущий статус, если он доступен
-                        const initialStatus = availableStatuses.includes(currentOrder.status) 
-                          ? currentOrder.status 
-                          : availableStatuses[0];
+                        // Получаем маппированный статус для исполнителя
+                        const executorStatus = getExecutorOrderStatus(currentOrder.status);
+                        // Устанавливаем первый доступный статус или текущий маппированный статус, если он доступен
+                        const initialStatus = availableStatuses.includes(executorStatus) 
+                          ? executorStatus 
+                          : (availableStatuses.length > 0 ? availableStatuses[0] : executorStatus);
                         setNewStatus(initialStatus);
                         setShowStatusChangeModal(true);
                       }}
@@ -1459,6 +1474,9 @@ function OrderDetailModal({
               e.preventDefault();
               e.stopPropagation();
               setShowStatusChangeModal(false);
+              // Сбрасываем newStatus на текущий статус при закрытии
+              const executorStatus = getExecutorOrderStatus(currentOrder.status);
+              setNewStatus(executorStatus);
             }}
           >
             <div 
@@ -1544,7 +1562,11 @@ function OrderDetailModal({
                     </select>
                   )}
                 </div>
-                {currentOrder.status === 'UNDER_REVIEW' && (
+                {(() => {
+                  // Маппим статус для проверки (PAID -> NEW_PLANNED)
+                  const executorStatus = getExecutorOrderStatus(currentOrder.status);
+                  return executorStatus === 'UNDER_REVIEW';
+                })() && (
                   <div className="text-sm text-gray-600">
                     {newStatus === 'AWAITING_MEASUREMENT' 
                       ? 'Заказ будет направлен на замер'
@@ -1555,13 +1577,14 @@ function OrderDetailModal({
               </div>
               <div className="flex space-x-2 mt-4">
                 <Button 
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    handleStatusChange();
+                    await handleStatusChange();
                   }} 
-                  disabled={loading || !newStatus} 
+                  disabled={loading || !newStatus || newStatus === getExecutorOrderStatus(currentOrder.status)} 
                   className="flex-1"
+                  title={newStatus === getExecutorOrderStatus(currentOrder.status) ? 'Выберите другой статус' : 'Изменить статус заказа'}
                 >
                   {loading ? 'Изменение...' : 'Изменить'}
                 </Button>
@@ -1571,6 +1594,9 @@ function OrderDetailModal({
                     e.preventDefault();
                     e.stopPropagation();
                     setShowStatusChangeModal(false);
+                    // Сбрасываем newStatus на текущий статус при отмене
+                    const executorStatus = getExecutorOrderStatus(currentOrder.status);
+                    setNewStatus(executorStatus);
                   }} 
                   className="flex-1"
                 >
