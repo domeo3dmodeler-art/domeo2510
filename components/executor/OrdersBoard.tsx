@@ -16,7 +16,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { ORDER_STATUSES_EXECUTOR } from '@/lib/utils/document-statuses';
+import { ORDER_STATUSES_EXECUTOR, getStatusLabel } from '@/lib/utils/document-statuses';
 import { getOrderDisplayStatus, getExecutorOrderStatus } from '@/lib/utils/order-status-display';
 import { getValidTransitions } from '@/lib/validation/status-transitions';
 import { clientLogger } from '@/lib/logging/client-logger';
@@ -1556,9 +1556,8 @@ function OrderDetailModal({
                       className="w-full border border-gray-300 rounded px-3 py-2"
                     >
                       {availableStatuses.map(status => {
-                        // Получаем метку статуса из ORDER_STATUSES или используем getStatusLabel
-                        const statusConfig = ORDER_STATUSES[status as keyof typeof ORDER_STATUSES];
-                        const label = statusConfig?.label || ORDER_STATUSES_EXECUTOR[status as keyof typeof ORDER_STATUSES_EXECUTOR]?.label || status;
+                        // Используем getStatusLabel для правильного отображения всех статусов, включая CANCELLED
+                        const label = getStatusLabel(status, 'order_executor');
                         return (
                           <option key={status} value={status}>
                             {label}

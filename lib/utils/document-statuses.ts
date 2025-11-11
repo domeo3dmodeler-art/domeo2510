@@ -50,7 +50,8 @@ export const ORDER_STATUSES_EXECUTOR = {
   AWAITING_INVOICE: { label: 'Ожидает опт. счет', apiValue: 'AWAITING_INVOICE' },
   READY_FOR_PRODUCTION: { label: 'Готов к запуску в производство', apiValue: 'READY_FOR_PRODUCTION' },
   COMPLETED: { label: 'Выполнен', apiValue: 'COMPLETED' },
-  RETURNED_TO_COMPLECTATION: { label: 'Вернуть в комплектацию', apiValue: 'RETURNED_TO_COMPLECTATION' }
+  RETURNED_TO_COMPLECTATION: { label: 'Вернуть в комплектацию', apiValue: 'RETURNED_TO_COMPLECTATION' },
+  CANCELLED: { label: 'Отменен', apiValue: 'CANCELLED' }
 } as const;
 
 /**
