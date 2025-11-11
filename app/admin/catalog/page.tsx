@@ -515,11 +515,24 @@ export default function CatalogPage() {
 
   const loadTemplate = useCallback(async (categoryId: string) => {
     try {
+      // Проверяем роль пользователя перед вызовом админского API
+      const userRole = localStorage.getItem('userRole');
+      if (userRole !== 'admin') {
+        clientLogger.debug('Пользователь не является админом, пропускаем загрузку шаблона');
+        setSelectedTemplate(null);
+        return;
+      }
+
       setTemplateLoading(true);
       const response = await fetch(`/api/admin/templates?catalogCategoryId=${categoryId}`);
       
       if (!response.ok) {
-        clientLogger.error('Error loading template', { status: response.status });
+        // Не логируем ошибку 403 как ошибку, это нормально для не-админов
+        if (response.status === 403) {
+          clientLogger.debug('Доступ запрещен к админскому API шаблонов');
+        } else {
+          clientLogger.error('Error loading template', { status: response.status });
+        }
         setSelectedTemplate(null);
         return;
       }

@@ -170,7 +170,7 @@ function DashboardContent() {
         headers['x-auth-token'] = token;
       }
       
-      const userRole = localStorage.getItem('userRole');
+      const userRole = typeof window !== 'undefined' ? localStorage.getItem('userRole') : null;
       
       // Запрашиваем статистику в зависимости от роли
       if (userRole === 'admin') {
