@@ -791,7 +791,11 @@ function OrderDetailModal({
 
       // Маппим статус для проверки (PAID -> NEW_PLANNED)
       const executorStatus = getExecutorOrderStatus(currentOrder.status);
-      const shouldRequireMeasurement = executorStatus === 'UNDER_REVIEW' && newStatus === 'AWAITING_MEASUREMENT';
+      
+      // Если текущий статус UNDER_REVIEW и мы выбираем конкретный статус (AWAITING_MEASUREMENT или AWAITING_INVOICE),
+      // то require_measurement не нужен, так как мы уже выбрали следующий статус
+      // require_measurement используется только когда мы отправляем UNDER_REVIEW и хотим, чтобы API определил следующий статус
+      const shouldRequireMeasurement = executorStatus === 'UNDER_REVIEW' && newStatus === 'UNDER_REVIEW' && requireMeasurement;
 
       clientLogger.debug('handleStatusChange: starting', {
         orderId: currentOrder.id,
@@ -805,7 +809,7 @@ function OrderDetailModal({
         method: 'PUT',
         body: JSON.stringify({
           status: newStatus,
-          require_measurement: shouldRequireMeasurement || undefined
+          require_measurement: shouldRequireMeasurement ? requireMeasurement : undefined
         })
       });
 
