@@ -14,7 +14,8 @@ export type PermissionChecker = (userRole: string, ...args: any[]) => boolean;
  * Проверка роли пользователя
  */
 export function checkRole(userRole: string, requiredRole: string): boolean {
-  return userRole === requiredRole;
+  // Приводим обе роли к нижнему регистру для сравнения
+  return userRole?.toLowerCase() === requiredRole?.toLowerCase();
 }
 
 /**
