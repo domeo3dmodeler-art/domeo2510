@@ -569,7 +569,9 @@ export default function CatalogPage() {
       
       if (userRole !== 'admin' || isForbiddenError) {
         // Не логируем ошибки 403 как ERROR для не-админов
-        clientLogger.debug('Ошибка загрузки шаблона (доступ запрещен или пользователь не админ):', error);
+        clientLogger.debug('Ошибка загрузки шаблона (доступ запрещен или пользователь не админ):', {
+          error: error instanceof Error ? error.message : String(error)
+        });
       } else {
         clientLogger.error('Error loading template:', error);
       }
