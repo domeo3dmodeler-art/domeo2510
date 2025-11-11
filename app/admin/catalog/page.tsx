@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button, Card, Badge, Input, Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui';
 import { Plus, Search, Folder, FolderOpen, Edit, Trash2, Settings, ChevronRight, ChevronDown, Package, Package2 } from 'lucide-react';
 import { CatalogCategory, CreateCatalogCategoryDto } from '@/lib/types/catalog';
@@ -377,6 +378,7 @@ function CatalogTree({
 
 
 export default function CatalogPage() {
+  const router = useRouter();
   const [categories, setCategories] = useState<CatalogCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<CatalogCategory | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<ImportTemplate | null>(null);
@@ -401,8 +403,24 @@ export default function CatalogPage() {
   const [categoryToDelete, setCategoryToDelete] = useState<CatalogCategory | null>(null);
   const [instructionsDialogOpen, setInstructionsDialogOpen] = useState(false);
 
+  // Проверка доступа: только админы могут открыть эту страницу
   useEffect(() => {
-    loadCategories();
+    if (typeof window === 'undefined') return;
+    
+    const userRole = localStorage.getItem('userRole');
+    if (userRole !== 'admin') {
+      clientLogger.debug('Пользователь не является админом, редирект с админской страницы');
+      router.push('/auth/unauthorized');
+      return;
+    }
+  }, [router]);
+
+  useEffect(() => {
+    // Загружаем категории только если пользователь админ
+    const userRole = typeof window !== 'undefined' ? localStorage.getItem('userRole') : null;
+    if (userRole === 'admin') {
+      loadCategories();
+    }
   }, []);
 
   const loadCategories = async () => {
