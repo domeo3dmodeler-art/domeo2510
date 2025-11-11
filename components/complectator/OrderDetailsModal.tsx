@@ -134,22 +134,22 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
         } else {
           clientLogger.warn('❌ Invalid response format from /api/orders/[id]:', responseData);
           toast.error('Ошибка при загрузке заказа: неверный формат ответа');
-          onClose();
+          // Не закрываем модальное окно при ошибке загрузки, только показываем ошибку
         }
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
         clientLogger.error('❌ Error fetching order:', { status: response.status, error: errorData });
         toast.error(`Ошибка при загрузке заказа: ${errorData.error || response.statusText}`);
-        onClose();
+        // Не закрываем модальное окно при ошибке загрузки, только показываем ошибку
       }
     } catch (error) {
       clientLogger.error('Error fetching order:', error);
       toast.error('Ошибка при загрузке заказа');
-      onClose();
+      // Не закрываем модальное окно при ошибке загрузки, только показываем ошибку
     } finally {
       setLoading(false);
     }
-  }, [orderId, onClose]);
+  }, [orderId]);
 
   // Загрузка связанных КП
   const fetchQuotes = useCallback(async () => {
@@ -354,12 +354,15 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
 
       if (response.ok) {
         toast.success('Проект загружен успешно');
-        await fetchOrder();
         setShowProjectUpload(false);
         setProjectFile(null);
-        // Обновляем список заказов в родительском компоненте
+        // Обновляем данные заказа
+        await fetchOrder();
+        // Обновляем список заказов в родительском компоненте (с задержкой, чтобы избежать конфликтов)
         if (onOrderUpdate) {
-          onOrderUpdate();
+          setTimeout(() => {
+            onOrderUpdate();
+          }, 100);
         }
       } else {
         let errorData: any;
