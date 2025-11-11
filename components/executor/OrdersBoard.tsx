@@ -1115,6 +1115,8 @@ function OrderDetailModal({
                           ? executorStatus 
                           : (availableStatuses.length > 0 ? availableStatuses[0] : executorStatus);
                         setNewStatus(initialStatus);
+                        // Сбрасываем requireMeasurement при открытии модального окна
+                        setRequireMeasurement(false);
                         setShowStatusChangeModal(true);
                       }}
                       className="w-full"
