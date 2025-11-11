@@ -29,17 +29,27 @@ export async function GET(
     }
 
     // Путь к файлу в папке public/uploads
-    const fullPath = join(process.cwd(), 'public', 'uploads', filePath);
+    let fullPath = join(process.cwd(), 'public', 'uploads', filePath);
     
     logger.debug('Ищем файл', 'uploads/[...path]', { filePath, fullPath });
     
-    // Проверяем существование файла
+    // Проверяем существование файла в новом месте (public/uploads)
     if (!existsSync(fullPath)) {
-      logger.warn('Файл не найден', 'uploads/[...path]', { filePath, fullPath });
-      return NextResponse.json(
-        { error: 'File not found' },
-        { status: 404 }
-      );
+      // Если файл не найден в новом месте, проверяем старое место (uploads без public)
+      const oldPath = join(process.cwd(), 'uploads', filePath);
+      logger.debug('Файл не найден в новом месте, проверяем старое', 'uploads/[...path]', { filePath, oldPath });
+      
+      if (existsSync(oldPath)) {
+        // Используем старый путь
+        fullPath = oldPath;
+        logger.debug('Файл найден в старом месте', 'uploads/[...path]', { filePath, fullPath });
+      } else {
+        logger.warn('Файл не найден ни в новом, ни в старом месте', 'uploads/[...path]', { filePath, newPath: fullPath, oldPath });
+        return NextResponse.json(
+          { error: 'File not found' },
+          { status: 404 }
+        );
+      }
     }
 
     // Читаем файл
