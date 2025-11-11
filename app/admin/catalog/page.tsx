@@ -418,8 +418,8 @@ export default function CatalogPage() {
         }
         
         const data = await response.json();
-        const userData = parseApiResponse<{ role?: string }>(data);
-        const userRole = userData?.role;
+        const responseData = parseApiResponse<{ user?: { role?: string } }>(data);
+        const userRole = responseData?.user?.role;
         
         if (userRole !== 'admin') {
           clientLogger.debug('Пользователь не является админом, редирект с админской страницы', { role: userRole });
@@ -443,8 +443,8 @@ export default function CatalogPage() {
         const response = await fetchWithAuth('/api/users/me');
         if (response.ok) {
           const data = await response.json();
-          const userData = parseApiResponse<{ role?: string }>(data);
-          if (userData?.role === 'admin') {
+          const responseData = parseApiResponse<{ user?: { role?: string } }>(data);
+          if (responseData?.user?.role === 'admin') {
             loadCategories();
           }
         }
