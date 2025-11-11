@@ -133,6 +133,11 @@ async function deleteHandler(
   // Извлекаем путь к файлу из URL
   let filePath = order.project_file_url;
   
+  // Убираем query параметры из URL
+  if (filePath.includes('?')) {
+    filePath = filePath.split('?')[0];
+  }
+  
   // Нормализуем путь: убираем /api/uploads/ или /uploads/
   if (filePath.startsWith('/api/uploads/')) {
     filePath = filePath.replace('/api/uploads/', '');
