@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir, unlink } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { logger } from '@/lib/logging/logger';
@@ -103,6 +103,98 @@ async function postHandler(
   }, 'Файл проекта загружен');
 }
 
+// DELETE /api/orders/[id]/project - Удаление проекта/планировки
+async function deleteHandler(
+  req: NextRequest,
+  user: ReturnType<typeof getAuthenticatedUser>,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  const loggingContext = getLoggingContextFromRequest(req);
+  const { id } = await params;
+
+  // Проверяем существование заказа
+  const order = await prisma.order.findUnique({
+    where: { id }
+  });
+
+  if (!order) {
+    throw new NotFoundError('Заказ', id);
+  }
+
+  if (!order.project_file_url) {
+    throw new ValidationError('Файл проекта не найден');
+  }
+
+  // Извлекаем путь к файлу из URL
+  let filePath = order.project_file_url;
+  
+  // Нормализуем путь: убираем /api/uploads/ или /uploads/
+  if (filePath.startsWith('/api/uploads/')) {
+    filePath = filePath.replace('/api/uploads/', '');
+  } else if (filePath.startsWith('/uploads/')) {
+    filePath = filePath.replace('/uploads/', '');
+  }
+
+  // Проверяем безопасность пути
+  if (filePath.includes('..') || filePath.includes('~')) {
+    throw new ValidationError('Небезопасный путь к файлу');
+  }
+
+  // Пробуем удалить файл из нового места (public/uploads)
+  let fullPath = join(process.cwd(), 'public', 'uploads', filePath);
+  let fileDeleted = false;
+
+  if (existsSync(fullPath)) {
+    try {
+      await unlink(fullPath);
+      fileDeleted = true;
+      logger.debug('Файл удален из нового места', 'orders/[id]/project/DELETE', { filePath, fullPath });
+    } catch (error) {
+      logger.error('Ошибка при удалении файла из нового места', 'orders/[id]/project/DELETE', error instanceof Error ? { error: error.message, stack: error.stack, filePath, fullPath } : { error: String(error), filePath, fullPath });
+    }
+  }
+
+  // Если файл не найден в новом месте, пробуем старое место (uploads)
+  if (!fileDeleted) {
+    const oldPath = join(process.cwd(), 'uploads', filePath);
+    if (existsSync(oldPath)) {
+      try {
+        await unlink(oldPath);
+        fileDeleted = true;
+        logger.debug('Файл удален из старого места', 'orders/[id]/project/DELETE', { filePath, oldPath });
+      } catch (error) {
+        logger.error('Ошибка при удалении файла из старого места', 'orders/[id]/project/DELETE', error instanceof Error ? { error: error.message, stack: error.stack, filePath, oldPath } : { error: String(error), filePath, oldPath });
+      }
+    }
+  }
+
+  // Обновляем заказ, удаляя ссылку на файл
+  const updatedOrder = await prisma.order.update({
+    where: { id },
+    data: {
+      project_file_url: null
+    },
+    include: {
+      client: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          middleName: true
+        }
+      }
+    }
+  });
+
+  if (!fileDeleted) {
+    logger.warn('Файл не найден на диске, но ссылка удалена из БД', 'orders/[id]/project/DELETE', { filePath, orderId: id });
+  }
+
+  return apiSuccess({
+    order: updatedOrder
+  }, 'Файл проекта удален');
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -110,6 +202,16 @@ export async function POST(
   return withErrorHandling(
     requireAuth((request, user) => postHandler(request, user, { params })),
     'orders/[id]/project/POST'
+  )(req);
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  return withErrorHandling(
+    requireAuth((request, user) => deleteHandler(request, user, { params })),
+    'orders/[id]/project/DELETE'
   )(req);
 }
 

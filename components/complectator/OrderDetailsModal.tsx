@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import HistoryModal from '@/components/ui/HistoryModal';
 import CommentsModal from '@/components/ui/CommentsModal';
 import { toast } from 'sonner';
-import { Download, FileText, User, MapPin, Clock, Package, Upload, CheckCircle, AlertCircle, Building2, ChevronDown } from 'lucide-react';
+import { Download, FileText, User, MapPin, Clock, Package, Upload, CheckCircle, AlertCircle, Building2, ChevronDown, Trash2 } from 'lucide-react';
 import { getStatusLabel, ORDER_STATUSES_COMPLECTATOR } from '@/lib/utils/document-statuses';
 import { getValidTransitions } from '@/lib/validation/status-transitions';
 import { clientLogger } from '@/lib/logging/client-logger';
@@ -100,6 +100,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
   const [showProjectUpload, setShowProjectUpload] = useState(false);
   const [projectFile, setProjectFile] = useState<File | null>(null);
   const [uploadingProject, setUploadingProject] = useState(false);
+  const [deletingProject, setDeletingProject] = useState(false);
 
   clientLogger.debug('🔵 OrderDetailsModal render:', {
     isOpen,
@@ -998,46 +999,56 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
                   </button>
                 </div>
                 {order.project_file_url ? (
-                  <div className="flex items-center space-x-2">
-                    <FileText className="h-4 w-4 text-gray-400" />
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <FileText className="h-4 w-4 text-gray-400" />
+                      <button
+                        onClick={async () => {
+                          try {
+                            // Нормализуем URL: если начинается с /uploads/, заменяем на /api/uploads/
+                            let fileUrl = order.project_file_url!;
+                            if (fileUrl.startsWith('/uploads/')) {
+                              fileUrl = fileUrl.replace('/uploads/', '/api/uploads/');
+                            } else if (!fileUrl.startsWith('/api/uploads/') && !fileUrl.startsWith('http')) {
+                              // Если URL не начинается с /api/uploads/ и не абсолютный, добавляем /api/uploads/
+                              fileUrl = `/api/uploads/${fileUrl.startsWith('/') ? fileUrl.substring(1) : fileUrl}`;
+                            }
+                            
+                            clientLogger.debug('Downloading project file:', { originalUrl: order.project_file_url, normalizedUrl: fileUrl });
+                            
+                            const response = await fetchWithAuth(fileUrl);
+                            if (!response.ok) {
+                              clientLogger.error('Failed to download file:', { status: response.status, statusText: response.statusText, url: fileUrl });
+                              toast.error(`Ошибка при скачивании файла: ${response.status} ${response.statusText}`);
+                              return;
+                            }
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = order.project_file_url.split('/').pop() || 'project';
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+                          } catch (error) {
+                            clientLogger.error('Error downloading project file:', error);
+                            toast.error('Ошибка при скачивании файла');
+                          }
+                        }}
+                        className="text-blue-600 hover:underline text-sm flex items-center cursor-pointer"
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        {order.project_file_url.split('/').pop() || 'Проект'}
+                      </button>
+                    </div>
                     <button
-                      onClick={async () => {
-                        try {
-                          // Нормализуем URL: если начинается с /uploads/, заменяем на /api/uploads/
-                          let fileUrl = order.project_file_url!;
-                          if (fileUrl.startsWith('/uploads/')) {
-                            fileUrl = fileUrl.replace('/uploads/', '/api/uploads/');
-                          } else if (!fileUrl.startsWith('/api/uploads/') && !fileUrl.startsWith('http')) {
-                            // Если URL не начинается с /api/uploads/ и не абсолютный, добавляем /api/uploads/
-                            fileUrl = `/api/uploads/${fileUrl.startsWith('/') ? fileUrl.substring(1) : fileUrl}`;
-                          }
-                          
-                          clientLogger.debug('Downloading project file:', { originalUrl: order.project_file_url, normalizedUrl: fileUrl });
-                          
-                          const response = await fetchWithAuth(fileUrl);
-                          if (!response.ok) {
-                            clientLogger.error('Failed to download file:', { status: response.status, statusText: response.statusText, url: fileUrl });
-                            toast.error(`Ошибка при скачивании файла: ${response.status} ${response.statusText}`);
-                            return;
-                          }
-                          const blob = await response.blob();
-                          const url = window.URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = order.project_file_url.split('/').pop() || 'project';
-                          document.body.appendChild(a);
-                          a.click();
-                          window.URL.revokeObjectURL(url);
-                          document.body.removeChild(a);
-                        } catch (error) {
-                          clientLogger.error('Error downloading project file:', error);
-                          toast.error('Ошибка при скачивании файла');
-                        }
-                      }}
-                      className="text-blue-600 hover:underline text-sm flex items-center cursor-pointer"
+                      onClick={handleDeleteProject}
+                      disabled={deletingProject}
+                      className="text-red-600 hover:text-red-700 text-sm flex items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Удалить файл проекта"
                     >
-                      <Download className="h-3 w-3 mr-1" />
-                      {order.project_file_url.split('/').pop() || 'Проект'}
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 ) : (
