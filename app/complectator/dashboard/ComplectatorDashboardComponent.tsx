@@ -17,7 +17,8 @@ import {
   BadgeCheck,
   Package,
   Plus,
-  MoreVertical
+  MoreVertical,
+  Trash2
 } from 'lucide-react';
 // Убрали useAuth чтобы избежать бесконечных циклов рендера - user теперь передается как пропс
 import CommentsModal from '@/components/ui/CommentsModal';
@@ -94,6 +95,8 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
   const [ordersFilter, setOrdersFilter] = useState<typeof COMPLECTATOR_FILTER_STATUSES[number]>('all');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
+  const [deletingOrder, setDeletingOrder] = useState(false);
   const [showInWorkOnly, setShowInWorkOnly] = useState(false);
   const [showCreateClientForm, setShowCreateClientForm] = useState(false);
   const [newClientData, setNewClientData] = useState({
@@ -346,11 +349,58 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
         
         // Загружаем количество комментариев для всех заказов
         await fetchAllCommentsCount(formattedOrders);
+      } else {
+        const errorData = await response.json();
+        clientLogger.error('Error fetching client orders', { status: response.status, error: errorData });
+        toast.error('Ошибка при загрузке заказов');
       }
     } catch (error) {
-      clientLogger.error('Error fetching orders', error);
+      clientLogger.error('Error fetching client orders', error);
+      toast.error('Ошибка при загрузке заказов');
     }
-  }, [fetchAllCommentsCount, loadBlockedStatuses]);
+  }, [loadBlockedStatuses, fetchAllCommentsCount]);
+
+  // Удаление заказа
+  const handleDeleteOrder = useCallback(async (orderId: string) => {
+    if (!orderId) {
+      return;
+    }
+
+    try {
+      setDeletingOrder(true);
+      clientLogger.debug('Deleting order:', { orderId });
+
+      const response = await fetchWithAuth(`/api/orders/${orderId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        toast.success('Заказ успешно удален');
+        setOrderToDelete(null);
+        
+        // Обновляем список заказов
+        if (selectedClient) {
+          await fetchClientOrders(selectedClient);
+        }
+      } else {
+        const errorData = await response.json();
+        const parsedError = parseApiResponse(errorData);
+        const errorMessage = parsedError && typeof parsedError === 'object' && 'error' in parsedError
+          ? (parsedError.error && typeof parsedError.error === 'object' && 'message' in parsedError.error
+            ? String(parsedError.error.message)
+            : String(parsedError.error))
+          : 'Ошибка удаления заказа';
+        
+        clientLogger.error('Error deleting order:', { status: response.status, error: errorData });
+        toast.error(`Ошибка удаления заказа: ${errorMessage}`);
+      }
+    } catch (error) {
+      clientLogger.error('Error deleting order:', error);
+      toast.error('Ошибка удаления заказа');
+    } finally {
+      setDeletingOrder(false);
+    }
+  }, [selectedClient, fetchClientOrders]);
 
 
   // Теперь используем функции в useEffect (после их определения)
@@ -1090,14 +1140,16 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                       {orders.filter(o => ordersFilter==='all' || o.status===ordersFilter).map(o => (
                         <div 
                           key={o.id} 
-                          className="border border-gray-200 p-3 hover:border-black transition-colors cursor-pointer"
-                          onClick={() => {
-                            setSelectedOrderId(o.id);
-                            setIsOrderModalOpen(true);
-                          }}
+                          className="border border-gray-200 p-3 hover:border-black transition-colors"
                         >
                           <div className="flex items-center justify-between">
-                            <div className="flex-1">
+                            <div 
+                              className="flex-1 cursor-pointer"
+                              onClick={() => {
+                                setSelectedOrderId(o.id);
+                                setIsOrderModalOpen(true);
+                              }}
+                            >
                               <div className="flex items-center space-x-3">
                                 <div className="font-medium text-black">{o.number}</div>
                                 <div className="text-sm text-gray-600">от {o.date}</div>
@@ -1111,6 +1163,17 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
                                 )}
                               </div>
                             </div>
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setOrderToDelete(o.id);
+                              }}
+                              className="ml-2 p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                              title="Удалить заказ"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -1341,6 +1404,22 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
           : 'Вы уверены, что хотите удалить этот счет? Все связанные данные будут потеряны.'
         }
         itemName={deleteModal.name || undefined}
+      />
+
+      {/* Модальное окно подтверждения удаления заказа */}
+      <DeleteConfirmModal
+        isOpen={!!orderToDelete}
+        onClose={() => {
+          setOrderToDelete(null);
+        }}
+        onConfirm={async () => {
+          if (orderToDelete) {
+            await handleDeleteOrder(orderToDelete);
+          }
+        }}
+        title="Удаление заказа"
+        message="Вы уверены, что хотите удалить этот заказ? Все связанные данные будут потеряны."
+        itemName={orderToDelete ? orders.find(o => o.id === orderToDelete)?.number : undefined}
       />
 
       {/* Модальное окно деталей заказа */}
