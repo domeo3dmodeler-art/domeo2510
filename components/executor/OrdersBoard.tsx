@@ -365,6 +365,13 @@ function OrderDetailModal({
   const [techSpecsFiles, setTechSpecsFiles] = useState<File[]>([]);
   const [wholesaleInvoices, setWholesaleInvoices] = useState<File[]>([]);
   const [newStatus, setNewStatus] = useState<string>(order.status);
+  
+  // Обновляем newStatus при изменении currentOrder
+  useEffect(() => {
+    if (currentOrder) {
+      setNewStatus(currentOrder.status);
+    }
+  }, [currentOrder.status]);
   const [requireMeasurement, setRequireMeasurement] = useState(false);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [verifyResult, setVerifyResult] = useState<any>(null);
@@ -814,10 +821,19 @@ function OrderDetailModal({
         }
         
         toast.success('Статус изменен успешно');
-        await fetchOrder();
-        onUpdate();
         setShowStatusChangeModal(false);
-        setNewStatus('');
+        // Обновляем данные заказа
+        await fetchOrder();
+        // Обновляем список заказов в родительском компоненте (с задержкой, чтобы избежать конфликтов)
+        setTimeout(() => {
+          onUpdate();
+        }, 100);
+        // Обновляем newStatus на текущий статус заказа
+        if (updatedOrderData) {
+          setNewStatus(updatedOrderData.status || newStatus);
+        } else {
+          setNewStatus(newStatus);
+        }
       } else {
         let errorData: any;
         try {
@@ -940,8 +956,10 @@ function OrderDetailModal({
 
   // Получение доступных статусов для перехода
   const getAvailableStatuses = () => {
+    // Маппим статус для исполнителя (PAID -> NEW_PLANNED)
+    const executorStatus = getExecutorOrderStatus(currentOrder.status);
     // Используем единую функцию из lib/validation/status-transitions.ts
-    return getValidTransitions('order', currentOrder.status);
+    return getValidTransitions('order', executorStatus);
   };
 
   const availableStatuses = getAvailableStatuses();
@@ -1070,8 +1088,14 @@ function OrderDetailModal({
                     <Button
                       variant="primary"
                       size="sm"
-                      onClick={() => {
-                        setNewStatus(availableStatuses[0]);
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // Устанавливаем первый доступный статус или текущий статус, если он доступен
+                        const initialStatus = availableStatuses.includes(currentOrder.status) 
+                          ? currentOrder.status 
+                          : availableStatuses[0];
+                        setNewStatus(initialStatus);
                         setShowStatusChangeModal(true);
                       }}
                       className="w-full"
@@ -1429,8 +1453,21 @@ function OrderDetailModal({
 
         {/* Модальное окно изменения статуса */}
         {showStatusChangeModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShowStatusChangeModal(false);
+            }}
+          >
+            <div 
+              className="bg-white rounded-lg p-6 max-w-md w-full mx-4" 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+            >
               <h3 className="text-lg font-semibold mb-4">Изменение статуса</h3>
               <div className="space-y-4">
                 <div>
@@ -1444,8 +1481,14 @@ function OrderDetailModal({
                           value="AWAITING_MEASUREMENT"
                           checked={newStatus === 'AWAITING_MEASUREMENT'}
                           onChange={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
                             setNewStatus(e.target.value);
                             setRequireMeasurement(true);
+                          }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
                           }}
                         />
                         <span className="text-sm">{ORDER_STATUSES['AWAITING_MEASUREMENT'].label}</span>
@@ -1457,8 +1500,14 @@ function OrderDetailModal({
                           value="AWAITING_INVOICE"
                           checked={newStatus === 'AWAITING_INVOICE'}
                           onChange={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
                             setNewStatus(e.target.value);
                             setRequireMeasurement(false);
+                          }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
                           }}
                         />
                         <span className="text-sm">{ORDER_STATUSES['AWAITING_INVOICE'].label}</span>
@@ -1467,7 +1516,15 @@ function OrderDetailModal({
                   ) : (
                     <select
                       value={newStatus}
-                      onChange={(e) => setNewStatus(e.target.value)}
+                      onChange={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setNewStatus(e.target.value);
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
                       className="w-full border border-gray-300 rounded px-3 py-2"
                     >
                       {availableStatuses.map(status => {
@@ -1493,10 +1550,26 @@ function OrderDetailModal({
                 )}
               </div>
               <div className="flex space-x-2 mt-4">
-                <Button onClick={handleStatusChange} disabled={loading} className="flex-1">
+                <Button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleStatusChange();
+                  }} 
+                  disabled={loading || !newStatus} 
+                  className="flex-1"
+                >
                   {loading ? 'Изменение...' : 'Изменить'}
                 </Button>
-                <Button variant="outline" onClick={() => setShowStatusChangeModal(false)} className="flex-1">
+                <Button 
+                  variant="outline" 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowStatusChangeModal(false);
+                  }} 
+                  className="flex-1"
+                >
                   Отмена
                 </Button>
               </div>
