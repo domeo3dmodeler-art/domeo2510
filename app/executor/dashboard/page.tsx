@@ -677,7 +677,7 @@ export default function ExecutorDashboard() {
         orderId = newOrder.order.id;
 
         // Обновляем счет, чтобы связать его с новым заказом
-        await fetch(`/api/invoices/${invoiceId}`, {
+        await fetchWithAuth(`/api/invoices/${invoiceId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ order_id: orderId })
