@@ -161,6 +161,12 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
   const [uploadingProject, setUploadingProject] = useState(false);
   const [deletingProject, setDeletingProject] = useState(false);
   const [deletingFiles, setDeletingFiles] = useState<Record<string, boolean>>({});
+  const [showFilesUpload, setShowFilesUpload] = useState<{ type: 'technical_spec' | 'wholesale_invoice' | null }>({ type: null });
+  const [filesToUpload, setFilesToUpload] = useState<{ technical_specs: File[]; wholesale_invoices: File[] }>({
+    technical_specs: [],
+    wholesale_invoices: []
+  });
+  const [uploadingFiles, setUploadingFiles] = useState(false);
 
   clientLogger.debug('🔵 OrderDetailsModal render:', {
     isOpen,
@@ -1287,6 +1293,17 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm font-medium text-gray-900">Тех. задания</h3>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowFilesUpload({ type: 'technical_spec' });
+                      }}
+                      className="flex items-center space-x-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <Upload className="h-4 w-4" />
+                      <span>Загрузить</span>
+                    </button>
                   </div>
                   {order.technical_specs && order.technical_specs.length > 0 ? (
                     <div className="space-y-1">
@@ -1331,6 +1348,17 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm font-medium text-gray-900">Оптовые счета</h3>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowFilesUpload({ type: 'wholesale_invoice' });
+                      }}
+                      className="flex items-center space-x-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <Upload className="h-4 w-4" />
+                      <span>Загрузить</span>
+                    </button>
                   </div>
                   {order.wholesale_invoices && order.wholesale_invoices.length > 0 ? (
                     <div className="space-y-1">
@@ -1650,6 +1678,111 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
                   className="px-4 py-2 text-sm bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {uploadingProject ? 'Загрузка...' : 'Загрузить'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно загрузки файлов (техзаданий и оптовых счетов) */}
+      {showFilesUpload.type && order && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]" 
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setShowFilesUpload({ type: null });
+            setFilesToUpload({ technical_specs: [], wholesale_invoices: [] });
+          }}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 max-w-md w-full mx-4" 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
+            <h3 className="text-lg font-semibold mb-4">
+              {showFilesUpload.type === 'technical_spec' ? 'Загрузка тех. заданий' : 'Загрузка оптовых счетов'}
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Выберите файл{showFilesUpload.type === 'wholesale_invoice' ? 'ы' : ''}</label>
+                <input
+                  type="file"
+                  accept={showFilesUpload.type === 'technical_spec' ? '.pdf' : '.pdf,.xlsx,.xls'}
+                  multiple={showFilesUpload.type === 'wholesale_invoice'}
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    if (files.length > 0) {
+                      // Валидация размера файлов (максимум 10MB)
+                      const maxSize = 10 * 1024 * 1024; // 10MB
+                      const oversizedFiles = files.filter(file => file.size > maxSize);
+                      if (oversizedFiles.length > 0) {
+                        toast.error(`Файл${oversizedFiles.length > 1 ? 'ы' : ''} "${oversizedFiles.map(f => f.name).join(', ')}" слишком большой${oversizedFiles.length > 1 ? 'е' : ''}. Максимальный размер: 10MB`);
+                        e.target.value = ''; // Сбрасываем input
+                        return;
+                      }
+                      
+                      if (showFilesUpload.type === 'technical_spec') {
+                        setFilesToUpload(prev => ({ ...prev, technical_specs: files }));
+                      } else {
+                        setFilesToUpload(prev => ({ ...prev, wholesale_invoices: files }));
+                      }
+                      clientLogger.debug('🔘 Выбраны файлы', { 
+                        type: showFilesUpload.type, 
+                        filesCount: files.length,
+                        fileNames: files.map(f => f.name)
+                      });
+                    }
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black cursor-pointer"
+                  style={{ pointerEvents: 'auto' }}
+                />
+                {(showFilesUpload.type === 'technical_spec' ? filesToUpload.technical_specs : filesToUpload.wholesale_invoices).length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {(showFilesUpload.type === 'technical_spec' ? filesToUpload.technical_specs : filesToUpload.wholesale_invoices).map((file, index) => (
+                      <div key={index} className="text-sm text-gray-600">
+                        {index + 1}. <span className="font-medium">{file.name}</span> ({(file.size / 1024).toFixed(2)} KB)
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowFilesUpload({ type: null });
+                    setFilesToUpload({ technical_specs: [], wholesale_invoices: [] });
+                  }}
+                  className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  disabled={uploadingFiles}
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!uploadingFiles) {
+                      handleFilesUpload();
+                    }
+                  }}
+                  disabled={
+                    uploadingFiles || 
+                    (showFilesUpload.type === 'technical_spec' 
+                      ? filesToUpload.technical_specs.length === 0 
+                      : filesToUpload.wholesale_invoices.length === 0)
+                  }
+                  className="px-4 py-2 text-sm bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {uploadingFiles ? 'Загрузка...' : 'Загрузить'}
                 </button>
               </div>
             </div>
