@@ -2,6 +2,7 @@
 
 import { CartItem } from '@/types/cart';
 import { logger } from '@/lib/logging/logger';
+import { fetchWithAuth } from '@/lib/utils/fetch-with-auth';
 
 export interface PriceCalculationResult {
   success: boolean;
@@ -90,7 +91,7 @@ class PriceRecalculationService {
    */
   private async validateCombination(item: CartItem): Promise<{ success: boolean; error?: string }> {
     try {
-      const response = await fetch('/api/available-params', {
+      const response = await fetchWithAuth('/api/available-params', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -161,7 +162,7 @@ class PriceRecalculationService {
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
-      const response = await fetch('/api/price/doors', {
+      const response = await fetchWithAuth('/api/price/doors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
