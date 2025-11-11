@@ -210,7 +210,15 @@ export function DocumentQuickViewModal({ isOpen, onClose, documentId }: Document
       if (!cartData.items || cartData.items.length === 0) {
         clientLogger.debug('📦 Trying to get cart data from related order...');
         try {
-          const token = localStorage.getItem('token');
+          // Используем унифицированный способ получения токена
+          let token = localStorage.getItem('authToken');
+          if (!token) {
+            token = localStorage.getItem('token');
+            if (token) {
+              localStorage.setItem('authToken', token);
+              localStorage.removeItem('token');
+            }
+          }
           const orderResponse = await fetch(`/api/orders/${orderId}`, {
             headers: {
               'Authorization': `Bearer ${token}`,

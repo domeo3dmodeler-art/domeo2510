@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthToken } from './useAuthToken';
+import { fetchWithAuth } from '@/lib/utils/fetch-with-auth';
+import { parseApiResponse } from '@/lib/utils/parse-api-response';
+import { clientLogger } from '@/lib/logging/client-logger';
 
 interface User {
   id: string;
@@ -9,6 +11,7 @@ interface User {
   lastName: string;
   middleName?: string;
   role: string;
+  permissions?: string[];
   lastLogin?: Date;
 }
 
@@ -19,6 +22,10 @@ interface AuthState {
   error: string | null;
 }
 
+/**
+ * Унифицированный hook для работы с авторизацией
+ * Использует authToken из localStorage (основной источник) с fallback на cookies
+ */
 export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
@@ -29,10 +36,77 @@ export function useAuth() {
 
   const router = useRouter();
 
+  /**
+   * Получает токен из localStorage или cookies
+   */
+  const getToken = useCallback((): string | null => {
+    if (typeof window === 'undefined') return null;
+    
+    // Основной источник - localStorage
+    let token = localStorage.getItem('authToken');
+    
+    // Fallback на старый ключ для совместимости
+    if (!token) {
+      token = localStorage.getItem('token');
+      if (token) {
+        // Миграция на новый ключ
+        localStorage.setItem('authToken', token);
+        localStorage.removeItem('token');
+      }
+    }
+    
+    // Fallback на cookies
+    if (!token && typeof document !== 'undefined') {
+      const cookies = document.cookie.split(';');
+      const authCookie = cookies.find(
+        c => c.trim().startsWith('auth-token=') || c.trim().startsWith('domeo-auth-token=')
+      );
+      if (authCookie) {
+        token = authCookie.split('=')[1].trim();
+        // Сохраняем в localStorage для следующих запросов
+        if (token) {
+          localStorage.setItem('authToken', token);
+        }
+      }
+    }
+    
+    return token;
+  }, []);
+
+  /**
+   * Сохраняет данные пользователя в localStorage
+   */
+  const saveUserToLocalStorage = useCallback((user: User) => {
+    if (typeof window === 'undefined') return;
+    
+    localStorage.setItem('userId', user.id);
+    localStorage.setItem('userRole', user.role);
+    localStorage.setItem('userEmail', user.email || '');
+    localStorage.setItem('userFirstName', user.firstName || '');
+    localStorage.setItem('userLastName', user.lastName || '');
+    localStorage.setItem('userMiddleName', user.middleName || '');
+  }, []);
+
+  /**
+   * Очищает данные пользователя из localStorage
+   */
+  const clearUserFromLocalStorage = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('token'); // Старый ключ
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userFirstName');
+    localStorage.removeItem('userLastName');
+    localStorage.removeItem('userMiddleName');
+  }, []);
+
   // Проверка токена при загрузке
   const checkAuth = useCallback(async () => {
     try {
-      const token = getCookie('auth-token');
+      const token = getToken();
       
       if (!token) {
         setAuthState({
@@ -44,29 +118,33 @@ export function useAuth() {
         return;
       }
 
-      // Проверяем токен через API
-      const response = await fetch('/api/users/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // Проверяем токен через API используя fetchWithAuth
+      const response = await fetchWithAuth('/api/users/me');
 
       if (response.ok) {
         const data = await response.json();
-        // apiSuccess возвращает { success: true, data: { user: ... } }
-        const userData = data && typeof data === 'object' && 'data' in data && data.data && typeof data.data === 'object' && 'user' in data.data
-          ? data.data.user
-          : data.user || data;
-        setAuthState({
-          user: userData,
-          isAuthenticated: true,
-          isLoading: false,
-          error: null
-        });
+        const responseData = parseApiResponse<{ user?: User }>(data);
+        const userData = responseData?.user || data.user || data;
+        
+        if (userData && userData.id) {
+          // Сохраняем данные пользователя в localStorage
+          saveUserToLocalStorage(userData);
+          
+          setAuthState({
+            user: userData,
+            isAuthenticated: true,
+            isLoading: false,
+            error: null
+          });
+        } else {
+          throw new Error('Invalid user data');
+        }
       } else {
         // Токен недействителен
+        clearUserFromLocalStorage();
         deleteCookie('auth-token');
+        deleteCookie('domeo-auth-token');
+        
         setAuthState({
           user: null,
           isAuthenticated: false,
@@ -75,7 +153,9 @@ export function useAuth() {
         });
       }
     } catch (error) {
-      console.error('Auth check error:', error);
+      clientLogger.error('Auth check error:', error);
+      clearUserFromLocalStorage();
+      
       setAuthState({
         user: null,
         isAuthenticated: false,
@@ -83,7 +163,7 @@ export function useAuth() {
         error: 'Ошибка проверки авторизации'
       });
     }
-  }, []);
+  }, [getToken, saveUserToLocalStorage, clearUserFromLocalStorage]);
 
   // Вход в систему
   const login = useCallback(async (email: string, password: string) => {
@@ -99,13 +179,27 @@ export function useAuth() {
       });
 
       const data = await response.json();
+      const responseData = parseApiResponse<{ token?: string; user?: User }>(data);
 
-      if (data.success) {
-        // Сохраняем токен в cookies
-        setCookie('auth-token', data.token, 1); // 1 день
+      if (responseData && responseData.token) {
+        const token = responseData.token;
+        const user = responseData.user || data.user;
+        
+        // Сохраняем токен в localStorage (основной источник)
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('authToken', token);
+        }
+        
+        // Также сохраняем в cookies для совместимости
+        setCookie('auth-token', token, 1); // 1 день
+        
+        // Сохраняем данные пользователя
+        if (user) {
+          saveUserToLocalStorage(user);
+        }
         
         setAuthState({
-          user: data.user,
+          user: user || null,
           isAuthenticated: true,
           isLoading: false,
           error: null
@@ -113,12 +207,13 @@ export function useAuth() {
 
         return { success: true };
       } else {
+        const errorMessage = data.error || 'Ошибка входа';
         setAuthState(prev => ({
           ...prev,
           isLoading: false,
-          error: data.error || 'Ошибка входа'
+          error: errorMessage
         }));
-        return { success: false, error: data.error };
+        return { success: false, error: errorMessage };
       }
     } catch (error) {
       const errorMessage = 'Ошибка соединения с сервером';
@@ -129,11 +224,14 @@ export function useAuth() {
       }));
       return { success: false, error: errorMessage };
     }
-  }, []);
+  }, [saveUserToLocalStorage]);
 
   // Выход из системы
   const logout = useCallback(() => {
+    clearUserFromLocalStorage();
     deleteCookie('auth-token');
+    deleteCookie('domeo-auth-token');
+    
     setAuthState({
       user: null,
       isAuthenticated: false,
@@ -141,7 +239,7 @@ export function useAuth() {
       error: null
     });
     router.push('/login');
-  }, [router]);
+  }, [router, clearUserFromLocalStorage]);
 
   // Регистрация
   const register = useCallback(async (userData: {

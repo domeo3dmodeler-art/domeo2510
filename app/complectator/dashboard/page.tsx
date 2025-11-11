@@ -56,7 +56,31 @@ function ComplectatorDashboardContent() {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const token = localStorage.getItem('token');
+        // Используем унифицированный способ получения токена
+        let token = localStorage.getItem('authToken');
+        if (!token) {
+          // Fallback на старый ключ для совместимости
+          token = localStorage.getItem('token');
+          if (token) {
+            localStorage.setItem('authToken', token);
+            localStorage.removeItem('token');
+          }
+        }
+        
+        // Fallback на cookies
+        if (!token && typeof document !== 'undefined') {
+          const cookies = document.cookie.split(';');
+          const authCookie = cookies.find(
+            c => c.trim().startsWith('auth-token=') || c.trim().startsWith('domeo-auth-token=')
+          );
+          if (authCookie) {
+            token = authCookie.split('=')[1].trim();
+            if (token) {
+              localStorage.setItem('authToken', token);
+            }
+          }
+        }
+        
         if (!token) {
           router.push('/login?redirect=/complectator/dashboard');
           return;
