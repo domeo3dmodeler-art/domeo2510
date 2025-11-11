@@ -12,6 +12,11 @@ export async function GET(
     const resolvedParams = await params;
     let filePath = resolvedParams.path.join('/');
     
+    // Убираем query параметры из пути (если есть)
+    if (filePath.includes('?')) {
+      filePath = filePath.split('?')[0];
+    }
+    
     // Исправляем пути вида "uploadsproducts/..." -> "products/..."
     // (так как в fullPath уже добавляется "public/uploads")
     if (filePath.startsWith('uploadsproducts/')) {
