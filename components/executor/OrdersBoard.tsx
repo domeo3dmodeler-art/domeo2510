@@ -968,14 +968,22 @@ function OrderDetailModal({
   };
 
   // Получение доступных статусов для перехода
-  const getAvailableStatuses = () => {
+  const getAvailableStatuses = useCallback(() => {
+    if (!currentOrder) return [];
     // Маппим статус для исполнителя (PAID -> NEW_PLANNED)
     const executorStatus = getExecutorOrderStatus(currentOrder.status);
     // Используем единую функцию из lib/validation/status-transitions.ts
     const transitions = getValidTransitions('order', executorStatus);
-    // Убираем дубликаты из списка статусов
-    return Array.from(new Set(transitions));
-  };
+    // Убираем дубликаты из списка статусов и фильтруем пустые значения
+    const uniqueTransitions = Array.from(new Set(transitions.filter(Boolean)));
+    clientLogger.debug('Available statuses for executor:', {
+      currentStatus: currentOrder.status,
+      executorStatus,
+      transitions,
+      uniqueTransitions
+    });
+    return uniqueTransitions;
+  }, [currentOrder]);
 
   const availableStatuses = getAvailableStatuses();
   // Маппим статус для отображения
@@ -1557,11 +1565,12 @@ function OrderDetailModal({
                       }}
                       className="w-full border border-gray-300 rounded px-3 py-2"
                     >
-                      {availableStatuses.map(status => {
+                      {availableStatuses.map((status, index) => {
                         // Используем getStatusLabel для правильного отображения всех статусов, включая CANCELLED
                         const label = getStatusLabel(status, 'order_executor');
+                        // Используем комбинацию status и index для уникального key, чтобы избежать дубликатов
                         return (
-                          <option key={status} value={status}>
+                          <option key={`${status}-${index}`} value={status}>
                             {label}
                           </option>
                         );
