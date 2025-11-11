@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { clientLogger } from '@/lib/logging/client-logger';
 import { toast } from 'sonner';
+import { parseApiResponse } from '@/lib/utils/parse-api-response';
 
 // Статусы заявок (используем статусы из канонического документа)
 const APPLICATION_STATUSES = {
@@ -107,12 +108,9 @@ export function ApplicationsBoard({ executorId }: ApplicationsBoardProps) {
       
       if (response.ok) {
         const responseData = await response.json();
-        // apiSuccess возвращает { success: true, data: { orders: ... } }
-        const data = responseData && typeof responseData === 'object' && responseData !== null && 'data' in responseData
-          ? (responseData as { data: { orders?: any[] } }).data
-          : null;
-        const ordersArray = data && 'orders' in data && Array.isArray(data.orders)
-          ? data.orders
+        const parsedData = parseApiResponse<{ orders?: any[] }>(responseData);
+        const ordersArray = parsedData && 'orders' in parsedData && Array.isArray(parsedData.orders)
+          ? parsedData.orders
           : [];
         setApplications(ordersArray);
       } else {
@@ -394,11 +392,8 @@ function ApplicationDetailModal({
       
       if (response.ok) {
         const responseData = await response.json();
-        // apiSuccess возвращает { success: true, data: { order: ... } }
-        const data = responseData && typeof responseData === 'object' && responseData !== null && 'data' in responseData
-          ? (responseData as { data: { order?: any } }).data
-          : null;
-        const orderData = data && 'order' in data ? data.order : null;
+        const parsedData = parseApiResponse<{ order?: any }>(responseData);
+        const orderData = parsedData && 'order' in parsedData ? parsedData.order : null;
         if (orderData) {
           setCurrentApplication(orderData);
         } else {
@@ -690,11 +685,8 @@ function ApplicationDetailModal({
 
       if (response.ok) {
         const responseData = await response.json();
-        // apiSuccess возвращает { success: true, data: { verification_result: ... } }
-        const data = responseData && typeof responseData === 'object' && responseData !== null && 'data' in responseData
-          ? (responseData as { data: { verification_result?: any } }).data
-          : null;
-        const verificationResult = data && 'verification_result' in data ? data.verification_result : null;
+        const parsedData = parseApiResponse<{ verification_result?: any }>(responseData);
+        const verificationResult = parsedData && 'verification_result' in parsedData ? parsedData.verification_result : null;
         if (verificationResult) {
           setVerifyResult(verificationResult);
           setShowVerifyModal(true);
