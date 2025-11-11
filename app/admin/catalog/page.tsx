@@ -523,7 +523,7 @@ export default function CatalogPage() {
   const loadTemplate = useCallback(async (categoryId: string) => {
     try {
       setTemplateLoading(true);
-      const response = await fetch(`/api/admin/templates?catalogCategoryId=${categoryId}`);
+      const response = await fetchWithAuth(`/api/admin/templates?catalogCategoryId=${categoryId}`);
       
       if (!response.ok) {
         clientLogger.error('Error loading template', { status: response.status });

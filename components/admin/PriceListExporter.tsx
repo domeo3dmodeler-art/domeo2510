@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Button } from '../../../components/ui';
 import { FileSpreadsheet } from 'lucide-react';
 import { clientLogger } from '@/lib/logging/client-logger';
+import { fetchWithAuth } from '@/lib/utils/fetch-with-auth';
 
 interface PriceListExporterProps {
   catalogCategoryId: string | null;
@@ -21,7 +22,7 @@ export default function PriceListExporter({ catalogCategoryId, catalogCategoryNa
 
     setExporting(true);
     try {
-      const response = await fetch(`/api/admin/export/price-list?catalogCategoryId=${catalogCategoryId}`);
+      const response = await fetchWithAuth(`/api/admin/export/price-list?catalogCategoryId=${catalogCategoryId}`);
 
       if (response.ok) {
         const blob = await response.blob();
