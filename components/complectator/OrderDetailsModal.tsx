@@ -168,10 +168,18 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
   });
   const [uploadingFiles, setUploadingFiles] = useState(false);
 
+  // Нормализуем роль для проверок (case-insensitive)
+  const normalizedRole = userRole?.toLowerCase() || '';
+  const isExecutor = normalizedRole === 'executor';
+  const isComplectator = normalizedRole === 'complectator';
+
   clientLogger.debug('🔵 OrderDetailsModal render:', {
     isOpen,
     orderId,
     userRole,
+    normalizedRole,
+    isExecutor,
+    isComplectator,
     hasOrder: !!order,
     orderStatus: order?.status
   });
@@ -253,7 +261,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
   const getDisplayStatus = () => {
     if (!order) return null;
     
-    if (userRole === 'complectator') {
+    if (isComplectator) {
       // ВАЖНО: Комплектатор управляет статусами заказа напрямую, а не через счет
       // Статус счета отображается только для информации, но управление идет через статус заказа
       const orderStatus = order.status;
@@ -278,7 +286,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
       return { label, color, canManage };
     }
     
-    if (userRole === 'executor') {
+    if (isExecutor) {
       const label = getStatusLabel(order.status, 'order_executor');
       const color = STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-800 border-gray-200';
       return { label, color, canManage: true };
@@ -1006,12 +1014,12 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
   });
   
   // Дополнительное логирование для отладки
-  if (userRole === 'complectator' && order) {
+  if (isComplectator && order) {
     clientLogger.debug('🔍 Complectator Status Debug:', {
       orderStatus: order.status,
       canManage: displayStatus?.canManage,
       availableStatuses,
-      willShowButton: userRole === 'complectator' && displayStatus?.canManage && availableStatuses.length > 0
+      willShowButton: isComplectator && displayStatus?.canManage && availableStatuses.length > 0
     });
   }
 
@@ -1104,7 +1112,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
                 </button>
                 
                 {/* Кнопка изменения статуса для комплектатора */}
-                {userRole === 'complectator' && (
+                {isComplectator && (
                   <button
                     onClick={(e) => {
                       e.preventDefault();
@@ -1172,7 +1180,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
                     </div>
                   )}
                   {/* Дополнительная информация для Руководителя */}
-                  {userRole === 'manager' && (
+                  {normalizedRole === 'manager' && (
                     <div className="mt-3 pt-3 border-t border-gray-100 space-y-1 text-xs">
                       {order.lead_number && (
                         <div className="flex items-center space-x-1">
@@ -1206,7 +1214,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
             </div>
 
             {/* Проект/планировка для Комплектатора */}
-            {userRole === 'complectator' && (
+            {isComplectator && (
               <div className="mb-4 pb-4 border-b border-gray-200">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-medium text-gray-900">Проект/планировка</h3>
@@ -1260,7 +1268,7 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
             )}
 
             {/* Проект/планировка для Исполнителя (только просмотр, без загрузки) */}
-            {userRole === 'executor' && (
+            {isExecutor && (
               <div className="mb-4 pb-4 border-b border-gray-200">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-medium text-gray-900">Проект/планировка</h3>
@@ -1287,7 +1295,8 @@ export function OrderDetailsModal({ isOpen, onClose, orderId, userRole, onOrderU
             )}
 
             {/* Тех. задания и Оптовые счета только для Исполнителя */}
-            {userRole === 'executor' && (
+            {/* Явно скрываем для комплектатора и других ролей */}
+            {isExecutor && !isComplectator && (
               <div className="mb-4 pb-4 border-b border-gray-200 space-y-3">
                 {/* Тех. задания */}
                 <div>
