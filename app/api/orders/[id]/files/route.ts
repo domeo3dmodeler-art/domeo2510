@@ -50,8 +50,8 @@ async function postHandler(
     technical_specs: []
   };
 
-  // Создаем директорию для заказов если её нет
-  const uploadsDir = join(process.cwd(), 'uploads', 'orders', id);
+  // Создаем директорию для заказов если её нет (в public/uploads для доступа через API)
+  const uploadsDir = join(process.cwd(), 'public', 'uploads', 'orders', id);
   if (!existsSync(uploadsDir)) {
     await mkdir(uploadsDir, { recursive: true });
   }
@@ -70,15 +70,19 @@ async function postHandler(
     }
 
     const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 10000);
     const extension = file.name.split('.').pop();
-    const filename = `wholesale_invoice_${timestamp}_${random}.${extension}`;
+    // Безопасное имя файла: убираем недопустимые символы, но сохраняем читаемость
+    const safeOriginalName = file.name
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .substring(0, 100); // Ограничиваем длину
+    const filename = `wholesale_invoice_${timestamp}_${safeOriginalName}`;
     const filepath = join(uploadsDir, filename);
 
     const buffer = Buffer.from(await file.arrayBuffer());
     await writeFile(filepath, buffer);
 
-    const fileUrl = `/uploads/orders/${id}/${filename}`;
+    // Сохраняем оригинальное имя в query параметре для отображения
+    const fileUrl = `/api/uploads/orders/${id}/${filename}?original=${encodeURIComponent(file.name)}`;
     uploadedFiles.wholesale_invoices.push(fileUrl);
   }
 
@@ -96,15 +100,19 @@ async function postHandler(
     }
 
     const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 10000);
     const extension = file.name.split('.').pop();
-    const filename = `tech_spec_${timestamp}_${random}.${extension}`;
+    // Безопасное имя файла: убираем недопустимые символы, но сохраняем читаемость
+    const safeOriginalName = file.name
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .substring(0, 100); // Ограничиваем длину
+    const filename = `tech_spec_${timestamp}_${safeOriginalName}`;
     const filepath = join(uploadsDir, filename);
 
     const buffer = Buffer.from(await file.arrayBuffer());
     await writeFile(filepath, buffer);
 
-    const fileUrl = `/uploads/orders/${id}/${filename}`;
+    // Сохраняем оригинальное имя в query параметре для отображения
+    const fileUrl = `/api/uploads/orders/${id}/${filename}?original=${encodeURIComponent(file.name)}`;
     uploadedFiles.technical_specs.push(fileUrl);
   }
 
