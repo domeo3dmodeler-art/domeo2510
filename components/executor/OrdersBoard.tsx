@@ -972,7 +972,9 @@ function OrderDetailModal({
     // Маппим статус для исполнителя (PAID -> NEW_PLANNED)
     const executorStatus = getExecutorOrderStatus(currentOrder.status);
     // Используем единую функцию из lib/validation/status-transitions.ts
-    return getValidTransitions('order', executorStatus);
+    const transitions = getValidTransitions('order', executorStatus);
+    // Убираем дубликаты из списка статусов
+    return Array.from(new Set(transitions));
   };
 
   const availableStatuses = getAvailableStatuses();
