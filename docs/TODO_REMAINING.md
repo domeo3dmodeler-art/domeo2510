@@ -29,6 +29,18 @@
 11. ✅ Унифицирована обработка ответов API в ApplicationsBoard.tsx (2025-11-11)
    - Заменен ручной парсинг на `parseApiResponse` в трех местах
    - Улучшена консистентность обработки ответов API
+12. ✅ Исправлены критические места с прямым `fetch` (2025-11-11)
+   - Заменено 21 место на `fetchWithAuth` в критических компонентах:
+     - `components/executor/OrdersBoard.tsx` - 1 место
+     - `app/complectator/dashboard/ComplectatorDashboardComponent.tsx` - 7 мест
+     - `app/executor/dashboard/page.tsx` - 3 места
+     - `lib/cart/price-recalculation-service.ts` - 2 места
+     - `app/doors/page.tsx` - 7 мест
+   - Улучшена безопасность и консистентность авторизации
+13. ✅ Проведен полный аудит проекта (2025-11-11)
+   - Проверена обработка ошибок в API endpoints (260+ используют `withErrorHandling`)
+   - Проверена валидация входных данных (критические endpoints используют Zod)
+   - Созданы отчеты: `docs/FULL_PROJECT_AUDIT.md` и `docs/AUDIT_SUMMARY.md`
 
 ## ⚠️ Осталось сделать
 
