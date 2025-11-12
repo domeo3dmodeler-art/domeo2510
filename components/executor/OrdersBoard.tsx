@@ -1448,6 +1448,10 @@ function OrderDetailModal({
                             // Иначе используем handleName или название из item
                             displayName = item.handleName || item.name || item.product_name || 'Ручка';
                           }
+                          // Добавляем префикс "Ручка " если его еще нет
+                          if (!displayName.toLowerCase().startsWith('ручка')) {
+                            displayName = `Ручка ${displayName}`;
+                          }
                         } else {
                           displayName = item.name || item.product_name || item.model || item.notes || 'Товар';
                         }
@@ -1457,11 +1461,6 @@ function OrderDetailModal({
                           <div key={index} className="flex justify-between items-start py-3 border-b last:border-0 hover:bg-gray-50 transition-colors rounded px-2 -mx-2">
                             <div className="flex-1 min-w-0">
                               <div className="font-medium text-base mb-1">{cleanName || `Товар ${index + 1}`}</div>
-                              {item.handleName && (
-                                <div className="text-sm text-gray-600 mb-1">
-                                  Ручка: {item.handleName}
-                                </div>
-                              )}
                               <div className="text-sm text-gray-500">
                                 {qty} шт. × {price.toLocaleString('ru-RU')} ₽
                               </div>
