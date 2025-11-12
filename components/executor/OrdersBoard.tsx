@@ -1059,9 +1059,9 @@ function OrderDetailModal({
       <div className="bg-white rounded-lg max-w-5xl w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="p-6">
           {/* Заголовок */}
-          <div className="flex justify-between items-center mb-6 border-b pb-4">
-            <div className="flex-1">
-              <div className="flex items-center space-x-4">
+          <div className="mb-6 border-b pb-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-2">
                 <h2 className="text-2xl font-bold text-black">{currentOrder.number}</h2>
                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${statusConfig.color}`}>
                   <StatusIcon className="h-4 w-4 mr-1" />
@@ -1071,13 +1071,35 @@ function OrderDetailModal({
                   Создан: {formatDate(currentOrder.created_at)}
                 </span>
               </div>
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-black transition-colors text-2xl"
+              >
+                ✕
+              </button>
             </div>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-black transition-colors text-2xl"
-            >
-              ✕
-            </button>
+            
+            {/* Действия в заголовке (как в ЛК комплектатора) */}
+            <div className="flex items-center space-x-4 mt-2 flex-wrap gap-2">
+              <button 
+                onClick={() => setIsCommentsModalOpen(true)}
+                className="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                <div className="w-3 h-3 bg-green-100 rounded-sm flex items-center justify-center">
+                  <StickyNote className="h-2 w-2 text-green-600" />
+                </div>
+                <span className="text-xs">Комментарии</span>
+              </button>
+              <button 
+                onClick={() => setIsHistoryModalOpen(true)}
+                className="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                <div className="w-3 h-3 bg-gray-100 rounded-full flex items-center justify-center">
+                  <History className="h-2 w-2 text-gray-600" />
+                </div>
+                <span className="text-xs">История</span>
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1120,12 +1142,10 @@ function OrderDetailModal({
                   variant="outline"
                   size="sm"
                   onClick={handleExportInvoicePDF}
-                  disabled={loading || !currentOrder.invoice?.id || currentOrder.invoice?.status !== 'PAID'}
+                  disabled={loading || !currentOrder.invoice?.id}
                   className="flex-1"
                   title={!currentOrder.invoice?.id 
-                    ? 'Счет не создан' 
-                    : currentOrder.invoice?.status !== 'PAID' 
-                    ? 'Экспорт доступен только для оплаченных счетов'
+                    ? 'Счет не создан'
                     : 'Экспортировать оплаченный счет'
                   }
                 >
@@ -1148,24 +1168,6 @@ function OrderDetailModal({
               <Card variant="base" className="p-4">
                 <h3 className="font-semibold text-black mb-3">Действия</h3>
                 <div className="space-y-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsCommentsModalOpen(true)}
-                    className="w-full"
-                  >
-                    <StickyNote className="h-4 w-4 mr-2" />
-                    Комментарии
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsHistoryModalOpen(true)}
-                    className="w-full"
-                  >
-                    <History className="h-4 w-4 mr-2" />
-                    История изменений
-                  </Button>
                   {(() => {
                     // Маппим статус для проверки (PAID -> NEW_PLANNED)
                     const executorStatus = getExecutorOrderStatus(currentOrder.status);
@@ -1244,11 +1246,6 @@ function OrderDetailModal({
               <Card variant="base" className="p-4">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-semibold text-black">Проект/планировка</h3>
-                  {currentOrder.project_file_url && (
-                    <div className="flex items-center gap-2">
-                      <FileCheck className="h-4 w-4 text-green-600" title="Файл загружен" />
-                    </div>
-                  )}
                 </div>
                 {currentOrder.project_file_url ? (
                   <div className="space-y-1">
@@ -1460,11 +1457,6 @@ function OrderDetailModal({
                           <div key={index} className="flex justify-between items-start py-3 border-b last:border-0 hover:bg-gray-50 transition-colors rounded px-2 -mx-2">
                             <div className="flex-1 min-w-0">
                               <div className="font-medium text-base mb-1">{cleanName || `Товар ${index + 1}`}</div>
-                              {item.hardwareKitName && (
-                                <div className="text-sm text-gray-600 mb-1">
-                                  Фурнитура: {item.hardwareKitName}
-                                </div>
-                              )}
                               {item.handleName && (
                                 <div className="text-sm text-gray-600 mb-1">
                                   Ручка: {item.handleName}
