@@ -117,6 +117,7 @@ async function postHandler(
         middleName: client.middleName,
         phone: client.phone,
         address: client.address,
+        objectId: client.objectId,
         compilationLeadNumber: client.compilationLeadNumber,
         createdAt: client.createdAt
       },

@@ -22,8 +22,8 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { DoorCard, StickyPreview, Select, HardwareSelect, HandleSelect, SelectMini } from "@/components/doors";
 import type { BasicState, CartItem, Domain, HardwareKit, Handle, ModelItem } from "@/components/doors";
 import { resetDependentParams, formatModelNameForCard, formatModelNameForPreview, fmtInt, fmt2, uid, hasBasic, slugify } from "@/components/doors";
-import type { CreateClientInput } from "@/lib/validation/client.schemas";
 import { OrderDetailsModal } from "@/components/complectator/OrderDetailsModal";
+import { CreateClientModal } from "@/components/clients/CreateClientModal";
 
 // Типы и утилиты импортируются из @/components/doors
 
@@ -639,14 +639,6 @@ export default function DoorsPage() {
   const [clientSearchInput, setClientSearchInput] = useState('');
   const [clientSearch, setClientSearch] = useState('');
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
-  const [newClientData, setNewClientData] = useState({
-    firstName: '',
-    lastName: '',
-    middleName: '',
-    phone: '',
-    address: '',
-    compilationLeadNumber: ''
-  });
 
   // Получаем роль пользователя
   useEffect(() => {
@@ -749,48 +741,6 @@ export default function DoorsPage() {
     }
   }, [showClientManager, fetchClients]);
 
-  // Создание нового клиента
-  const createClient = async (clientData: CreateClientInput) => {
-    try {
-      const response = await fetchWithAuth('/api/clients', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(clientData)
-      });
-
-      if (response.ok) {
-        let data: unknown;
-        try {
-          data = await response.json();
-        } catch (jsonError) {
-          throw new Error('Failed to parse create client response');
-        }
-        
-        // Парсим ответ в формате apiSuccess
-        const { parseApiResponse } = await import('@/lib/utils/parse-api-response');
-        const parsedData = parseApiResponse<{ id: string; firstName: string; lastName: string; middleName?: string; phone: string; address: string; compilationLeadNumber?: string; createdAt: string }>(data);
-        
-        await fetchClients(); // Обновляем список
-        return parsedData;
-      } else {
-        let errorData: unknown;
-        try {
-          errorData = await response.json();
-        } catch (jsonError) {
-          // Игнорируем ошибку парсинга JSON
-        }
-        const errorMessage = errorData && typeof errorData === 'object' && 'error' in errorData
-          ? String((errorData as { error: unknown }).error)
-          : `HTTP ${response.status}: ${response.statusText}`;
-        throw new Error(errorMessage || 'Failed to create client');
-      }
-    } catch (error) {
-      clientLogger.error('Error creating client:', error);
-      throw error;
-    }
-  };
 
   const [kpHtml, setKpHtml] = useState<string>("");
   
@@ -3084,101 +3034,15 @@ export default function DoorsPage() {
                 </div>
 
             {/* Модалка создания клиента */}
-            {showCreateClientForm && (
-              <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
-                <div className="bg-white rounded-lg w-full max-w-4xl p-6 shadow-xl">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-black">Новый заказчик</h3>
-                  <button
-                    onClick={() => setShowCreateClientForm(false)}
-                    className="px-3 py-2 text-sm border border-black text-black hover:bg-black hover:text-white rounded"
-                  >
-                    Закрыть
-                  </button>
-                </div>
-
-                {/* Одна строка с полями разной ширины */}
-                <div className="grid grid-cols-12 gap-3">
-                      <input
-                        type="text"
-                    placeholder="Фамилия"
-                        value={newClientData.lastName}
-                        onChange={(e) => setNewClientData(prev => ({ ...prev, lastName: e.target.value }))}
-                    className="col-span-3 px-3 py-2 border border-gray-300 rounded"
-                      />
-                      <input
-                        type="text"
-                    placeholder="Имя"
-                        value={newClientData.firstName}
-                        onChange={(e) => setNewClientData(prev => ({ ...prev, firstName: e.target.value }))}
-                    className="col-span-2 px-3 py-2 border border-gray-300 rounded"
-                      />
-                      <input
-                        type="text"
-                    placeholder="Отчество"
-                        value={newClientData.middleName}
-                        onChange={(e) => setNewClientData(prev => ({ ...prev, middleName: e.target.value }))}
-                    className="col-span-2 px-3 py-2 border border-gray-300 rounded"
-                      />
-                      <input
-                        type="tel"
-                    placeholder="Телефон"
-                        value={newClientData.phone}
-                        onChange={(e) => setNewClientData(prev => ({ ...prev, phone: e.target.value }))}
-                    className="col-span-2 px-3 py-2 border border-gray-300 rounded"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Номер лида комплектации"
-                    value={newClientData.compilationLeadNumber}
-                    onChange={(e) => setNewClientData(prev => ({ ...prev, compilationLeadNumber: e.target.value }))}
-                    className="col-span-3 px-3 py-2 border border-gray-300 rounded"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Адрес"
-                        value={newClientData.address}
-                        onChange={(e) => setNewClientData(prev => ({ ...prev, address: e.target.value }))}
-                    className="col-span-12 px-3 py-2 border border-gray-300 rounded"
-                      />
-                    </div>
-
-                <div className="flex justify-end gap-3 mt-4">
-                  <button
-                    onClick={() => setShowCreateClientForm(false)}
-                    className="px-3 py-2 border border-gray-300 rounded hover:bg-gray-100"
-                  >
-                    Отмена
-                  </button>
-                    <button
-                      onClick={async () => {
-                        if (!newClientData.firstName || !newClientData.lastName || !newClientData.phone) {
-                        alert('Заполните ФИО и телефон');
-                          return;
-                        }
-                          const clientData: CreateClientInput = {
-                            firstName: newClientData.firstName,
-                            lastName: newClientData.lastName,
-                            middleName: newClientData.middleName || null,
-                            phone: newClientData.phone,
-                            address: newClientData.address || '',
-                            compilationLeadNumber: newClientData.compilationLeadNumber || null,
-                            customFields: '{}',
-                            isActive: true
-                          };
-                          const client = await createClient(clientData);
-                          setSelectedClient(client.id);
-                          setSelectedClientName(`${client.firstName} ${client.lastName}`);
-                      setShowCreateClientForm(false);
-                    }}
-                    className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
-                    >
-                      Создать клиента
-                    </button>
-                    </div>
-                  </div>
-                </div>
-            )}
+            <CreateClientModal
+              isOpen={showCreateClientForm}
+              onClose={() => setShowCreateClientForm(false)}
+              onClientCreated={(client) => {
+                setSelectedClient(client.id);
+                setSelectedClientName(`${client.firstName} ${client.lastName}`);
+                fetchClients(); // Обновляем список клиентов
+              }}
+            />
               </div>
         </div>
       )}

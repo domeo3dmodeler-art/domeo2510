@@ -130,12 +130,12 @@ export function useAuth() {
           // Сохраняем данные пользователя в localStorage
           saveUserToLocalStorage(userData);
           
-          setAuthState({
-            user: userData,
-            isAuthenticated: true,
-            isLoading: false,
-            error: null
-          });
+        setAuthState({
+          user: userData,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null
+        });
         } else {
           throw new Error('Invalid user data');
         }

@@ -27,6 +27,7 @@ import NotificationBell from '@/components/ui/NotificationBell';
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import DocumentWorkflowIntegration from '@/app/components/documents/DocumentWorkflowIntegration';
 import { OrderDetailsModal } from '@/components/complectator/OrderDetailsModal';
+import { CreateClientModal } from '@/components/clients/CreateClientModal';
 import { parseApiResponse } from '@/lib/utils/parse-api-response';
 import { COMPLECTATOR_FILTER_STATUSES, getStatusLabel, ORDER_STATUSES_COMPLECTATOR, INVOICE_STATUSES, QUOTE_STATUSES } from '@/lib/utils/document-statuses';
 import { 
@@ -98,15 +99,6 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
   const [deletingOrder, setDeletingOrder] = useState(false);
   const [showInWorkOnly, setShowInWorkOnly] = useState(false);
   const [showCreateClientForm, setShowCreateClientForm] = useState(false);
-  const [newClientData, setNewClientData] = useState({
-    firstName: '',
-    lastName: '',
-    middleName: '',
-    phone: '',
-    address: '',
-    objectId: '',
-    compilationLeadNumber: ''
-  });
   const [statusDropdown, setStatusDropdown] = useState<{type: 'quote'|'invoice', id: string, x: number, y: number} | null>(null);
   const [blockedStatuses, setBlockedStatuses] = useState<Set<string>>(new Set());
   const [showQuoteActions, setShowQuoteActions] = useState<string | null>(null);
@@ -498,53 +490,6 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
     }
   };
 
-  // Создание нового клиента
-  const createClient = async (clientData: any) => {
-    try {
-      const response = await fetchWithAuth('/api/clients', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(clientData)
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // Обновляем список клиентов
-        const newClient = {
-          id: data.client.id,
-          firstName: data.client.firstName,
-          lastName: data.client.lastName,
-          middleName: data.client.middleName,
-          phone: data.client.phone,
-          address: data.client.address,
-          objectId: data.client.objectId,
-          lastActivityAt: data.client.createdAt,
-          lastDoc: undefined
-        };
-        setClients(prev => [...prev, newClient]);
-        setSelectedClient(data.client.id);
-        setShowCreateClientForm(false);
-        setNewClientData({
-          firstName: '',
-          lastName: '',
-          middleName: '',
-          phone: '',
-          address: '',
-          objectId: '',
-          compilationLeadNumber: ''
-        });
-        return data.client;
-      } else {
-        throw new Error('Failed to create client');
-      }
-    } catch (createClientError) {
-      clientLogger.error('Error creating client', createClientError);
-      toast.error('Ошибка при создании клиента');
-      throw createClientError;
-    }
-  };
 
 
   // Показать выпадающее меню статуса
@@ -1189,100 +1134,26 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       )}
 
       {/* Модальное окно создания клиента */}
-      {showCreateClientForm && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-lg w-full max-w-4xl p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-black">Новый заказчик</h3>
-              <button
-                onClick={() => setShowCreateClientForm(false)}
-                className="px-3 py-2 text-sm border border-black text-black hover:bg-black hover:text-white rounded"
-              >
-                Закрыть
-              </button>
-            </div>
-
-            {/* Одна строка с полями разной ширины */}
-            <div className="grid grid-cols-12 gap-3">
-              <input
-                type="text"
-                placeholder="Фамилия"
-                value={newClientData.lastName}
-                onChange={(e) => setNewClientData(prev => ({ ...prev, lastName: e.target.value }))}
-                className="col-span-3 px-3 py-2 border border-gray-300 rounded"
-              />
-              <input
-                type="text"
-                placeholder="Имя"
-                value={newClientData.firstName}
-                onChange={(e) => setNewClientData(prev => ({ ...prev, firstName: e.target.value }))}
-                className="col-span-2 px-3 py-2 border border-gray-300 rounded"
-              />
-              <input
-                type="text"
-                placeholder="Отчество"
-                value={newClientData.middleName}
-                onChange={(e) => setNewClientData(prev => ({ ...prev, middleName: e.target.value }))}
-                className="col-span-2 px-3 py-2 border border-gray-300 rounded"
-              />
-              <div className="col-span-2">
-              <PhoneInput
-                  label="Телефон"
-                value={newClientData.phone}
-                onChange={(value) => setNewClientData(prev => ({ ...prev, phone: value }))}
-                placeholder="+7 (999) 123-45-67"
-              />
-              </div>
-              <input
-                type="text"
-                placeholder="ID объекта"
-                value={newClientData.objectId}
-                onChange={(e) => setNewClientData(prev => ({ ...prev, objectId: e.target.value }))}
-                className="col-span-3 px-3 py-2 border border-gray-300 rounded"
-              />
-              <input
-                type="text"
-                placeholder="Номер лида комплектации"
-                value={newClientData.compilationLeadNumber}
-                onChange={(e) => setNewClientData(prev => ({ ...prev, compilationLeadNumber: e.target.value }))}
-                className="col-span-2 px-3 py-2 border border-gray-300 rounded"
-              />
-              <input
-                type="text"
-                placeholder="Адрес"
-                value={newClientData.address}
-                onChange={(e) => setNewClientData(prev => ({ ...prev, address: e.target.value }))}
-                className="col-span-12 px-3 py-2 border border-gray-300 rounded"
-              />
-                </div>
-
-            <div className="flex justify-end gap-3 mt-4">
-              <button
-                onClick={() => setShowCreateClientForm(false)}
-                className="px-3 py-2 border border-gray-300 rounded hover:bg-gray-100"
-              >
-                Отмена
-              </button>
-              <button
-                onClick={async () => {
-                  if (!newClientData.firstName || !newClientData.lastName || !newClientData.phone) {
-                    toast.error('Заполните ФИО и телефон');
-                    return;
-                  }
-                  try {
-                    await createClient(newClientData);
-                  } catch (createClientInFormError) {
-                    clientLogger.error('Error creating client', createClientInFormError);
-                  }
-                }}
-                className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
-              >
-                Создать клиента
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CreateClientModal
+        isOpen={showCreateClientForm}
+        onClose={() => setShowCreateClientForm(false)}
+        onClientCreated={(client) => {
+          // Обновляем список клиентов
+          const newClient = {
+            id: client.id,
+            firstName: client.firstName,
+            lastName: client.lastName,
+            middleName: client.middleName,
+            phone: client.phone,
+            address: client.address,
+            objectId: (client as any).objectId || '',
+            lastActivityAt: new Date().toISOString(),
+            lastDoc: undefined
+          };
+          setClients(prev => [...prev, newClient]);
+          setSelectedClient(client.id);
+        }}
+      />
 
       {/* Выпадающее меню статуса */}
       {statusDropdown && (

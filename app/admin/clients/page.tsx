@@ -484,8 +484,9 @@ export default function ClientsPage() {
           title={editingClient ? 'Редактировать заказчика' : 'Добавить заказчика'}
         >
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
+            {/* Одна строка с полями разной ширины - как в корзине */}
+            <div className="grid grid-cols-12 gap-3">
+              <div className="col-span-3">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Фамилия *
                 </label>
@@ -495,7 +496,7 @@ export default function ClientsPage() {
                   placeholder="Иванов"
                 />
               </div>
-              <div>
+              <div className="col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Имя *
                 </label>
@@ -505,58 +506,55 @@ export default function ClientsPage() {
                   placeholder="Иван"
                 />
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Отчество
-              </label>
-              <Input
-                value={formData.middleName}
-                onChange={(e) => setFormData(prev => ({ ...prev, middleName: e.target.value }))}
-                placeholder="Иванович"
-              />
-            </div>
-
-            <PhoneInput
-              label="Телефон"
-                value={formData.phone}
-              onChange={(value) => setFormData(prev => ({ ...prev, phone: value }))}
-              required
-                placeholder="+7 (999) 123-45-67"
-              />
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Адрес объекта *
-              </label>
-              <Input
-                value={formData.address}
-                onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                placeholder="г. Москва, ул. Примерная, д. 1"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                ID объекта *
-              </label>
-              <Input
-                value={formData.objectId}
-                onChange={(e) => setFormData(prev => ({ ...prev, objectId: e.target.value }))}
-                placeholder="OBJ-001"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Номер лида комплектации
-              </label>
-              <Input
-                value={formData.compilationLeadNumber}
-                onChange={(e) => setFormData(prev => ({ ...prev, compilationLeadNumber: e.target.value }))}
-                placeholder="Номер лида комплектации"
-              />
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Отчество
+                </label>
+                <Input
+                  value={formData.middleName}
+                  onChange={(e) => setFormData(prev => ({ ...prev, middleName: e.target.value }))}
+                  placeholder="Иванович"
+                />
+              </div>
+              <div className="col-span-2">
+                <PhoneInput
+                  label="Телефон"
+                  value={formData.phone}
+                  onChange={(value) => setFormData(prev => ({ ...prev, phone: value }))}
+                  required
+                  placeholder="+7 (999) 123-45-67"
+                />
+              </div>
+              <div className="col-span-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  ID объекта *
+                </label>
+                <Input
+                  value={formData.objectId}
+                  onChange={(e) => setFormData(prev => ({ ...prev, objectId: e.target.value }))}
+                  placeholder="OBJ-001"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Номер лида комплектации
+                </label>
+                <Input
+                  value={formData.compilationLeadNumber}
+                  onChange={(e) => setFormData(prev => ({ ...prev, compilationLeadNumber: e.target.value }))}
+                  placeholder="Номер лида комплектации"
+                />
+              </div>
+              <div className="col-span-12">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Адрес объекта *
+                </label>
+                <Input
+                  value={formData.address}
+                  onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                  placeholder="г. Москва, ул. Примерная, д. 1"
+                />
+              </div>
             </div>
 
             <div className="flex justify-end space-x-3 pt-4">

@@ -26,6 +26,7 @@ export interface CreateClientInput {
   middleName?: string | null;
   phone: string;
   address: string;
+  objectId?: string | null;
   compilationLeadNumber?: string | null;
   customFields?: string;
   isActive?: boolean;
@@ -37,6 +38,7 @@ export interface UpdateClientInput {
   middleName?: string | null;
   phone?: string;
   address?: string;
+  objectId?: string | null;
   compilationLeadNumber?: string | null;
   customFields?: string;
   isActive?: boolean;
@@ -97,7 +99,7 @@ export class ClientRepository {
           middleName: data.middleName,
           phone: data.phone,
           address: data.address,
-          objectId: `object-${Date.now()}`, // Генерируем автоматически для обратной совместимости с БД
+          objectId: data.objectId || `object-${Date.now()}`, // Используем переданный или генерируем автоматически
           compilationLeadNumber: data.compilationLeadNumber,
           customFields: data.customFields || '{}',
           isActive: data.isActive ?? true
@@ -132,6 +134,7 @@ export class ClientRepository {
           ...(data.middleName !== undefined && { middleName: data.middleName }),
           ...(data.phone !== undefined && { phone: data.phone }),
           ...(data.address !== undefined && { address: data.address }),
+          ...(data.objectId !== undefined && { objectId: data.objectId }),
           ...(data.compilationLeadNumber !== undefined && { compilationLeadNumber: data.compilationLeadNumber }),
           ...(data.customFields !== undefined && { customFields: data.customFields }),
           ...(data.isActive !== undefined && { isActive: data.isActive })
