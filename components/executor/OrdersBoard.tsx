@@ -524,172 +524,107 @@ function OrderDetailModal({
   }, [currentOrder, fetchProductsInfo]);
   
   // Экспорт счета в PDF (использует механизм экспорта из корзины)
+  // Экспорт счета в PDF
   const handleExportInvoicePDF = async () => {
     if (!currentOrder.invoice?.id) {
       toast.error('Счет не найден');
       return;
     }
     
-    // Проверяем статус счета - экспорт доступен только для оплаченных счетов
-    if (currentOrder.invoice.status !== 'PAID') {
-      toast.error('Экспорт доступен только для оплаченных счетов');
-      return;
-    }
-    
     try {
       setLoading(true);
       
-      // Получаем данные корзины из invoice или используем данные из order
-      let cartData;
-      let items: any[] = [];
-      
-      // Сначала пробуем получить из invoice.cart_data, если нет - из order.cart_data
-      const sourceCartData = currentOrder.invoice?.cart_data || currentOrder.cart_data;
-      
-      if (sourceCartData) {
-        try {
-          cartData = typeof sourceCartData === 'string' 
-            ? JSON.parse(sourceCartData) 
-            : sourceCartData;
-          const rawItems = cartData.items || (Array.isArray(cartData) ? cartData : []);
-          items = rawItems.map((item: any) => ({
-            id: item.id || item.productId,
-            productId: item.productId || item.id,
-            name: item.name || item.model,
-            model: item.model || item.name,
-            qty: item.qty || item.quantity || 1,
-            quantity: item.qty || item.quantity || 1,
-            unitPrice: item.unitPrice || item.price || 0,
-            price: item.unitPrice || item.price || 0,
-            width: item.width,
-            height: item.height,
-            color: item.color,
-            finish: item.finish,
-            type: item.type,
-            sku_1c: item.sku_1c,
-            handleId: item.handleId,
-            handleName: item.handleName
-          }));
-        } catch (parseError) {
-          clientLogger.error('Error parsing invoice cart_data', parseError);
-        }
-      }
-      
-      // Если нет cart_data ни в invoice, ни в order, пробуем использовать прямой экспорт через API
-      if (items.length === 0 && currentOrder.invoice?.id) {
-        const response = await fetchWithAuth(`/api/documents/${currentOrder.invoice.id}/export?format=pdf`, {
-          method: 'POST'
-        });
-        if (response.ok) {
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${currentOrder.invoice.number}.pdf`;
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-          toast.success('Счет экспортирован в PDF');
-          setLoading(false);
-          return;
-        } else {
-          toast.error('Ошибка экспорта счета');
-          setLoading(false);
-          return;
-        }
-      }
-
-      // Используем механизм экспорта из корзины
-      const response = await fetchWithAuth('/api/export/fast', {
-        method: 'POST',
-        body: JSON.stringify({
-          type: 'invoice',
-          format: 'pdf',
-          clientId: currentOrder.client_id,
-          items,
-          totalAmount: currentOrder.invoice.total_amount,
-          parentDocumentId: currentOrder.id,
-          cartSessionId: currentOrder.cart_session_id
-        })
+      // Используем прямой экспорт через API документов (как в ЛК комплектатора)
+      const response = await fetchWithAuth(`/api/documents/${currentOrder.invoice.id}/export?format=pdf`, {
+        method: 'POST'
       });
-
+      
       if (response.ok) {
         const blob = await response.blob();
+        
+        // Проверяем, что blob не пустой
+        if (blob.size === 0) {
+          throw new Error('Получен пустой файл');
+        }
+        
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         const contentDisposition = response.headers.get('content-disposition');
-        a.download = contentDisposition?.match(/filename="(.+)"/)?.[1] || `${currentOrder.invoice.number}.pdf`;
+        const filename = contentDisposition?.match(/filename="(.+)"/)?.[1] || `Счет-${currentOrder.invoice.number}.pdf`;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
         toast.success('Счет экспортирован в PDF');
       } else {
-        const error = await response.json();
-        toast.error(error.error || 'Ошибка экспорта счета');
+        const errorData = await response.json().catch(() => ({ error: 'Ошибка экспорта счета' }));
+        toast.error(errorData.error || 'Ошибка экспорта счета');
       }
     } catch (error) {
-      clientLogger.error('Error exporting invoice', error);
+      clientLogger.error('Error exporting invoice PDF', error);
       toast.error('Ошибка экспорта счета');
     } finally {
       setLoading(false);
     }
   };
 
-  // Экспорт заказа у поставщика (использует механизм экспорта из корзины)
+  // Экспорт заказа у поставщика в Excel
   const handleExportSupplierOrder = async () => {
-    // Загружаем заказы у поставщика если еще не загружены
-    if (supplierOrders.length === 0) {
-      try {
-        const response = await fetch(`/api/supplier-orders?orderId=${order.id}`);
+    try {
+      setLoading(true);
+      
+      // Загружаем заказы у поставщика если еще не загружены
+      let ordersToExport = supplierOrders;
+      if (ordersToExport.length === 0) {
+        const response = await fetchWithAuth(`/api/supplier-orders?orderId=${currentOrder.id}`);
         if (response.ok) {
           const data = await response.json();
-          setSupplierOrders(data.supplierOrders || []);
-          if (data.supplierOrders && data.supplierOrders.length === 0) {
-            toast.error('Заказ у поставщика не найден');
-            return;
-          }
+          const parsedData = parseApiResponse<{ supplierOrders: any[] }>(data);
+          ordersToExport = parsedData.supplierOrders || [];
         } else {
           toast.error('Ошибка загрузки заказов у поставщика');
           return;
         }
-      } catch (error) {
-        clientLogger.error('Error fetching supplier orders', error);
-        toast.error('Ошибка загрузки заказов у поставщика');
+      }
+
+      if (ordersToExport.length === 0) {
+        toast.error('Заказ у поставщика не найден');
         return;
       }
-    }
-
-    if (supplierOrders.length === 0) {
-      toast.error('Заказ у поставщика не найден');
-      return;
-    }
-    
-    const supplierOrder = supplierOrders[0];
-    
-    try {
-      setLoading(true);
       
-      // Используем fetchWithAuth для экспорта
+      // Берем первый заказ у поставщика
+      const supplierOrder = ordersToExport[0];
+      
+      // Экспортируем в Excel через API
       const response = await fetchWithAuth(`/api/supplier-orders/${supplierOrder.id}/excel`);
+      
       if (response.ok) {
         const blob = await response.blob();
+        
+        // Проверяем, что blob не пустой
+        if (blob.size === 0) {
+          throw new Error('Получен пустой файл');
+        }
+        
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${supplierOrder.number}.xlsx`;
+        const contentDisposition = response.headers.get('content-disposition');
+        const filename = contentDisposition?.match(/filename="(.+)"/)?.[1] || `Заказ_у_поставщика_${supplierOrder.id.slice(-6)}.xlsx`;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        toast.success('Заказ у поставщика экспортирован');
+        toast.success('Заказ у поставщика экспортирован в Excel');
       } else {
-        toast.error('Ошибка экспорта заказа у поставщика');
+        const errorData = await response.json().catch(() => ({ error: 'Ошибка экспорта заказа у поставщика' }));
+        toast.error(errorData.error || 'Ошибка экспорта заказа у поставщика');
       }
     } catch (error) {
-      clientLogger.error('Error exporting supplier order', error);
+      clientLogger.error('Error exporting supplier order Excel', error);
       toast.error('Ошибка экспорта заказа у поставщика');
     } finally {
       setLoading(false);
