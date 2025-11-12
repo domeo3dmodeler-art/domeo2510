@@ -22,7 +22,6 @@ export function CreateClientModal({ isOpen, onClose, onClientCreated }: CreateCl
     middleName: string;
     phone: string;
     address: string;
-    objectId: string;
     compilationLeadNumber: string;
   }>({
     firstName: '',
@@ -30,7 +29,6 @@ export function CreateClientModal({ isOpen, onClose, onClientCreated }: CreateCl
     middleName: '',
     phone: '',
     address: '',
-    objectId: '',
     compilationLeadNumber: ''
   });
   const [isCreating, setIsCreating] = useState(false);
@@ -90,7 +88,6 @@ export function CreateClientModal({ isOpen, onClose, onClientCreated }: CreateCl
         middleName: newClientData.middleName || null,
         phone: newClientData.phone,
         address: newClientData.address || '',
-        objectId: newClientData.objectId || null,
         compilationLeadNumber: newClientData.compilationLeadNumber || null,
         customFields: '{}',
         isActive: true
@@ -111,7 +108,6 @@ export function CreateClientModal({ isOpen, onClose, onClientCreated }: CreateCl
         middleName: '',
         phone: '',
         address: '',
-        objectId: '',
         compilationLeadNumber: ''
       });
 
@@ -131,7 +127,6 @@ export function CreateClientModal({ isOpen, onClose, onClientCreated }: CreateCl
       middleName: '',
       phone: '',
       address: '',
-      objectId: '',
       compilationLeadNumber: ''
     });
     onClose();
@@ -142,6 +137,7 @@ export function CreateClientModal({ isOpen, onClose, onClientCreated }: CreateCl
       isOpen={isOpen}
       onClose={handleClose}
       title="Новый заказчик"
+      size="full"
     >
       <div className="space-y-4">
         {/* Одна строка с полями разной ширины */}
@@ -177,17 +173,10 @@ export function CreateClientModal({ isOpen, onClose, onClientCreated }: CreateCl
           </div>
           <input
             type="text"
-            placeholder="ID объекта"
-            value={newClientData.objectId}
-            onChange={(e) => setNewClientData(prev => ({ ...prev, objectId: e.target.value }))}
-            className="col-span-3 px-3 py-2 border border-gray-300 rounded"
-          />
-          <input
-            type="text"
             placeholder="Номер лида комплектации"
             value={newClientData.compilationLeadNumber}
             onChange={(e) => setNewClientData(prev => ({ ...prev, compilationLeadNumber: e.target.value }))}
-            className="col-span-2 px-3 py-2 border border-gray-300 rounded"
+            className="col-span-3 px-3 py-2 border border-gray-300 rounded"
           />
           <input
             type="text"
