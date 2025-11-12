@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bell, ChevronDown, FileText, CreditCard, Package } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import DocumentQuickViewModal from '@/components/documents/DocumentQuickViewModal';
+import { OrderDetailsModal } from '@/components/complectator/OrderDetailsModal';
 import { clientLogger } from '@/lib/logging/client-logger';
 import { fetchWithAuth } from '@/lib/utils/fetch-with-auth';
 import { parseApiResponse } from '@/lib/utils/parse-api-response';
@@ -35,7 +36,9 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
   const [loading, setLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Получаем уведомления
@@ -117,6 +120,19 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
     return `${days} дн назад`;
   };
 
+  // Проверяем, является ли document_id заказом
+  const checkIfOrder = async (documentId: string): Promise<boolean> => {
+    try {
+      const response = await fetchWithAuth(`/api/orders/${documentId}`);
+      if (response.ok) {
+        return true; // Это заказ
+      }
+    } catch (error) {
+      // Игнорируем ошибки
+    }
+    return false;
+  };
+
   // Обработка клика на уведомление
   const handleNotificationClick = async (notification: Notification) => {
     // Отмечаем как прочитанное
@@ -129,6 +145,17 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
 
     // Открываем модальное окно с документом
     if (notification.document_id) {
+      // Для исполнителя проверяем, является ли документ заказом
+      if (userRole === 'executor') {
+        const isOrder = await checkIfOrder(notification.document_id);
+        if (isOrder) {
+          setSelectedOrderId(notification.document_id);
+          setIsOrderModalOpen(true);
+          return;
+        }
+      }
+      
+      // Для других ролей или если это не заказ, используем DocumentQuickViewModal
       setSelectedDocumentId(notification.document_id);
       setIsModalOpen(true);
     }
@@ -267,6 +294,19 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
             setSelectedDocumentId(null);
           }}
           documentId={selectedDocumentId}
+        />
+      )}
+
+      {/* Модальное окно заказа для исполнителя */}
+      {selectedOrderId && userRole === 'executor' && (
+        <OrderDetailsModal
+          isOpen={isOrderModalOpen}
+          onClose={() => {
+            setIsOrderModalOpen(false);
+            setSelectedOrderId(null);
+          }}
+          orderId={selectedOrderId}
+          userRole={userRole}
         />
       )}
     </div>
