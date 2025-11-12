@@ -1243,54 +1243,55 @@ function OrderDetailModal({
             {/* Правая колонка */}
             <div className="space-y-6">
               {/* Проект/планировка */}
-              <Card variant="base" className="p-4">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-semibold text-black">Проект/планировка</h3>
+              <Card variant="base" className="p-3">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-sm font-medium text-black">Проект/планировка</h3>
                 </div>
                 {currentOrder.project_file_url ? (
-                  <div className="space-y-1">
+                  <div className="space-y-0.5">
                     <a
                       href={currentOrder.project_file_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline text-sm flex items-center gap-2 p-2 rounded hover:bg-gray-50 transition-colors"
+                      className="text-blue-600 hover:underline text-xs flex items-center gap-1.5 py-1 px-1.5 rounded hover:bg-gray-50 transition-colors"
                       title={getOriginalFileName(currentOrder.project_file_url)}
                     >
-                      <File className="h-4 w-4" />
+                      <File className="h-3 w-3" />
                       <span className="truncate max-w-[200px]" title={getOriginalFileName(currentOrder.project_file_url)}>
                         {getOriginalFileName(currentOrder.project_file_url)}
                       </span>
-                      <Download className="h-3 w-3 ml-auto flex-shrink-0" />
+                      <Download className="h-2.5 w-2.5 ml-auto flex-shrink-0" />
                     </a>
                   </div>
                 ) : (
-                  <div className="text-sm text-gray-500 flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4" />
+                  <div className="text-xs text-gray-500 flex items-center gap-1.5">
+                    <AlertCircle className="h-3 w-3" />
                     <span>Файл не загружен</span>
                   </div>
                 )}
               </Card>
 
               {/* Тех. задания */}
-              <Card variant="base" className="p-4">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-semibold text-black">Тех. задания</h3>
+              <Card variant="base" className="p-3">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-sm font-medium text-black">Тех. задания</h3>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setShowTechSpecsUpload(true)}
+                    className="text-xs py-1 px-2 h-7"
                   >
-                    <Upload className="h-4 w-4 mr-2" />
+                    <Upload className="h-3 w-3 mr-1" />
                     Загрузить
                   </Button>
                 </div>
                 
                 {currentOrder.door_dimensions && currentOrder.door_dimensions.length > 0 ? (
-                  <div className="space-y-3 mb-4">
+                  <div className="space-y-2 mb-3">
                     {currentOrder.door_dimensions.map((door: any, index: number) => (
-                      <div key={index} className="border rounded p-3">
-                        <div className="font-medium mb-2">Дверь {index + 1}</div>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div key={index} className="border rounded p-2">
+                        <div className="text-xs font-medium mb-1">Дверь {index + 1}</div>
+                        <div className="grid grid-cols-2 gap-1.5 text-xs">
                           <div>
                             <span className="text-gray-600">Размер:</span>{' '}
                             <span className="font-medium">{door.width} x {door.height} мм</span>
@@ -1318,70 +1319,71 @@ function OrderDetailModal({
                 ) : null}
 
                 {currentOrder.technical_specs.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     {currentOrder.technical_specs.map((url: string, index: number) => (
-                      <div key={index} className="flex items-center justify-between p-2 rounded hover:bg-gray-50 transition-colors group">
+                      <div key={index} className="flex items-center justify-between py-1 px-1.5 rounded hover:bg-gray-50 transition-colors group">
                         <a
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline text-sm flex items-center gap-2 flex-1 min-w-0"
+                          className="text-blue-600 hover:underline text-xs flex items-center gap-1.5 flex-1 min-w-0"
                           title={getOriginalFileName(url)}
                         >
-                          <FileCheck className="h-4 w-4 text-green-600 flex-shrink-0" />
+                          <FileCheck className="h-3 w-3 text-green-600 flex-shrink-0" />
                           <span className="truncate" title={getOriginalFileName(url)}>
                             {getOriginalFileName(url)}
                           </span>
-                          <Download className="h-3 w-3 ml-auto flex-shrink-0" />
+                          <Download className="h-2.5 w-2.5 ml-auto flex-shrink-0" />
                         </a>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-sm text-gray-500 flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4" />
+                  <div className="text-xs text-gray-500 flex items-center gap-1.5">
+                    <AlertCircle className="h-3 w-3" />
                     <span>Файлы не загружены</span>
                   </div>
                 )}
               </Card>
 
               {/* Оптовые счета */}
-              <Card variant="base" className="p-4">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-semibold text-black">Оптовые счета</h3>
+              <Card variant="base" className="p-3">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-sm font-medium text-black">Оптовые счета</h3>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setShowFilesUpload(true)}
+                    className="text-xs py-1 px-2 h-7"
                   >
-                    <Upload className="h-4 w-4 mr-2" />
+                    <Upload className="h-3 w-3 mr-1" />
                     Загрузить
                   </Button>
                 </div>
                 
                 {currentOrder.wholesale_invoices.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     {currentOrder.wholesale_invoices.map((url: string, index: number) => (
-                      <div key={index} className="flex items-center justify-between p-2 rounded hover:bg-gray-50 transition-colors group">
+                      <div key={index} className="flex items-center justify-between py-1 px-1.5 rounded hover:bg-gray-50 transition-colors group">
                         <a
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline text-sm flex items-center gap-2 flex-1 min-w-0"
+                          className="text-blue-600 hover:underline text-xs flex items-center gap-1.5 flex-1 min-w-0"
                           title={getOriginalFileName(url)}
                         >
-                          <FileCheck className="h-4 w-4 text-green-600 flex-shrink-0" />
+                          <FileCheck className="h-3 w-3 text-green-600 flex-shrink-0" />
                           <span className="truncate" title={getOriginalFileName(url)}>
                             {getOriginalFileName(url)}
                           </span>
-                          <Download className="h-3 w-3 ml-auto flex-shrink-0" />
+                          <Download className="h-2.5 w-2.5 ml-auto flex-shrink-0" />
                         </a>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-sm text-gray-500 flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4" />
+                  <div className="text-xs text-gray-500 flex items-center gap-1.5">
+                    <AlertCircle className="h-3 w-3" />
                     <span>Файлы не загружены</span>
                   </div>
                 )}
@@ -1390,8 +1392,8 @@ function OrderDetailModal({
           </div>
 
           {/* Блок Товары */}
-          <Card variant="base" className="p-4 mt-6">
-            <h3 className="font-semibold text-black mb-3">Товары</h3>
+          <Card variant="base" className="p-3 mt-4">
+            <h3 className="text-sm font-medium text-black mb-2">Товары</h3>
             {(() => {
               // Используем cart_data из invoice, если есть, иначе из order
               const sourceCartData = currentOrder.invoice?.cart_data || currentOrder.cart_data;
@@ -1458,14 +1460,14 @@ function OrderDetailModal({
                         const cleanName = cleanProductName(displayName);
                         
                         return (
-                          <div key={index} className="flex justify-between items-start py-3 border-b last:border-0 hover:bg-gray-50 transition-colors rounded px-2 -mx-2">
+                          <div key={index} className="flex justify-between items-start py-2 border-b last:border-0 hover:bg-gray-50 transition-colors rounded px-2 -mx-2">
                             <div className="flex-1 min-w-0">
-                              <div className="font-medium text-base mb-1">{cleanName || `Товар ${index + 1}`}</div>
-                              <div className="text-sm text-gray-500">
+                              <div className="font-medium text-sm mb-0.5">{cleanName || `Товар ${index + 1}`}</div>
+                              <div className="text-xs text-gray-500">
                                 {qty} шт. × {price.toLocaleString('ru-RU')} ₽
                               </div>
                             </div>
-                            <div className="font-semibold text-lg text-right ml-4 flex-shrink-0">
+                            <div className="font-semibold text-base text-right ml-4 flex-shrink-0">
                               {itemTotal.toLocaleString('ru-RU')} ₽
                             </div>
                           </div>
