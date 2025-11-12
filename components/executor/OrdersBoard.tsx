@@ -523,7 +523,7 @@ function OrderDetailModal({
     }
   }, [currentOrder, fetchProductsInfo]);
   
-  // Экспорт счета в PDF
+  // Экспорт счета в PDF (использует механизм экспорта из корзины с дедубликацией)
   const handleExportInvoicePDF = async () => {
     if (!currentOrder.invoice?.id) {
       toast.error('Счет не найден');
@@ -533,9 +533,66 @@ function OrderDetailModal({
     try {
       setLoading(true);
       
-      // Используем прямой экспорт через API документов (как в ЛК комплектатора)
-      const response = await fetchWithAuth(`/api/documents/${currentOrder.invoice.id}/export?format=pdf`, {
-        method: 'POST'
+      // Получаем данные корзины из заказа или счета
+      let cartData;
+      let items: any[] = [];
+      
+      // Сначала пробуем получить из invoice.cart_data, если нет - из order.cart_data
+      const sourceCartData = currentOrder.invoice?.cart_data || currentOrder.cart_data;
+      
+      if (sourceCartData) {
+        try {
+          cartData = typeof sourceCartData === 'string' 
+            ? JSON.parse(sourceCartData) 
+            : sourceCartData;
+          const rawItems = cartData.items || (Array.isArray(cartData) ? cartData : []);
+          items = rawItems.map((item: any) => ({
+            id: item.id || item.productId,
+            productId: item.productId || item.id,
+            name: item.name || item.model,
+            model: item.model || item.name,
+            qty: item.qty || item.quantity || 1,
+            quantity: item.qty || item.quantity || 1,
+            unitPrice: item.unitPrice || item.price || 0,
+            price: item.unitPrice || item.price || 0,
+            width: item.width,
+            height: item.height,
+            color: item.color,
+            finish: item.finish,
+            type: item.type,
+            sku_1c: item.sku_1c,
+            handleId: item.handleId,
+            handleName: item.handleName,
+            hardwareKitId: item.hardwareKitId,
+            hardwareKitName: item.hardwareKitName
+          }));
+        } catch (parseError) {
+          clientLogger.error('Error parsing cart_data', parseError);
+        }
+      }
+      
+      if (items.length === 0) {
+        toast.error('Нет данных корзины для экспорта');
+        return;
+      }
+      
+      // Вычисляем общую сумму
+      const totalAmount = currentOrder.invoice.total_amount || currentOrder.total_amount || 
+        items.reduce((sum: number, item: any) => sum + (item.unitPrice || 0) * (item.qty || 1), 0);
+      
+      // Используем механизм экспорта из корзины с дедубликацией (как в ЛК комплектатора)
+      const response = await fetchWithAuth('/api/export/fast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'invoice',
+          format: 'pdf',
+          clientId: currentOrder.client_id,
+          items,
+          totalAmount,
+          parentDocumentId: currentOrder.id, // Связь с заказом
+          cartSessionId: currentOrder.cart_session_id || null // Для дедубликации
+        })
       });
       
       if (response.ok) {
@@ -550,7 +607,7 @@ function OrderDetailModal({
         const a = document.createElement('a');
         a.href = url;
         const contentDisposition = response.headers.get('content-disposition');
-        const filename = contentDisposition?.match(/filename="(.+)"/)?.[1] || `Счет-${currentOrder.invoice.number}.pdf`;
+        const filename = contentDisposition?.match(/filename="(.+)"/)?.[1] || `Счет-${currentOrder.invoice.number || currentOrder.number}.pdf`;
         a.download = filename;
         document.body.appendChild(a);
         a.click();
@@ -569,35 +626,72 @@ function OrderDetailModal({
     }
   };
 
-  // Экспорт заказа у поставщика в Excel
+  // Экспорт заказа у поставщика в Excel (использует механизм экспорта из корзины с дедубликацией)
   const handleExportSupplierOrder = async () => {
     try {
       setLoading(true);
       
-      // Загружаем заказы у поставщика если еще не загружены
-      let ordersToExport = supplierOrders;
-      if (ordersToExport.length === 0) {
-        const response = await fetchWithAuth(`/api/supplier-orders?orderId=${currentOrder.id}`);
-        if (response.ok) {
-          const data = await response.json();
-          const parsedData = parseApiResponse<{ supplierOrders: any[] }>(data);
-          ordersToExport = parsedData.supplierOrders || [];
-        } else {
-          toast.error('Ошибка загрузки заказов у поставщика');
-          return;
+      // Получаем данные корзины из заказа
+      let cartData;
+      let items: any[] = [];
+      
+      const sourceCartData = currentOrder.cart_data;
+      
+      if (sourceCartData) {
+        try {
+          cartData = typeof sourceCartData === 'string' 
+            ? JSON.parse(sourceCartData) 
+            : sourceCartData;
+          const rawItems = cartData.items || (Array.isArray(cartData) ? cartData : []);
+          items = rawItems.map((item: any) => ({
+            id: item.id || item.productId,
+            productId: item.productId || item.id,
+            name: item.name || item.model,
+            model: item.model || item.name,
+            qty: item.qty || item.quantity || 1,
+            quantity: item.qty || item.quantity || 1,
+            unitPrice: item.unitPrice || item.price || 0,
+            price: item.unitPrice || item.price || 0,
+            width: item.width,
+            height: item.height,
+            color: item.color,
+            finish: item.finish,
+            type: item.type,
+            sku_1c: item.sku_1c,
+            handleId: item.handleId,
+            handleName: item.handleName,
+            hardwareKitId: item.hardwareKitId,
+            hardwareKitName: item.hardwareKitName
+          }));
+        } catch (parseError) {
+          clientLogger.error('Error parsing cart_data', parseError);
         }
       }
-
-      if (ordersToExport.length === 0) {
-        toast.error('Заказ у поставщика не найден');
+      
+      if (items.length === 0) {
+        toast.error('Нет данных корзины для экспорта');
         return;
       }
       
-      // Берем первый заказ у поставщика
-      const supplierOrder = ordersToExport[0];
+      // Вычисляем общую сумму
+      const totalAmount = currentOrder.total_amount || 
+        items.reduce((sum: number, item: any) => sum + (item.unitPrice || 0) * (item.qty || 1), 0);
       
-      // Экспортируем в Excel через API
-      const response = await fetchWithAuth(`/api/supplier-orders/${supplierOrder.id}/excel`);
+      // Используем механизм экспорта из корзины с дедубликацией
+      // Для заказа у поставщика используем тип 'order' и формат 'excel'
+      const response = await fetchWithAuth('/api/export/fast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'order',
+          format: 'excel',
+          clientId: currentOrder.client_id,
+          items,
+          totalAmount,
+          parentDocumentId: currentOrder.id, // Связь с заказом
+          cartSessionId: currentOrder.cart_session_id || null // Для дедубликации
+        })
+      });
       
       if (response.ok) {
         const blob = await response.blob();
@@ -611,7 +705,7 @@ function OrderDetailModal({
         const a = document.createElement('a');
         a.href = url;
         const contentDisposition = response.headers.get('content-disposition');
-        const filename = contentDisposition?.match(/filename="(.+)"/)?.[1] || `Заказ_у_поставщика_${supplierOrder.id.slice(-6)}.xlsx`;
+        const filename = contentDisposition?.match(/filename="(.+)"/)?.[1] || `Заказ_у_поставщика_${currentOrder.number || currentOrder.id.slice(-6)}.xlsx`;
         a.download = filename;
         document.body.appendChild(a);
         a.click();
