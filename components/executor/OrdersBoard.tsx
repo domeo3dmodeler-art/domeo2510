@@ -13,7 +13,12 @@ import {
   Eye,
   Search,
   BadgeCheck,
-  XCircle
+  XCircle,
+  File,
+  FileCheck,
+  Trash2,
+  StickyNote,
+  History
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ORDER_STATUSES_EXECUTOR, getStatusLabel } from '@/lib/utils/document-statuses';
@@ -22,6 +27,29 @@ import { getValidTransitions } from '@/lib/validation/status-transitions';
 import { clientLogger } from '@/lib/logging/client-logger';
 import { fetchWithAuth } from '@/lib/utils/fetch-with-auth';
 import { parseApiResponse } from '@/lib/utils/parse-api-response';
+import HistoryModal from '@/components/ui/HistoryModal';
+import CommentsModal from '@/components/ui/CommentsModal';
+
+// Вспомогательная функция для извлечения оригинального имени файла из URL
+const getOriginalFileName = (fileUrl: string): string => {
+  try {
+    const urlObj = new URL(fileUrl, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+    const originalName = urlObj.searchParams.get('original');
+    if (originalName) {
+      return decodeURIComponent(originalName);
+    }
+  } catch (e) {
+    // Игнорируем ошибки парсинга URL
+  }
+  // Если нет query параметра, пытаемся извлечь из имени файла
+  const fileName = fileUrl.split('/').pop()?.split('?')[0] || '';
+  // Ищем паттерны: project_timestamp_originalname, wholesale_invoice_timestamp_originalname, tech_spec_timestamp_originalname
+  const match = fileName.match(/^(?:project|wholesale_invoice|tech_spec)_\d+_(.+)$/);
+  if (match && match[1]) {
+    return match[1];
+  }
+  return fileName || 'Файл';
+};
 
 // Статусы заказов для исполнителя - используем единый источник истины
 const ORDER_STATUSES = {
@@ -408,6 +436,8 @@ function OrderDetailModal({
   const [verifyResult, setVerifyResult] = useState<any>(null);
   const [supplierOrders, setSupplierOrders] = useState<any[]>([]);
   const [productsInfo, setProductsInfo] = useState<Map<string, { id: string; name: string; isHandle: boolean }>>(new Map());
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isCommentsModalOpen, setIsCommentsModalOpen] = useState(false);
   
   // Загрузка заказов у поставщика
   const fetchSupplierOrders = useCallback(async () => {
@@ -1118,6 +1148,24 @@ function OrderDetailModal({
               <Card variant="base" className="p-4">
                 <h3 className="font-semibold text-black mb-3">Действия</h3>
                 <div className="space-y-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsCommentsModalOpen(true)}
+                    className="w-full"
+                  >
+                    <StickyNote className="h-4 w-4 mr-2" />
+                    Комментарии
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsHistoryModalOpen(true)}
+                    className="w-full"
+                  >
+                    <History className="h-4 w-4 mr-2" />
+                    История изменений
+                  </Button>
                   {(() => {
                     // Маппим статус для проверки (PAID -> NEW_PLANNED)
                     const executorStatus = getExecutorOrderStatus(currentOrder.status);
@@ -1196,26 +1244,32 @@ function OrderDetailModal({
               <Card variant="base" className="p-4">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-semibold text-black">Проект/планировка</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowProjectUpload(true)}
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Загрузить
-                  </Button>
+                  {currentOrder.project_file_url && (
+                    <div className="flex items-center gap-2">
+                      <FileCheck className="h-4 w-4 text-green-600" title="Файл загружен" />
+                    </div>
+                  )}
                 </div>
-                {currentOrder.project_file_url && (
+                {currentOrder.project_file_url ? (
                   <div className="space-y-1">
                     <a
                       href={currentOrder.project_file_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline text-sm flex items-center"
+                      className="text-blue-600 hover:underline text-sm flex items-center gap-2 p-2 rounded hover:bg-gray-50 transition-colors"
+                      title={getOriginalFileName(currentOrder.project_file_url)}
                     >
-                      <Download className="h-3 w-3 mr-1" />
-                      Проект
+                      <File className="h-4 w-4" />
+                      <span className="truncate max-w-[200px]" title={getOriginalFileName(currentOrder.project_file_url)}>
+                        {getOriginalFileName(currentOrder.project_file_url)}
+                      </span>
+                      <Download className="h-3 w-3 ml-auto flex-shrink-0" />
                     </a>
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>Файл не загружен</span>
                   </div>
                 )}
               </Card>
@@ -1266,20 +1320,30 @@ function OrderDetailModal({
                   </div>
                 ) : null}
 
-                {currentOrder.technical_specs.length > 0 && (
-                  <div className="space-y-1">
+                {currentOrder.technical_specs.length > 0 ? (
+                  <div className="space-y-2">
                     {currentOrder.technical_specs.map((url: string, index: number) => (
-                      <a
-                        key={index}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline text-sm flex items-center"
-                      >
-                        <Download className="h-3 w-3 mr-1" />
-                        Техзадание {index + 1}
-                      </a>
+                      <div key={index} className="flex items-center justify-between p-2 rounded hover:bg-gray-50 transition-colors group">
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline text-sm flex items-center gap-2 flex-1 min-w-0"
+                          title={getOriginalFileName(url)}
+                        >
+                          <FileCheck className="h-4 w-4 text-green-600 flex-shrink-0" />
+                          <span className="truncate" title={getOriginalFileName(url)}>
+                            {getOriginalFileName(url)}
+                          </span>
+                          <Download className="h-3 w-3 ml-auto flex-shrink-0" />
+                        </a>
+                      </div>
                     ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>Файлы не загружены</span>
                   </div>
                 )}
               </Card>
@@ -1298,20 +1362,30 @@ function OrderDetailModal({
                   </Button>
                 </div>
                 
-                {currentOrder.wholesale_invoices.length > 0 && (
-                  <div className="space-y-1">
+                {currentOrder.wholesale_invoices.length > 0 ? (
+                  <div className="space-y-2">
                     {currentOrder.wholesale_invoices.map((url: string, index: number) => (
-                      <a
-                        key={index}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline text-sm flex items-center"
-                      >
-                        <Download className="h-3 w-3 mr-1" />
-                        Счет {index + 1}
-                      </a>
+                      <div key={index} className="flex items-center justify-between p-2 rounded hover:bg-gray-50 transition-colors group">
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline text-sm flex items-center gap-2 flex-1 min-w-0"
+                          title={getOriginalFileName(url)}
+                        >
+                          <FileCheck className="h-4 w-4 text-green-600 flex-shrink-0" />
+                          <span className="truncate" title={getOriginalFileName(url)}>
+                            {getOriginalFileName(url)}
+                          </span>
+                          <Download className="h-3 w-3 ml-auto flex-shrink-0" />
+                        </a>
+                      </div>
                     ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>Файлы не загружены</span>
                   </div>
                 )}
               </Card>
@@ -1383,22 +1457,24 @@ function OrderDetailModal({
                         const cleanName = cleanProductName(displayName);
                         
                         return (
-                          <div key={index} className="flex justify-between items-start py-2 border-b last:border-0">
-                            <div className="flex-1">
-                              <div className="font-medium">{cleanName || `Товар ${index + 1}`}</div>
-                              {item.model && item.model !== cleanName && (
-                                <div className="text-sm text-gray-600">{item.model}</div>
+                          <div key={index} className="flex justify-between items-start py-3 border-b last:border-0 hover:bg-gray-50 transition-colors rounded px-2 -mx-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-base mb-1">{cleanName || `Товар ${index + 1}`}</div>
+                              {item.hardwareKitName && (
+                                <div className="text-sm text-gray-600 mb-1">
+                                  Фурнитура: {item.hardwareKitName}
+                                </div>
                               )}
-                              {item.width && item.height && (
-                                <div className="text-sm text-gray-500">
-                                  Размер: {item.width} × {item.height} мм
+                              {item.handleName && (
+                                <div className="text-sm text-gray-600 mb-1">
+                                  Ручка: {item.handleName}
                                 </div>
                               )}
                               <div className="text-sm text-gray-500">
                                 {qty} шт. × {price.toLocaleString('ru-RU')} ₽
                               </div>
                             </div>
-                            <div className="font-medium text-right">
+                            <div className="font-semibold text-lg text-right ml-4 flex-shrink-0">
                               {itemTotal.toLocaleString('ru-RU')} ₽
                             </div>
                           </div>
