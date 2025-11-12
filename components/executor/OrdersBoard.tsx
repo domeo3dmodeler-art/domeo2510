@@ -525,11 +525,6 @@ function OrderDetailModal({
   
   // Экспорт счета в PDF (использует механизм экспорта из корзины с дедубликацией)
   const handleExportInvoicePDF = async () => {
-    if (!currentOrder.invoice?.id) {
-      toast.error('Счет не найден');
-      return;
-    }
-    
     try {
       setLoading(true);
       
@@ -1170,12 +1165,9 @@ function OrderDetailModal({
                   variant="outline"
                   size="sm"
                   onClick={handleExportInvoicePDF}
-                  disabled={loading || !currentOrder.invoice?.id}
+                  disabled={loading}
                   className="flex-1"
-                  title={!currentOrder.invoice?.id 
-                    ? 'Счет не создан'
-                    : 'Экспортировать оплаченный счет'
-                  }
+                  title="Экспортировать счет в PDF"
                 >
                   <Download className="h-4 w-4 mr-2" />
                   Оплаченный счет
