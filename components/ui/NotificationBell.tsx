@@ -135,6 +135,13 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
 
   // Обработка клика на уведомление
   const handleNotificationClick = async (notification: Notification) => {
+    clientLogger.debug('Notification clicked', { 
+      notificationId: notification.id, 
+      type: notification.type, 
+      documentId: notification.document_id,
+      userRole 
+    });
+
     // Отмечаем как прочитанное
     if (!notification.is_read) {
       await markAsRead(notification.id);
@@ -145,19 +152,45 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
 
     // Открываем модальное окно с документом
     if (notification.document_id) {
-      // Для исполнителя проверяем, является ли документ заказом
-      if (userRole === 'executor') {
-        const isOrder = await checkIfOrder(notification.document_id);
-        if (isOrder) {
-          setSelectedOrderId(notification.document_id);
-          setIsOrderModalOpen(true);
-          return;
-        }
+      const notificationType = notification.type || '';
+      
+      // Проверяем тип уведомления для определения типа документа
+      // Типы уведомлений: "order:STATUS", "invoice:STATUS", "supplier_order:STATUS", "order_created", "invoice_created", "supplier_order_created"
+      const isOrderNotification = notificationType.startsWith('order:') || notificationType === 'order_created';
+      
+      if (isOrderNotification) {
+        // Это уведомление о заказе - открываем OrderDetailsModal для всех ролей
+        clientLogger.debug('Opening OrderDetailsModal for order notification', { 
+          documentId: notification.document_id,
+          notificationType 
+        });
+        setSelectedOrderId(notification.document_id);
+        setIsOrderModalOpen(true);
+        return;
       }
       
-      // Для других ролей или если это не заказ, используем DocumentQuickViewModal
+      // Для остальных типов документов проверяем, является ли это заказом
+      // (на случай, если тип уведомления не указан или указан неправильно)
+      clientLogger.debug('Checking if document is an order', { documentId: notification.document_id });
+      const isOrder = await checkIfOrder(notification.document_id);
+      
+      if (isOrder) {
+        // Это заказ - открываем OrderDetailsModal для всех ролей
+        clientLogger.debug('Document is an order, opening OrderDetailsModal', { documentId: notification.document_id });
+        setSelectedOrderId(notification.document_id);
+        setIsOrderModalOpen(true);
+        return;
+      }
+      
+      // Для других типов документов (invoice, quote, supplier_order) используем DocumentQuickViewModal
+      clientLogger.debug('Opening DocumentQuickViewModal for non-order document', { 
+        documentId: notification.document_id,
+        notificationType 
+      });
       setSelectedDocumentId(notification.document_id);
       setIsModalOpen(true);
+    } else {
+      clientLogger.warn('Notification has no document_id', { notificationId: notification.id });
     }
   };
 
@@ -297,8 +330,8 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
         />
       )}
 
-      {/* Модальное окно заказа для исполнителя */}
-      {selectedOrderId && userRole === 'executor' && (
+      {/* Модальное окно заказа для всех ролей */}
+      {selectedOrderId && (
         <OrderDetailsModal
           isOpen={isOrderModalOpen}
           onClose={() => {
