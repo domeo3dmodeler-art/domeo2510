@@ -1241,7 +1241,7 @@ function OrderDetailModal({
             </div>
 
             {/* Правая колонка */}
-            <div className="space-y-6">
+            <div className="space-y-3">
               {/* Проект/планировка */}
               <Card variant="base" className="p-2">
                 <div className="flex justify-between items-center mb-1.5">
