@@ -136,3 +136,65 @@ export async function notifyUser(userId: string, data: Omit<NotificationData, 'u
     userId
   });
 }
+
+// Функция для отправки уведомлений о создании документа
+export async function notifyDocumentCreated(
+  documentType: 'order' | 'invoice' | 'supplier_order',
+  documentId: string,
+  documentNumber: string,
+  clientId: string,
+  complectatorId?: string | null,
+  executorId?: string | null
+) {
+  const messages = {
+    order: 'Создан новый заказ',
+    invoice: 'Создан новый счет',
+    supplier_order: 'Создан новый заказ у поставщика'
+  };
+
+  const recipients = {
+    order: ['complectator', 'manager'] as const,
+    invoice: ['manager'] as const,
+    supplier_order: ['complectator', 'executor'] as const
+  };
+
+  const message = messages[documentType];
+  const documentRecipients = recipients[documentType];
+
+  try {
+    for (const recipient of documentRecipients) {
+      if (recipient === 'complectator' && complectatorId) {
+        await notifyUser(complectatorId, {
+          clientId,
+          documentId,
+          type: `${documentType}_created`,
+          title: `${message} [${documentNumber}]`,
+          message: `${message} ${documentNumber}`
+        });
+      } else if (recipient === 'executor' && executorId) {
+        await notifyUser(executorId, {
+          clientId,
+          documentId,
+          type: `${documentType}_created`,
+          title: `${message} [${documentNumber}]`,
+          message: `${message} ${documentNumber}`
+        });
+      } else if (recipient === 'manager') {
+        await notifyUsersByRole('manager', {
+          clientId,
+          documentId,
+          type: `${documentType}_created`,
+          title: `${message} [${documentNumber}]`,
+          message: `${message} ${documentNumber}`
+        });
+      }
+    }
+  } catch (error) {
+    logger.error('Ошибка отправки уведомлений о создании документа', 'notifications', {
+      error: error instanceof Error ? error.message : String(error),
+      documentType,
+      documentId
+    });
+    // Не прерываем выполнение при ошибке уведомлений
+  }
+}

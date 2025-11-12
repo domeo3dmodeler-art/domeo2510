@@ -162,6 +162,39 @@ export class DocumentRepository {
         invoiceNumber: invoice.number
       });
 
+      // Отправляем уведомления о создании счета
+      try {
+        const { notifyDocumentCreated } = await import('@/lib/notifications');
+        // Получаем данные заказа для уведомлений
+        let complectatorId = null;
+        let executorId = null;
+        if (data.parent_document_id) {
+          const relatedOrder = await prisma.order.findUnique({
+            where: { id: data.parent_document_id },
+            select: {
+              complectator_id: true,
+              executor_id: true
+            }
+          });
+          complectatorId = relatedOrder?.complectator_id || null;
+          executorId = relatedOrder?.executor_id || null;
+        }
+        await notifyDocumentCreated(
+          'invoice',
+          invoice.id,
+          invoice.number,
+          data.client_id,
+          complectatorId,
+          executorId
+        );
+      } catch (notificationError) {
+        logger.warn('Не удалось отправить уведомление о создании счета', 'DOCUMENT_REPOSITORY', {
+          error: notificationError instanceof Error ? notificationError.message : String(notificationError),
+          invoiceId: invoice.id
+        });
+        // Не прерываем выполнение при ошибке уведомлений
+      }
+
       // Инвалидируем кеш
       simpleCache.deleteByPrefix('invoice:');
       simpleCache.delete(`order:${data.parent_document_id}`);

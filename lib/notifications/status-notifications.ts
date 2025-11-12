@@ -24,7 +24,7 @@ export const STATUS_NOTIFICATIONS = {
       message: 'Вам отправлен счет на оплату'
     },
     'PAID': {
-      recipients: ['executor'],
+      recipients: ['executor', 'manager'],
       message: 'Счет оплачен. Вы можете создать заказ у поставщика.'
     },
     'ORDERED': {
@@ -36,7 +36,7 @@ export const STATUS_NOTIFICATIONS = {
       message: 'Товар получен от поставщика.'
     },
     'COMPLETED': {
-      recipients: ['complectator', 'client'],
+      recipients: ['complectator', 'manager', 'client'],
       message: 'Заказ выполнен.'
     }
   },
@@ -50,23 +50,23 @@ export const STATUS_NOTIFICATIONS = {
       message: 'Счет оплачен. Заказ готов к обработке.'
     },
     'UNDER_REVIEW': {
-      recipients: ['complectator'],
+      recipients: ['complectator', 'executor'],
       message: 'Заказ переведен на проверку.'
     },
     'AWAITING_MEASUREMENT': {
-      recipients: ['complectator'],
+      recipients: ['complectator', 'executor'],
       message: 'Заказ ожидает замера. Требуются точные размеры с объекта.'
     },
     'AWAITING_INVOICE': {
-      recipients: ['complectator'],
+      recipients: ['complectator', 'executor'],
       message: 'Заказ ожидает оптовые счета. Запрошены счета у поставщиков.'
     },
     'READY_FOR_PRODUCTION': {
-      recipients: ['complectator'],
+      recipients: ['complectator', 'executor'],
       message: 'Заказ готов к запуску в производство. Все документы готовы. Требуется ваша команда на запуск.'
     },
     'COMPLETED': {
-      recipients: ['complectator', 'executor'],
+      recipients: ['complectator', 'executor', 'manager'],
       message: 'Заказ выполнен и готов к отгрузке/установке.'
     },
     'RETURNED_TO_COMPLECTATION': {
@@ -80,15 +80,15 @@ export const STATUS_NOTIFICATIONS = {
   },
   supplier_order: {
     'ORDERED': {
-      recipients: ['complectator'],
+      recipients: ['complectator', 'executor'],
       message: 'Заказ размещен у поставщика.'
     },
     'RECEIVED_FROM_SUPPLIER': {
-      recipients: ['complectator'],
+      recipients: ['complectator', 'executor'],
       message: 'Товар получен от поставщика.'
     },
     'COMPLETED': {
-      recipients: ['complectator'],
+      recipients: ['complectator', 'executor'],
       message: 'Заказ выполнен поставщиком.'
     }
   }
@@ -103,7 +103,8 @@ export async function sendStatusNotification(
   clientId: string,
   complectatorId?: string | null,
   executorId?: string | null,
-  reason?: string
+  reason?: string,
+  managerId?: string | null
 ) {
   logger.debug('sendStatusNotification вызвана', 'status-notifications', {
     documentId,
@@ -191,8 +192,27 @@ export async function sendStatusNotification(
         // Если executor_id не указан, уведомление не отправляется
         logger.debug('executor_id не указан, уведомление исполнителю не отправлено', 'status-notifications', { documentId, documentType, newStatus });
       }
+    } else if (recipient === 'manager') {
+      // Менеджер: отправляем уведомление всем активным менеджерам
+      logger.debug('Отправка уведомления менеджерам', 'status-notifications', { 
+        documentId, 
+        documentType, 
+        newStatus 
+      });
+      
+      let message = `${config.message} Документ: ${documentNumber}`;
+      if (reason) {
+        message += `. Причина: ${reason}`;
+      }
+      
+      await notifyUsersByRole('manager', {
+        clientId: clientId || undefined,
+        documentId,
+        type: `${documentType}:${newStatus}`,
+        title: `${config.message} [${documentNumber}]`,
+        message
+      });
     }
-    // Руководитель и администратор исключены из уведомлений - блок кода удален
   }
   
   logger.debug('sendStatusNotification завершена', 'status-notifications', { documentId, documentType, newStatus });

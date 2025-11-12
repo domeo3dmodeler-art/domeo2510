@@ -137,6 +137,35 @@ async function postHandler(
     });
     
     logger.debug('Saved supplier order with cart_data', 'supplier-orders/POST', { cartData: supplierOrder.cart_data }, loggingContext);
+
+    // Отправляем уведомления о создании заказа у поставщика
+    try {
+      const { notifyDocumentCreated } = await import('@/lib/notifications');
+      const orderForNotification = await prisma.order.findUnique({
+        where: { id: finalOrderId },
+        select: {
+          complectator_id: true,
+          executor_id: true,
+          client_id: true
+        }
+      });
+      if (orderForNotification) {
+        await notifyDocumentCreated(
+          'supplier_order',
+          supplierOrder.id,
+          supplierOrder.number,
+          orderForNotification.client_id,
+          orderForNotification.complectator_id,
+          orderForNotification.executor_id
+        );
+      }
+    } catch (notificationError) {
+      logger.warn('Не удалось отправить уведомление о создании заказа у поставщика', 'supplier-orders/POST', {
+        error: notificationError instanceof Error ? notificationError.message : String(notificationError),
+        supplierOrderId: supplierOrder.id
+      }, loggingContext);
+      // Не прерываем выполнение при ошибке уведомлений
+    }
   }
 
   logger.info('Supplier order created', 'supplier-orders/POST', { supplierOrder }, loggingContext);

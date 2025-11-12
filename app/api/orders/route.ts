@@ -134,6 +134,35 @@ async function postHandler(
         executor_id: executor_id || null
       }
     });
+
+    // Отправляем уведомления о создании заказа
+    try {
+      const { notifyDocumentCreated } = await import('@/lib/notifications');
+      const updatedOrder = await prisma.order.findUnique({
+        where: { id: result.id },
+        select: {
+          number: true,
+          complectator_id: true,
+          executor_id: true
+        }
+      });
+      if (updatedOrder) {
+        await notifyDocumentCreated(
+          'order',
+          result.id,
+          updatedOrder.number,
+          client_id,
+          updatedOrder.complectator_id,
+          updatedOrder.executor_id
+        );
+      }
+    } catch (notificationError) {
+      logger.warn('Не удалось отправить уведомление о создании заказа', 'orders/POST', {
+        error: notificationError,
+        orderId: result.id
+      }, loggingContext);
+      // Не прерываем выполнение при ошибке уведомлений
+    }
   }
 
   // Получаем созданный заказ с полными данными
