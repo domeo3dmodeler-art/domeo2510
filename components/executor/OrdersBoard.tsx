@@ -523,7 +523,6 @@ function OrderDetailModal({
     }
   }, [currentOrder, fetchProductsInfo]);
   
-  // Экспорт счета в PDF (использует механизм экспорта из корзины)
   // Экспорт счета в PDF
   const handleExportInvoicePDF = async () => {
     if (!currentOrder.invoice?.id) {
