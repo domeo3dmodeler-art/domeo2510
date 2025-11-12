@@ -572,7 +572,7 @@ function OrderDetailModal({
       }
       
       // Вычисляем общую сумму
-      const totalAmount = currentOrder.invoice.total_amount || currentOrder.total_amount || 
+      const totalAmount = currentOrder.invoice?.total_amount || currentOrder.total_amount || 
         items.reduce((sum: number, item: any) => sum + (item.unitPrice || 0) * (item.qty || 1), 0);
       
       // Используем механизм экспорта из корзины с дедубликацией (как в ЛК комплектатора)
@@ -602,7 +602,7 @@ function OrderDetailModal({
         const a = document.createElement('a');
         a.href = url;
         const contentDisposition = response.headers.get('content-disposition');
-        const filename = contentDisposition?.match(/filename="(.+)"/)?.[1] || `Счет-${currentOrder.invoice.number || currentOrder.number}.pdf`;
+        const filename = contentDisposition?.match(/filename="(.+)"/)?.[1] || `Счет-${currentOrder.invoice?.number || currentOrder.number}.pdf`;
         a.download = filename;
         document.body.appendChild(a);
         a.click();
