@@ -27,7 +27,6 @@ import NotificationBell from '@/components/ui/NotificationBell';
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import DocumentWorkflowIntegration from '@/app/components/documents/DocumentWorkflowIntegration';
 import { OrderDetailsModal } from '@/components/complectator/OrderDetailsModal';
-import { fetchWithAuth } from '@/lib/utils/fetch-with-auth';
 import { parseApiResponse } from '@/lib/utils/parse-api-response';
 import { COMPLECTATOR_FILTER_STATUSES, getStatusLabel, ORDER_STATUSES_COMPLECTATOR, INVOICE_STATUSES, QUOTE_STATUSES } from '@/lib/utils/document-statuses';
 import { 
@@ -42,7 +41,6 @@ import {
 } from '@/lib/utils/order-status-display';
 import { clientLogger } from '@/lib/logging/client-logger';
 import { fetchWithAuth } from '@/lib/utils/fetch-with-auth';
-import { parseApiResponse } from '@/lib/utils/parse-api-response';
 
 // Маппинг статусов КП из API в русские (используем общий модуль)
 const mapQuoteStatus = (apiStatus: string): string => {
