@@ -31,18 +31,11 @@ async function getHandler(
   const documents = await clientRepository.getClientDocuments(id);
 
   // Получаем заказы у поставщика для всех заказов клиента
+  // SupplierOrder связан с Order через parent_document_id
   const orderIds = documents.orders.map((order: any) => order.id);
   const supplierOrders = orderIds.length > 0 ? await prisma.supplierOrder.findMany({
     where: {
-      order_id: { in: orderIds }
-    },
-    include: {
-      order: {
-        select: {
-          id: true,
-          total_amount: true
-        }
-      }
+      parent_document_id: { in: orderIds }
     },
     orderBy: { created_at: 'desc' }
   }) : [];
@@ -50,7 +43,7 @@ async function getHandler(
   // Добавляем supplier_orders к каждому заказу
   const ordersWithSupplierOrders = documents.orders.map((order: any) => ({
     ...order,
-    supplier_orders: supplierOrders.filter((so: any) => so.order_id === order.id)
+    supplier_orders: supplierOrders.filter((so: any) => so.parent_document_id === order.id)
   }));
 
   return apiSuccess({
