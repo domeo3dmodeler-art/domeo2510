@@ -1723,6 +1723,24 @@ function OrderDetailModal({
           </div>
         )}
 
+        {/* Модальное окно истории изменений */}
+        <HistoryModal
+          isOpen={isHistoryModalOpen}
+          onClose={() => setIsHistoryModalOpen(false)}
+          documentId={order.id}
+          documentType="order"
+          documentNumber={currentOrder.number}
+        />
+
+        {/* Модальное окно комментариев */}
+        <CommentsModal
+          isOpen={isCommentsModalOpen}
+          onClose={() => setIsCommentsModalOpen(false)}
+          documentId={order.id}
+          documentType="order"
+          documentNumber={currentOrder.number}
+        />
+
         {/* Модальное окно результатов проверки */}
         {showVerifyModal && verifyResult && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
