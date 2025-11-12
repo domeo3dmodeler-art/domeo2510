@@ -46,10 +46,19 @@ async function getHandler(
     supplier_orders: supplierOrders.filter((so: any) => so.parent_document_id === order.id)
   }));
 
+  // Безопасный парсинг customFields
+  let customFields = {};
+  try {
+    customFields = JSON.parse(client.customFields || '{}');
+  } catch (parseError) {
+    logger.warn('Failed to parse client customFields as JSON', 'clients/[id]/GET', { clientId: id, customFields: client.customFields }, loggingContext);
+    customFields = {};
+  }
+
   return apiSuccess({
     client: {
       ...client,
-      customFields: JSON.parse(client.customFields || '{}'),
+      customFields,
       quotes: documents.quotes,
       invoices: documents.invoices,
       orders: ordersWithSupplierOrders
@@ -106,10 +115,19 @@ async function putHandler(
 
   const client = await clientRepository.update(id, updateData);
 
+  // Безопасный парсинг customFields
+  let customFields = {};
+  try {
+    customFields = JSON.parse(client.customFields || '{}');
+  } catch (parseError) {
+    logger.warn('Failed to parse client customFields as JSON', 'clients/[id]/PUT', { clientId: id, customFields: client.customFields }, loggingContext);
+    customFields = {};
+  }
+
   return apiSuccess(
     {
       ...client,
-      customFields: JSON.parse(client.customFields || '{}')
+      customFields
     },
     'Клиент успешно обновлен'
   );
