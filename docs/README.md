@@ -21,26 +21,18 @@
 ### 🚀 Разработка и деплой
 
 - **[DEVELOPMENT_WORKFLOW_COMPLETE.md](./DEVELOPMENT_WORKFLOW_COMPLETE.md)** ⭐ - Полный Workflow доработки проекта (пошаговый процесс)
-- **[DEVELOPMENT_WORKFLOW.md](./DEVELOPMENT_WORKFLOW.md)** - Workflow разработки (краткое описание)
 - **[LOCAL_DEVELOPMENT_SETUP.md](./LOCAL_DEVELOPMENT_SETUP.md)** - Настройка локальной разработки
 - **[DEPLOY.md](./DEPLOY.md)** - Руководство по деплою (Yandex Cloud K8s)
-- **[DEPLOY_TO_K8S.md](./DEPLOY_TO_K8S.md)** - Деплой в Kubernetes
-- **[K8S_ACCESS_SETUP.md](./K8S_ACCESS_SETUP.md)** - Настройка доступа к K8s
-- **[K8S_MIGRATION_PIPELINE.md](./K8S_MIGRATION_PIPELINE.md)** - Пайплайн миграции в K8s
-- **[YC_KUBERNETES_SETUP.md](./YC_KUBERNETES_SETUP.md)** - Настройка Yandex Cloud K8s
 - **[HOT_RELOAD_STAGING_SETUP.md](./HOT_RELOAD_STAGING_SETUP.md)** - Настройка hot reload на staging
-- **[README-DEVELOPMENT.md](./README-DEVELOPMENT.md)** - Руководство для разработчиков
-- **[README_WORKFLOW.md](./README_WORKFLOW.md)** - Git workflow процесса
-- **[GIT_SYNC_WORKFLOW.md](./GIT_SYNC_WORKFLOW.md)** - Синхронизация Git
 - **[LOGGING_GUIDE.md](./LOGGING_GUIDE.md)** - Руководство по серверным и клиентским логам
 - **[CURSOR_DEVELOPMENT_METHODOLOGY.md](./CURSOR_DEVELOPMENT_METHODOLOGY.md)** ⭐ - Методология работы с Cursor
 - **[QUICK_REFERENCE.md](./QUICK_REFERENCE.md)** ⭐ - Быстрая справка по работе с Cursor
+- **[AI_DEVELOPER_METHODOLOGY.md](./AI_DEVELOPER_METHODOLOGY.md)** ⭐ - Методология взаимодействия AI-разработчик + Бизнес-аналитик
 
 ### 🏛️ Система правил и бизнес-логика
 
 - **[SYSTEM_RULES_AND_PERMISSIONS.md](./SYSTEM_RULES_AND_PERMISSIONS.md)** ⭐ - Полные правила работы с заказчиками и документами
 - **[SYSTEM_FLOW_DIAGRAM.md](./SYSTEM_FLOW_DIAGRAM.md)** - Диаграммы и схемы процессов системы
-- **[IMPLEMENTATION_GUIDE.md](./IMPLEMENTATION_GUIDE.md)** - Практическое руководство по внедрению правил
 - **[DOCUMENT_LINKS_LOGIC.md](./DOCUMENT_LINKS_LOGIC.md)** - Логика связей документов
 - **[DOCUMENT_LOGIC_COMPLETE.md](./DOCUMENT_LOGIC_COMPLETE.md)** - Полная логика работы с документами
 - **[NOTIFICATIONS_ANALYSIS.md](./NOTIFICATIONS_ANALYSIS.md)** - Анализ системы уведомлений
@@ -50,7 +42,6 @@
 
 - **[USER_INSTRUCTIONS.md](./USER_INSTRUCTIONS.md)** - Инструкции для пользователей системы
 - **[USER_GUIDE_COMPLECTATOR_EXECUTOR.md](./USER_GUIDE_COMPLECTATOR_EXECUTOR.md)** - Руководство для комплектатора и исполнителя
-- **[INSTRUCTION_USER.md](./INSTRUCTION_USER.md)** - Инструкции пользователя
 - **[HOW_TO_UPLOAD_PHOTOS.md](./HOW_TO_UPLOAD_PHOTOS.md)** - Как загрузить фото товаров
 
 ### 📊 Планы и задачи
@@ -58,10 +49,6 @@
 - **[TODO_ROADMAP.md](./TODO_ROADMAP.md)** ⭐ - План доработки проекта (актуальные задачи)
 - **[TODO_REMAINING.md](./TODO_REMAINING.md)** - Оставшиеся задачи
 
-### 🔍 Актуальные аудиты
-
-- **[DEPRECATED_ENDPOINTS_AUDIT.md](./DEPRECATED_ENDPOINTS_AUDIT.md)** - Аудит DEPRECATED endpoints
-- **[AUDIT_SUMMARY.md](./AUDIT_SUMMARY.md)** - Краткое резюме аудита проекта
 
 ### 📋 Справочники и тестирование
 
@@ -96,8 +83,9 @@
 1. **ARCHITECTURE.md** - полная архитектура
 2. **AGENT_ONBOARDING.md** - инфраструктура и состояние
 3. **SYSTEM_RULES_AND_PERMISSIONS.md** - бизнес-правила
-4. **CURSOR_DEVELOPMENT_METHODOLOGY.md** - методология работы с Cursor
-5. **QUICK_REFERENCE.md** - быстрая справка
+4. **AI_DEVELOPER_METHODOLOGY.md** - методология взаимодействия AI-разработчик + Бизнес-аналитик
+5. **CURSOR_DEVELOPMENT_METHODOLOGY.md** - методология работы с Cursor
+6. **QUICK_REFERENCE.md** - быстрая справка
 
 ### Для разработчиков:
 - `DEVELOPMENT_WORKFLOW_COMPLETE.md` - процесс разработки
@@ -113,12 +101,14 @@
 
 ## 📝 История изменений
 
-### 2025-11-13 - Очистка документации
-- ✅ Удалены все устаревшие отчеты о рефакторинге (22 файла)
-- ✅ Удалены дублирующиеся аудиты (6 файлов)
-- ✅ Удалены устаревшие отчеты и тесты (15+ файлов)
-- ✅ Оставлены только канонические (актуальные) документы
-- ✅ Обновлен README.md с актуальным списком
+### 2025-11-13 - Финальная оптимизация документации
+- ✅ Удалены дубликаты разработки (9 файлов: DEVELOPMENT_WORKFLOW.md, README-DEVELOPMENT.md, README_WORKFLOW.md, GIT_SYNC_WORKFLOW.md, DEPLOY_TO_K8S.md, K8S_ACCESS_SETUP.md, K8S_MIGRATION_PIPELINE.md, YC_KUBERNETES_SETUP.md)
+- ✅ Удалены дубликаты бизнес-логики (1 файл: IMPLEMENTATION_GUIDE.md)
+- ✅ Удалены дубликаты пользовательских инструкций (1 файл: INSTRUCTION_USER.md)
+- ✅ Удалены устаревшие аудиты (2 файла: AUDIT_SUMMARY.md, DEPRECATED_ENDPOINTS_AUDIT.md)
+- ✅ Удалены временные отчеты (1 файл: DOCS_CLEANUP_REPORT.md)
+- ✅ Создан AI_DEVELOPER_METHODOLOGY.md - методология взаимодействия
+- ✅ Оставлены только актуальные документы (~26 файлов)
 
 ### 2025-11-01 - Первичный аудит
 - ✅ Удалены отчеты о фиксах (выполнены)
