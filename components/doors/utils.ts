@@ -127,3 +127,25 @@ export const imageCandidates = (obj: { sku_1c?: string | number | null; model?: 
   return out;
 };
 
+// Безопасный поиск ручки по ID
+export function findHandleById(handles: Record<string, import('./types').Handle[]>, handleId: string | undefined): import('./types').Handle | undefined {
+  if (!handleId || !handles || typeof handles !== 'object') return undefined;
+  try {
+    const handlesArray = Object.values(handles).flat();
+    if (!Array.isArray(handlesArray) || handlesArray.length === 0) return undefined;
+    return handlesArray.find((h) => h && typeof h === 'object' && 'id' in h && h.id === handleId);
+  } catch {
+    return undefined;
+  }
+}
+
+// Безопасный поиск комплекта фурнитуры по ID
+export function findHardwareKitById(hardwareKits: import('./types').HardwareKit[], kitId: string | undefined): import('./types').HardwareKit | undefined {
+  if (!kitId || !Array.isArray(hardwareKits) || hardwareKits.length === 0) return undefined;
+  try {
+    return hardwareKits.find((k) => k && typeof k === 'object' && 'id' in k && k.id === kitId);
+  } catch {
+    return undefined;
+  }
+}
+
