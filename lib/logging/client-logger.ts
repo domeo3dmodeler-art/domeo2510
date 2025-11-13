@@ -86,17 +86,28 @@ export class ClientLogger {
           }
         }
         
-        // Используем один строковый аргумент для безопасного логирования
-        // Это предотвращает проблемы с перехватом console.error в dev-режиме Next.js
-        // Используем setTimeout для асинхронного вызова, чтобы избежать перехвата Next.js
+        // Используем безопасный подход: передаем объекты напрямую, но с обработкой ошибок
+        // Next.js в dev-режиме перехватывает console.error и может вызывать ошибки при строковых аргументах
         try {
-          // Пытаемся использовать console.error напрямую
-          console.error(logString);
+          // Передаем объекты напрямую - это более безопасно для Next.js
+          if (errorData && metadata) {
+            // eslint-disable-next-line no-console
+            console.error(errorMessage, errorData, metadata);
+          } else if (errorData) {
+            // eslint-disable-next-line no-console
+            console.error(errorMessage, errorData);
+          } else if (metadata) {
+            // eslint-disable-next-line no-console
+            console.error(errorMessage, metadata);
+          } else {
+            // eslint-disable-next-line no-console
+            console.error(errorMessage);
+          }
         } catch (consoleError) {
           // Если console.error вызывает ошибку (например, из-за перехвата Next.js),
-          // используем альтернативный метод
+          // используем альтернативный метод - строку через console.warn
           try {
-            // Используем console.warn как fallback
+            // eslint-disable-next-line no-console
             console.warn(logString);
           } catch {
             // Если и это не работает, просто игнорируем
