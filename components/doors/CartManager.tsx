@@ -140,7 +140,18 @@ export function CartManager({
               }
               
               // Используем функцию compareCartContent для правильного сравнения
-              const cartMatches = compareCartContent(items, order.cart_data);
+              let cartMatches = false;
+              try {
+                cartMatches = compareCartContent(items, order.cart_data);
+              } catch (compareError) {
+                clientLogger.debug('Ошибка при сравнении содержимого корзины:', {
+                  orderId: order.id,
+                  error: compareError instanceof Error ? compareError.message : String(compareError),
+                  cartData: order.cart_data
+                });
+                // Если не удалось сравнить, считаем что заказы не совпадают
+                return false;
+              }
               
               if (cartMatches) {
                 clientLogger.debug('Найден существующий заказ по содержимому корзины:', {
@@ -172,7 +183,18 @@ export function CartManager({
           clientLogger.error('Ошибка при получении заказов:', { status: response.status, statusText: response.statusText });
         }
       } catch (error) {
-        clientLogger.error('Ошибка при проверке существующих заказов:', error);
+        // Улучшенная обработка ошибок с детальной информацией
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        const errorDetails = {
+          message: errorMessage,
+          stack: errorStack,
+          errorType: error instanceof Error ? error.constructor.name : typeof error,
+          selectedClient,
+          cartLength: cart.length,
+          errorObject: error
+        };
+        clientLogger.error('Ошибка при проверке существующих заказов:', errorDetails);
         setCreatedOrder(null);
       }
     };
