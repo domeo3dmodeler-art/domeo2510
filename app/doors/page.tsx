@@ -1860,7 +1860,7 @@ export default function DoorsPage() {
               className="flex items-center space-x-2 px-3 py-1 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 text-sm"
             >
               <span>рџ›’</span>
-              <span>РљРѕСЂР·РёРЅР°</span>
+              <span>Корзина</span>
               {cart.length > 0 && (
                 <span className="border border-black text-black text-xs rounded-full w-4 h-4 flex items-center justify-center">
                   {cart.length}
