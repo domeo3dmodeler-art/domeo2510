@@ -89,22 +89,22 @@
 - ✅ Проверка актуальных endpoints - **ЗАВЕРШЕНО**
 
 ### Шаг 2: Удаление файлов
-- ⏳ Удалить `app/api/applications/route.ts`
-- ⏳ Удалить `app/api/applications/[id]/route.ts`
-- ⏳ Удалить `app/api/applications/[id]/status/route.ts`
-- ⏳ Удалить `app/api/applications/[id]/door-dimensions/route.ts`
-- ⏳ Удалить `app/api/applications/[id]/verify/route.ts`
-- ⏳ Удалить `app/api/applications/[id]/project/route.ts`
-- ⏳ Удалить `app/api/applications/[id]/files/route.ts`
+- ✅ Удалить `app/api/applications/route.ts` - **ВЫПОЛНЕНО** (2025-11-13)
+- ✅ Удалить `app/api/applications/[id]/route.ts` - **ВЫПОЛНЕНО** (2025-11-13)
+- ✅ Удалить `app/api/applications/[id]/status/route.ts` - **ВЫПОЛНЕНО** (2025-11-13)
+- ✅ Удалить `app/api/applications/[id]/door-dimensions/route.ts` - **ВЫПОЛНЕНО** (2025-11-13)
+- ✅ Удалить `app/api/applications/[id]/verify/route.ts` - **ВЫПОЛНЕНО** (2025-11-13)
+- ✅ Удалить `app/api/applications/[id]/project/route.ts` - **ВЫПОЛНЕНО** (2025-11-13)
+- ✅ Удалить `app/api/applications/[id]/files/route.ts` - **ВЫПОЛНЕНО** (2025-11-13)
 
 ### Шаг 3: Обновление документации
-- ⏳ Удалить упоминания из `docs/TODO_REMAINING.md`
-- ⏳ Удалить упоминания из `docs/REMAINING_TASKS_SUMMARY.md`
-- ⏳ Обновить `docs/PROJECT_OVERVIEW.md`
+- ✅ Удалить упоминания из `docs/TODO_REMAINING.md` - **ВЫПОЛНЕНО** (2025-11-13)
+- ✅ Удалить упоминания из `docs/REMAINING_TASKS_SUMMARY.md` - **ВЫПОЛНЕНО** (2025-11-13)
+- ⏳ Обновить `docs/PROJECT_OVERVIEW.md` - **ОПЦИОНАЛЬНО**
 
 ### Шаг 4: Тестирование
-- ⏳ Проверить работу всех функций после удаления
-- ⏳ Убедиться, что нет ошибок 404
+- ✅ Проверить работу всех функций после удаления - **ВЫПОЛНЕНО** (2025-11-13)
+- ✅ Убедиться, что нет ошибок 404 - **ВЫПОЛНЕНО** (2025-11-13)
 
 ---
 
