@@ -884,7 +884,7 @@ export default function DoorsPage() {
         try {
           data = await response.json();
         } catch (jsonError) {
-          clientLogger.error('РћС€РёР±РєР° РїР°СЂСЃРёРЅРіР° JSON РѕС‚РІРµС‚Р° cascade-options:', jsonError);
+          clientLogger.error('Ошибка парсинга JSON ответа cascade-options:', jsonError);
           return;
         }
         
@@ -896,8 +896,8 @@ export default function DoorsPage() {
           setDomain(optionsData as Domain);
         }
       } catch (e: any) {
-        clientLogger.error('вќЊ РћС€РёР±РєР° РєР°СЃРєР°РґРЅРѕР№ Р·Р°РіСЂСѓР·РєРё:', e);
-        if (!c) setErr(e?.message ?? "РћС€РёР±РєР° РєР°СЃРєР°РґРЅРѕР№ Р·Р°РіСЂСѓР·РєРё");
+        clientLogger.error('❌ Ошибка каскадной загрузки:', e);
+        if (!c) setErr(e?.message ?? "Ошибка каскадной загрузки");
       } finally {
         if (!c) setIsLoadingOptions(false);
       }
@@ -951,7 +951,7 @@ export default function DoorsPage() {
       try {
         const styleKey = debouncedStyle || 'all';
         
-        // РџСЂРѕРІРµСЂСЏРµРј РєР»РёРµРЅС‚СЃРєРёР№ РєСЌС€ РґР»СЏ РјРѕРґРµР»РµР№ СЃ РїСЂРѕРІРµСЂРєРѕР№ РІСЂРµРјРµРЅРё
+        // Проверяем клиентский кэш для моделей с проверкой времени
         const cached = modelsCache.get('all');
         if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
           clientLogger.debug('вњ… РСЃРїРѕР»СЊР·СѓРµРј РїСЂРµРґР·Р°РіСЂСѓР¶РµРЅРЅС‹Рµ РґР°РЅРЅС‹Рµ');
@@ -966,18 +966,18 @@ export default function DoorsPage() {
           return;
         }
         
-        // Р•СЃР»Рё РЅРµС‚ РєСЌС€Р°, Р·Р°РіСЂСѓР¶Р°РµРј РґР°РЅРЅС‹Рµ
+        // Если нет кэша, загружаем данные
         clientLogger.debug('📥 Загружаем данные для стиля:', debouncedStyle || 'все');
         
-        // РџСЂРѕРІРµСЂСЏРµРј, РЅРµ Р·Р°РіСЂСѓР¶Р°СЋС‚СЃСЏ Р»Рё СѓР¶Рµ РґР°РЅРЅС‹Рµ
+        // Проверяем, не загружаются ли уже данные
         if (isLoadingModels) {
-          clientLogger.debug('вЏёпёЏ Р”Р°РЅРЅС‹Рµ СѓР¶Рµ Р·Р°РіСЂСѓР¶Р°СЋС‚СЃСЏ, РїСЂРѕРїСѓСЃРєР°РµРј');
+          clientLogger.debug('⏳ Данные уже загружаются, пропускаем');
           return;
         }
         
         setIsLoadingModels(true);
         
-        // РћРїС‚РёРјРёСЃС‚РёС‡РЅРѕРµ РѕР±РЅРѕРІР»РµРЅРёРµ: РїРѕРєР°Р·С‹РІР°РµРј РїСѓСЃС‚РѕР№ СЃРїРёСЃРѕРє СЃСЂР°Р·Сѓ
+        // Оптимистичное обновление: показываем пустой список сразу
         if (!c) setModels([]);
         
         // Один оптимизированный запрос для всех данных
@@ -988,12 +988,12 @@ export default function DoorsPage() {
           try {
             data = await response.json();
           } catch (jsonError) {
-            clientLogger.error('РћС€РёР±РєР° РїР°СЂСЃРёРЅРіР° JSON РѕС‚РІРµС‚Р° complete-data:', jsonError);
+            clientLogger.error('Ошибка парсинга JSON ответа complete-data:', jsonError);
             setIsLoadingModels(false);
             return;
           }
           
-          // РџСЂРѕРІРµСЂСЏРµРј С„РѕСЂРјР°С‚ РѕС‚РІРµС‚Р° apiSuccess
+          // Проверяем формат ответа apiSuccess
           const parsedData = parseApiResponse<{ models?: unknown[] }>(data);
           const rows = Array.isArray(parsedData && typeof parsedData === 'object' && 'models' in parsedData && parsedData.models)
             ? parsedData.models
@@ -1016,7 +1016,7 @@ export default function DoorsPage() {
                 !domain ? api.getOptions(query).catch(() => null) : Promise.resolve(null)
               ]);
               
-              // РћР±СЂР°Р±Р°С‚С‹РІР°РµРј domain РµСЃР»Рё РѕРЅ Р±С‹Р» Р·Р°РіСЂСѓР¶РµРЅ
+              // Обрабатываем domain если он был загружен
               if (domainResponse && !domain) {
                 try {
                   const domainData = domainResponse?.domain || domainResponse;
@@ -1024,7 +1024,7 @@ export default function DoorsPage() {
                     setDomain(domainData as Domain);
                   }
                 } catch (domainError) {
-                  clientLogger.warn('РћС€РёР±РєР° РѕР±СЂР°Р±РѕС‚РєРё domain:', domainError);
+                  clientLogger.warn('Ошибка обработки domain:', domainError);
                 }
               }
               
@@ -1033,11 +1033,11 @@ export default function DoorsPage() {
                 try {
                   photoData = await photoResponse.json();
                 } catch (jsonError) {
-                  clientLogger.error('РћС€РёР±РєР° РїР°СЂСЃРёРЅРіР° JSON РѕС‚РІРµС‚Р° photos-batch:', jsonError);
-                  // РџСЂРѕРґРѕР»Р¶Р°РµРј Р±РµР· С„РѕС‚Рѕ
+                  clientLogger.error('Ошибка парсинга JSON ответа photos-batch:', jsonError);
+                  // Продолжаем без фото
                   photoData = { photos: {} };
                 }
-                // РћР±СЉРµРґРёРЅСЏРµРј РґР°РЅРЅС‹Рµ РјРѕРґРµР»РµР№ СЃ С„РѕС‚Рѕ
+                // Объединяем данные моделей с фото
                 const parsedPhotoData = parseApiResponse<{ photos?: Record<string, { photo?: string; photos?: { cover?: string | null; gallery?: string[] } }> }>(photoData);
                 const photoDataObj = parsedPhotoData && typeof parsedPhotoData === 'object' && 'photos' in parsedPhotoData && parsedPhotoData.photos && typeof parsedPhotoData.photos === 'object'
                   ? parsedPhotoData.photos
@@ -1089,7 +1089,7 @@ export default function DoorsPage() {
                 });
               }
             } catch (photoError) {
-              clientLogger.warn('вљ пёЏ РћС€РёР±РєР° batch Р·Р°РіСЂСѓР·РєРё С„РѕС‚Рѕ, РёСЃРїРѕР»СЊР·СѓРµРј РѕР±С‹С‡РЅСѓСЋ:', photoError);
+              clientLogger.warn('⚠️ Ошибка batch загрузки фото, используем обычную:', photoError);
               setModels(rows);
               
               // РЎРѕС…СЂР°РЅСЏРµРј РІ РєСЌС€ Р±РµР· С„РѕС‚Рѕ
@@ -1118,7 +1118,7 @@ export default function DoorsPage() {
           
           setIsLoadingModels(false);
         } else if (!c) {
-          clientLogger.error('вќЊ РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё РґР°РЅРЅС‹С…:', response.status);
+          clientLogger.error('❌ Ошибка загрузки данных:', response.status);
           setIsLoadingModels(false);
         }
       } catch (error) {
@@ -1169,13 +1169,13 @@ export default function DoorsPage() {
           try {
             data = await response.json();
           } catch (jsonError) {
-            clientLogger.error('РћС€РёР±РєР° РїР°СЂСЃРёРЅРіР° JSON РѕС‚РІРµС‚Р° preload:', jsonError);
+            clientLogger.error('Ошибка парсинга JSON ответа preload:', jsonError);
             return;
           }
           
           clientLogger.debug('вњ… Р’СЃРµ РґР°РЅРЅС‹Рµ РїСЂРµРґР·Р°РіСЂСѓР¶РµРЅС‹:', data);
           
-          // РџСЂРѕРІРµСЂСЏРµРј С„РѕСЂРјР°С‚ РѕС‚РІРµС‚Р° apiSuccess
+          // Проверяем формат ответа apiSuccess
           const rows = Array.isArray(data && typeof data === 'object' && 'models' in data && data.models) 
             ? (data.models as unknown[]) 
             : (data && typeof data === 'object' && 'data' in data && data.data && typeof data.data === 'object' && 'models' in data.data && Array.isArray(data.data.models)
@@ -1198,13 +1198,13 @@ export default function DoorsPage() {
                 try {
                   photoData = await photoResponse.json();
                 } catch (jsonError) {
-                  clientLogger.error('РћС€РёР±РєР° РїР°СЂСЃРёРЅРіР° JSON РѕС‚РІРµС‚Р° photos-batch preload:', jsonError);
-                  // РџСЂРѕРґРѕР»Р¶Р°РµРј Р±РµР· С„РѕС‚Рѕ
+                  clientLogger.error('Ошибка парсинга JSON ответа photos-batch preload:', jsonError);
+                  // Продолжаем без фото
                   photoData = { photos: {} };
                 }
                 clientLogger.debug('✅ Предзагрузка фото завершена для', modelNames.length, 'моделей');
                 
-                // РћР±СЉРµРґРёРЅСЏРµРј РґР°РЅРЅС‹Рµ РјРѕРґРµР»РµР№ СЃ С„РѕС‚Рѕ
+                // Объединяем данные моделей с фото
                 const photoDataObj = photoData && typeof photoData === 'object' && 'photos' in photoData && photoData.photos && typeof photoData.photos === 'object'
                   ? photoData.photos as Record<string, unknown>
                   : {};
@@ -1252,7 +1252,7 @@ export default function DoorsPage() {
                 });
               }
             } catch (photoError) {
-              clientLogger.warn('вљ пёЏ РћС€РёР±РєР° РїСЂРµРґР·Р°РіСЂСѓР·РєРё С„РѕС‚Рѕ:', photoError);
+              clientLogger.warn('⚠️ Ошибка предзагрузки фото:', photoError);
               // РЎРѕС…СЂР°РЅСЏРµРј Р±РµР· С„РѕС‚Рѕ
               setModelsCache(prev => {
                 const newCache = new Map(prev);
@@ -1266,7 +1266,7 @@ export default function DoorsPage() {
           }
         }
       } catch (error) {
-        clientLogger.debug('вќЊ РћС€РёР±РєР° РїСЂРµРґР·Р°РіСЂСѓР·РєРё:', error);
+        clientLogger.debug('❌ Ошибка предзагрузки:', error);
       }
     };
     
@@ -1283,7 +1283,7 @@ export default function DoorsPage() {
           fetchWithAuth('/api/catalog/hardware?type=handles')
         ]);
         
-        // РћР±СЂР°Р±Р°С‚С‹РІР°РµРј РєРѕРјРїР»РµРєС‚С‹ С„СѓСЂРЅРёС‚СѓСЂС‹
+        // Обрабатываем комплекты фурнитуры
         if (kitsResponse.ok) {
           let kitsData: unknown;
           try {
@@ -1303,7 +1303,7 @@ export default function DoorsPage() {
               setHardwareKits([]);
             }
           } catch (jsonError) {
-            clientLogger.error('РћС€РёР±РєР° РїР°СЂСЃРёРЅРіР° JSON РѕС‚РІРµС‚Р° kits:', jsonError);
+            clientLogger.error('Ошибка парсинга JSON ответа kits:', jsonError);
             setHardwareKits([]);
           }
         } else if (kitsResponse.status === 401) {
@@ -1311,14 +1311,14 @@ export default function DoorsPage() {
           setHardwareKits([]);
         }
         
-        // РћР±СЂР°Р±Р°С‚С‹РІР°РµРј СЂСѓС‡РєРё
+        // Обрабатываем ручки
         if (handlesResponse.ok) {
           let handlesDataRaw: unknown;
           try {
             handlesDataRaw = await handlesResponse.json();
             const parsedHandles = parseApiResponse<{ handles?: Record<string, Handle[]> }>(handlesDataRaw);
             
-            // РџСЂРѕРІРµСЂСЏРµРј С„РѕСЂРјР°С‚ РѕС‚РІРµС‚Р° - РјРѕР¶РµС‚ Р±С‹С‚СЊ РѕР±СЉРµРєС‚ РёР»Рё РјР°СЃСЃРёРІ
+            // Проверяем формат ответа - может быть объект или массив
             let handlesData: Record<string, Handle[]>;
             if (Array.isArray(parsedHandles)) {
               handlesData = { default: parsedHandles as Handle[] };
@@ -1333,7 +1333,7 @@ export default function DoorsPage() {
             }
             setHandles(handlesData);
           } catch (jsonError) {
-            clientLogger.error('РћС€РёР±РєР° РїР°СЂСЃРёРЅРіР° JSON РѕС‚РІРµС‚Р° handles:', jsonError);
+            clientLogger.error('Ошибка парсинга JSON ответа handles:', jsonError);
             setHandles({});
           }
         } else if (handlesResponse.status === 401) {
@@ -1367,7 +1367,7 @@ export default function DoorsPage() {
         }
         
       } catch (error) {
-        clientLogger.error('РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё РґР°РЅРЅС‹С… С„СѓСЂРЅРёС‚СѓСЂС‹:', error);
+        clientLogger.error('Ошибка загрузки данных фурнитуры:', error);
       }
     };
     
@@ -1797,7 +1797,7 @@ export default function DoorsPage() {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       } else {
-        alert('РћС€РёР±РєР° РїСЂРё РіРµРЅРµСЂР°С†РёРё РґРѕРєСѓРјРµРЅС‚Р°');
+        alert('Ошибка при генерации документа');
       }
     } catch (error) {
       clientLogger.error('Error generating document:', error);
