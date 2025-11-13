@@ -1397,7 +1397,7 @@ export default function DoorsPage() {
   }, [sel.style, modelsCache, CACHE_TTL]); // Добавлена зависимость CACHE_TTL
 
 
-  // РџСЂРµС„РёР»Р» РїРѕ ?sku=...
+  // Префилл по ?sku=...
   useEffect(() => {
     const params = new URLSearchParams(
       typeof window !== "undefined" ? window.location.search : ""
