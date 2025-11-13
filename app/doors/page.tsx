@@ -1424,10 +1424,10 @@ export default function DoorsPage() {
   const addToCart = () => {
     if (!price) return;
     
-    // Р”РѕР±Р°РІР»СЏРµРј РґРІРµСЂСЊ СЃ РєРѕРјРїР»РµРєС‚РѕРј
+    // Добавляем дверь с комплектом
     const item: CartItem = {
       id: uid(),
-      type: 'door', // РЈРєР°Р·С‹РІР°РµРј С‚РёРї С‚РѕРІР°СЂР°
+      type: 'door', // Указываем тип товара
       style: sel.style,
       model: sel.model,
       finish: sel.finish,
@@ -1440,18 +1440,18 @@ export default function DoorsPage() {
       hardwareKitId: (sel.hardware_kit && sel.hardware_kit.id) || undefined,
       hardwareKitName: sel.hardware_kit && Array.isArray(hardwareKits) && hardwareKits.length > 0 
         ? findHardwareKitById(hardwareKits, sel.hardware_kit?.id)?.name 
-        : undefined, // Р”РѕР±Р°РІР»СЏРµРј РЅР°Р·РІР°РЅРёРµ РєРѕРјРїР»РµРєС‚Р°
+        : undefined, // Добавляем название комплекта
       baseAtAdd: price.total,
     };
     
     const newCart = [...cart, item];
     
-    // Р•СЃР»Рё РІС‹Р±СЂР°РЅР° СЂСѓС‡РєР°, РґРѕР±Р°РІР»СЏРµРј РµС‘ РѕС‚РґРµР»СЊРЅРѕР№ СЃС‚СЂРѕРєРѕР№
+    // Если выбрана ручка, добавляем её отдельной строкой
     if (sel.handle && sel.handle.id) {
       const handle = findHandleById(handles, sel.handle!.id);
       const handleItem: CartItem = {
         id: uid(),
-        type: 'handle', // РЈРєР°Р·С‹РІР°РµРј С‚РёРї С‚РѕРІР°СЂР°
+        type: 'handle', // Указываем тип товара
         style: sel.style,
         model: sel.model,
         finish: sel.finish,
@@ -2019,37 +2019,37 @@ export default function DoorsPage() {
         />
       )}
 
-      {/* РњРµРЅРµРґР¶РµСЂ Р·Р°РєР°Р·С‡РёРєРѕРІ */}
+      {/* Менеджер заказчиков */}
       {showClientManager && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-full max-w-5xl max-h-[96vh] overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-black">РњРµРЅРµРґР¶РµСЂ Р·Р°РєР°Р·С‡РёРєРѕРІ</h2>
+              <h2 className="text-2xl font-bold text-black">Менеджер заказчиков</h2>
               <button
                 onClick={() => setShowClientManager(false)}
                 className="text-gray-500 hover:text-gray-700 text-2xl"
               >
-                Г—
+                ×
               </button>
             </div>
 
-            {/* Content: С‚РѕР»СЊРєРѕ РїРѕРёСЃРє + РєРЅРѕРїРєР° "+" РґР»СЏ СЃРѕР·РґР°РЅРёСЏ */}
+            {/* Content: только поиск + кнопка "+" для создания */}
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-black">РџРѕРёСЃРє</h3>
+                <h3 className="text-lg font-semibold text-black">Клиент</h3>
                 <button
                   onClick={() => setShowCreateClientForm(true)}
                   className="px-3 py-2 text-sm border border-black text-black hover:bg-black hover:text-white rounded transition-all duration-200"
                 >
-                  + РќРѕРІС‹Р№ Р·Р°РєР°Р·С‡РёРє
+                  + Добавить нового клиента
                 </button>
               </div>
 
               <div className="space-y-4">
                 <input
                   type="text"
-                  placeholder="РџРѕРёСЃРє РїРѕ Р¤РРћ, С‚РµР»РµС„РѕРЅСѓ, Р°РґСЂРµСЃСѓ..."
+                  placeholder="Клиент по ФИО, телефону, адресу..."
                   value={clientSearchInput}
                   onChange={(e) => setClientSearchInput(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2058,7 +2058,7 @@ export default function DoorsPage() {
                   {clientsLoading ? (
                     <div className="p-4 text-center text-gray-500">Загрузка клиентов...</div>
                   ) : clients.length === 0 ? (
-                    <div className="p-4 text-center text-gray-500">РљР»РёРµРЅС‚С‹ РЅРµ РЅР°Р№РґРµРЅС‹</div>
+                    <div className="p-4 text-center text-gray-500">Клиенты не найдены</div>
                   ) : (
                     clients
                       .filter((c) => {
@@ -2081,7 +2081,7 @@ export default function DoorsPage() {
                             </div>
                             <div className="text-sm text-gray-600 truncate">{formatPhone(client.phone as any)}</div>
                             <div className="text-sm text-gray-600 overflow-hidden" style={{display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical'}}>
-                              {client.address || 'вЂ”'}
+                              {client.address || '—'}
                             </div>
                           </div>
                         </div>
@@ -2095,25 +2095,25 @@ export default function DoorsPage() {
                   onClick={() => setShowClientManager(false)}
                   className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-200"
                 >
-                  РћС‚РјРµРЅР°
+                  Отмена
                 </button>
                 <button
                   onClick={() => {
                     if (selectedClient) {
                       setShowClientManager(false);
                     } else {
-                      alert('РџРѕР¶Р°Р»СѓР№СЃС‚Р°, РІС‹Р±РµСЂРёС‚Рµ РєР»РёРµРЅС‚Р° РёР· СЃРїРёСЃРєР°');
+                      alert('Пожалуйста, выберите клиента из списка');
                     }
                   }}
                   disabled={!selectedClient}
                   className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Р’С‹Р±СЂР°С‚СЊ РєР»РёРµРЅС‚Р°
+                  Выбрать клиента
                 </button>
               </div>
             </div>
 
-            {/* РњРѕРґР°Р»РєР° СЃРѕР·РґР°РЅРёСЏ РєР»РёРµРЅС‚Р° */}
+            {/* Модалка создания клиента */}
             <CreateClientModal
               isOpen={showCreateClientForm}
               onClose={() => setShowCreateClientForm(false)}
@@ -2127,115 +2127,7 @@ export default function DoorsPage() {
         </div>
       )}
 
-      {/* РњРµРЅРµРґР¶РµСЂ Р·Р°РєР°Р·С‡РёРєРѕРІ */}
-      {showClientManager && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-full max-w-5xl max-h-[96vh] overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-black">РњРµРЅРµРґР¶РµСЂ Р·Р°РєР°Р·С‡РёРєРѕРІ</h2>
-              <button
-                onClick={() => setShowClientManager(false)}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
-              >
-                Г—
-              </button>
-            </div>
-
-            {/* Content: С‚РѕР»СЊРєРѕ РїРѕРёСЃРє + РєРЅРѕРїРєР° "+" РґР»СЏ СЃРѕР·РґР°РЅРёСЏ */}
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-black">РџРѕРёСЃРє</h3>
-                <button
-                  onClick={() => setShowCreateClientForm(true)}
-                  className="px-3 py-2 text-sm border border-black text-black hover:bg-black hover:text-white rounded transition-all duration-200"
-                >
-                  + РќРѕРІС‹Р№ Р·Р°РєР°Р·С‡РёРє
-                </button>
-              </div>
-
-                  <div className="space-y-4">
-                    <input
-                      type="text"
-                  placeholder="РџРѕРёСЃРє РїРѕ Р¤РРћ, С‚РµР»РµС„РѕРЅСѓ, Р°РґСЂРµСЃСѓ..."
-                  value={clientSearchInput}
-                  onChange={(e) => setClientSearchInput(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
-                      {clientsLoading ? (
-                    <div className="p-4 text-center text-gray-500">Загрузка клиентов...</div>
-                      ) : clients.length === 0 ? (
-                    <div className="p-4 text-center text-gray-500">РљР»РёРµРЅС‚С‹ РЅРµ РЅР°Р№РґРµРЅС‹</div>
-                  ) : (
-                    clients
-                      .filter((c) => {
-                        if (!clientSearch) return true;
-                        const hay = `${c.lastName} ${c.firstName} ${c.middleName ?? ''} ${c.phone ?? ''} ${c.address ?? ''}`.toLowerCase();
-                        return hay.includes(clientSearch.toLowerCase());
-                      })
-                      .map((client) => (
-                          <div 
-                            key={client.id}
-                        className={`p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${selectedClient === client.id ? 'bg-blue-50 border-blue-200' : ''}`}
-                            onClick={() => {
-                              setSelectedClient(client.id);
-                              setSelectedClientName(`${client.firstName} ${client.lastName}`);
-                            }}
-                          >
-                        <div className="grid items-center gap-3" style={{gridTemplateColumns: '5fr 3fr 7fr'}}>
-                          <div className="font-medium truncate">
-                            {client.lastName} {client.firstName}{client.middleName ? ` ${client.middleName}` : ''}
-                          </div>
-                          <div className="text-sm text-gray-600 truncate">{formatPhone(client.phone as any)}</div>
-                          <div className="text-sm text-gray-600 overflow-hidden" style={{display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical'}}>
-                            {client.address || 'вЂ”'}
-                          </div>
-                        </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-              <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
-                <button
-                  onClick={() => setShowClientManager(false)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-200"
-                >
-                  РћС‚РјРµРЅР°
-                </button>
-                <button
-                  onClick={() => {
-                    if (selectedClient) {
-                      setShowClientManager(false);
-                    } else {
-                      alert('РџРѕР¶Р°Р»СѓР№СЃС‚Р°, РІС‹Р±РµСЂРёС‚Рµ РєР»РёРµРЅС‚Р° РёР· СЃРїРёСЃРєР°');
-                    }
-                  }}
-                  disabled={!selectedClient}
-                  className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Р’С‹Р±СЂР°С‚СЊ РєР»РёРµРЅС‚Р°
-                </button>
-                  </div>
-                </div>
-
-            {/* РњРѕРґР°Р»РєР° СЃРѕР·РґР°РЅРёСЏ РєР»РёРµРЅС‚Р° */}
-            <CreateClientModal
-              isOpen={showCreateClientForm}
-              onClose={() => setShowCreateClientForm(false)}
-              onClientCreated={(client) => {
-                setSelectedClient(client.id);
-                setSelectedClientName(`${client.firstName} ${client.lastName}`);
-                fetchClients(); // Обновляем список клиентов
-              }}
-            />
-              </div>
-        </div>
-      )}
-
-      {/* РњРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ РІС‹Р±РѕСЂР° СЂСѓС‡РµРє */}
+      {/* Модальное окно выбора ручек */}
       {showHandleModal && (
         <HandleSelectionModal
           handles={handles}
