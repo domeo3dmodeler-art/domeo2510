@@ -115,7 +115,7 @@ export default function ClientSelector({ onClientSelect, onClose }: ClientSelect
         <div className="flex space-x-3">
           <Input
             type="text"
-            placeholder="Поиск по имени, телефону или адресу..."
+            placeholder="Поиск по ФИО, телефону, адресу..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1"

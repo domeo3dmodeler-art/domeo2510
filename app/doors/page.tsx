@@ -2048,7 +2048,7 @@ export default function DoorsPage() {
               <div className="space-y-4">
                 <input
                   type="text"
-                  placeholder="Клиент по ФИО, телефону, адресу..."
+                  placeholder="Поиск по ФИО, телефону, адресу..."
                   value={clientSearchInput}
                   onChange={(e) => setClientSearchInput(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
