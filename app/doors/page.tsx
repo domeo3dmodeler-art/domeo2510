@@ -347,7 +347,7 @@ const mockApi = {
       td.num{text-align:right}
       tr.sub td{color:#444;font-style:italic;background:#fafafa}
     </style></head><body>
-      <h1>РЎС‡РµС‚ РЅР° РѕРїР»Р°С‚Сѓ</h1>
+      <h1>Счет на оплату</h1>
       <div class="row"><div>РџРѕРєСѓРїР°С‚РµР»СЊ: вЂ”</div><div>РРќРќ: вЂ”</div></div>
       <table><thead><tr><th>№</th><th>Артикул</th><th>Наименование</th><th>Цена, руб</th><th>Кол-во</th><th>Сумма, руб</th></tr></thead><tbody>
         ${rows}
@@ -1787,7 +1787,7 @@ export default function DoorsPage() {
         a.href = url;
         
         if (type === 'order') {
-          a.download = `Р—Р°РєР°Р·_${new Date().toISOString().split('T')[0]}.xlsx`;
+          a.download = `Заказ_${new Date().toISOString().split('T')[0]}.xlsx`;
         } else {
           a.download = `${type === 'quote' ? 'КП' : 'Счет'}_${new Date().toISOString().split('T')[0]}.pdf`;
         }
