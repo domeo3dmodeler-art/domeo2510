@@ -89,15 +89,24 @@ export async function fetchWithAuth(
 
 /**
  * Выполняет fetch запрос с автоматической передачей токенов и парсингом JSON
+ * Автоматически обрабатывает 401 ошибки - очищает токен и перенаправляет на логин
  * @param url - URL для запроса
  * @param options - Опции для fetch
+ * @param skip401Redirect - Если true, не перенаправляет на логин при 401 (по умолчанию false)
  * @returns Promise с распарсенными данными
  */
 export async function fetchWithAuthJson<T = unknown>(
   url: string,
-  options?: RequestInit
+  options?: RequestInit,
+  skip401Redirect: boolean = false
 ): Promise<T> {
-  const response = await fetchWithAuth(url, options);
+  const response = await fetchWithAuth(url, options, skip401Redirect);
+  
+  // Если 401 и был редирект, выбрасываем ошибку чтобы не парсить JSON
+  if (response.status === 401 && !skip401Redirect) {
+    throw new Error('Unauthorized');
+  }
+  
   return response.json() as Promise<T>;
 }
 
