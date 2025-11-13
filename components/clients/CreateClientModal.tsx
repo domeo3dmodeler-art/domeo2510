@@ -137,7 +137,7 @@ export function CreateClientModal({ isOpen, onClose, onClientCreated }: CreateCl
       isOpen={isOpen}
       onClose={handleClose}
       title="Новый заказчик"
-      size="full"
+      className="!max-w-[1000px]"
     >
       <div className="space-y-4">
         {/* Одна строка с полями разной ширины */}
