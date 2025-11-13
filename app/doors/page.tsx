@@ -1461,7 +1461,7 @@ export default function DoorsPage() {
         qty: quantity,
         unitPrice: handle ? handle.price : 0,
         handleId: sel.handle.id,
-        handleName: handle ? handle.name : 'РќРµРёР·РІРµСЃС‚РЅР°СЏ СЂСѓС‡РєР°', // Р”РѕР±Р°РІР»СЏРµРј РЅР°Р·РІР°РЅРёРµ СЂСѓС‡РєРё
+        handleName: handle ? handle.name : 'Неизвестная ручка', // Добавляем название ручки
         sku_1c: price.sku_1c,
         baseAtAdd: 0,
       };
@@ -1789,7 +1789,7 @@ export default function DoorsPage() {
         if (type === 'order') {
           a.download = `Р—Р°РєР°Р·_${new Date().toISOString().split('T')[0]}.xlsx`;
         } else {
-          a.download = `${type === 'quote' ? 'РљРџ' : 'РЎС‡РµС‚'}_${new Date().toISOString().split('T')[0]}.pdf`;
+          a.download = `${type === 'quote' ? 'КП' : 'Счет'}_${new Date().toISOString().split('T')[0]}.pdf`;
         }
         
         document.body.appendChild(a);
