@@ -181,6 +181,11 @@ export function ComplectatorDashboardComponent({ user }: ComplectatorDashboardCo
       const response = await fetchWithAuth('/api/clients');
       
       if (!response.ok) {
+        // Если 401, fetchWithAuth уже обработал перенаправление
+        if (response.status === 401) {
+          return;
+        }
+        
         const errorText = await response.text();
         let errorData;
         try {
