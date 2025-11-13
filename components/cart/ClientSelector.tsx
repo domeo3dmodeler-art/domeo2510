@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Button, Input, Modal, Alert, LoadingSpinner } from '@/components/ui';
+import { Button, Input, Alert, LoadingSpinner } from '@/components/ui';
+import { CreateClientModal } from '@/components/clients/CreateClientModal';
 import { parseApiResponse } from '@/lib/utils/parse-api-response';
 
 interface Client {
@@ -24,6 +25,7 @@ export default function ClientSelector({ onClientSelect, onClose }: ClientSelect
   const [search, setSearch] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [showCreateClientForm, setShowCreateClientForm] = useState(false);
 
   useEffect(() => {
     fetchClients();
@@ -75,19 +77,29 @@ export default function ClientSelector({ onClientSelect, onClose }: ClientSelect
     }
   };
 
-  const handleCreateNew = () => {
-    // Открываем модальное окно создания нового заказчика
-    // Это можно реализовать позже
-    setAlert({ type: 'error', message: 'Создание нового заказчика будет доступно позже' });
-  };
-
   return (
-    <Modal
-      isOpen={true}
-      onClose={onClose}
-      title="Выберите заказчика"
-      size="lg"
-    >
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg w-full max-w-5xl max-h-[96vh] overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <h2 className="text-2xl font-bold text-black">Заказчики</h2>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => setShowCreateClientForm(true)}
+              className="px-3 py-2 text-sm border border-black text-black hover:bg-black hover:text-white rounded transition-all duration-200"
+            >
+              Новый заказчик
+            </button>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700 text-2xl"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6">
       <div className="space-y-4">
         {/* Alert */}
         {alert && (
@@ -129,7 +141,7 @@ export default function ClientSelector({ onClientSelect, onClose }: ClientSelect
                 <p className="text-gray-600 mb-4">
                   {search ? 'Попробуйте изменить поисковый запрос' : 'Создайте первого заказчика'}
                 </p>
-                <Button variant="primary" onClick={handleCreateNew}>
+                <Button variant="primary" onClick={() => setShowCreateClientForm(true)}>
                   Создать заказчика
                 </Button>
               </div>
@@ -164,38 +176,35 @@ export default function ClientSelector({ onClientSelect, onClose }: ClientSelect
           </div>
         )}
 
-        {/* Actions */}
-        <div className="flex justify-between pt-4 border-t">
-          <Button variant="ghost" onClick={onClose}>
-            Отмена
-          </Button>
-          <div className="flex space-x-3">
-            <Button variant="secondary" onClick={handleCreateNew}>
-              Создать нового
-            </Button>
-            <Button
-              variant="primary"
+          {/* Actions */}
+          <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-200"
+            >
+              Отмена
+            </button>
+            <button
               onClick={handleConfirm}
               disabled={!selectedClient}
+              className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Выбрать
-            </Button>
+              Выбрать клиента
+            </button>
           </div>
         </div>
 
-        {/* Selected Client Info */}
-        {selectedClient && (
-          <div className="p-4 bg-blue-50 rounded-lg">
-            <h4 className="font-medium text-blue-900 mb-2">Выбранный заказчик:</h4>
-            <p className="text-sm text-blue-800">
-              {selectedClient.lastName} {selectedClient.firstName} {selectedClient.middleName}
-            </p>
-            <p className="text-sm text-blue-800">{selectedClient.phone}</p>
-            <p className="text-sm text-blue-800">{selectedClient.address}</p>
-          </div>
-        )}
+        {/* Модалка создания клиента */}
+        <CreateClientModal
+          isOpen={showCreateClientForm}
+          onClose={() => setShowCreateClientForm(false)}
+          onClientCreated={(client) => {
+            setSelectedClient(client);
+            fetchClients(); // Обновляем список клиентов
+          }}
+        />
       </div>
-    </Modal>
+    </div>
   );
 }
 
