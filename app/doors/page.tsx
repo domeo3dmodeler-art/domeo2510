@@ -902,7 +902,7 @@ export default function DoorsPage() {
         if (!c) setIsLoadingOptions(false);
       }
     })();
-    }, 300); // Р”РµР±Р°СѓРЅСЃРёРЅРі 300ms
+    }, 300); // Дебаунсинг 300ms
     
     return () => {
       clearTimeout(timeoutId);
@@ -1341,7 +1341,7 @@ export default function DoorsPage() {
           setHandles({});
         }
         
-        // РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј Р±Р°Р·РѕРІС‹Рµ Р·РЅР°С‡РµРЅРёСЏ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
+        // Устанавливаем базовые значения по умолчанию
         const kits = hardwareKits;
         const handlesData = handles;
         const basicKit = Array.isArray(kits) && kits.length > 0 
@@ -1394,7 +1394,7 @@ export default function DoorsPage() {
       setIsStyleCollapsed(false);
       setIsModelCollapsed(false);
     }
-  }, [sel.style, modelsCache, CACHE_TTL]); // Р”РѕР±Р°РІР»РµРЅР° Р·Р°РІРёСЃРёРјРѕСЃС‚СЊ CACHE_TTL
+  }, [sel.style, modelsCache, CACHE_TTL]); // Добавлена зависимость CACHE_TTL
 
 
   // РџСЂРµС„РёР»Р» РїРѕ ?sku=...
