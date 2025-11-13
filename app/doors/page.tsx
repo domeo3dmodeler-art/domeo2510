@@ -892,7 +892,7 @@ export default function DoorsPage() {
           ? (data as { availableOptions: unknown }).availableOptions
           : null;
         if (!c && optionsData) {
-          // РћР±РЅРѕРІР»СЏРµРј С‚РѕР»СЊРєРѕ РµСЃР»Рё РїРѕР»СѓС‡РёР»Рё РЅРѕРІС‹Рµ РґР°РЅРЅС‹Рµ
+          // Обновляем только если получили новые данные
           setDomain(optionsData as Domain);
         }
       } catch (e: any) {
@@ -956,7 +956,7 @@ export default function DoorsPage() {
         if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
           clientLogger.debug('вњ… РСЃРїРѕР»СЊР·СѓРµРј РїСЂРµРґР·Р°РіСЂСѓР¶РµРЅРЅС‹Рµ РґР°РЅРЅС‹Рµ');
           
-          // Р¤РёР»СЊС‚СЂСѓРµРј РјРѕРґРµР»Рё РїРѕ СЃС‚РёР»СЋ РІ РїР°РјСЏС‚Рё
+          // Фильтруем модели по стилю в памяти
           const filteredModels = debouncedStyle ? 
             cached.data.filter((model: any) => model.style === debouncedStyle) : 
             cached.data;
@@ -1049,7 +1049,7 @@ export default function DoorsPage() {
                   const photoInfo = modelObj.model && photoDataObj[modelObj.model] && typeof photoDataObj[modelObj.model] === 'object'
                     ? photoDataObj[modelObj.model] as { photo?: string; photos?: { cover?: string | null; gallery?: string[] } }
                     : null;
-                  // РџСЂРёРѕСЂРёС‚РµС‚: photoInfo РёР· photos-batch, Р·Р°С‚РµРј modelObj РёР· complete-data
+                  // Приоритет: photoInfo из photos-batch, затем modelObj из complete-data
                   const finalPhotos = photoInfo?.photos || modelObj.photos;
                   const finalPhoto = photoInfo?.photo || modelObj.photo || null;
                   const finalHasGallery = photoInfo?.photos?.gallery && Array.isArray(photoInfo.photos.gallery) && photoInfo.photos.gallery.length > 0 
@@ -1066,7 +1066,7 @@ export default function DoorsPage() {
                 
                 setModels(modelsWithPhotos);
                 
-                // РЎРѕС…СЂР°РЅСЏРµРј РІ РєР»РёРµРЅС‚СЃРєРёР№ РєСЌС€ СЃ С„РѕС‚Рѕ
+                // Сохраняем в клиентский кэш с фото
                 setModelsCache(prev => {
                   const newCache = new Map(prev);
                   newCache.set(styleKey, {
@@ -1078,7 +1078,7 @@ export default function DoorsPage() {
               } else {
                 setModels(rows);
                 
-                // РЎРѕС…СЂР°РЅСЏРµРј РІ РєСЌС€ Р±РµР· С„РѕС‚Рѕ
+                // Сохраняем в кэш без фото
                 setModelsCache(prev => {
                   const newCache = new Map(prev);
                   newCache.set(styleKey, {
@@ -1173,7 +1173,7 @@ export default function DoorsPage() {
             return;
           }
           
-          clientLogger.debug('вњ… Р’СЃРµ РґР°РЅРЅС‹Рµ РїСЂРµРґР·Р°РіСЂСѓР¶РµРЅС‹:', data);
+          clientLogger.debug('✅ Все данные предзагружены:', data);
           
           // Проверяем формат ответа apiSuccess
           const rows = Array.isArray(data && typeof data === 'object' && 'models' in data && data.models) 
@@ -1215,8 +1215,8 @@ export default function DoorsPage() {
                   const photoInfo = modelObj.model && photoDataObj[modelObj.model] && typeof photoDataObj[modelObj.model] === 'object'
                     ? photoDataObj[modelObj.model] as { photo?: string; photos?: { cover?: string | null; gallery?: string[] } }
                     : null;
-                  // РџСЂРёРѕСЂРёС‚РµС‚: photoInfo РёР· photos-batch, Р·Р°С‚РµРј modelObj РёР· complete-data
-                  // Р•СЃР»Рё photoInfo РµСЃС‚СЊ, РёСЃРїРѕР»СЊР·СѓРµРј РµРіРѕ, РёРЅР°С‡Рµ РёСЃРїРѕР»СЊР·СѓРµРј modelObj.photos
+                  // Приоритет: photoInfo из photos-batch, затем modelObj из complete-data
+                  // Если photoInfo есть, используем его, иначе используем modelObj.photos
                   const finalPhotos = photoInfo?.photos || modelObj.photos;
                   const finalPhoto = photoInfo?.photo || modelObj.photo || null;
                   const finalHasGallery = photoInfo?.photos?.gallery && Array.isArray(photoInfo.photos.gallery) && photoInfo.photos.gallery.length > 0 
@@ -1307,7 +1307,7 @@ export default function DoorsPage() {
             setHardwareKits([]);
           }
         } else if (kitsResponse.status === 401) {
-          clientLogger.warn('рџ”§ РќРµРѕР±С…РѕРґРёРјР° Р°РІС‚РѕСЂРёР·Р°С†РёСЏ РґР»СЏ Р·Р°РіСЂСѓР·РєРё РєРѕРјРїР»РµРєС‚РѕРІ С„СѓСЂРЅРёС‚СѓСЂС‹');
+          clientLogger.warn('🔒 Необходима авторизация для загрузки комплектов фурнитуры');
           setHardwareKits([]);
         }
         
@@ -1337,7 +1337,7 @@ export default function DoorsPage() {
             setHandles({});
           }
         } else if (handlesResponse.status === 401) {
-          clientLogger.warn('рџ”§ РќРµРѕР±С…РѕРґРёРјР° Р°РІС‚РѕСЂРёР·Р°С†РёСЏ РґР»СЏ Р·Р°РіСЂСѓР·РєРё СЂСѓС‡РµРє');
+          clientLogger.warn('🔒 Необходима авторизация для загрузки ручек');
           setHandles({});
         }
         
@@ -1363,7 +1363,7 @@ export default function DoorsPage() {
             }
             return newSel;
           });
-          clientLogger.debug('рџ”§ РЈСЃС‚Р°РЅРѕРІР»РµРЅС‹ Р±Р°Р·РѕРІС‹Рµ Р·РЅР°С‡РµРЅРёСЏ:', { basicKit, basicHandle });
+          clientLogger.debug('🔒 Установлены базовые значения:', { basicKit, basicHandle });
         }
         
       } catch (error) {
@@ -1390,7 +1390,7 @@ export default function DoorsPage() {
         setIsLoadingModels(false);
       }
     } else {
-      // Р•СЃР»Рё СЃС‚РёР»СЊ РЅРµ РІС‹Р±СЂР°РЅ, СЂР°Р·РІРѕСЂР°С‡РёРІР°РµРј Р±Р»РѕРє СЃС‚РёР»РµР№
+      // Если стиль не выбран, разворачиваем блок стилей
       setIsStyleCollapsed(false);
       setIsModelCollapsed(false);
     }
@@ -1470,7 +1470,7 @@ export default function DoorsPage() {
     
     setCart(newCart);
     
-    // РЎРѕС…СЂР°РЅСЏРµРј РёСЃС…РѕРґРЅС‹Рµ С†РµРЅС‹ РґР»СЏ РЅРѕРІС‹С… С‚РѕРІР°СЂРѕРІ
+    // Сохраняем исходные цены для новых товаров
     const newItems = newCart.filter(item => !cart.find(cartItem => cartItem.id === item.id));
     const newOriginalPrices: Record<string, number> = {};
     newItems.forEach(item => {
@@ -1772,7 +1772,7 @@ export default function DoorsPage() {
               : item.hardwareKitName || undefined,
             handleId: item.handleId,
             handleName: item.handleName,
-            type: item.type || (item.handleId ? 'handle' : 'door'), // Р’РђР–РќРћ: РЎРѕС…СЂР°РЅСЏРµРј type
+            type: item.type || (item.handleId ? 'handle' : 'door'), // ВАЖНО: Сохраняем type
             description: item.handleId ? findHandleById(handles, item.handleId)?.name : undefined
           })),
           totalAmount: cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0)
@@ -2120,7 +2120,7 @@ export default function DoorsPage() {
               onClientCreated={(client) => {
                 setSelectedClient(client.id);
                 setSelectedClientName(`${client.firstName} ${client.lastName}`);
-                fetchClients(); // РћР±РЅРѕРІР»СЏРµРј СЃРїРёСЃРѕРє РєР»РёРµРЅС‚РѕРІ
+                fetchClients(); // Обновляем список клиентов
               }}
             />
           </div>
@@ -2228,7 +2228,7 @@ export default function DoorsPage() {
               onClientCreated={(client) => {
                 setSelectedClient(client.id);
                 setSelectedClientName(`${client.firstName} ${client.lastName}`);
-                fetchClients(); // РћР±РЅРѕРІР»СЏРµРј СЃРїРёСЃРѕРє РєР»РёРµРЅС‚РѕРІ
+                fetchClients(); // Обновляем список клиентов
               }}
             />
               </div>
