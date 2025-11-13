@@ -2019,32 +2019,31 @@ export default function DoorsPage() {
         />
       )}
 
-      {/* Менеджер заказчиков */}
+      {/* Заказчики */}
       {showClientManager && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-full max-w-5xl max-h-[96vh] overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-black">Менеджер заказчиков</h2>
-              <button
-                onClick={() => setShowClientManager(false)}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
-              >
-                ×
-              </button>
-            </div>
-
-            {/* Content: только поиск + кнопка "+" для создания */}
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-black">Клиент</h3>
+              <h2 className="text-2xl font-bold text-black">Заказчики</h2>
+              <div className="flex items-center space-x-3">
                 <button
                   onClick={() => setShowCreateClientForm(true)}
                   className="px-3 py-2 text-sm border border-black text-black hover:bg-black hover:text-white rounded transition-all duration-200"
                 >
-                  + Добавить нового клиента
+                  Новый заказчик
+                </button>
+                <button
+                  onClick={() => setShowClientManager(false)}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  ×
                 </button>
               </div>
+            </div>
+
+            {/* Content: только поиск */}
+            <div className="p-6">
 
               <div className="space-y-4">
                 <input
