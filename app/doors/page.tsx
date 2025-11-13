@@ -310,7 +310,7 @@ const mockApi = {
     const rows = cart.items
       .flatMap((i, idx) => {
         // Находим правильное название модели
-        const modelName = i.model ? formatModelNameForCard(i.model) : 'РќРµРёР·РІРµСЃС‚РЅР°СЏ РјРѕРґРµР»СЊ';
+        const modelName = i.model ? formatModelNameForCard(i.model) : 'Неизвестная модель';
         
         const baseRow = `<tr>
         <td class="num">${idx + 1}</td>
@@ -667,7 +667,7 @@ export default function DoorsPage() {
     }
   }, []);
 
-  // Р—Р°РіСЂСѓР·РєР° РєР»РёРµРЅС‚РѕРІ
+  // Загрузка клиентов
   const fetchClients = useCallback(async () => {
     try {
       setClientsLoading(true);
@@ -705,7 +705,7 @@ export default function DoorsPage() {
     }
   }, []);
 
-  // Р—Р°РіСЂСѓР¶Р°РµРј РєР»РёРµРЅС‚РѕРІ РїСЂРё РѕС‚РєСЂС‹С‚РёРё РјРµРЅРµРґР¶РµСЂР°
+  // Загружаем клиентов при открытии менеджера
   useEffect(() => {
     if (showClientManager) {
       fetchClients();
@@ -812,7 +812,7 @@ export default function DoorsPage() {
           return;
         }
         
-        // Р—Р°РіСЂСѓР¶Р°РµРј domain С‚РѕР»СЊРєРѕ РµСЃР»Рё РѕРЅ РµС‰Рµ РЅРµ Р·Р°РіСЂСѓР¶РµРЅ
+        // Загружаем domain только если он еще не загружен
         if (!domain) {
           const response = await api.getOptions(query);
           // РР·РІР»РµРєР°РµРј domain РёР· РѕС‚РІРµС‚Р° API
@@ -909,7 +909,7 @@ export default function DoorsPage() {
     };
   }, [sel.model, sel.style, sel.finish, sel.color, sel.type, sel.width, sel.height]);
 
-  // Р—Р°РіСЂСѓР·РєР° СЃС‚РѕРёРјРѕСЃС‚Рё РєСЂРѕРјРєРё РїСЂРё РёР·РјРµРЅРµРЅРёРё РїР°СЂР°РјРµС‚СЂРѕРІ (РІСЂРµРјРµРЅРЅРѕ РѕС‚РєР»СЋС‡РµРЅРѕ)
+  // Загрузка стоимости кромки при изменении параметров (временно отключено)
   // useEffect(() => {
   //   if (!sel.model || !sel.style) return;
 
@@ -967,7 +967,7 @@ export default function DoorsPage() {
         }
         
         // Р•СЃР»Рё РЅРµС‚ РєСЌС€Р°, Р·Р°РіСЂСѓР¶Р°РµРј РґР°РЅРЅС‹Рµ
-        clientLogger.debug('рџ”„ Р—Р°РіСЂСѓР¶Р°РµРј РґР°РЅРЅС‹Рµ РґР»СЏ СЃС‚РёР»СЏ:', debouncedStyle || 'РІСЃРµ');
+        clientLogger.debug('📥 Загружаем данные для стиля:', debouncedStyle || 'все');
         
         // РџСЂРѕРІРµСЂСЏРµРј, РЅРµ Р·Р°РіСЂСѓР¶Р°СЋС‚СЃСЏ Р»Рё СѓР¶Рµ РґР°РЅРЅС‹Рµ
         if (isLoadingModels) {
@@ -980,7 +980,7 @@ export default function DoorsPage() {
         // РћРїС‚РёРјРёСЃС‚РёС‡РЅРѕРµ РѕР±РЅРѕРІР»РµРЅРёРµ: РїРѕРєР°Р·С‹РІР°РµРј РїСѓСЃС‚РѕР№ СЃРїРёСЃРѕРє СЃСЂР°Р·Сѓ
         if (!c) setModels([]);
         
-        // РћРґРёРЅ РѕРїС‚РёРјРёР·РёСЂРѕРІР°РЅРЅС‹Р№ Р·Р°РїСЂРѕСЃ РґР»СЏ РІСЃРµС… РґР°РЅРЅС‹С…
+        // Один оптимизированный запрос для всех данных
         const response = await fetchWithAuth(`/api/catalog/doors/complete-data?style=${encodeURIComponent(debouncedStyle || "")}`);
         
         if (!c && response.ok) {
@@ -1006,13 +1006,13 @@ export default function DoorsPage() {
                 .filter((m: unknown): m is { model: string } => m && typeof m === 'object' && 'model' in m && typeof (m as { model: unknown }).model === 'string')
                 .map((m) => m.model);
               
-              // Р—Р°РіСЂСѓР¶Р°РµРј С„РѕС‚Рѕ Рё domain РїР°СЂР°Р»Р»РµР»СЊРЅРѕ
+              // Загружаем фото и domain параллельно
               const [photoResponse, domainResponse] = await Promise.all([
                 fetchWithAuth('/api/catalog/doors/photos-batch', {
                   method: 'POST',
                   body: JSON.stringify({ models: modelNames })
                 }),
-                // Р—Р°РіСЂСѓР¶Р°РµРј domain С‚РѕР»СЊРєРѕ РµСЃР»Рё РѕРЅ РµС‰Рµ РЅРµ Р·Р°РіСЂСѓР¶РµРЅ
+                // Загружаем domain только если он еще не загружен
                 !domain ? api.getOptions(query).catch(() => null) : Promise.resolve(null)
               ]);
               
@@ -1157,11 +1157,11 @@ export default function DoorsPage() {
     };
   }, [debouncedSel, hardwareKits, handles]);
 
-  // РџСЂРµРґР·Р°РіСЂСѓР·РєР° РІСЃРµС… РґР°РЅРЅС‹С… РїСЂРё Р·Р°РіСЂСѓР·РєРµ СЃС‚СЂР°РЅРёС†С‹
+  // Предзагрузка всех данных при загрузке страницы
   useEffect(() => {
     const preloadAllData = async () => {
       try {
-        clientLogger.debug('рџљЂ РџСЂРµРґР·Р°РіСЂСѓР·РєР° РІСЃРµС… РґР°РЅРЅС‹С…...');
+        clientLogger.debug('🔄 Предзагрузка всех данных...');
         
         const response = await fetchWithAuth('/api/catalog/doors/complete-data');
         if (response.ok) {
@@ -1182,7 +1182,7 @@ export default function DoorsPage() {
               ? (data.data.models as unknown[]) 
               : []);
           
-          // Р—Р°РіСЂСѓР¶Р°РµРј С„РѕС‚Рѕ РґР»СЏ РІСЃРµС… РјРѕРґРµР»РµР№
+          // Загружаем фото для всех моделей
           if (rows.length > 0) {
             try {
               const modelNames = rows
@@ -1202,7 +1202,7 @@ export default function DoorsPage() {
                   // РџСЂРѕРґРѕР»Р¶Р°РµРј Р±РµР· С„РѕС‚Рѕ
                   photoData = { photos: {} };
                 }
-                clientLogger.debug('вљЎ РџСЂРµРґР·Р°РіСЂСѓР·РєР° С„РѕС‚Рѕ Р·Р°РІРµСЂС€РµРЅР° РґР»СЏ', modelNames.length, 'РјРѕРґРµР»РµР№');
+                clientLogger.debug('✅ Предзагрузка фото завершена для', modelNames.length, 'моделей');
                 
                 // РћР±СЉРµРґРёРЅСЏРµРј РґР°РЅРЅС‹Рµ РјРѕРґРµР»РµР№ СЃ С„РѕС‚Рѕ
                 const photoDataObj = photoData && typeof photoData === 'object' && 'photos' in photoData && photoData.photos && typeof photoData.photos === 'object'
@@ -1273,11 +1273,11 @@ export default function DoorsPage() {
     preloadAllData();
   }, []);
 
-  // Р—Р°РіСЂСѓР¶Р°РµРј РґР°РЅРЅС‹Рµ С„СѓСЂРЅРёС‚СѓСЂС‹ РїР°СЂР°Р»Р»РµР»СЊРЅРѕ
+  // Загружаем данные фурнитуры параллельно
   useEffect(() => {
     const loadHardwareData = async () => {
       try {
-        // Р—Р°РіСЂСѓР¶Р°РµРј РєРѕРјРїР»РµРєС‚С‹ С„СѓСЂРЅРёС‚СѓСЂС‹ Рё СЂСѓС‡РєРё РїР°СЂР°Р»Р»РµР»СЊРЅРѕ
+        // Загружаем комплекты фурнитуры и ручки параллельно
         const [kitsResponse, handlesResponse] = await Promise.all([
           fetchWithAuth('/api/catalog/hardware?type=kits'),
           fetchWithAuth('/api/catalog/hardware?type=handles')
@@ -1780,7 +1780,7 @@ export default function DoorsPage() {
       });
 
       if (response.ok) {
-        // Р”Р»СЏ РІСЃРµС… С‚РёРїРѕРІ РґРѕРєСѓРјРµРЅС‚РѕРІ СЃРєР°С‡РёРІР°РµРј С„Р°Р№Р»С‹
+        // Для всех типов документов скачиваем файлы
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -1814,7 +1814,7 @@ export default function DoorsPage() {
               <Link href="/" className="text-2xl font-bold text-black">
                 Domeo
               </Link>
-              <span className="text-black text-lg font-bold">вЂў</span>
+              <span className="text-black text-lg font-bold">•</span>
               <span className="text-lg font-semibold text-black">Doors</span>
             </div>
             <nav className="flex items-center space-x-4 justify-end flex-shrink-0 ml-auto">
@@ -1823,14 +1823,14 @@ export default function DoorsPage() {
                 href="/" 
                 className="px-3 py-1 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 text-sm"
               >
-              в†ђ РљР°С‚РµРіРѕСЂРёРё
+              ← Категории
             </Link>
             {isAuthenticated && (
               <button
                 onClick={() => setShowClientManager(true)}
                 className="px-3 py-1 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 text-sm"
               >
-                рџ‘¤ {selectedClientName || 'Р—Р°РєР°Р·С‡РёРє'}
+                👤 {selectedClientName || 'Заказчик'}
               </button>
             )}
             {tab === "admin" && (
@@ -1842,14 +1842,14 @@ export default function DoorsPage() {
                     : "border-black text-black hover:bg-black hover:text-white"
                 }`}
               >
-                РђРґРјРёРЅ
+                Админ
               </button>
             )}
             
             
             <button
               onClick={() => {
-                // РЎРѕС…СЂР°РЅСЏРµРј С‚РµРєСѓС‰РёРµ С†РµРЅС‹ РєР°Рє Р±Р°Р·РѕРІС‹Рµ РґР»СЏ СЂР°СЃС‡РµС‚Р° РґРµР»СЊС‚С‹
+                // Сохраняем текущие цены как базовые для расчета дельты
                 const basePrices: Record<string, number> = {};
                 cart.forEach(item => {
                   basePrices[item.id] = item.unitPrice;
@@ -1859,7 +1859,7 @@ export default function DoorsPage() {
               }}
               className="flex items-center space-x-2 px-3 py-1 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 text-sm"
             >
-              <span>рџ›’</span>
+              <span>🛒</span>
               <span>Корзина</span>
               {cart.length > 0 && (
                 <span className="border border-black text-black text-xs rounded-full w-4 h-4 flex items-center justify-center">
@@ -2056,7 +2056,7 @@ export default function DoorsPage() {
                 />
                 <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
                   {clientsLoading ? (
-                    <div className="p-4 text-center text-gray-500">Р—Р°РіСЂСѓР·РєР° РєР»РёРµРЅС‚РѕРІ...</div>
+                    <div className="p-4 text-center text-gray-500">Загрузка клиентов...</div>
                   ) : clients.length === 0 ? (
                     <div className="p-4 text-center text-gray-500">РљР»РёРµРЅС‚С‹ РЅРµ РЅР°Р№РґРµРЅС‹</div>
                   ) : (
@@ -2164,7 +2164,7 @@ export default function DoorsPage() {
                     />
                     <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
                       {clientsLoading ? (
-                    <div className="p-4 text-center text-gray-500">Р—Р°РіСЂСѓР·РєР° РєР»РёРµРЅС‚РѕРІ...</div>
+                    <div className="p-4 text-center text-gray-500">Загрузка клиентов...</div>
                       ) : clients.length === 0 ? (
                     <div className="p-4 text-center text-gray-500">РљР»РёРµРЅС‚С‹ РЅРµ РЅР°Р№РґРµРЅС‹</div>
                   ) : (
