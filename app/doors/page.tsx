@@ -1941,6 +1941,8 @@ export default function DoorsPage() {
             selectedClientName={selectedClientName}
             hideSidePanels={hideSidePanels}
           />
+        </div>
+      )}
 
       {tab === "admin" && (
         <div className="max-w-3xl mx_auto p-6 space-y-8">
