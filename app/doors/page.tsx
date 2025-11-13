@@ -59,7 +59,7 @@ const imageCandidates = (obj: ProductLike): string[] => {
   return out;
 };
 
-// ===================== MOCK (РґР»СЏ Р¶РёРІРѕСЃС‚Рё Р±РµР· Р±СЌРєР°) =====================
+// ===================== MOCK (для живости без бэка) =====================
 const mockData = {
   products: [
     {
@@ -116,7 +116,7 @@ const mockData = {
     {
       model: "Neo-1",
       modelPhoto: "/media/doors/neo1.jpg",
-      style: "РќРµРѕРєР»Р°СЃСЃРёРєР°",
+      style: "Неоклассика",
       finish: "Р­РјР°Р»СЊ",
       color: "РЎР»РѕРЅРѕРІР°СЏ РєРѕСЃС‚СЊ",
       type: "Р Р°СЃРїР°С€РЅР°СЏ",
@@ -240,11 +240,11 @@ const mockApi = {
       throw new Error('Failed to parse price response');
     }
     
-    // РџР°СЂСЃРёРј РѕС‚РІРµС‚ API
+    // Парсим ответ API
     const parsedData = parseApiResponse<{ total?: number; breakdown?: unknown[]; sku_1c?: string | number | null }>(priceData);
     
-    // РџРѕРєР° С‡С‚Рѕ РІРѕР·РІСЂР°С‰Р°РµРј С‚РѕР»СЊРєРѕ Р±Р°Р·РѕРІСѓСЋ С†РµРЅСѓ РґРІРµСЂРё
-    // Р¦РµРЅР° РєРѕРјРїР»РµРєС‚Р° Рё СЂСѓС‡РєРё Р±СѓРґРµС‚ РґРѕР±Р°РІР»РµРЅР° РІ РєРѕРјРїРѕРЅРµРЅС‚Рµ
+    // Пока что возвращаем только базовую цену двери
+    // Цена комплекта и ручки будет добавлена в компоненте
     const priceObj = parsedData || { total: 0, breakdown: [], sku_1c: null };
     return {
       ok: true,
@@ -265,8 +265,8 @@ const mockApi = {
       if (it.color) parts.push(it.color);
       // if (it.edge === "РґР°") parts.push(`РљСЂРѕРјРєР°${it.edge_note ? `: ${it.edge_note}` : ""}`);
       
-      // РќР°С…РѕРґРёРј РїСЂР°РІРёР»СЊРЅРѕРµ РЅР°Р·РІР°РЅРёРµ РјРѕРґРµР»Рё
-      const modelName = it.model ? formatModelNameForCard(it.model) : 'РќРµРёР·РІРµСЃС‚РЅР°СЏ РјРѕРґРµР»СЊ';
+      // Находим правильное название модели
+      const modelName = it.model ? formatModelNameForCard(it.model) : 'Неизвестная модель';
       
       const nameCore = `${modelName}${parts.length ? ` (${parts.join(", ")})` : ""}`;
       const sum = it.unitPrice * it.qty;
@@ -276,7 +276,7 @@ const mockApi = {
         )}</td><td class="num">${it.qty}</td><td class="num">${fmtInt(sum)}</td></tr>`
       );
       if (it.handleId) {
-        // Р’СЂРµРјРµРЅРЅРѕ РёСЃРїРѕР»СЊР·СѓРµРј mock РґР°РЅРЅС‹Рµ РґР»СЏ СЌРєСЃРїРѕСЂС‚Р°
+        // Временно используем mock данные для экспорта
         const h = mockData.handles.find((h) => h.id === it.handleId);
         if (h) {
           const handleRetail = Math.round(h.price_opt! * h.price_group_multiplier!);
@@ -300,8 +300,8 @@ const mockApi = {
       td.num{text-align:right}
       tr.sub td{color:#444;font-style:italic;background:#fafafa}
     </style></head><body>
-      <h1>РљРѕРјРјРµСЂС‡РµСЃРєРѕРµ РїСЂРµРґР»РѕР¶РµРЅРёРµ вЂ” Doors</h1>
-      <table><thead><tr><th>в„–</th><th>РќР°РёРјРµРЅРѕРІР°РЅРёРµ</th><th>Р¦РµРЅР° Р Р Р¦, СЂСѓР±</th><th>РљРѕР»РёС‡РµСЃС‚РІРѕ</th><th>РЎСѓРјРјР°, СЂСѓР±</th></tr></thead>
+      <h1>Коммерческое предложение — Doors</h1>
+      <table><thead><tr><th>№</th><th>Наименование</th><th>Цена РРС, руб</th><th>Количество</th><th>Сумма, руб</th></tr></thead>
       <tbody>${rows.join("")}</tbody></table></body></html>`;
   },
 
@@ -309,7 +309,7 @@ const mockApi = {
     const total = cart.items.reduce((s, i) => s + i.unitPrice * i.qty, 0);
     const rows = cart.items
       .flatMap((i, idx) => {
-        // РќР°С…РѕРґРёРј РїСЂР°РІРёР»СЊРЅРѕРµ РЅР°Р·РІР°РЅРёРµ РјРѕРґРµР»Рё
+        // Находим правильное название модели
         const modelName = i.model ? formatModelNameForCard(i.model) : 'РќРµРёР·РІРµСЃС‚РЅР°СЏ РјРѕРґРµР»СЊ';
         
         const baseRow = `<tr>
@@ -349,7 +349,7 @@ const mockApi = {
     </style></head><body>
       <h1>РЎС‡РµС‚ РЅР° РѕРїР»Р°С‚Сѓ</h1>
       <div class="row"><div>РџРѕРєСѓРїР°С‚РµР»СЊ: вЂ”</div><div>РРќРќ: вЂ”</div></div>
-      <table><thead><tr><th>в„–</th><th>РђСЂС‚РёРєСѓР»</th><th>РќР°РёРјРµРЅРѕРІР°РЅРёРµ</th><th>Р¦РµРЅР°, СЂСѓР±</th><th>РљРѕР»-РІРѕ</th><th>РЎСѓРјРјР°, СЂСѓР±</th></tr></thead><tbody>
+      <table><thead><tr><th>№</th><th>Артикул</th><th>Наименование</th><th>Цена, руб</th><th>Кол-во</th><th>Сумма, руб</th></tr></thead><tbody>
         ${rows}
       </tbody></table>
       <h3>РС‚РѕРіРѕ: ${fmtInt(total)} в‚Ѕ</h3>
@@ -393,7 +393,7 @@ const mockApi = {
       const sumOpt = opt * i.qty;
       const sumRetail = retail * i.qty;
 
-      // РќР°С…РѕРґРёРј РїСЂР°РІРёР»СЊРЅРѕРµ РЅР°Р·РІР°РЅРёРµ РјРѕРґРµР»Рё
+      // Находим правильное название модели
       const modelName = i.model ? formatModelNameForCard(i.model) : 'РќРµРёР·РІРµСЃС‚РЅР°СЏ РјРѕРґРµР»СЊ';
       
       lines.push(
@@ -493,7 +493,7 @@ const realApi = {
     return r.text();
   },
 
-  // AUTH (Bearer) вЂ” __API_URL__ СѓР¶Рµ '/api', Р±РµР· Р»РёС€РЅРµРіРѕ /api
+  // AUTH (Bearer) — __API_URL__ уже '/api', без лишнего /api
   async register(email: string, password: string): Promise<{ ok: boolean; status: number; text: string }> {
     const r = await fetch(`${API}/auth/register`, {
       method: "POST",
@@ -553,7 +553,7 @@ const realApi = {
   },
 };
 
-const api = mockApi; // Р’СЂРµРјРµРЅРЅРѕ РёСЃРїРѕР»СЊР·СѓРµРј mockApi РґР»СЏ РѕС‚Р»Р°РґРєРё
+const api = mockApi; // Временно используем mockApi для отладки
 
 // --- helper: resolve selection by SKU (prefill calculator) ---
 async function resolveSelectionBySku(sku: string) {
@@ -578,7 +578,7 @@ export default function DoorsPage() {
   const { user, isAuthenticated } = useAuth();
   const [tab, setTab] = useState<"config" | "admin">("config");
 
-  // РЎРѕСЃС‚РѕСЏРЅРёРµ РєРѕРЅС„РёРіСѓСЂР°С‚РѕСЂР°
+  // Состояние конфигуратора
   const [sel, setSel] = useState<Partial<BasicState>>({});
   const [domain, setDomain] = useState<Domain>(null);
   const [models, setModels] = useState<{ model: string; modelKey?: string; style: string; photo?: string | null; photos?: { cover: string | null; gallery: string[] }; hasGallery?: boolean }[]>([]);
@@ -592,7 +592,7 @@ export default function DoorsPage() {
   const [quantity, setQuantity] = useState(1);
   const [showHandleInfo, setShowHandleInfo] = useState(false);
   
-  // РЎРѕСЃС‚РѕСЏРЅРёРµ РґР»СЏ СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёСЏ РєРѕСЂР·РёРЅС‹
+  // Состояние для редактирования корзины
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [originalPrices, setOriginalPrices] = useState<Record<string, number>>({});
   const [cartChanges, setCartChanges] = useState<Record<string, Partial<CartItem>>>({});
@@ -616,7 +616,7 @@ export default function DoorsPage() {
     if (isAuthenticated && user) {
       setUserRole(user.role || 'complectator');
     } else {
-      setUserRole('guest'); // РќРµР°РІС‚РѕСЂРёР·РѕРІР°РЅРЅС‹Р№ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ
+      setUserRole('guest'); // Неавторизованный пользователь
     }
   }, [isAuthenticated, user]);
 
@@ -635,7 +635,7 @@ export default function DoorsPage() {
     return `+7 (${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6,8)}-${d.slice(8,10)}`;
   };
 
-  // РЎРѕС…СЂР°РЅРµРЅРёРµ РєРѕСЂР·РёРЅС‹ РІ localStorage
+  // Сохранение корзины в localStorage
   useEffect(() => {
     if (cart.length > 0) {
       localStorage.setItem('domeo-cart', JSON.stringify(cart));
@@ -643,7 +643,7 @@ export default function DoorsPage() {
     }
   }, [cart, originalPrices]);
 
-  // Р—Р°РіСЂСѓР·РєР° РєРѕСЂР·РёРЅС‹ РёР· localStorage РїСЂРё РёРЅРёС†РёР°Р»РёР·Р°С†РёРё
+  // Загрузка корзины из localStorage при инициализации
   useEffect(() => {
     const savedCart = localStorage.getItem('domeo-cart');
     const savedPrices = localStorage.getItem('domeo-original-prices');
@@ -682,19 +682,19 @@ export default function DoorsPage() {
         try {
           data = await response.json();
         } catch (jsonError) {
-          clientLogger.error('РћС€РёР±РєР° РїР°СЂСЃРёРЅРіР° JSON РѕС‚РІРµС‚Р° clients:', jsonError);
+          clientLogger.error('Ошибка парсинга JSON ответа clients:', jsonError);
           setClients([]);
           return;
         }
       
-      // РџР°СЂСЃРёРј РѕС‚РІРµС‚ РІ С„РѕСЂРјР°С‚Рµ apiSuccess
+      // Парсим ответ в формате apiSuccess
       const { parseApiResponse } = await import('@/lib/utils/parse-api-response');
       const parsedData = parseApiResponse<{ clients: any[]; pagination?: any }>(data);
       
       if (parsedData && Array.isArray(parsedData.clients)) {
         setClients(parsedData.clients);
       } else {
-        clientLogger.error('РќРµРІРµСЂРЅС‹Р№ С„РѕСЂРјР°С‚ РґР°РЅРЅС‹С… РєР»РёРµРЅС‚РѕРІ:', parsedData);
+        clientLogger.error('Неверный формат данных клиентов:', parsedData);
         setClients([]);
       }
     } catch (error) {
@@ -715,7 +715,7 @@ export default function DoorsPage() {
 
   const [kpHtml, setKpHtml] = useState<string>("");
   
-  // РЎРѕСЃС‚РѕСЏРЅРёРµ РґР»СЏ РёРЅС‚РµСЂР°РєС‚РёРІРЅРѕР№ С„РёС€РєРё
+  // Состояние для интерактивной фишки
   const [isModelSelected, setIsModelSelected] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -723,17 +723,17 @@ export default function DoorsPage() {
   const [itemDomains, setItemDomains] = useState<Record<string, Domain>>({});
   const [isLoadingModels, setIsLoadingModels] = useState(false);
 
-  // РљР»РёРµРЅС‚СЃРєРѕРµ РєСЌС€РёСЂРѕРІР°РЅРёРµ РґР»СЏ РјРѕРґРµР»РµР№ СЃ С„РѕС‚Рѕ
-  // РЈР»СѓС‡С€РµРЅРЅРѕРµ РєСЌС€РёСЂРѕРІР°РЅРёРµ РјРѕРґРµР»РµР№
+  // Клиентское кэширование для моделей с фото
+  // Улучшенное кэширование моделей
   const [modelsCache, setModelsCache] = useState<Map<string, { data: ModelItem[], timestamp: number }>>(new Map());
-  const CACHE_TTL = 10 * 60 * 1000; // 10 РјРёРЅСѓС‚ РєСЌС€ РЅР° РєР»РёРµРЅС‚Рµ
+  const CACHE_TTL = 10 * 60 * 1000; // 10 минут кэш на клиенте
   
-  // РЎРѕСЃС‚РѕСЏРЅРёРµ СЃРІРѕСЂР°С‡РёРІР°РЅРёСЏ Р±Р»РѕРєР° СЃС‚РёР»РµР№
+  // Состояние сворачивания блока стилей
   const [isStyleCollapsed, setIsStyleCollapsed] = useState(false);
-  // РЎРѕСЃС‚РѕСЏРЅРёРµ СЃРІРѕСЂР°С‡РёРІР°РЅРёСЏ Р±Р»РѕРєР° РјРѕРґРµР»РµР№
+  // Состояние сворачивания блока моделей
   const [isModelCollapsed, setIsModelCollapsed] = useState(false);
   
-  // РЎРѕСЃС‚РѕСЏРЅРёРµ РґР»СЏ СЃС‚РѕРёРјРѕСЃС‚Рё РєСЂРѕРјРєРё (РІСЂРµРјРµРЅРЅРѕ РѕС‚РєР»СЋС‡РµРЅРѕ)
+  // Состояние для стоимости кромки (временно отключено)
   // const [edgeCostData, setEdgeCostData] = useState<{
   //   hasCost: boolean;
   //   costValues: string[];
@@ -823,7 +823,7 @@ export default function DoorsPage() {
           }
         }
       } catch (e: unknown) {
-        if (!c) setErr(e instanceof Error ? e.message : "РћС€РёР±РєР° РґРѕРјРµРЅРѕРІ");
+        if (!c) setErr(e instanceof Error ? e.message : "Ошибка доменов");
       }
     })();
     return () => {
@@ -874,9 +874,9 @@ export default function DoorsPage() {
         const response = await fetch(`/api/catalog/doors/cascade-options?${query.toString()}`);
         if (!response.ok) {
           if (response.status === 500) {
-            clientLogger.error('РћС€РёР±РєР° СЃРµСЂРІРµСЂР° РїСЂРё Р·Р°РіСЂСѓР·РєРµ cascade-options:', response.status, response.statusText);
+            clientLogger.error('Ошибка сервера при загрузке cascade-options:', response.status, response.statusText);
           } else {
-            clientLogger.warn('РћС€РёР±РєР° РїСЂРё Р·Р°РіСЂСѓР·РєРµ cascade-options:', response.status, response.statusText);
+            clientLogger.warn('Ошибка при загрузке cascade-options:', response.status, response.statusText);
           }
           return;
         }
