@@ -1,6 +1,6 @@
 ﻿'use client';
 
-// Р“Р°СЂР°РЅС‚РёСЂСѓРµРј Р±Р°Р·РѕРІС‹Р№ API_URL РІ Р±СЂР°СѓР·РµСЂРµ
+// Гарантируем базовый API_URL в браузере
 if (typeof window !== "undefined") {
   (window as any).__API_URL__ = (window as any).__API_URL__ ?? "/api";
 }
@@ -25,9 +25,9 @@ import { resetDependentParams, formatModelNameForCard, formatModelNameForPreview
 import { OrderDetailsModal } from "@/components/complectator/OrderDetailsModal";
 import { CreateClientModal } from "@/components/clients/CreateClientModal";
 
-// РўРёРїС‹ Рё СѓС‚РёР»РёС‚С‹ РёРјРїРѕСЂС‚РёСЂСѓСЋС‚СЃСЏ РёР· @/components/doors
+// Типы и утилиты импортируются из @/components/doors
 
-// Р›РѕРєР°Р»СЊРЅС‹Рµ С‚РёРїС‹ (РёСЃРїРѕР»СЊР·СѓСЋС‚СЃСЏ С‚РѕР»СЊРєРѕ РІ СЌС‚РѕРј С„Р°Р№Р»Рµ)
+// Локальные типы (используются только в этом файле)
 type ProductLike = {
   sku_1c?: string | number | null;
   model?: string | null;
@@ -572,8 +572,8 @@ async function resolveSelectionBySku(sku: string) {
   return data as { ok: boolean; selection?: unknown };
 }
 
-// ===================== Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ С„СѓРЅРєС†РёРё =====================
-// ===================== РЎС‚СЂР°РЅРёС†Р° Doors =====================
+// ===================== Вспомогательные функции =====================
+// ===================== Страница Doors =====================
 export default function DoorsPage() {
   const { user, isAuthenticated } = useAuth();
   const [tab, setTab] = useState<"config" | "admin">("config");
@@ -1582,18 +1582,18 @@ export default function DoorsPage() {
 
   const DEFAULT_MAPPING = `{
   "mapping": {
-    "model": "РњРѕРґРµР»СЊ",
-    "style": "РЎС‚РёР»СЊ",
-    "finish": "РџРѕРєСЂС‹С‚РёРµ",
-    "domeo_color": "Р¦РІРµС‚",
-    "type": "РўРёРї",
-    "width": "РЁРёСЂРёРЅР°",
-    "height": "Р’С‹СЃРѕС‚Р°",
-    "rrc_price": "Р Р Р¦",
-    "photo_url": "Р¤РѕС‚Рѕ"
+    "model": "Модель",
+    "style": "Стиль",
+    "finish": "Покрытие",
+    "domeo_color": "Цвет",
+    "type": "Тип",
+    "width": "Ширина",
+    "height": "Высота",
+    "rrc_price": "РРС",
+    "photo_url": "Фото"
   },
   "uniqueBy": ["model","finish","domeo_color","type","width","height"],
-  "sheet": "РљР°С‚Р°Р»РѕРі",
+  "sheet": "Каталог",
   "startRow": 2
 }`;
   const [mappingText, setMappingText] = useState<string>(DEFAULT_MAPPING);
@@ -1618,11 +1618,11 @@ export default function DoorsPage() {
       return;
     }
     if (!email.trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-      setOut("Р’РІРµРґРёС‚Рµ РєРѕСЂСЂРµРєС‚РЅС‹Р№ email");
+      setOut("Введите корректный email");
       return;
     }
     if (password.length < 6) {
-      setOut("РџР°СЂРѕР»СЊ РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РЅРµ РєРѕСЂРѕС‡Рµ 6 СЃРёРјРІРѕР»РѕРІ");
+      setOut("Пароль должен быть не короче 6 символов");
       return;
     }
     setAuthBusy(true);
@@ -1947,7 +1947,7 @@ export default function DoorsPage() {
       {tab === "admin" && (
         <div className="max-w-3xl mx_auto p-6 space-y-8">
           <section className="bg-white rounded-2xl shadow p-4">
-            <h2 className="font-semibold mb-3">Р РµРіРёСЃС‚СЂР°С†РёСЏ / Р’С…РѕРґ</h2>
+            <h2 className="font-semibold mb-3">Регистрация / Вход</h2>
             <div className="grid md:grid-cols-2 gap-3">
               <label className="text-sm">
                 Email
@@ -1967,13 +1967,13 @@ export default function DoorsPage() {
                 />
               </label>
               <label className="text-sm">
-                РџР°СЂРѕР»СЊ
+                Пароль
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full border rounded px-3 py-2"
-                  placeholder="вЂўвЂўвЂўвЂўвЂўвЂўвЂўвЂў"
+                  placeholder="••••••••"
                 />
               </label>
             </div>

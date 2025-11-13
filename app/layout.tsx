@@ -12,6 +12,9 @@ export const metadata = {
       { url: '/icon.svg', type: 'image/svg+xml' },
     ],
   },
+  other: {
+    'charset': 'utf-8',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
